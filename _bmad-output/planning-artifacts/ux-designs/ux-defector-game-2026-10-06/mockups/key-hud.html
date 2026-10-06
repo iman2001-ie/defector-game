@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<title>DEFECTOR - Key screen: HUD at a glance</title>
+<style>
+/* =====================================================================
+   DEFECTOR - Key screen: HUD at a glance            (mock, illustrative)
+   Spine is the contract; if this mock and the spines disagree, the spines win.
+
+   FONT: the game uses Kenney Future (CC0, Kenney packs; Kenney Future Narrow
+   for long comms text). This offline mock substitutes system fonts
+   (Bahnschrift / Segoe UI) - widths will differ from the real font.
+
+   GOVERNING SPINE SECTIONS
+   Frame 1  Playing - L1 W3
+     DESIGN.md   : Colors; Typography; Layout & Spacing (every rect);
+                   Elevation & Depth (glow on live elements);
+                   Components - interruption box, wave bar, hearts/energy/convoy,
+                   hint pill, reticle, ships; Asset Direction (CSS/SVG stand-ins
+                   for Kenney sprites); Do's and Don'ts (player zone free of HUD,
+                   enemy colour for every hostile projectile)
+     EXPERIENCE.md: IA "HUD information hierarchy"; Dialogue Model rows
+                   Interruption + Control hint; Component Patterns rows
+                   Interruption box, Control hint, Wave bar, Energy bar,
+                   Hearts, Convoy bar; State Patterns row "Playing";
+                   HUD & Diegetic UI; Key Flows - Flow 1 steps 4-5
+   Frame 1b Boss bar strip
+     DESIGN.md   : Layout "Wave / boss bar" (boss 720x20, x600-1320); Components - Boss bar
+     EXPERIENCE.md: Component Patterns row "Boss bar"; Flow 3 step 1
+   Frame 2  Story pause - L1 W5 surrender offer
+     DESIGN.md   : Layout "Story panel (paused)"; Components - Story panel;
+                   Colors dim/isolde; Do's - dim when paused, no buttons on panel
+     EXPERIENCE.md: Dialogue Model row "Big mid-fight moment"; Component
+                   Patterns row "Story panel"; State Patterns row "Story pause";
+                   Voice and Tone; Key Flows - Flow 1 step 7
+   Frame 3  Final Choice + Retry prompt (two half-scale states)
+     DESIGN.md   : Layout "Final Choice buttons"; Components - Buttons;
+                   Colors danger; Typography heading 48px
+     EXPERIENCE.md: IA "Retry prompt"; Component Patterns rows "Final Choice",
+                   "Buttons / menus"; State Patterns rows "Final Choice",
+                   "Death / convoy lost"; Voice and Tone; Flow 2 step 2;
+                   Flow 3 step 2
+     Decision log : #2, #3, #5-#10, #13-#18
+   ===================================================================== */
+
+:root{
+  /* tokens - DESIGN.md frontmatter (Theme A "Cold Neon", decision #13) */
+  --background:#05070F;
+  --surfaceAlt:rgba(10,18,34,0.85);
+  --surfaceSolid:#0A1222;
+  --border:#2A3B5C;
+  --text:#E8F4FF;
+  --muted:#93A7C2;
+  --coalition:#22E6FF;
+  --enemy:#FF2BD6;
+  --energy:#FFD23F;
+  --hazard:#7A6E62;
+  --hazardRim:#C9D8E8;
+  --heart:#FF4766;
+  --heartEmpty:#2B3348;
+  --danger:#FF1F4B;
+  --isolde:#FF6AE3;
+  --tarek:#3DF2FF;
+  --ryn:#7CFFB2;
+  --dim:rgba(0,0,0,0.6);
+  /* typography scale @1080p */
+  --fs-label:20px; --fs-body:28px; --fs-comms:30px; --fs-name:28px; --fs-heading:48px;
+  /* mock-only: page scale (no JS - stepped by media query) */
+  --s:0.40;
+}
+@media (min-width:900px){ :root{ --s:0.44; } }
+@media (min-width:1100px){ :root{ --s:0.54; } }
+@media (min-width:1300px){ :root{ --s:0.64; } }
+@media (min-width:1500px){ :root{ --s:0.74; } }
+@media (min-width:1700px){ :root{ --s:0.84; } }
+@media (min-width:1980px){ :root{ --s:1; } }
+
+*{ box-sizing:border-box; margin:0; padding:0; }
+html,body{ background:#0d0f14; color:#c8ced8; font-family:"Segoe UI",system-ui,sans-serif; }
+body{ padding:24px 0 64px; }
+
+/* ---------- mock chrome (not game UI) ---------- */
+.doc-title{ width:calc(1920px * var(--s)); margin:0 auto 8px; font-size:15px; color:#9aa3b2; }
+.doc-title b{ color:#e6e9ef; font-size:18px; }
+.section{ width:calc(1920px * var(--s)); margin:28px auto 0; }
+.caption{ font-size:14px; color:#aab3c2; margin-bottom:8px; line-height:1.4; }
+.caption b{ color:#ffffff; font-size:16px; }
+.viewport{ width:calc(1920px * var(--s)); height:calc(1080px * var(--s)); overflow:hidden; border:1px solid #333a46; position:relative; }
+.viewport.strip{ height:calc(160px * var(--s)); }
+.canvas{ position:absolute; left:0; top:0; width:1920px; height:1080px; transform:scale(var(--s)); transform-origin:0 0; }
+.canvas.strip{ height:160px; }
+
+/* ---------- game frame (1920x1080) ---------- */
+.frame{ position:absolute; left:0; top:0; width:1920px; height:1080px; overflow:hidden;
+  background:
+    radial-gradient(ellipse 900px 520px at 70% 30%, rgba(34,230,255,0.05), transparent 70%),
+    radial-gradient(ellipse 700px 500px at 20% 75%, rgba(255,43,214,0.035), transparent 70%),
+    var(--background);
+  font-family:"Bahnschrift","Segoe UI",system-ui,sans-serif; color:var(--text); }
+.frame.strip{ height:160px; }
+.stars{ position:absolute; inset:0; opacity:.75;
+  background-image:
+    radial-gradient(1.5px 1.5px at 40px 60px, #fff, transparent),
+    radial-gradient(1px 1px at 130px 210px, #cfe8ff, transparent),
+    radial-gradient(1.5px 1.5px at 260px 120px, #fff, transparent),
+    radial-gradient(1px 1px at 330px 300px, #9fb6d6, transparent),
+    radial-gradient(1px 1px at 410px 40px, #fff, transparent),
+    radial-gradient(2px 2px at 190px 340px, #e8f4ff, transparent);
+  background-size:460px 380px; }
+.abs{ position:absolute; }
+
+/* zone guides (mock annotation only) */
+.guide{ position:absolute; border:2px dashed rgba(147,167,194,0.28); pointer-events:none; }
+.guide span{ position:absolute; left:8px; top:4px; font:20px/1 Consolas,monospace; color:rgba(147,167,194,0.55); letter-spacing:.06em; white-space:nowrap; }
+.guide.band{ border-color:rgba(147,167,194,0.40); }
+.guide.right span{ left:auto; right:8px; }
+
+/* ---------- HUD (CanvasLayer 10) ---------- */
+.panel{ background:var(--surfaceAlt); border:1px solid var(--border); border-radius:4px; }
+.interrupt{ left:32px; top:24px; width:560px; height:96px; display:flex; align-items:center; gap:16px;
+  padding:0 16px 0 12px; overflow:hidden; border-left:4px solid var(--tarek); }
+.portrait72{ flex:0 0 72px; width:72px; height:72px; border:2px solid var(--tarek); border-radius:4px;
+  background:radial-gradient(circle at 50% 38%, rgba(61,242,255,.55) 0 18%, transparent 19%),
+             radial-gradient(ellipse 60% 40% at 50% 100%, rgba(61,242,255,.45) 0 70%, transparent 71%), var(--surfaceSolid); }
+.interrupt .txt{ min-width:0; overflow:hidden; }
+.name{ font-size:var(--fs-name); line-height:30px; text-transform:uppercase; letter-spacing:.04em; }
+.comms{ font-size:24px; line-height:28px; max-height:56px; overflow:hidden; } /* 24px, autowrap, max 2 lines, clipped (Layout: interruption box) */
+.interrupt .name{ line-height:28px; }
+
+.wavebar{ left:680px; top:40px; width:560px; height:16px; display:flex; gap:4px; }
+.seg{ flex:1; height:16px; border-radius:2px; background:var(--heartEmpty); border:1px solid var(--border); position:relative; overflow:hidden; }
+.seg.full{ background:var(--coalition); border-color:var(--coalition); box-shadow:0 0 10px var(--coalition); }
+.seg .part{ position:absolute; left:0; top:0; bottom:0; background:var(--coalition); box-shadow:0 0 10px var(--coalition); }
+
+.hearts{ left:1656px; top:24px; display:flex; gap:8px; }
+.hearts svg{ width:40px; height:40px; display:block; }
+.h-full path{ fill:var(--heart); filter:drop-shadow(0 0 4px var(--heart)); }
+.h-empty path{ fill:var(--heartEmpty); stroke:var(--muted); stroke-width:1.6; }
+
+.energy{ left:1568px; top:76px; width:320px; height:16px; border-radius:2px; background:var(--heartEmpty); }
+.energy .fill{ position:absolute; left:0; top:0; bottom:0; width:60%; border-radius:2px; background:var(--energy); box-shadow:0 0 10px var(--energy); }
+.tick{ position:absolute; top:-4px; width:2px; height:24px; background:var(--text); }
+
+.convoy-lbl{ left:1360px; top:98px; width:200px; text-align:right; font-size:var(--fs-label); line-height:24px; color:var(--muted); letter-spacing:.06em; }
+.convoy{ left:1568px; top:104px; width:320px; height:12px; border-radius:2px; background:var(--heartEmpty); }
+.convoy .fill{ position:absolute; left:0; top:0; bottom:0; width:70%; border-radius:2px; background:var(--coalition); box-shadow:0 0 8px var(--coalition); }
+
+.bossbar{ left:600px; top:40px; width:720px; height:20px; border-radius:2px; background:var(--heartEmpty); border:1px solid var(--border); }
+.bossbar .fill{ position:absolute; left:0; top:0; bottom:0; background:var(--enemy); box-shadow:0 0 12px var(--enemy); border-radius:2px; }
+.bossbar .mark{ position:absolute; top:-4px; width:2px; height:28px; background:var(--text); }
+.boss-lbl{ left:600px; top:68px; width:720px; text-align:center; font-size:var(--fs-label); color:var(--muted); letter-spacing:.12em; }
+
+.hint{ left:960px; top:560px; transform:translate(-50%,-50%); height:52px; padding:0 24px; border-radius:26px;
+  display:flex; align-items:center; gap:12px; font-size:var(--fs-body); letter-spacing:.04em; box-shadow:0 0 14px rgba(255,210,63,.18); white-space:nowrap; }
+.hint .key{ color:var(--energy); }
+
+/* ---------- playfield sprites (CSS stand-ins for Kenney Space Shooter Redux/Extension sprites - DESIGN.md Asset Direction) ---------- */
+/* player fighter: pointed nose, swept wings, engine glow (points up) */
+.player{ position:absolute; width:56px; height:64px; filter:drop-shadow(0 0 8px var(--coalition)); }
+.player::before{ content:""; position:absolute; inset:0;
+  background:radial-gradient(ellipse 4px 9px at 50% 34%, #fff 0 85%, transparent 100%), linear-gradient(90deg, #0f9fb5, var(--coalition) 50%, #0f9fb5);
+  clip-path:polygon(50% 0,58% 22%,62% 45%,100% 72%,100% 84%,64% 78%,60% 92%,40% 92%,36% 78%,0 84%,0 72%,38% 45%,42% 22%); }
+.player::after{ content:""; position:absolute; left:50%; top:56px; width:16px; height:24px; margin-left:-8px;
+  background:radial-gradient(ellipse at 50% 15%, #fff 0 22%, var(--coalition) 45%, transparent 72%); }
+/* ally fighter (Tarek): forward hull, broad wings, twin engines; coalition in-world */
+.ally{ position:absolute; width:52px; height:58px; filter:drop-shadow(0 0 7px var(--coalition)); }
+.ally::before{ content:""; position:absolute; inset:0;
+  background:radial-gradient(ellipse 4px 7px at 50% 30%, #fff 0 85%, transparent 100%), linear-gradient(90deg, #0c8597, var(--coalition) 50%, #0c8597);
+  clip-path:polygon(50% 0,56% 18%,60% 40%,96% 58%,100% 76%,62% 70%,66% 92%,56% 88%,50% 96%,44% 88%,34% 92%,38% 70%,0 76%,4% 58%,40% 40%,44% 18%); }
+.ally::after{ content:""; position:absolute; left:0; right:0; top:50px; height:18px;
+  background:radial-gradient(circle 6px at 37% 30%, #fff 0 30%, var(--coalition) 55%, transparent 100%),
+             radial-gradient(circle 6px at 63% 30%, #fff 0 30%, var(--coalition) 55%, transparent 100%); }
+/* Wasp: small insect-like interceptor, forward pincers, nose down */
+.wasp{ position:absolute; width:48px; height:38px; filter:drop-shadow(0 0 6px var(--enemy)); }
+.wasp::before{ content:""; position:absolute; inset:0;
+  background:radial-gradient(ellipse 4px 5px at 50% 60%, #ffe3f8 0 85%, transparent 100%), linear-gradient(90deg, #b3149a, var(--enemy) 50%, #b3149a);
+  clip-path:polygon(0 10%,22% 0,38% 22%,50% 14%,62% 22%,78% 0,100% 10%,84% 50%,62% 62%,56% 100%,44% 100%,38% 62%,16% 50%); }
+.wasp::after{ content:""; position:absolute; left:50%; top:-8px; width:14px; height:14px; margin-left:-7px;
+  background:radial-gradient(circle, #fff 0 20%, var(--enemy) 45%, transparent 72%); }
+/* Lancer: long lance hull with mid swept fins, nose down */
+.lancer{ position:absolute; width:40px; height:88px; filter:drop-shadow(0 0 7px var(--enemy)); }
+.lancer::before{ content:""; position:absolute; inset:0;
+  background:linear-gradient(180deg, transparent 50%, rgba(255,255,255,.75) 50% 72%, transparent 72%) 50% 0/4px 100% no-repeat, linear-gradient(90deg, #b3149a, var(--enemy) 50%, #b3149a);
+  clip-path:polygon(38% 0,62% 0,66% 14%,100% 30%,96% 42%,64% 40%,56% 100%,44% 100%,36% 40%,4% 42%,0 30%,34% 14%); }
+.lancer::after{ content:""; position:absolute; left:50%; top:-10px; width:18px; height:16px; margin-left:-9px;
+  background:radial-gradient(ellipse, #fff 0 20%, var(--enemy) 45%, transparent 72%); }
+/* enemy bullets: round / elongated / diamond, bright core */
+.bullet{ position:absolute; width:10px; height:20px; border-radius:50%;
+  background:radial-gradient(ellipse at 50% 50%, #fff 0 28%, var(--enemy) 62%); box-shadow:0 0 9px 3px var(--enemy); }
+.bullet.round{ width:12px; height:12px; }
+.bullet.diamond{ width:14px; height:22px; border-radius:0; box-shadow:none; clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);
+  background:radial-gradient(ellipse at 50% 50%, #fff 0 30%, var(--enemy) 60%); }
+.bwrap{ position:absolute; filter:drop-shadow(0 0 6px var(--enemy)); }
+/* player / ally laser bolt: elongated, bright core, glow */
+.pshot{ position:absolute; width:6px; height:34px; border-radius:3px;
+  background:linear-gradient(90deg, var(--coalition), #fff 35% 65%, var(--coalition)); box-shadow:0 0 8px 3px rgba(34,230,255,.8); }
+/* impact spark */
+.spark{ position:absolute; width:30px; height:30px; clip-path:polygon(50% 0,60% 38%,100% 50%,60% 62%,50% 100%,40% 62%,0 50%,40% 38%); }
+.spark.e{ background:radial-gradient(circle, #fff 0 22%, var(--enemy) 50%, transparent 75%); }
+.spark.c{ background:radial-gradient(circle, #fff 0 22%, var(--coalition) 50%, transparent 75%); }
+.orb{ position:absolute; width:20px; height:20px; border-radius:50%;
+  background:radial-gradient(circle at 40% 40%, #fff 0 20%, var(--energy) 55%);
+  box-shadow:0 0 12px 4px rgba(255,210,63,.6), 0 0 28px rgba(255,210,63,.3); }
+/* asteroid: jagged polygon; rim = hazardRim layer showing top-left, body offset; crater spots */
+.asteroid{ position:absolute; width:120px; height:104px; filter:drop-shadow(0 0 6px rgba(201,216,232,.25)); transform:rotate(-10deg); }
+.asteroid::before, .asteroid::after{ content:""; position:absolute; inset:0;
+  clip-path:polygon(12% 18%,30% 4%,48% 10%,62% 0,82% 12%,96% 34%,90% 52%,100% 70%,80% 92%,58% 86%,40% 100%,20% 88%,4% 70%,8% 48%,0 32%); }
+.asteroid::before{ background:var(--hazardRim); }
+.asteroid::after{ left:4px; top:4px; right:-2px; bottom:-2px;
+  background:
+    radial-gradient(circle 11px at 34% 38%, #3a332d 0 70%, #9b9084 75%, transparent 85%),
+    radial-gradient(circle 7px at 66% 60%, #3a332d 0 70%, #9b9084 75%, transparent 85%),
+    radial-gradient(circle 5px at 46% 76%, #3a332d 0 70%, transparent 85%),
+    radial-gradient(circle 4px at 74% 30%, #3a332d 0 70%, transparent 85%),
+    linear-gradient(135deg, #8f8478, var(--hazard) 45%, #3d3731); }
+.cargo{ position:absolute; width:160px; height:80px; overflow:visible; filter:drop-shadow(0 0 5px rgba(34,230,255,.45)); }
+.reticle{ position:absolute; width:60px; height:60px; overflow:visible; }
+
+/* ---------- paused overlays (Comms 20 / Overlay 30) ---------- */
+.dim{ position:absolute; inset:0; background:var(--dim); }
+.story{ left:410px; top:300px; width:1100px; height:300px; display:flex; align-items:center; gap:24px; padding:32px; }
+.story .tb{ flex:0 0 812px; width:812px; }
+.portrait200{ flex:0 0 200px; width:200px; height:200px; border:3px solid var(--isolde); border-radius:4px; box-shadow:0 0 14px rgba(255,106,227,.35);
+  background:radial-gradient(circle at 50% 36%, rgba(255,106,227,.55) 0 17%, transparent 18%),
+             radial-gradient(ellipse 34% 14% at 50% 18%, rgba(255,106,227,.35) 0 70%, transparent 71%),
+             radial-gradient(ellipse 62% 40% at 50% 100%, rgba(255,106,227,.45) 0 70%, transparent 71%), var(--surfaceSolid); }
+.story .name{ color:var(--isolde); margin-bottom:14px; }
+.story .line{ font-size:var(--fs-comms); line-height:40px; }
+.story .line.placeholder{ color:var(--muted); font-style:italic; }
+.cue{ position:absolute; right:32px; bottom:24px; font-size:var(--fs-label); color:var(--muted); letter-spacing:.04em; }
+.caret{ display:inline-block; width:3px; height:30px; background:var(--text); vertical-align:-5px; margin-left:4px; opacity:.8; }
+
+.btn{ position:absolute; display:flex; align-items:center; justify-content:center; background:var(--surfaceAlt); border:1px solid var(--border);
+  border-radius:4px; font-size:var(--fs-body); letter-spacing:.08em; color:var(--text); }
+.btn.hover{ border-color:var(--coalition); box-shadow:0 0 16px rgba(34,230,255,.55), inset 0 0 12px rgba(34,230,255,.15); }
+.loss{ left:0; width:1920px; text-align:center; font-size:var(--fs-heading); color:var(--danger); letter-spacing:.12em; text-shadow:0 0 14px rgba(255,31,75,.55); }
+
+.cursor{ position:absolute; width:26px; height:38px; background:#fff; clip-path:polygon(0 0,0 80%,22% 62%,40% 100%,54% 94%,36% 58%,72% 58%); filter:drop-shadow(0 0 1px #000); }
+
+/* split frame (half-scale states) */
+.half{ position:absolute; top:270px; width:1920px; height:1080px; transform:scale(.5); transform-origin:0 0; }
+.half.l{ left:0; } .half.r{ left:960px; }
+.split-lbl{ position:absolute; top:220px; font:24px/1.2 Consolas,monospace; color:#7d8796; }
+.split-div{ position:absolute; left:959px; top:0; width:2px; height:1080px; background:#333a46; }
+.split-bg{ position:absolute; inset:0; background:#0d0f14; }
+</style></head>
+<body>
+<div class="doc-title"><b>DEFECTOR &middot; HUD at a glance</b> &mdash; 1920&times;1080 canvas, scaled to fit. Illustrative only; DESIGN.md / EXPERIENCE.md are the contract. Dashed outlines are mock guides, not game UI.</div>
+<section class="section"><div class="caption"><b>1 &middot; Playing &mdash; Level 1 Wave 3</b><br>State: Playing. HUD confined to the top band; interruption top-left; hint pill at y560; reticle with missile cooldown arc; player zone free of HUD; vignette off. Convoy = 3 cargo hulls in a tight triangle, solid to shots (enemy bullet and player laser stopped with sparks).</div><div class="viewport"><div class="canvas">
+<div class="frame " style="">
+<div class="stars"></div>
+<div class="wasp" style="left:760px;top:170px"></div>
+<div class="wasp" style="left:824px;top:170px"></div>
+<div class="wasp" style="left:888px;top:170px"></div>
+<div class="wasp" style="left:952px;top:170px"></div>
+<div class="wasp" style="left:1016px;top:170px"></div>
+<div class="wasp" style="left:1080px;top:170px"></div>
+<div class="wasp" style="left:1144px;top:170px"></div>
+<div class="wasp" style="left:792px;top:226px"></div>
+<div class="wasp" style="left:856px;top:226px"></div>
+<div class="wasp" style="left:920px;top:226px"></div>
+<div class="wasp" style="left:984px;top:226px"></div>
+<div class="wasp" style="left:1048px;top:226px"></div>
+<div class="wasp" style="left:1112px;top:226px"></div>
+<div class="wasp" style="left:1176px;top:226px"></div>
+<div class="wasp" style="left:760px;top:282px"></div>
+<div class="wasp" style="left:824px;top:282px"></div>
+<div class="wasp" style="left:888px;top:282px"></div>
+<div class="wasp" style="left:952px;top:282px"></div>
+<div class="wasp" style="left:1016px;top:282px"></div>
+<div class="wasp" style="left:1080px;top:282px"></div>
+<div class="wasp" style="left:1144px;top:282px"></div>
+<div class="lancer" style="left:520px;top:250px"></div>
+<div class="lancer" style="left:1380px;top:230px"></div>
+<div class="bullet " style="left:905px;top:372px"></div>
+<div class="bullet round" style="left:1010px;top:400px"></div>
+<div class="bullet " style="left:536px;top:360px"></div>
+<div class="bullet " style="left:1396px;top:352px"></div>
+<div class="bullet " style="left:1090px;top:470px"></div>
+<div class="bullet round" style="left:836px;top:500px"></div>
+<div class="bullet " style="left:1180px;top:548px"></div>
+<div class="bullet round" style="left:700px;top:610px"></div>
+<div class="bwrap" style="left:1260px;top:430px"><div class="bullet diamond" style="position:relative"></div></div>
+<div class="asteroid" style="left:1450px;top:490px"></div>
+<div class="orb" style="left:820px;top:640px"></div><div class="orb" style="left:1250px;top:610px"></div>
+<div class="ally" style="left:596px;top:664px"></div>
+<div class="pshot" style="left:619px;top:590px"></div><div class="pshot" style="left:619px;top:470px"></div>
+<svg class="cargo" style="left:880px;top:780px" viewBox="0 0 160 80"><defs><radialGradient id="eg" cx="50%" cy="30%" r="60%"><stop offset="0" stop-color="#fff"/><stop offset=".45" stop-color="#22E6FF"/><stop offset="1" stop-color="#22E6FF" stop-opacity="0"/></radialGradient></defs><ellipse cx="65" cy="78" rx="6" ry="6" fill="url(#eg)"/><ellipse cx="95" cy="78" rx="6" ry="6" fill="url(#eg)"/><rect x="38" y="40" width="16" height="12" fill="#0b3b47" stroke="#22E6FF" stroke-opacity=".5"/><rect x="106" y="40" width="16" height="12" fill="#0b3b47" stroke="#22E6FF" stroke-opacity=".5"/><rect x="4" y="26" width="36" height="44" rx="4" fill="#0c4452" stroke="#22E6FF" stroke-opacity=".7" stroke-width="1.5"/><rect x="120" y="26" width="36" height="44" rx="4" fill="#0c4452" stroke="#22E6FF" stroke-opacity=".7" stroke-width="1.5"/><path d="M4 41H40M4 56H40M120 41H156M120 56H156" stroke="#22E6FF" stroke-opacity=".45"/><path d="M66 4H94L106 18V72H54V18Z" fill="#0f5e70" stroke="#22E6FF" stroke-width="1.5"/><rect x="76" y="24" width="8" height="42" fill="#22E6FF" opacity=".35"/><path d="M70 8H90L97 17H63Z" fill="#c8f8ff"/><rect x="58" y="72" width="14" height="5" fill="#22E6FF"/><rect x="88" y="72" width="14" height="5" fill="#22E6FF"/></svg>
+<svg class="cargo" style="left:712px;top:800px" viewBox="0 0 160 80"><defs><radialGradient id="eg" cx="50%" cy="30%" r="60%"><stop offset="0" stop-color="#fff"/><stop offset=".45" stop-color="#22E6FF"/><stop offset="1" stop-color="#22E6FF" stop-opacity="0"/></radialGradient></defs><ellipse cx="65" cy="78" rx="6" ry="6" fill="url(#eg)"/><ellipse cx="95" cy="78" rx="6" ry="6" fill="url(#eg)"/><rect x="38" y="40" width="16" height="12" fill="#0b3b47" stroke="#22E6FF" stroke-opacity=".5"/><rect x="106" y="40" width="16" height="12" fill="#0b3b47" stroke="#22E6FF" stroke-opacity=".5"/><rect x="4" y="26" width="36" height="44" rx="4" fill="#0c4452" stroke="#22E6FF" stroke-opacity=".7" stroke-width="1.5"/><rect x="120" y="26" width="36" height="44" rx="4" fill="#0c4452" stroke="#22E6FF" stroke-opacity=".7" stroke-width="1.5"/><path d="M4 41H40M4 56H40M120 41H156M120 56H156" stroke="#22E6FF" stroke-opacity=".45"/><path d="M66 4H94L106 18V72H54V18Z" fill="#0f5e70" stroke="#22E6FF" stroke-width="1.5"/><rect x="76" y="24" width="8" height="42" fill="#22E6FF" opacity=".35"/><path d="M70 8H90L97 17H63Z" fill="#c8f8ff"/><rect x="58" y="72" width="14" height="5" fill="#22E6FF"/><rect x="88" y="72" width="14" height="5" fill="#22E6FF"/></svg>
+<svg class="cargo" style="left:1048px;top:800px" viewBox="0 0 160 80"><defs><radialGradient id="eg" cx="50%" cy="30%" r="60%"><stop offset="0" stop-color="#fff"/><stop offset=".45" stop-color="#22E6FF"/><stop offset="1" stop-color="#22E6FF" stop-opacity="0"/></radialGradient></defs><ellipse cx="65" cy="78" rx="6" ry="6" fill="url(#eg)"/><ellipse cx="95" cy="78" rx="6" ry="6" fill="url(#eg)"/><rect x="38" y="40" width="16" height="12" fill="#0b3b47" stroke="#22E6FF" stroke-opacity=".5"/><rect x="106" y="40" width="16" height="12" fill="#0b3b47" stroke="#22E6FF" stroke-opacity=".5"/><rect x="4" y="26" width="36" height="44" rx="4" fill="#0c4452" stroke="#22E6FF" stroke-opacity=".7" stroke-width="1.5"/><rect x="120" y="26" width="36" height="44" rx="4" fill="#0c4452" stroke="#22E6FF" stroke-opacity=".7" stroke-width="1.5"/><path d="M4 41H40M4 56H40M120 41H156M120 56H156" stroke="#22E6FF" stroke-opacity=".45"/><path d="M66 4H94L106 18V72H54V18Z" fill="#0f5e70" stroke="#22E6FF" stroke-width="1.5"/><rect x="76" y="24" width="8" height="42" fill="#22E6FF" opacity=".35"/><path d="M70 8H90L97 17H63Z" fill="#c8f8ff"/><rect x="58" y="72" width="14" height="5" fill="#22E6FF"/><rect x="88" y="72" width="14" height="5" fill="#22E6FF"/></svg>
+<div class="bullet" style="left:988px;top:764px"></div><div class="spark e" style="left:978px;top:768px"></div>
+<div class="pshot" style="left:1147px;top:878px"></div><div class="spark c" style="left:1135px;top:866px"></div>
+<div class="player" style="left:1122px;top:932px"></div>
+<div class="guide band" style="left:0;top:0;width:1920px;height:120px"><span style="left:auto;right:8px;top:auto;bottom:-26px">TOP HUD BAND 0,0,1920,120</span></div>
+<div class="guide" style="left:0;top:120px;width:1920px;height:312px"><span style="top:auto;bottom:6px">ENEMY ZONE y120-432 (nothing persistent)</span></div>
+<div class="guide" style="left:0;top:432px;width:1920px;height:648px;border-color:rgba(34,230,255,0.18)"><span style="top:auto;bottom:6px">PLAYER ZONE y432-1080 (no HUD)</span></div>
+<div class="guide right" style="left:16px;top:620px;width:1888px;height:140px"><span>ALLIES y620-760</span></div>
+<div class="guide right" style="left:16px;top:780px;width:1888px;height:100px"><span>CONVOY y780-880</span></div>
+<div class="guide" style="left:0;top:559px;width:1920px;height:0;border-width:1px 0 0 0;border-color:rgba(255,210,63,0.22)"><span style="top:-26px;left:8px">HINT LINE y560</span></div>
+<div class="abs panel interrupt"><div class="portrait72"></div><div class="txt"><div class="name" style="color:var(--tarek)">TAREK</div><div class="comms">Raiders on the flank &mdash; cover the convoy!</div></div></div>
+<div class="abs wavebar"><div class="seg full"></div><div class="seg full"></div><div class="seg"><div class="part" style="width:40%"></div></div><div class="seg"></div><div class="seg"></div></div>
+<div class="abs hearts"><svg viewBox="0 0 24 24" class="h-full"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><svg viewBox="0 0 24 24" class="h-full"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><svg viewBox="0 0 24 24" class="h-full"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><svg viewBox="0 0 24 24" class="h-empty"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><svg viewBox="0 0 24 24" class="h-empty"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></div>
+<div class="abs energy"><div class="fill"></div><div class="tick" style="left:159px"></div><div class="tick" style="left:318px"></div></div>
+<div class="abs convoy-lbl">CONVOY</div><div class="abs convoy"><div class="fill"></div></div>
+<div class="abs panel hint"><span class="key">[RMB]</span><span>MISSILE</span></div>
+<svg class="reticle" style="left:1120px;top:730px" viewBox="0 0 60 60"><circle cx="30" cy="30" r="16" fill="none" stroke="#22E6FF" stroke-width="2" style="filter:drop-shadow(0 0 4px #22E6FF)"/><path d="M30 8 A22 22 0 1 1 9.1 23.2" fill="none" stroke="#93A7C2" stroke-width="4" stroke-linecap="round"/><circle cx="30" cy="30" r="2" fill="#22E6FF"/></svg>
+</div>
+</div></div></section>
+<section class="section"><div class="caption"><b>1b &middot; Boss bar variant (top band, 1920&times;160 crop)</b><br>Boss bar replaces the wave bar in the same slot (720&times;20 at x600&ndash;1320, enemy fill, two text-colour markers: turret/core boundary and 50 core HP). Level 3, so no convoy bar. Drains right to left; markers at 66.7% (turrets gone) and 16.7% (core at 50 = Final Choice); label centred below at y68.</div><div class="viewport strip"><div class="canvas strip">
+<div class="frame strip" style="">
+<div class="stars"></div><div class="guide band" style="left:0;top:0;width:1920px;height:120px"><span style="left:auto;right:8px;top:auto;bottom:-26px">TOP HUD BAND 0,0,1920,120</span></div><div class="abs bossbar"><div class="fill" style="width:72%"></div><div class="mark" style="left:calc(66.7% - 1px)"></div><div class="mark" style="left:calc(16.7% - 1px)"></div></div>
+<div class="abs boss-lbl">FLAGSHIP</div>
+<div class="abs hearts"><svg viewBox="0 0 24 24" class="h-full"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><svg viewBox="0 0 24 24" class="h-full"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><svg viewBox="0 0 24 24" class="h-full"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><svg viewBox="0 0 24 24" class="h-empty"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><svg viewBox="0 0 24 24" class="h-empty"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></div>
+<div class="abs energy"><div class="fill"></div><div class="tick" style="left:159px"></div><div class="tick" style="left:318px"></div></div>
+</div>
+</div></div></section>
+<section class="section"><div class="caption"><b>2 &middot; Story pause &mdash; L1 W5 surrender offer</b><br>State: Story pause. Playfield and frozen HUD under dim; centred 1100&times;300 story panel with no buttons; cursor visible.</div><div class="viewport"><div class="canvas">
+<div class="frame " style="">
+<div class="stars"></div>
+<div class="wasp" style="left:760px;top:170px"></div>
+<div class="wasp" style="left:824px;top:170px"></div>
+<div class="wasp" style="left:888px;top:170px"></div>
+<div class="wasp" style="left:952px;top:170px"></div>
+<div class="wasp" style="left:1016px;top:170px"></div>
+<div class="wasp" style="left:1080px;top:170px"></div>
+<div class="wasp" style="left:1144px;top:170px"></div>
+<div class="wasp" style="left:792px;top:226px"></div>
+<div class="wasp" style="left:856px;top:226px"></div>
+<div class="wasp" style="left:920px;top:226px"></div>
+<div class="wasp" style="left:984px;top:226px"></div>
+<div class="wasp" style="left:1048px;top:226px"></div>
+<div class="wasp" style="left:1112px;top:226px"></div>
+<div class="wasp" style="left:1176px;top:226px"></div>
+<div class="wasp" style="left:760px;top:282px"></div>
+<div class="wasp" style="left:824px;top:282px"></div>
+<div class="wasp" style="left:888px;top:282px"></div>
+<div class="wasp" style="left:952px;top:282px"></div>
+<div class="wasp" style="left:1016px;top:282px"></div>
+<div class="wasp" style="left:1080px;top:282px"></div>
+<div class="wasp" style="left:1144px;top:282px"></div>
+<div class="lancer" style="left:520px;top:250px"></div>
+<div class="lancer" style="left:1380px;top:230px"></div>
+<div class="bullet " style="left:905px;top:372px"></div>
+<div class="bullet round" style="left:1010px;top:400px"></div>
+<div class="bullet " style="left:536px;top:360px"></div>
+<div class="bullet " style="left:1396px;top:352px"></div>
+<div class="bullet " style="left:1090px;top:470px"></div>
+<div class="bullet round" style="left:836px;top:500px"></div>
+<div class="bullet " style="left:1180px;top:548px"></div>
+<div class="bullet round" style="left:700px;top:610px"></div>
+<div class="bwrap" style="left:1260px;top:430px"><div class="bullet diamond" style="position:relative"></div></div>
+<div class="asteroid" style="left:1450px;top:490px"></div>
+<div class="orb" style="left:820px;top:640px"></div><div class="orb" style="left:1250px;top:610px"></div>
+<div class="ally" style="left:596px;top:664px"></div>
+<div class="pshot" style="left:619px;top:590px"></div><div class="pshot" style="left:619px;top:470px"></div>
+<svg class="cargo" style="left:880px;top:780px" viewBox="0 0 160 80"><defs><radialGradient id="eg" cx="50%" cy="30%" r="60%"><stop offset="0" stop-color="#fff"/><stop offset=".45" stop-color="#22E6FF"/><stop offset="1" stop-color="#22E6FF" stop-opacity="0"/></radialGradient></defs><ellipse cx="65" cy="78" rx="6" ry="6" fill="url(#eg)"/><ellipse cx="95" cy="78" rx="6" ry="6" fill="url(#eg)"/><rect x="38" y="40" width="16" height="12" fill="#0b3b47" stroke="#22E6FF" stroke-opacity=".5"/><rect x="106" y="40" width="16" height="12" fill="#0b3b47" stroke="#22E6FF" stroke-opacity=".5"/><rect x="4" y="26" width="36" height="44" rx="4" fill="#0c4452" stroke="#22E6FF" stroke-opacity=".7" stroke-width="1.5"/><rect x="120" y="26" width="36" height="44" rx="4" fill="#0c4452" stroke="#22E6FF" stroke-opacity=".7" stroke-width="1.5"/><path d="M4 41H40M4 56H40M120 41H156M120 56H156" stroke="#22E6FF" stroke-opacity=".45"/><path d="M66 4H94L106 18V72H54V18Z" fill="#0f5e70" stroke="#22E6FF" stroke-width="1.5"/><rect x="76" y="24" width="8" height="42" fill="#22E6FF" opacity=".35"/><path d="M70 8H90L97 17H63Z" fill="#c8f8ff"/><rect x="58" y="72" width="14" height="5" fill="#22E6FF"/><rect x="88" y="72" width="14" height="5" fill="#22E6FF"/></svg>
+<svg class="cargo" style="left:712px;top:800px" viewBox="0 0 160 80"><defs><radialGradient id="eg" cx="50%" cy="30%" r="60%"><stop offset="0" stop-color="#fff"/><stop offset=".45" stop-color="#22E6FF"/><stop offset="1" stop-color="#22E6FF" stop-opacity="0"/></radialGradient></defs><ellipse cx="65" cy="78" rx="6" ry="6" fill="url(#eg)"/><ellipse cx="95" cy="78" rx="6" ry="6" fill="url(#eg)"/><rect x="38" y="40" width="16" height="12" fill="#0b3b47" stroke="#22E6FF" stroke-opacity=".5"/><rect x="106" y="40" width="16" height="12" fill="#0b3b47" stroke="#22E6FF" stroke-opacity=".5"/><rect x="4" y="26" width="36" height="44" rx="4" fill="#0c4452" stroke="#22E6FF" stroke-opacity=".7" stroke-width="1.5"/><rect x="120" y="26" width="36" height="44" rx="4" fill="#0c4452" stroke="#22E6FF" stroke-opacity=".7" stroke-width="1.5"/><path d="M4 41H40M4 56H40M120 41H156M120 56H156" stroke="#22E6FF" stroke-opacity=".45"/><path d="M66 4H94L106 18V72H54V18Z" fill="#0f5e70" stroke="#22E6FF" stroke-width="1.5"/><rect x="76" y="24" width="8" height="42" fill="#22E6FF" opacity=".35"/><path d="M70 8H90L97 17H63Z" fill="#c8f8ff"/><rect x="58" y="72" width="14" height="5" fill="#22E6FF"/><rect x="88" y="72" width="14" height="5" fill="#22E6FF"/></svg>
+<svg class="cargo" style="left:1048px;top:800px" viewBox="0 0 160 80"><defs><radialGradient id="eg" cx="50%" cy="30%" r="60%"><stop offset="0" stop-color="#fff"/><stop offset=".45" stop-color="#22E6FF"/><stop offset="1" stop-color="#22E6FF" stop-opacity="0"/></radialGradient></defs><ellipse cx="65" cy="78" rx="6" ry="6" fill="url(#eg)"/><ellipse cx="95" cy="78" rx="6" ry="6" fill="url(#eg)"/><rect x="38" y="40" width="16" height="12" fill="#0b3b47" stroke="#22E6FF" stroke-opacity=".5"/><rect x="106" y="40" width="16" height="12" fill="#0b3b47" stroke="#22E6FF" stroke-opacity=".5"/><rect x="4" y="26" width="36" height="44" rx="4" fill="#0c4452" stroke="#22E6FF" stroke-opacity=".7" stroke-width="1.5"/><rect x="120" y="26" width="36" height="44" rx="4" fill="#0c4452" stroke="#22E6FF" stroke-opacity=".7" stroke-width="1.5"/><path d="M4 41H40M4 56H40M120 41H156M120 56H156" stroke="#22E6FF" stroke-opacity=".45"/><path d="M66 4H94L106 18V72H54V18Z" fill="#0f5e70" stroke="#22E6FF" stroke-width="1.5"/><rect x="76" y="24" width="8" height="42" fill="#22E6FF" opacity=".35"/><path d="M70 8H90L97 17H63Z" fill="#c8f8ff"/><rect x="58" y="72" width="14" height="5" fill="#22E6FF"/><rect x="88" y="72" width="14" height="5" fill="#22E6FF"/></svg>
+<div class="bullet" style="left:988px;top:764px"></div><div class="spark e" style="left:978px;top:768px"></div>
+<div class="pshot" style="left:1147px;top:878px"></div><div class="spark c" style="left:1135px;top:866px"></div>
+<div class="player" style="left:1122px;top:932px"></div>
+<div class="abs wavebar"><div class="seg full"></div><div class="seg full"></div><div class="seg"><div class="part" style="width:40%"></div></div><div class="seg"></div><div class="seg"></div></div>
+<div class="abs hearts"><svg viewBox="0 0 24 24" class="h-full"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><svg viewBox="0 0 24 24" class="h-full"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><svg viewBox="0 0 24 24" class="h-full"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><svg viewBox="0 0 24 24" class="h-empty"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><svg viewBox="0 0 24 24" class="h-empty"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></div>
+<div class="abs energy"><div class="fill"></div><div class="tick" style="left:159px"></div><div class="tick" style="left:318px"></div></div>
+<div class="abs convoy-lbl">CONVOY</div><div class="abs convoy"><div class="fill"></div></div>
+<div class="dim"></div>
+<div class="abs panel story"><div class="portrait200"></div><div class="tb"><div class="name">SOVEREIGN ISOLDE VARN</div><div class="line">You&rsquo;re outnumbered, General. Come home.<span class="caret"></span></div></div><div class="cue">click to continue &#9656;</div></div>
+<div class="cursor" style="left:1180px;top:780px"></div>
+</div>
+</div></div></section>
+<section class="section"><div class="caption"><b>3 &middot; Final Choice + Retry prompt</b><br>Left: Final Choice (boss bar at the 16.7% marker), lead-in panel with buttons below, top at y680, DESTROY HER hovered. Right: death, loss reason in danger at 48px, then RETRY &middot; QUIT TO TITLE (QUIT TO TITLE hovered).</div><div class="viewport"><div class="canvas">
+<div class="frame" style="background:none"><div class="split-bg"></div><div class="split-lbl" style="left:24px">FINAL CHOICE &middot; L3 boss, core at 50 &middot; 50% scale</div><div class="split-lbl" style="left:984px">RETRY PROMPT &middot; after 1.5 s death beat &middot; 50% scale</div><div class="half l"><div class="frame " style="">
+<div class="stars"></div><div class="lancer" style="left:900px;top:150px;transform:scale(2.2);transform-origin:50% 0"></div><div class="bullet" style="left:700px;top:420px"></div><div class="bullet round" style="left:1210px;top:470px"></div><div class="player" style="left:932px;top:900px"></div>
+<div class="abs bossbar"><div class="fill" style="width:16.7%"></div><div class="mark" style="left:calc(66.7% - 1px)"></div><div class="mark" style="left:calc(16.7% - 1px)"></div></div>
+<div class="abs boss-lbl">FLAGSHIP</div>
+<div class="abs hearts"><svg viewBox="0 0 24 24" class="h-full"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><svg viewBox="0 0 24 24" class="h-full"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><svg viewBox="0 0 24 24" class="h-full"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><svg viewBox="0 0 24 24" class="h-empty"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><svg viewBox="0 0 24 24" class="h-empty"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></div>
+<div class="abs energy"><div class="fill"></div><div class="tick" style="left:159px"></div><div class="tick" style="left:318px"></div></div>
+<div class="dim"></div>
+<div class="abs panel story"><div class="portrait200"></div><div class="tb"><div class="name">SOVEREIGN ISOLDE VARN</div><div class="line placeholder">[lead-in line &mdash; written in Story 5.7]<span class="caret"></span></div></div><div class="cue">click to continue &#9656;</div></div><div class="btn" style="left:456px;top:680px;width:480px;height:120px">OFFER SURRENDER</div><div class="btn hover" style="left:984px;top:680px;width:480px;height:120px">DESTROY HER</div><div class="cursor" style="left:1400px;top:772px"></div>
+</div></div><div class="half r"><div class="frame " style="">
+<div class="stars"></div>
+<div class="wasp" style="left:760px;top:170px"></div>
+<div class="wasp" style="left:824px;top:170px"></div>
+<div class="wasp" style="left:888px;top:170px"></div>
+<div class="wasp" style="left:952px;top:170px"></div>
+<div class="wasp" style="left:1016px;top:170px"></div>
+<div class="wasp" style="left:1080px;top:170px"></div>
+<div class="wasp" style="left:1144px;top:170px"></div>
+<div class="wasp" style="left:792px;top:226px"></div>
+<div class="wasp" style="left:856px;top:226px"></div>
+<div class="wasp" style="left:920px;top:226px"></div>
+<div class="wasp" style="left:984px;top:226px"></div>
+<div class="wasp" style="left:1048px;top:226px"></div>
+<div class="wasp" style="left:1112px;top:226px"></div>
+<div class="wasp" style="left:1176px;top:226px"></div>
+<div class="wasp" style="left:760px;top:282px"></div>
+<div class="wasp" style="left:824px;top:282px"></div>
+<div class="wasp" style="left:888px;top:282px"></div>
+<div class="wasp" style="left:952px;top:282px"></div>
+<div class="wasp" style="left:1016px;top:282px"></div>
+<div class="wasp" style="left:1080px;top:282px"></div>
+<div class="wasp" style="left:1144px;top:282px"></div>
+<div class="lancer" style="left:520px;top:250px"></div>
+<div class="lancer" style="left:1380px;top:230px"></div>
+<div class="bullet " style="left:905px;top:372px"></div>
+<div class="bullet round" style="left:1010px;top:400px"></div>
+<div class="bullet " style="left:536px;top:360px"></div>
+<div class="bullet " style="left:1396px;top:352px"></div>
+<div class="bullet " style="left:1090px;top:470px"></div>
+<div class="bullet round" style="left:836px;top:500px"></div>
+<div class="bullet " style="left:1180px;top:548px"></div>
+<div class="bullet round" style="left:700px;top:610px"></div>
+<div class="bwrap" style="left:1260px;top:430px"><div class="bullet diamond" style="position:relative"></div></div>
+<div class="asteroid" style="left:1450px;top:490px"></div>
+<div class="orb" style="left:820px;top:640px"></div><div class="orb" style="left:1250px;top:610px"></div>
+<div class="ally" style="left:596px;top:664px"></div>
+<div class="pshot" style="left:619px;top:590px"></div><div class="pshot" style="left:619px;top:470px"></div>
+<svg class="cargo" style="left:880px;top:780px" viewBox="0 0 160 80"><defs><radialGradient id="eg" cx="50%" cy="30%" r="60%"><stop offset="0" stop-color="#fff"/><stop offset=".45" stop-color="#22E6FF"/><stop offset="1" stop-color="#22E6FF" stop-opacity="0"/></radialGradient></defs><ellipse cx="65" cy="78" rx="6" ry="6" fill="url(#eg)"/><ellipse cx="95" cy="78" rx="6" ry="6" fill="url(#eg)"/><rect x="38" y="40" width="16" height="12" fill="#0b3b47" stroke="#22E6FF" stroke-opacity=".5"/><rect x="106" y="40" width="16" height="12" fill="#0b3b47" stroke="#22E6FF" stroke-opacity=".5"/><rect x="4" y="26" width="36" height="44" rx="4" fill="#0c4452" stroke="#22E6FF" stroke-opacity=".7" stroke-width="1.5"/><rect x="120" y="26" width="36" height="44" rx="4" fill="#0c4452" stroke="#22E6FF" stroke-opacity=".7" stroke-width="1.5"/><path d="M4 41H40M4 56H40M120 41H156M120 56H156" stroke="#22E6FF" stroke-opacity=".45"/><path d="M66 4H94L106 18V72H54V18Z" fill="#0f5e70" stroke="#22E6FF" stroke-width="1.5"/><rect x="76" y="24" width="8" height="42" fill="#22E6FF" opacity=".35"/><path d="M70 8H90L97 17H63Z" fill="#c8f8ff"/><rect x="58" y="72" width="14" height="5" fill="#22E6FF"/><rect x="88" y="72" width="14" height="5" fill="#22E6FF"/></svg>
+<svg class="cargo" style="left:712px;top:800px" viewBox="0 0 160 80"><defs><radialGradient id="eg" cx="50%" cy="30%" r="60%"><stop offset="0" stop-color="#fff"/><stop offset=".45" stop-color="#22E6FF"/><stop offset="1" stop-color="#22E6FF" stop-opacity="0"/></radialGradient></defs><ellipse cx="65" cy="78" rx="6" ry="6" fill="url(#eg)"/><ellipse cx="95" cy="78" rx="6" ry="6" fill="url(#eg)"/><rect x="38" y="40" width="16" height="12" fill="#0b3b47" stroke="#22E6FF" stroke-opacity=".5"/><rect x="106" y="40" width="16" height="12" fill="#0b3b47" stroke="#22E6FF" stroke-opacity=".5"/><rect x="4" y="26" width="36" height="44" rx="4" fill="#0c4452" stroke="#22E6FF" stroke-opacity=".7" stroke-width="1.5"/><rect x="120" y="26" width="36" height="44" rx="4" fill="#0c4452" stroke="#22E6FF" stroke-opacity=".7" stroke-width="1.5"/><path d="M4 41H40M4 56H40M120 41H156M120 56H156" stroke="#22E6FF" stroke-opacity=".45"/><path d="M66 4H94L106 18V72H54V18Z" fill="#0f5e70" stroke="#22E6FF" stroke-width="1.5"/><rect x="76" y="24" width="8" height="42" fill="#22E6FF" opacity=".35"/><path d="M70 8H90L97 17H63Z" fill="#c8f8ff"/><rect x="58" y="72" width="14" height="5" fill="#22E6FF"/><rect x="88" y="72" width="14" height="5" fill="#22E6FF"/></svg>
+<svg class="cargo" style="left:1048px;top:800px" viewBox="0 0 160 80"><defs><radialGradient id="eg" cx="50%" cy="30%" r="60%"><stop offset="0" stop-color="#fff"/><stop offset=".45" stop-color="#22E6FF"/><stop offset="1" stop-color="#22E6FF" stop-opacity="0"/></radialGradient></defs><ellipse cx="65" cy="78" rx="6" ry="6" fill="url(#eg)"/><ellipse cx="95" cy="78" rx="6" ry="6" fill="url(#eg)"/><rect x="38" y="40" width="16" height="12" fill="#0b3b47" stroke="#22E6FF" stroke-opacity=".5"/><rect x="106" y="40" width="16" height="12" fill="#0b3b47" stroke="#22E6FF" stroke-opacity=".5"/><rect x="4" y="26" width="36" height="44" rx="4" fill="#0c4452" stroke="#22E6FF" stroke-opacity=".7" stroke-width="1.5"/><rect x="120" y="26" width="36" height="44" rx="4" fill="#0c4452" stroke="#22E6FF" stroke-opacity=".7" stroke-width="1.5"/><path d="M4 41H40M4 56H40M120 41H156M120 56H156" stroke="#22E6FF" stroke-opacity=".45"/><path d="M66 4H94L106 18V72H54V18Z" fill="#0f5e70" stroke="#22E6FF" stroke-width="1.5"/><rect x="76" y="24" width="8" height="42" fill="#22E6FF" opacity=".35"/><path d="M70 8H90L97 17H63Z" fill="#c8f8ff"/><rect x="58" y="72" width="14" height="5" fill="#22E6FF"/><rect x="88" y="72" width="14" height="5" fill="#22E6FF"/></svg>
+<div class="bullet" style="left:988px;top:764px"></div><div class="spark e" style="left:978px;top:768px"></div>
+<div class="pshot" style="left:1147px;top:878px"></div><div class="spark c" style="left:1135px;top:866px"></div>
+<div class="player" style="left:1122px;top:932px"></div>
+<div class="abs wavebar"><div class="seg full"></div><div class="seg full"></div><div class="seg"><div class="part" style="width:40%"></div></div><div class="seg"></div><div class="seg"></div></div>
+<div class="abs hearts"><svg viewBox="0 0 24 24" class="h-empty"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><svg viewBox="0 0 24 24" class="h-empty"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><svg viewBox="0 0 24 24" class="h-empty"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><svg viewBox="0 0 24 24" class="h-empty"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><svg viewBox="0 0 24 24" class="h-empty"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></div>
+<div class="abs energy"><div class="fill"></div><div class="tick" style="left:159px"></div><div class="tick" style="left:318px"></div></div>
+<div class="abs convoy-lbl">CONVOY</div><div class="abs convoy"><div class="fill"></div></div><div class="dim"></div><div class="abs loss" style="top:440px">HULL DESTROYED</div><div class="btn" style="left:616px;top:560px;width:320px;height:80px">RETRY</div><div class="btn hover" style="left:984px;top:560px;width:320px;height:80px">QUIT TO TITLE</div><div class="cursor" style="left:1262px;top:618px"></div>
+</div></div><div class="split-div"></div></div>
+</div></div></section>
+</body></html>

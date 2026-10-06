@@ -1,0 +1,29 @@
+# DEFECTOR GDD - Decision Log
+
+| # | Date | Decision / Change | Source | Status |
+|---|------|-------------------|--------|--------|
+| 1 | 2026-10-06 | GDD workspace created (Create intent, "lightweight" requested). Inputs: briefs/brief-game-project-2026-10-06/brief.md + addendum.md | User | v0.1 draft |
+| 2 | 2026-10-06 | Brief decisions inherited as settled: Godot 4/GDScript, Windows only, 3 pillars, 3 levels, cast, MoSCoW tiers, cut order. Brief's only stated open items: tuning values + Flagship phase details | Brief | Adopted |
+| 3 | 2026-10-06 | Game type proposed: Shooter (shooter.md guide); Multiplayer subsection to be marked N/A | Facilitator | Confirmed by user |
+| 4 | 2026-10-06 | Working mode: Express | User | Adopted |
+| 5 | 2026-10-06 | Fixed single screen 1920x1080, enemies top/sides, player fires up; ship chases cursor 1400 px/s, bottom 60%, no rotation | User (accepted default) | Adopted |
+| 6 | 2026-10-06 | Missile fires toward cursor (ship->cursor vector; straight up within 32 px) - user override of "straight up" default. Lasers stay straight up | User | Adopted |
+| 7 | 2026-10-06 | Shield = 4 s full invulnerability incl. contact; Barrage = 12 homing micro-missiles over 2 s | User (accepted default) | Adopted |
+| 8 | 2026-10-06 | Final Choice: both options -> refusal; only Isolde's response line differs | User | Adopted |
+| 9 | 2026-10-06 | Level clear = all scripted waves destroyed; no timer, score, or rating | User | Adopted |
+| 10 | 2026-10-06 | Player health shown as hearts (5); per-level wave progress bar (segment per wave); boss bar replaces it in boss fight | User | Adopted |
+| 11 | 2026-10-06 | All tuning numbers set by facilitator as first-pass values, to be tweaked after E1 prototype / playtests | User | Adopted |
+| 12 | 2026-10-06 | GDD v0.1 + epics.md drafted (8 epics E1-E8) | Facilitator | Draft |
+| 13 | 2026-10-06 | Finalize: input reconciliation and validator autofixes applied (cast section, risks, reasons for rejected ideas, telegraph rule and boss bullet speeds, convoy rules, friendly fire off, missile damage clarified, geometry y-ranges, energy economy restated, Level 2 Wave 5 cover asteroids, `user://` engine term removed, pillars served added per epic, Tarek's cut-off is a combat line, Vale speaks a few lines, Isolde has a line in the opening) | Validator / reconciliation | Applied |
+| 14 | 2026-10-06 | Windows export and GitHub release promoted to MUST (the brief's goal is a downloadable build) | Facilitator (from brief) | Applied |
+| 15 | 2026-10-06 | Convoy and Maul promoted to MUST; Shield and Barrage stay SHOULD, with cover and i-frames as the Pillar 1 fallback | Facilitator recommendation; user didn't answer in time | Applied - accepted by user 2026-10-06 |
+| 16 | 2026-10-06 | Budget: MUST ~13 h, SHOULD ~4 h, COULD unbudgeted; overrun goes to the polish week | Facilitator recommendation; user didn't answer in time | Applied - accepted by user 2026-10-06 |
+| 17 | 2026-10-06 | Beat timing moved mid-wave per addendum: Level 1 Wave 3 interruption at 25% destroyed (combat line); Level 1 Wave 5 Surrender Prompt at 30% destroyed (pause), then Maul reinforcements | Facilitator recommendation; user didn't answer in time | Applied - accepted by user 2026-10-06 |
+| 18 | 2026-10-06 | Deferred: dialogue script writing (E5/E7 content task); laptop hardware assumption; tuning pass after E1 | Facilitator | Deferred |
+| 19 | 2026-10-06 | GDD v0.2 finalized (doc_standards polish: none configured; no external handoffs; no narrative flag for the shooter genre) | Facilitator | Final draft |
+| 20 | 2026-10-06 | Maul never targets the player but collides like a medium enemy: contact costs 1 heart and destroys the Maul, so the player can body-block it (costly). Damage table updated; Maul asset row corrected to MUST per #15 | User (epics review) | Applied |
+| 21 | 2026-10-06 | Readiness fixes (epics F12–F19): placeholder level files in Story 4.1; energy restored from save on return to title; `hunter_wasp` always a known type id; contact during i-frames/Shield still destroys small/medium enemies at no cost; boss Wasp launches stop at Final Choice; Vale speaks a line before each Isolde refusal; Maul drop only when killed by player or ally; Windows export smoke check at end of E1 | Implementation readiness check | Applied - approved by user 2026-10-06 |
+| 22 | 2026-10-06 | Dialogue model revised: paused briefings/debriefs carry the story (centred panel, dimmed screen, click to advance); 1-2 short auto-dismiss interruptions per level (Isolde mocks or ally warns, small top-left box); only two mid-fight pauses (L1 surrender, L3 Final Choice); Tarek cut-off stays an interruption; tutorials become on-screen control hints; Ryn takes command in the L3 briefing; Tarek warns of the L1 ambush. GDD v0.3 | User (UX session) | Applied |
+| 23 | 2026-10-06 | Convoy reworked (user, UX review): medium cargo ships (~160x80, ~80% hitbox) in a tight triangle formation; solid to all projectiles; any enemy shot hitting it is stopped and damages it (aimed Lancer 5, stray 2, Maul 10); player and ally shots are blocked with no damage; the player ship still flies over it. Watch convoy HP in Level 1 playtests (tuning knob: convoy HP or stray damage) | User | Applied |
+| 24 | 2026-10-06 | Convoy band widened from y780-880 to y760-920 so the triangle formation fits (lead ship ~40 px ahead of the flankers); found while building the HUD mock | Facilitator (UX mock) | Applied - approved by user 2026-10-06 |
+| 25 | 2026-10-06 | Convoy is solid to everything (option A): the player's ship can't pass through cargo hulls (push-out, slides along, no damage), so the player can body-block shots aimed at the convoy and take the heart instead. Consistent with Maul body-blocking. Fallback if Level 1 feels cramped in playtests: friendly things pass through friendly things | User | Applied |

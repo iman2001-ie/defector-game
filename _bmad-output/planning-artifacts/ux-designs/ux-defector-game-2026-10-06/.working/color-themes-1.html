@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>DEFECTOR - Colour Theme Exploration 1</title>
+<!--
+  NOTE: Typography here uses a system font stack for a self-contained preview.
+  The real game uses Kenney Future (UI/HUD) - expect wider, squarer letterforms in-engine.
+-->
+<style>
+/* =====================================================================
+   THEME A - "COLD NEON"   (icy, clinical, crisp, high-voltage)
+   background   #05070F
+   surfaceAlt   #0A1222 @ 85%  -> rgba(10,18,34,0.85)
+   border       #2A3B5C
+   text         #E8F4FF
+   textMuted    #93A7C2
+   coalition    #22E6FF
+   enemy        #FF2BD6
+   energy       #FFD23F
+   hazard       #7A6E62
+   hazardRim    #C9D8E8
+   heart        #FF4766
+   heartEmpty   #2B3348
+   danger       #FF1F4B
+   isolde       #FF6AE3
+   tarek        #3DF2FF
+   ryn          #7CFFB2
+   ===================================================================== */
+.theme-a {
+  --bg:#05070F; --surface:rgba(10,18,34,0.85); --surface-solid:#0A1222; --border:#2A3B5C;
+  --text:#E8F4FF; --muted:#93A7C2;
+  --coal:#22E6FF; --enemy:#FF2BD6; --energy:#FFD23F;
+  --hazard:#7A6E62; --rim:#C9D8E8;
+  --heart:#FF4766; --heart-empty:#2B3348; --danger:#FF1F4B;
+  --isolde:#FF6AE3; --tarek:#3DF2FF; --ryn:#7CFFB2;
+  --nebula1:rgba(34,230,255,0.07); --nebula2:rgba(255,43,214,0.05);
+}
+
+/* =====================================================================
+   THEME B - "SYNTH DUSK"   (warm retro-wave, melancholic, romantic)
+   background   #0E0820
+   surfaceAlt   #1A1030 @ 85%  -> rgba(26,16,48,0.85)
+   border       #4A3570
+   text         #F4ECFF
+   textMuted    #ADA0C8
+   coalition    #2EE6C8
+   enemy        #FF3D7F
+   energy       #FFB547
+   hazard       #6E5D58
+   hazardRim    #FFB3A0
+   heart        #FF6B5A
+   heartEmpty   #3A2A52
+   danger       #FF2E4D
+   isolde       #FF7AB0
+   tarek        #48F0D0
+   ryn          #8AB4FF
+   ===================================================================== */
+.theme-b {
+  --bg:#0E0820; --surface:rgba(26,16,48,0.85); --surface-solid:#1A1030; --border:#4A3570;
+  --text:#F4ECFF; --muted:#ADA0C8;
+  --coal:#2EE6C8; --enemy:#FF3D7F; --energy:#FFB547;
+  --hazard:#6E5D58; --rim:#FFB3A0;
+  --heart:#FF6B5A; --heart-empty:#3A2A52; --danger:#FF2E4D;
+  --isolde:#FF7AB0; --tarek:#48F0D0; --ryn:#8AB4FF;
+  --nebula1:rgba(140,80,255,0.12); --nebula2:rgba(255,61,127,0.07);
+}
+
+/* =====================================================================
+   THEME C - "MILITARY SIGNAL"   (gritty, tactical, desaturated, harsh)
+   background   #080B0A
+   surfaceAlt   #101614 @ 88%  -> rgba(16,22,20,0.88)
+   border       #3A4A44
+   text         #E3E8E2
+   textMuted    #96A29B
+   coalition    #4FC7B0
+   enemy        #FF3326
+   energy       #F2A900
+   hazard       #6B625A
+   hazardRim    #B8A68C
+   heart        #E8503A
+   heartEmpty   #2C3330
+   danger       #FF1A0F
+   isolde       #FF6A55
+   tarek        #6FD8C4
+   ryn          #B8D86A
+   ===================================================================== */
+.theme-c {
+  --bg:#080B0A; --surface:rgba(16,22,20,0.88); --surface-solid:#101614; --border:#3A4A44;
+  --text:#E3E8E2; --muted:#96A29B;
+  --coal:#4FC7B0; --enemy:#FF3326; --energy:#F2A900;
+  --hazard:#6B625A; --rim:#B8A68C;
+  --heart:#E8503A; --heart-empty:#2C3330; --danger:#FF1A0F;
+  --isolde:#FF6A55; --tarek:#6FD8C4; --ryn:#B8D86A;
+  --nebula1:rgba(79,199,176,0.05); --nebula2:rgba(242,169,0,0.03);
+}
+
+/* ============================ PAGE ============================ */
+* { box-sizing: border-box; }
+body {
+  margin:0; padding:32px 24px 64px; background:#020204; color:#D8DEE8;
+  font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+}
+.page-title { max-width:1000px; margin:0 auto 8px; font-size:22px; letter-spacing:.12em; text-transform:uppercase; }
+.page-sub { max-width:1000px; margin:0 auto 32px; color:#8A93A3; font-size:14px; }
+
+.theme {
+  max-width:1000px; margin:0 auto 56px; padding:24px 20px 28px;
+  background:var(--bg); border:1px solid var(--border); border-radius:10px; color:var(--text);
+}
+.theme h2 { margin:0; font-size:26px; letter-spacing:.14em; text-transform:uppercase; }
+.theme .register { margin:6px 0 20px; color:var(--muted); font-size:14px; }
+.theme h3 { margin:24px 0 10px; font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:var(--muted); font-weight:600; }
+
+/* ---------- token chips ---------- */
+.chips { display:grid; grid-template-columns:repeat(auto-fill, minmax(176px, 1fr)); gap:8px; }
+.chip {
+  display:flex; align-items:center; gap:10px; padding:6px 8px;
+  background:var(--surface); border:1px solid var(--border); border-radius:6px;
+}
+.sw { width:30px; height:30px; border-radius:4px; flex:none; border:1px solid rgba(255,255,255,0.18); }
+.chip .role { font-size:12px; font-weight:600; color:var(--text); }
+.chip .hex { font-size:11px; color:var(--muted); font-family: Consolas, "Cascadia Mono", monospace; }
+
+.tags { display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+.tag {
+  font-size:12px; font-weight:700; letter-spacing:.14em; padding:4px 10px; border-radius:3px;
+  background:var(--surface); border:1px solid currentColor;
+}
+
+/* ---------- HUD mock (960x540) ---------- */
+.hud-wrap { overflow-x:auto; }
+.hud {
+  position:relative; width:960px; height:540px; overflow:hidden; border-radius:4px;
+  border:1px solid var(--border);
+  background:
+    radial-gradient(ellipse 50% 40% at 75% 30%, var(--nebula1), transparent 70%),
+    radial-gradient(ellipse 40% 35% at 20% 70%, var(--nebula2), transparent 70%),
+    var(--bg);
+}
+/* danger edge vignette (low intensity sample) */
+.hud::after {
+  content:""; position:absolute; inset:0; pointer-events:none;
+  box-shadow: inset 0 0 70px color-mix(in srgb, var(--danger) 22%, transparent);
+}
+/* starfield */
+.stars { position:absolute; inset:0;
+  background-image:
+    radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,.7), transparent),
+    radial-gradient(1px 1px at 30% 65%, rgba(255,255,255,.5), transparent),
+    radial-gradient(1px 1px at 55% 12%, rgba(255,255,255,.6), transparent),
+    radial-gradient(1px 1px at 70% 80%, rgba(255,255,255,.4), transparent),
+    radial-gradient(1px 1px at 88% 45%, rgba(255,255,255,.6), transparent),
+    radial-gradient(1.5px 1.5px at 42% 38%, rgba(255,255,255,.8), transparent),
+    radial-gradient(1px 1px at 63% 55%, rgba(255,255,255,.4), transparent),
+    radial-gradient(1px 1px at 18% 88%, rgba(255,255,255,.5), transparent),
+    radial-gradient(1px 1px at 93% 92%, rgba(255,255,255,.5), transparent),
+    radial-gradient(1px 1px at 5% 50%, rgba(255,255,255,.5), transparent);
+}
+
+/* interruption box */
+.interrupt {
+  position:absolute; top:16px; left:16px; width:300px; display:flex; gap:10px; padding:10px;
+  background:var(--surface); border:1px solid var(--border); border-left:3px solid var(--isolde); border-radius:4px;
+  z-index:5;
+}
+.portrait {
+  width:48px; height:48px; flex:none; border-radius:3px;
+  background:linear-gradient(160deg, color-mix(in srgb, currentColor 35%, var(--surface-solid)), var(--surface-solid));
+  border:1px solid currentColor; box-shadow:0 0 8px color-mix(in srgb, currentColor 50%, transparent);
+  position:relative;
+}
+.portrait::after { /* silhouette */
+  content:""; position:absolute; left:50%; bottom:0; width:60%; height:70%; transform:translateX(-50%);
+  background:radial-gradient(circle at 50% 30%, color-mix(in srgb, currentColor 55%, #000) 28%, transparent 30%),
+             radial-gradient(ellipse 60% 45% at 50% 100%, color-mix(in srgb, currentColor 45%, #000) 98%, transparent 100%);
+}
+.name { font-size:11px; font-weight:800; letter-spacing:.18em; }
+.line { font-size:14px; color:var(--text); margin-top:3px; }
+
+/* wave progress */
+.wave { position:absolute; top:22px; left:50%; transform:translateX(-50%); text-align:center; z-index:5; }
+.wave .lbl { font-size:10px; letter-spacing:.24em; color:var(--muted); margin-bottom:5px; }
+.segs { display:flex; gap:5px; }
+.seg { width:48px; height:8px; border-radius:2px; background:color-mix(in srgb, var(--coal) 12%, transparent); border:1px solid color-mix(in srgb, var(--coal) 40%, transparent); overflow:hidden; }
+.seg i { display:block; height:100%; background:var(--coal); box-shadow:0 0 8px var(--coal); }
+
+/* top-right stats */
+.stats { position:absolute; top:16px; right:18px; width:180px; z-index:5; }
+.hearts { display:flex; justify-content:flex-end; gap:4px; font-size:22px; line-height:1; }
+.h-full { color:var(--heart); text-shadow:0 0 8px var(--heart); }
+.h-empty { color:var(--heart-empty); -webkit-text-stroke:1px color-mix(in srgb, var(--heart) 45%, transparent); }
+.bar-lbl { display:flex; justify-content:space-between; font-size:10px; letter-spacing:.18em; color:var(--muted); margin:8px 0 3px; }
+.ebar { position:relative; height:10px; border-radius:2px; background:color-mix(in srgb, var(--energy) 10%, var(--bg)); border:1px solid color-mix(in srgb, var(--energy) 45%, transparent); }
+.ebar .fill { position:absolute; left:0; top:0; bottom:0; width:60%; background:var(--energy); box-shadow:0 0 10px var(--energy); }
+.tick { position:absolute; top:-4px; bottom:-4px; width:2px; background:var(--text); opacity:.85; }
+.cbar { height:4px; border-radius:2px; background:color-mix(in srgb, var(--coal) 12%, var(--bg)); }
+.cbar i { display:block; width:70%; height:100%; background:var(--coal); box-shadow:0 0 6px var(--coal); }
+
+/* hint */
+.hint { position:absolute; bottom:22px; left:50%; transform:translateX(-50%); font-size:13px; letter-spacing:.14em; color:var(--muted); z-index:5; }
+.hint b { color:var(--text); border:1px solid var(--border); background:var(--surface); padding:2px 6px; border-radius:3px; margin-right:6px; font-weight:700; }
+
+/* ships */
+.ship { position:absolute; }
+.enemy-ship { width:40px; height:30px; filter:drop-shadow(0 0 6px var(--enemy)) drop-shadow(0 0 2px var(--enemy)); }
+.enemy-ship::before { content:""; position:absolute; inset:0; background:var(--enemy); clip-path:polygon(0 0, 50% 30%, 100% 0, 50% 100%); }
+.enemy-ship::after { content:""; position:absolute; left:50%; top:30%; width:8px; height:8px; margin-left:-4px; background:#fff; clip-path:polygon(0 0,100% 0,50% 100%); opacity:.9; }
+
+.bullet { position:absolute; width:8px; height:16px; border-radius:50%;
+  background:radial-gradient(ellipse at 50% 50%, #fff 0 30%, var(--enemy) 60%);
+  box-shadow:0 0 8px 2px var(--enemy); }
+.bullet.round { width:10px; height:10px; }
+
+.player { width:46px; height:52px; filter:drop-shadow(0 0 8px var(--coal)) drop-shadow(0 0 3px var(--coal)); }
+.player::before { content:""; position:absolute; inset:0; background:var(--coal); clip-path:polygon(50% 0, 100% 100%, 50% 78%, 0 100%); }
+.player::after { content:""; position:absolute; left:50%; top:28%; width:8px; height:14px; margin-left:-4px; background:#fff; border-radius:50% 50% 30% 30%; }
+.thrust { position:absolute; width:10px; height:20px; border-radius:50%; background:radial-gradient(ellipse at 50% 20%, #fff, var(--coal) 50%, transparent 75%); opacity:.85; }
+.pshot { position:absolute; width:4px; height:16px; border-radius:2px; background:#fff; box-shadow:0 0 6px 2px var(--coal); }
+
+.convoy { width:120px; height:34px; opacity:.45; filter:drop-shadow(0 0 4px var(--coal)); }
+.convoy::before { content:""; position:absolute; inset:0; background:color-mix(in srgb, var(--coal) 55%, var(--bg)); clip-path:polygon(0 30%, 12% 0, 88% 0, 100% 50%, 88% 100%, 12% 100%, 0 70%); }
+.convoy::after { content:""; position:absolute; left:20%; right:20%; top:42%; height:4px; background:var(--coal); }
+
+.orb { position:absolute; width:16px; height:16px; border-radius:50%;
+  background:radial-gradient(circle at 40% 40%, #fff 0 20%, var(--energy) 55%);
+  box-shadow:0 0 10px 3px color-mix(in srgb, var(--energy) 70%, transparent), 0 0 24px color-mix(in srgb, var(--energy) 35%, transparent); }
+
+.asteroid { position:absolute; width:70px; height:58px; border-radius:46% 54% 42% 58% / 55% 40% 60% 45%;
+  background:radial-gradient(circle at 35% 35%, color-mix(in srgb, var(--hazard) 85%, #fff), var(--hazard) 45%, color-mix(in srgb, var(--hazard) 50%, #000));
+  box-shadow: inset 4px 4px 0 -1px var(--rim), inset 0 0 0 1px color-mix(in srgb, var(--rim) 40%, transparent), 0 0 6px color-mix(in srgb, var(--rim) 25%, transparent);
+  transform:rotate(-14deg); }
+.asteroid::before { content:""; position:absolute; left:46%; top:52%; width:14px; height:10px; border-radius:50%; background:color-mix(in srgb, var(--hazard) 55%, #000); }
+
+/* ---------- dialogue sample ---------- */
+.dlg-scene { position:relative; height:240px; border-radius:4px; overflow:hidden; border:1px solid var(--border);
+  background:radial-gradient(ellipse 60% 60% at 50% 40%, var(--nebula1), transparent 70%), var(--bg); }
+.dlg-scene .stars { opacity:.8; }
+.dlg-scene .dim { position:absolute; inset:0; background:rgba(0,0,0,0.55); }
+.dlg {
+  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:560px; display:flex; gap:14px; padding:16px;
+  background:var(--surface); border:1px solid var(--border); border-top:2px solid var(--tarek); border-radius:6px;
+  box-shadow:0 0 24px color-mix(in srgb, var(--tarek) 15%, transparent);
+}
+.dlg .portrait { width:76px; height:76px; }
+.dlg .name { font-size:13px; }
+.dlg .line { font-size:16px; line-height:1.45; margin-top:6px; }
+.dlg .cue { position:absolute; right:14px; bottom:10px; font-size:11px; letter-spacing:.14em; color:var(--muted); }
+</style>
+</head>
+<body>
+
+<div class="page-title">DEFECTOR - Neon Colour Themes (set 1)</div>
+<div class="page-sub">Three palettes, dark mode only. Same layout and roles in each; only the colours change. Hex values are in the &lt;style&gt; comment block for each theme. Preview uses system fonts; the game uses Kenney Future.</div>
+
+<!-- ======================================================= THEME A ======================================================= -->
+<section class="theme theme-a">
+  <h2 style="color:var(--coal); text-shadow:0 0 12px var(--coal)">A - Cold Neon</h2>
+  <p class="register">Icy, clinical, high-voltage: crisp cyan against hot magenta. Clean arcade energy with sharp contrast.</p>
+
+  <h3>Tokens</h3>
+  <div class="chips">
+    <div class="chip"><span class="sw" style="background:#05070F"></span><div><div class="role">background</div><div class="hex">#05070F</div></div></div>
+    <div class="chip"><span class="sw" style="background:rgba(10,18,34,0.85)"></span><div><div class="role">surfaceAlt</div><div class="hex">#0A1222 @85%</div></div></div>
+    <div class="chip"><span class="sw" style="background:#2A3B5C"></span><div><div class="role">border</div><div class="hex">#2A3B5C</div></div></div>
+    <div class="chip"><span class="sw" style="background:#E8F4FF"></span><div><div class="role">text</div><div class="hex">#E8F4FF</div></div></div>
+    <div class="chip"><span class="sw" style="background:#93A7C2"></span><div><div class="role">textMuted</div><div class="hex">#93A7C2</div></div></div>
+    <div class="chip"><span class="sw" style="background:#22E6FF; box-shadow:0 0 8px #22E6FF"></span><div><div class="role">coalition</div><div class="hex">#22E6FF</div></div></div>
+    <div class="chip"><span class="sw" style="background:#FF2BD6; box-shadow:0 0 8px #FF2BD6"></span><div><div class="role">enemy</div><div class="hex">#FF2BD6</div></div></div>
+    <div class="chip"><span class="sw" style="background:#FFD23F; box-shadow:0 0 8px #FFD23F"></span><div><div class="role">energy</div><div class="hex">#FFD23F</div></div></div>
+    <div class="chip"><span class="sw" style="background:#7A6E62"></span><div><div class="role">hazard</div><div class="hex">#7A6E62</div></div></div>
+    <div class="chip"><span class="sw" style="background:#C9D8E8"></span><div><div class="role">hazardRim</div><div class="hex">#C9D8E8</div></div></div>
+    <div class="chip"><span class="sw" style="background:#FF4766"></span><div><div class="role">heart</div><div class="hex">#FF4766</div></div></div>
+    <div class="chip"><span class="sw" style="background:#2B3348"></span><div><div class="role">heartEmpty</div><div class="hex">#2B3348</div></div></div>
+    <div class="chip"><span class="sw" style="background:#FF1F4B"></span><div><div class="role">danger</div><div class="hex">#FF1F4B</div></div></div>
+    <div class="chip"><span class="sw" style="background:#FF6AE3"></span><div><div class="role">isolde</div><div class="hex">#FF6AE3</div></div></div>
+    <div class="chip"><span class="sw" style="background:#3DF2FF"></span><div><div class="role">tarek</div><div class="hex">#3DF2FF</div></div></div>
+    <div class="chip"><span class="sw" style="background:#7CFFB2"></span><div><div class="role">ryn</div><div class="hex">#7CFFB2</div></div></div>
+  </div>
+  <div class="tags">
+    <span class="tag" style="color:var(--isolde)">ISOLDE</span>
+    <span class="tag" style="color:var(--tarek)">TAREK HOLT</span>
+    <span class="tag" style="color:var(--ryn)">RYN</span>
+  </div>
+
+  <h3>In-game HUD (960 x 540)</h3>
+  <div class="hud-wrap"><div class="hud">
+    <div class="stars"></div>
+
+    <div class="interrupt">
+      <div class="portrait" style="color:var(--isolde)"></div>
+      <div><div class="name" style="color:var(--isolde)">ISOLDE</div><div class="line">Still running, General?</div></div>
+    </div>
+
+    <div class="wave"><div class="lbl">WAVE 3</div>
+      <div class="segs"><div class="seg"><i style="width:100%"></i></div><div class="seg"><i style="width:100%"></i></div><div class="seg"><i style="width:60%"></i></div><div class="seg"></div><div class="seg"></div></div>
+    </div>
+
+    <div class="stats">
+      <div class="hearts"><span class="h-full">&#9829;</span><span class="h-full">&#9829;</span><span class="h-full">&#9829;</span><span class="h-full">&#9829;</span><span class="h-empty">&#9829;</span></div>
+      <div class="bar-lbl"><span>ENERGY</span><span style="color:var(--energy)">60/100</span></div>
+      <div class="ebar"><div class="fill"></div><span class="tick" style="left:calc(50% - 1px)"></span><span class="tick" style="right:-1px"></span></div>
+      <div class="bar-lbl"><span>CONVOY</span><span>70%</span></div>
+      <div class="cbar"><i></i></div>
+    </div>
+
+    <div class="ship enemy-ship" style="left:300px; top:110px"></div>
+    <div class="ship enemy-ship" style="left:460px; top:90px"></div>
+    <div class="ship enemy-ship" style="left:620px; top:120px"></div>
+    <div class="ship enemy-ship" style="left:380px; top:170px; transform:scale(.8)"></div>
+    <div class="bullet" style="left:316px; top:160px"></div>
+    <div class="bullet" style="left:318px; top:200px"></div>
+    <div class="bullet round" style="left:475px; top:150px"></div>
+    <div class="bullet" style="left:636px; top:175px"></div>
+    <div class="bullet round" style="left:560px; top:260px"></div>
+    <div class="bullet" style="left:395px; top:230px"></div>
+
+    <div class="asteroid" style="left:740px; top:250px"></div>
+    <div class="orb" style="left:250px; top:300px"></div>
+    <div class="orb" style="left:600px; top:340px"></div>
+
+    <div class="ship convoy" style="left:90px; top:400px"></div>
+
+    <div class="pshot" style="left:477px; top:330px"></div>
+    <div class="pshot" style="left:477px; top:290px"></div>
+    <div class="ship player" style="left:456px; top:400px"></div>
+    <div class="thrust" style="left:474px; top:448px"></div>
+
+    <div class="hint"><b>RMB</b>Missile</div>
+  </div></div>
+
+  <h3>Story dialogue</h3>
+  <div class="dlg-scene"><div class="stars"></div><div class="dim"></div>
+    <div class="dlg">
+      <div class="portrait" style="color:var(--tarek)"></div>
+      <div><div class="name" style="color:var(--tarek)">TAREK HOLT</div><div class="line">Welcome to the Coalition, General. Let's get this convoy home.</div></div>
+      <div class="cue">click to continue &#9656;</div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================= THEME B ======================================================= -->
+<section class="theme theme-b">
+  <h2 style="color:var(--enemy); text-shadow:0 0 12px var(--enemy)">B - Synth Dusk</h2>
+  <p class="register">Warm retro-wave twilight: violet-tinged space, teal heroes, pink-red threats, sunset gold. Melancholic and cinematic.</p>
+
+  <h3>Tokens</h3>
+  <div class="chips">
+    <div class="chip"><span class="sw" style="background:#0E0820"></span><div><div class="role">background</div><div class="hex">#0E0820</div></div></div>
+    <div class="chip"><span class="sw" style="background:rgba(26,16,48,0.85)"></span><div><div class="role">surfaceAlt</div><div class="hex">#1A1030 @85%</div></div></div>
+    <div class="chip"><span class="sw" style="background:#4A3570"></span><div><div class="role">border</div><div class="hex">#4A3570</div></div></div>
+    <div class="chip"><span class="sw" style="background:#F4ECFF"></span><div><div class="role">text</div><div class="hex">#F4ECFF</div></div></div>
+    <div class="chip"><span class="sw" style="background:#ADA0C8"></span><div><div class="role">textMuted</div><div class="hex">#ADA0C8</div></div></div>
+    <div class="chip"><span class="sw" style="background:#2EE6C8; box-shadow:0 0 8px #2EE6C8"></span><div><div class="role">coalition</div><div class="hex">#2EE6C8</div></div></div>
+    <div class="chip"><span class="sw" style="background:#FF3D7F; box-shadow:0 0 8px #FF3D7F"></span><div><div class="role">enemy</div><div class="hex">#FF3D7F</div></div></div>
+    <div class="chip"><span class="sw" style="background:#FFB547; box-shadow:0 0 8px #FFB547"></span><div><div class="role">energy</div><div class="hex">#FFB547</div></div></div>
+    <div class="chip"><span class="sw" style="background:#6E5D58"></span><div><div class="role">hazard</div><div class="hex">#6E5D58</div></div></div>
+    <div class="chip"><span class="sw" style="background:#FFB3A0"></span><div><div class="role">hazardRim</div><div class="hex">#FFB3A0</div></div></div>
+    <div class="chip"><span class="sw" style="background:#FF6B5A"></span><div><div class="role">heart</div><div class="hex">#FF6B5A</div></div></div>
+    <div class="chip"><span class="sw" style="background:#3A2A52"></span><div><div class="role">heartEmpty</div><div class="hex">#3A2A52</div></div></div>
+    <div class="chip"><span class="sw" style="background:#FF2E4D"></span><div><div class="role">danger</div><div class="hex">#FF2E4D</div></div></div>
+    <div class="chip"><span class="sw" style="background:#FF7AB0"></span><div><div class="role">isolde</div><div class="hex">#FF7AB0</div></div></div>
+    <div class="chip"><span class="sw" style="background:#48F0D0"></span><div><div class="role">tarek</div><div class="hex">#48F0D0</div></div></div>
+    <div class="chip"><span class="sw" style="background:#8AB4FF"></span><div><div class="role">ryn</div><div class="hex">#8AB4FF</div></div></div>
+  </div>
+  <div class="tags">
+    <span class="tag" style="color:var(--isolde)">ISOLDE</span>
+    <span class="tag" style="color:var(--tarek)">TAREK HOLT</span>
+    <span class="tag" style="color:var(--ryn)">RYN</span>
+  </div>
+
+  <h3>In-game HUD (960 x 540)</h3>
+  <div class="hud-wrap"><div class="hud">
+    <div class="stars"></div>
+
+    <div class="interrupt">
+      <div class="portrait" style="color:var(--isolde)"></div>
+      <div><div class="name" style="color:var(--isolde)">ISOLDE</div><div class="line">Still running, General?</div></div>
+    </div>
+
+    <div class="wave"><div class="lbl">WAVE 3</div>
+      <div class="segs"><div class="seg"><i style="width:100%"></i></div><div class="seg"><i style="width:100%"></i></div><div class="seg"><i style="width:60%"></i></div><div class="seg"></div><div class="seg"></div></div>
+    </div>
+
+    <div class="stats">
+      <div class="hearts"><span class="h-full">&#9829;</span><span class="h-full">&#9829;</span><span class="h-full">&#9829;</span><span class="h-full">&#9829;</span><span class="h-empty">&#9829;</span></div>
+      <div class="bar-lbl"><span>ENERGY</span><span style="color:var(--energy)">60/100</span></div>
+      <div class="ebar"><div class="fill"></div><span class="tick" style="left:calc(50% - 1px)"></span><span class="tick" style="right:-1px"></span></div>
+      <div class="bar-lbl"><span>CONVOY</span><span>70%</span></div>
+      <div class="cbar"><i></i></div>
+    </div>
+
+    <div class="ship enemy-ship" style="left:300px; top:110px"></div>
+    <div class="ship enemy-ship" style="left:460px; top:90px"></div>
+    <div class="ship enemy-ship" style="left:620px; top:120px"></div>
+    <div class="ship enemy-ship" style="left:380px; top:170px; transform:scale(.8)"></div>
+    <div class="bullet" style="left:316px; top:160px"></div>
+    <div class="bullet" style="left:318px; top:200px"></div>
+    <div class="bullet round" style="left:475px; top:150px"></div>
+    <div class="bullet" style="left:636px; top:175px"></div>
+    <div class="bullet round" style="left:560px; top:260px"></div>
+    <div class="bullet" style="left:395px; top:230px"></div>
+
+    <div class="asteroid" style="left:740px; top:250px"></div>
+    <div class="orb" style="left:250px; top:300px"></div>
+    <div class="orb" style="left:600px; top:340px"></div>
+
+    <div class="ship convoy" style="left:90px; top:400px"></div>
+
+    <div class="pshot" style="left:477px; top:330px"></div>
+    <div class="pshot" style="left:477px; top:290px"></div>
+    <div class="ship player" style="left:456px; top:400px"></div>
+    <div class="thrust" style="left:474px; top:448px"></div>
+
+    <div class="hint"><b>RMB</b>Missile</div>
+  </div></div>
+
+  <h3>Story dialogue</h3>
+  <div class="dlg-scene"><div class="stars"></div><div class="dim"></div>
+    <div class="dlg">
+      <div class="portrait" style="color:var(--tarek)"></div>
+      <div><div class="name" style="color:var(--tarek)">TAREK HOLT</div><div class="line">Welcome to the Coalition, General. Let's get this convoy home.</div></div>
+      <div class="cue">click to continue &#9656;</div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================= THEME C ======================================================= -->
+<section class="theme theme-c">
+  <h2 style="color:var(--energy); text-shadow:0 0 10px color-mix(in srgb, var(--energy) 60%, transparent)">C - Military Signal</h2>
+  <p class="register">Gritty tactical readout: muted teal friendlies, harsh warning-red hostiles, amber power. Feels like a war-room scope, not an arcade.</p>
+
+  <h3>Tokens</h3>
+  <div class="chips">
+    <div class="chip"><span class="sw" style="background:#080B0A"></span><div><div class="role">background</div><div class="hex">#080B0A</div></div></div>
+    <div class="chip"><span class="sw" style="background:rgba(16,22,20,0.88)"></span><div><div class="role">surfaceAlt</div><div class="hex">#101614 @88%</div></div></div>
+    <div class="chip"><span class="sw" style="background:#3A4A44"></span><div><div class="role">border</div><div class="hex">#3A4A44</div></div></div>
+    <div class="chip"><span class="sw" style="background:#E3E8E2"></span><div><div class="role">text</div><div class="hex">#E3E8E2</div></div></div>
+    <div class="chip"><span class="sw" style="background:#96A29B"></span><div><div class="role">textMuted</div><div class="hex">#96A29B</div></div></div>
+    <div class="chip"><span class="sw" style="background:#4FC7B0; box-shadow:0 0 8px #4FC7B0"></span><div><div class="role">coalition</div><div class="hex">#4FC7B0</div></div></div>
+    <div class="chip"><span class="sw" style="background:#FF3326; box-shadow:0 0 8px #FF3326"></span><div><div class="role">enemy</div><div class="hex">#FF3326</div></div></div>
+    <div class="chip"><span class="sw" style="background:#F2A900; box-shadow:0 0 8px #F2A900"></span><div><div class="role">energy</div><div class="hex">#F2A900</div></div></div>
+    <div class="chip"><span class="sw" style="background:#6B625A"></span><div><div class="role">hazard</div><div class="hex">#6B625A</div></div></div>
+    <div class="chip"><span class="sw" style="background:#B8A68C"></span><div><div class="role">hazardRim</div><div class="hex">#B8A68C</div></div></div>
+    <div class="chip"><span class="sw" style="background:#E8503A"></span><div><div class="role">heart</div><div class="hex">#E8503A</div></div></div>
+    <div class="chip"><span class="sw" style="background:#2C3330"></span><div><div class="role">heartEmpty</div><div class="hex">#2C3330</div></div></div>
+    <div class="chip"><span class="sw" style="background:#FF1A0F"></span><div><div class="role">danger</div><div class="hex">#FF1A0F</div></div></div>
+    <div class="chip"><span class="sw" style="background:#FF6A55"></span><div><div class="role">isolde</div><div class="hex">#FF6A55</div></div></div>
+    <div class="chip"><span class="sw" style="background:#6FD8C4"></span><div><div class="role">tarek</div><div class="hex">#6FD8C4</div></div></div>
+    <div class="chip"><span class="sw" style="background:#B8D86A"></span><div><div class="role">ryn</div><div class="hex">#B8D86A</div></div></div>
+  </div>
+  <div class="tags">
+    <span class="tag" style="color:var(--isolde)">ISOLDE</span>
+    <span class="tag" style="color:var(--tarek)">TAREK HOLT</span>
+    <span class="tag" style="color:var(--ryn)">RYN</span>
+  </div>
+
+  <h3>In-game HUD (960 x 540)</h3>
+  <div class="hud-wrap"><div class="hud">
+    <div class="stars"></div>
+
+    <div class="interrupt">
+      <div class="portrait" style="color:var(--isolde)"></div>
+      <div><div class="name" style="color:var(--isolde)">ISOLDE</div><div class="line">Still running, General?</div></div>
+    </div>
+
+    <div class="wave"><div class="lbl">WAVE 3</div>
+      <div class="segs"><div class="seg"><i style="width:100%"></i></div><div class="seg"><i style="width:100%"></i></div><div class="seg"><i style="width:60%"></i></div><div class="seg"></div><div class="seg"></div></div>
+    </div>
+
+    <div class="stats">
+      <div class="hearts"><span class="h-full">&#9829;</span><span class="h-full">&#9829;</span><span class="h-full">&#9829;</span><span class="h-full">&#9829;</span><span class="h-empty">&#9829;</span></div>
+      <div class="bar-lbl"><span>ENERGY</span><span style="color:var(--energy)">60/100</span></div>
+      <div class="ebar"><div class="fill"></div><span class="tick" style="left:calc(50% - 1px)"></span><span class="tick" style="right:-1px"></span></div>
+      <div class="bar-lbl"><span>CONVOY</span><span>70%</span></div>
+      <div class="cbar"><i></i></div>
+    </div>
+
+    <div class="ship enemy-ship" style="left:300px; top:110px"></div>
+    <div class="ship enemy-ship" style="left:460px; top:90px"></div>
+    <div class="ship enemy-ship" style="left:620px; top:120px"></div>
+    <div class="ship enemy-ship" style="left:380px; top:170px; transform:scale(.8)"></div>
+    <div class="bullet" style="left:316px; top:160px"></div>
+    <div class="bullet" style="left:318px; top:200px"></div>
+    <div class="bullet round" style="left:475px; top:150px"></div>
+    <div class="bullet" style="left:636px; top:175px"></div>
+    <div class="bullet round" style="left:560px; top:260px"></div>
+    <div class="bullet" style="left:395px; top:230px"></div>
+
+    <div class="asteroid" style="left:740px; top:250px"></div>
+    <div class="orb" style="left:250px; top:300px"></div>
+    <div class="orb" style="left:600px; top:340px"></div>
+
+    <div class="ship convoy" style="left:90px; top:400px"></div>
+
+    <div class="pshot" style="left:477px; top:330px"></div>
+    <div class="pshot" style="left:477px; top:290px"></div>
+    <div class="ship player" style="left:456px; top:400px"></div>
+    <div class="thrust" style="left:474px; top:448px"></div>
+
+    <div class="hint"><b>RMB</b>Missile</div>
+  </div></div>
+
+  <h3>Story dialogue</h3>
+  <div class="dlg-scene"><div class="stars"></div><div class="dim"></div>
+    <div class="dlg">
+      <div class="portrait" style="color:var(--tarek)"></div>
+      <div><div class="name" style="color:var(--tarek)">TAREK HOLT</div><div class="line">Welcome to the Coalition, General. Let's get this convoy home.</div></div>
+      <div class="cue">click to continue &#9656;</div>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>

@@ -1,0 +1,16 @@
+.bmad-loop/runs/
+.bmad-loop/cache/
+.bmad-loop/policy.toml
+_bmad/render/
+
+# Personal / machine-specific
+_bmad/config.user.toml
+_bmad/custom/*.user.toml
+.claude/settings.local.json
+
+# Godot (once the game/ project exists)
+game/.godot/
+game/export/
+*.tmp
+*.zip
+LOCAL.md
