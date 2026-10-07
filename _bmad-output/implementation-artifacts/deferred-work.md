@@ -197,7 +197,9 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 1; owner Developer; sprint-status status open)
-status: open
+status: done 2026-10-07
+resolution: resolved by sweep bundle dw-fun-gate-waiver-record
+resolution-undo: 4ac44219425cdb9e012adc6681c518f58918ec02d01db03dabc6577fbbf06cb3 2026-10-07 7374617475733a206f70656e
 
 ### DW-23: Schedule the decided DW-10 (laser mask 84, equality test, Story 1.3 AC fix) and DW-9 (bench to NFR peak) into stories (1.8/1.10, a pre-Epic-2 story, or 8.3)
 origin: retro action item epic-1-retro-item-11-schedule-the-decided-dw-10-laser-mask-84

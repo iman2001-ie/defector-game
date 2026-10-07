@@ -42,7 +42,7 @@ Planning is part of the 20 h total. The must-haves are budgeted to about 13 h; t
 5. **Size-scaled feedback:** explosion scale, screen shake, and hit-stop follow the GDD feedback table.
 6. **Data-driven tuning:** all values above are loaded from one tuning data file.
 
-**Done when:** a 2-minute sandbox with a respawning Wasp formation and asteroids passes the core-hypothesis question: the developer, plus at least 1 colleague, answers "yes" to "Was the shooting fun on its own?"
+**Done when:** a 2-minute sandbox with a respawning Wasp formation and asteroids passes the core-hypothesis question: the developer answers "yes" to "Was the shooting fun on its own?" (Amended 2026-10-07, decision #34: the colleague requirement is waived for Epic 1 only.)
 
 ---
 

@@ -323,7 +323,9 @@ Anyone can download DEFECTOR from GitHub and play a polished, stable build with 
 
 ## Epic 1: Core Feel Prototype
 
-The player can fly the ship with the mouse, fire lasers and missiles, and blast Wasps and asteroids in a sandbox where every impact scales with size. Done when the developer and at least one colleague answer "yes" to "Was the shooting fun on its own?"
+The player can fly the ship with the mouse, fire lasers and missiles, and blast Wasps and asteroids in a sandbox where every impact scales with size. Done when the developer answers "yes" to "Was the shooting fun on its own?"
+
+> **Amended 2026-10-07 (decision #34):** the colleague requirement is waived for Epic 1 only; the developer playtest (#28) is enough.
 
 ### Story 1.1: Set Up the Godot Project and Data-Driven Foundation
 
@@ -515,6 +517,8 @@ So that I know the core loop is fun and fast enough before building anything on 
 
 **Tier / Covers:** MUST · NFR1, NFR7 · Architecture: Debug Tools (F1, F5), ADR-003, E1 go/no-go gate
 
+> **Amended 2026-10-07 (decision #34):** the fun-gate AC no longer requires a colleague; for Epic 1 the developer playtest (#28) is enough.
+
 **Acceptance Criteria:**
 
 **Given** a debug build
@@ -533,8 +537,8 @@ So that I know the core loop is fun and fast enough before building anything on 
 **And** the renderer decision is recorded in the GDD decision log
 
 **Given** a 2-minute sandbox session with a respawning Wasp formation and asteroids
-**When** the developer and at least 1 colleague play it
-**Then** both answer "yes" to "Was the shooting fun on its own?" (the go/no-go gate)
+**When** the developer plays it
+**Then** they answer "yes" to "Was the shooting fun on its own?" (the go/no-go gate)
 **And** any tuning changes made are recorded in `decision-log.md`
 
 **Given** the Godot 4.7.2 export templates are installed and a minimal Windows Desktop preset exists (with the `data/*.json` non-resource filter)

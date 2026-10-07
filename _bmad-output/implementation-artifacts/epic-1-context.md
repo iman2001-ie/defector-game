@@ -4,7 +4,7 @@
 
 ## Goal
 
-Prove the core hypothesis before any story work: the player flies a neon ship locked to the mouse cursor, fires lasers and straight-up splash missiles, and blasts Wasps and asteroids in a sandbox where every impact scales with size. The epic also lays the data-driven Godot foundation (autoloads, Config, collision layers, input actions, GUT) that every later epic builds on. It is the go/no-go fun gate: done when the developer and at least one colleague say "yes" to "Was the shooting fun on its own?" The gate has passed. A playtest redesign then added Stories 1.8-1.10, which lock the ship to the cursor, fire the missile straight up, brighten the glow, and bring the architecture doc in line with the code. All three run before Epic 2.
+Prove the core hypothesis before any story work: the player flies a neon ship locked to the mouse cursor, fires lasers and straight-up splash missiles, and blasts Wasps and asteroids in a sandbox where every impact scales with size. The epic also lays the data-driven Godot foundation (autoloads, Config, collision layers, input actions, GUT) that every later epic builds on. It is the go/no-go fun gate: done when the developer says "yes" to "Was the shooting fun on its own?" (amended 2026-10-07 per GDD decision #34: the colleague requirement is waived for Epic 1). The gate has passed. A playtest redesign then added Stories 1.8-1.10, which lock the ship to the cursor, fire the missile straight up, brighten the glow, and bring the architecture doc in line with the code. All three run before Epic 2.
 
 ## Stories
 
