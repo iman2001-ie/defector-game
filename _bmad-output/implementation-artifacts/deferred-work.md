@@ -171,3 +171,11 @@ location: game/entities/player/player.gd _on_resumed / step_lock
 source_spec: `spec-1-8-lock-the-ship-to-the-cursor-and-fire-missiles-straight-up.md`
 reason: Unverified (maybe-false). Depends on whether Viewport.get_mouse_position() queries the OS cursor (immediate after SetCursorPos) or the last motion event. Settle with a live pause/resume test once Story 4.4 adds the pause menu; tests only use a recorder Callable.
 status: open
+
+### DW-21: The bench's final `Stress bench:` log line is often missing from stdout and godot.log although the run completes and exits 0.
+origin: spec-deferred 15ca91c1d4c8
+location: game/ui/debug/debug_tools.gd _finish_bench
+source_spec: `spec-1-9-make-laser-bolts-and-the-neon-glow-brighter.md`
+severity: low
+reason: Observed by the Story 1.9 implementer across several `-- --bench=20` runs (most runs without --verbose, one of three with it). Looks like an output-flush race between Log and get_tree().quit() in DebugTools._finish_bench. Pre-existing (Story 1.7 code); settle by flushing the log before quit and re-running the bench several times.
+status: open

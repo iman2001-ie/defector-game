@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: "2026-10-07 09:00"
-last_updated: 10-07-2026 14:49
+last_updated: 2026-10-07
 project: defector-game
 project_key: NOKEY
 tracking_system: file-system
@@ -50,8 +50,8 @@ development_status:
   1-5-fire-aimed-missiles-with-splash-damage: done
   1-6-feel-every-impact-scale-with-size: done
   1-7-validate-the-core-feel-in-a-stress-tested-sandbox: done
-  1-8-lock-the-ship-to-the-cursor-and-fire-missiles-straight-up: awaiting-operator
-  1-9-make-laser-bolts-and-the-neon-glow-brighter: backlog
+  1-8-lock-the-ship-to-the-cursor-and-fire-missiles-straight-up: done
+  1-9-make-laser-bolts-and-the-neon-glow-brighter: awaiting-operator
   1-10-reconcile-the-architecture-with-the-as-built: backlog
   epic-1-retrospective: done
   epic-2: backlog

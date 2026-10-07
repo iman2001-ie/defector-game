@@ -12,6 +12,7 @@ const TEMP_FLAGS: String = "user://test_config_flags.json"
 const SECTIONS: Array[String] = [
 	"player", "weapons", "abilities", "energy", "drops", "enemies", "boss",
 	"asteroids", "convoy", "allies", "waves", "comms", "feedback", "damage",
+	"render",
 ]
 const FLAG_DEFAULTS: Dictionary = {
 	"surrender_prompts": true,
@@ -123,6 +124,11 @@ func test_mandatory_key_paths() -> void:
 	assert_eq(Config.int_("boss.final_choice_hp"), 50)
 	assert_gt(Config.num("player.missile_ring.radius_px"), 0.0, "player.missile_ring.radius_px")
 	assert_gt(Config.num("player.missile_ring.stroke_px"), 0.0, "player.missile_ring.stroke_px")
+	assert_gt(Config.num("render.glow.intensity"), 0.0, "render.glow.intensity")
+	assert_gt(Config.num("render.glow.bloom"), 0.0, "render.glow.bloom")
+	assert_gt(Config.num("render.glow.hdr_threshold"), 0.0, "render.glow.hdr_threshold")
+	assert_gt(Config.num("weapons.laser.glow_energy"), 1.0, "weapons.laser.glow_energy (HDR)")
+	assert_gt(Config.num("weapons.laser.halo_energy"), 0.0, "weapons.laser.halo_energy")
 	for type_id: String in ["wasp", "lancer", "needle", "bastion", "maul", "hunter_wasp"]:
 		assert_gt(Config.int_("enemies.%s.hp" % type_id), 0, "enemies.%s.hp" % type_id)
 		assert_false(Config.section("drops.%s" % type_id).is_empty(), "drops.%s" % type_id)

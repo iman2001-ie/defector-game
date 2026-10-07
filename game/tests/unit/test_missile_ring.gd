@@ -29,8 +29,10 @@ func test_radius_and_stroke_from_config() -> void:
 	var ring: MissileRing = _make_ring()
 	assert_eq(ring.radius_px, Config.num("player.missile_ring.radius_px"))
 	assert_eq(ring.stroke_px, Config.num("player.missile_ring.stroke_px"))
-	assert_eq(ring.radius_px, 36.0, "first pass")
-	assert_eq(ring.stroke_px, 5.0, "first pass")
+	# Operator-tuned data (first pass was 36 / 5); only the UX rules are fixed.
+	assert_gt(ring.stroke_px, 0.0, "visible stroke")
+	assert_true(Config.num("player.missile_ring.radius_px") <= Config.num("player.sprite_px") / 2.0,
+		"tuned radius within the ship's half-size (no clamp needed)")
 
 
 func test_oversized_radius_warns_and_clamps() -> void:

@@ -2,7 +2,7 @@
 title: 'Story 1.8: Lock the Ship to the Cursor and Fire Missiles Straight Up'
 type: 'feature'
 created: '2026-10-07'
-status: 'awaiting-operator'
+status: done
 baseline_revision: 'd0f1fe715ed7970aebaa46baf5c6ab3bd3186906'
 review_loop_iteration: 0
 followup_review_recommended: true
@@ -188,3 +188,13 @@ Status: awaiting-operator
 **Residual risks:**
 - The resume and edge warps are not exercised against a real cursor (deferred item, and an operator action).
 - Ring readability and the feel of the lock need a human (see `operator_actions`).
+
+## Operator Confirmation
+
+Confirmed 2026-10-07: the external actions this story owed were carried out.
+
+- Run the sandbox (`<GODOT_DIR>/Godot_v4.7.2-stable_win64.exe --path game`), fire lasers and missiles over explosions, and confirm the missile cooldown ring reads clearly over the cyan hull; tune `player.missile_ring.radius_px` / `stroke_px` in data/tuning.json if needed.
+- In the same sandbox run, confirm the ship sits exactly on the cursor with no lag, that pushing the mouse above the player zone holds the ship on the edge, and that the first downward movement moves the ship at once (no dead travel).
+- If your display is not 1920x1080, repeat the zone-edge check there and confirm the ship does not jitter on the edge (WARP_EPS_PX tolerance).
+
+_Appended by the bmad-loop orchestrator (`bmad-loop confirm`, #335): a human confirmed these external actions out of band, and the story was advanced from `awaiting-operator` to `done`._

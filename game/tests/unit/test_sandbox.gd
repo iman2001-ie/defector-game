@@ -15,6 +15,7 @@ func before_each() -> void:
 
 func after_each() -> void:
 	_sandbox = null
+	Config.load_data()
 	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	PauseArbiter.clear()
 
@@ -228,6 +229,21 @@ func test_world_environment_glow() -> void:
 	assert_eq(env.background_mode, Environment.BG_CANVAS, "canvas background")
 	assert_true(env.glow_enabled, "glow on")
 	assert_lt(env.glow_hdr_threshold, 1.0, "full-bright neon blooms")
+	# Story 1.9: the three values come from tuning.json -> render.glow.
+	assert_almost_eq(env.glow_intensity, Config.num("render.glow.intensity"), 0.0001, "intensity from data")
+	assert_almost_eq(env.glow_bloom, Config.num("render.glow.bloom"), 0.0001, "bloom from data")
+	assert_almost_eq(env.glow_hdr_threshold, Config.num("render.glow.hdr_threshold"), 0.0001, "threshold from data")
+
+
+## F5 path: Config.reload() then restart_scene re-instantiates the scene root,
+## whose _ready() re-applies render.glow.
+func test_world_environment_glow_follows_changed_data() -> void:
+	(Config.tuning["render"]["glow"] as Dictionary)["intensity"] = 1.3
+	_sandbox.queue_free()
+	_sandbox = SANDBOX_SCENE.instantiate() as Node2D
+	add_child_autofree(_sandbox)
+	var env: Environment = (_sandbox.get_node("WorldEnvironment") as WorldEnvironment).environment
+	assert_almost_eq(env.glow_intensity, 1.3, 0.0001, "env intensity follows the new data")
 
 
 func test_normal_sandbox_is_not_stress() -> void:

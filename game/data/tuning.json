@@ -7,14 +7,16 @@
 		"hearts": 5,
 		"iframes_s": 1.2,
 		"iframe_flicker_hz": 10,
-		"missile_ring": { "radius_px": 36, "stroke_px": 5 }
+		"missile_ring": { "radius_px": 16, "stroke_px": 4 }
 	},
 	"weapons": {
 		"laser": {
 			"damage": 1,
 			"rate_per_s": 10,
 			"speed_px_s": 1800,
-			"sfx_pitch_jitter": 0.05
+			"sfx_pitch_jitter": 0.05,
+			"glow_energy": 2.5,
+			"halo_energy": 1.0
 		},
 		"missile": {
 			"damage": 8,
@@ -240,5 +242,8 @@
 		"convoy_aimed": 5,
 		"convoy_stray": 2,
 		"convoy_maul": 10
+	},
+	"render": {
+		"glow": { "intensity": 1.0, "bloom": 0.08, "hdr_threshold": 0.55 }
 	}
 }
