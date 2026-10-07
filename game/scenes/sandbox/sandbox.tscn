@@ -1,10 +1,18 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scenes/sandbox/sandbox.gd" id="1_sandbox"]
 [ext_resource type="PackedScene" path="res://entities/player/player.tscn" id="2_player"]
 [ext_resource type="PackedScene" path="res://entities/player/reticle.tscn" id="3_reticle"]
 [ext_resource type="Script" path="res://core/spawner.gd" id="4_spawner"]
 [ext_resource type="Script" path="res://systems/camera/shake_camera.gd" id="5_camera"]
+[ext_resource type="PackedScene" path="res://ui/debug/debug_tools.tscn" id="6_debug_tools"]
+
+[sub_resource type="Environment" id="Environment_glow"]
+background_mode = 3
+glow_enabled = true
+glow_intensity = 0.8
+glow_bloom = 0.05
+glow_hdr_threshold = 0.6
 
 [node name="Sandbox" type="Node2D"]
 script = ExtResource("1_sandbox")
@@ -35,3 +43,11 @@ world = NodePath("../World")
 [node name="ShakeCamera" type="Camera2D" parent="."]
 position = Vector2(960, 540)
 script = ExtResource("5_camera")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_glow")
+
+[node name="Overlay" type="CanvasLayer" parent="."]
+layer = 30
+
+[node name="DebugTools" parent="Overlay" instance=ExtResource("6_debug_tools")]

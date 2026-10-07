@@ -1,6 +1,8 @@
 extends Node2D
 ## Debug sandbox (temporary main scene): fly the ship, fire the laser and shoot
 ## a respawning Wasp formation while random asteroids drift through.
+## Stress mode (debug builds, `-- --stress` or `-- --bench=<s>`) replaces the
+## formation with a 40-Wasp grid that refills each slot as its Wasp dies.
 
 # Debug-scene parameters, not GDD numbers (see Story 1.4 design notes).
 const FORMATION_COLUMNS: int = 4
@@ -8,11 +10,18 @@ const FORMATION_ROWS: int = 2
 const FORMATION_SPACING: Vector2 = Vector2(160, 120)
 const FORMATION_TOP_Y: float = 160.0
 const ASTEROID_INTERVAL_S: float = 3.0
+# Stress grid (NFR1 stress count 10 x 4 = 40), inside the enemy zone y 120-432.
+const STRESS_COLUMNS: int = 10
+const STRESS_ROWS: int = 4
+const STRESS_SPACING: Vector2 = Vector2(160, 72)
+const STRESS_TOP_Y: float = 150.0
 ## Absorbs float drift when summing 1/60 s ticks up to the interval.
 const _TIMER_EPSILON: float = 0.0001
 
 ## Asteroid size and x position source; tests seed it.
 var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+## Set in _ready from the debug user args; tests may set it before add_child.
+var stress_mode: bool = false
 
 var _wasps_alive: int = 0
 var _asteroid_elapsed: float = 0.0
@@ -26,7 +35,13 @@ func _ready() -> void:
 	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_CONFINED_HIDDEN)
 	_player.set_spawner(_spawner)
 	_playfield_width = float(ProjectSettings.get_setting("display/window/size/viewport_width"))
-	spawn_formation()
+	if OS.is_debug_build() and DebugArgs.parse(OS.get_cmdline_user_args()).stress:
+		stress_mode = true
+	if stress_mode:
+		spawn_stress_grid()
+		Log.info("scene", "Sandbox stress mode: %d Wasps" % (STRESS_COLUMNS * STRESS_ROWS))
+	else:
+		spawn_formation()
 	Log.info("scene", "Sandbox ready")
 	# One explosion per tier off-screen, so the first real impact doesn't hitch.
 	Feedback.prewarm()
@@ -56,6 +71,29 @@ func spawn_formation() -> void:
 		_wasps_alive += 1
 
 
+## The stress grid slots: STRESS_COLUMNS x STRESS_ROWS centred on x, from STRESS_TOP_Y.
+func stress_slots() -> Array[Vector2]:
+	var slots: Array[Vector2] = []
+	var centre_x: float = _playfield_width / 2.0
+	for row: int in STRESS_ROWS:
+		for col: int in STRESS_COLUMNS:
+			var x: float = centre_x + (col - (STRESS_COLUMNS - 1) / 2.0) * STRESS_SPACING.x
+			slots.append(Vector2(x, STRESS_TOP_Y + row * STRESS_SPACING.y))
+	return slots
+
+
+func spawn_stress_grid() -> void:
+	for slot: Vector2 in stress_slots():
+		_spawn_stress_wasp(slot)
+
+
+func _spawn_stress_wasp(slot: Vector2) -> void:
+	var wasp: Enemy = _spawner.spawn_enemy(&"wasp", {"position": slot})
+	if wasp == null:
+		return
+	wasp.resolved.connect(_on_stress_wasp_resolved.bind(slot))
+
+
 ## Spawns one random asteroid every ASTEROID_INTERVAL_S (the first after one interval).
 func step_asteroids(delta: float) -> void:
 	_asteroid_elapsed += delta
@@ -76,3 +114,8 @@ func _on_wasp_resolved() -> void:
 	if _wasps_alive == 0:
 		# resolved can fire inside a physics callback, where adding areas is not allowed.
 		spawn_formation.call_deferred()
+
+
+func _on_stress_wasp_resolved(slot: Vector2) -> void:
+	# resolved can fire inside a physics callback, where adding areas is not allowed.
+	_spawn_stress_wasp.call_deferred(slot)

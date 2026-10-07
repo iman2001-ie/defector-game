@@ -194,3 +194,83 @@ func test_paused_sandbox_spawns_no_asteroid() -> void:
 	PauseArbiter.pop(&"menu")
 	await wait_physics_frames(10)
 	assert_eq(asteroids.get_child_count(), 1, "timer resumes once unpaused")
+
+
+# --- Overlay, glow and stress mode (Story 1.7) ---------------------------------
+
+func test_overlay_layer_holds_debug_tools() -> void:
+	var overlay: CanvasLayer = _sandbox.get_node_or_null("Overlay") as CanvasLayer
+	assert_not_null(overlay, "Sandbox/Overlay is a CanvasLayer")
+	if overlay == null:
+		return
+	assert_eq(overlay.layer, 30, "Overlay layer 30")
+	assert_true(overlay.get_node_or_null("DebugTools") is DebugTools, "Overlay/DebugTools")
+
+
+func test_overlay_text_counts_enemies() -> void:
+	var tools: DebugTools = _sandbox.get_node("Overlay/DebugTools") as DebugTools
+	tools.refresh_overlay()
+	var text: String = (tools.get_node("OverlayLabel") as Label).text
+	assert_string_contains(text, "FPS")
+	assert_string_contains(text, "frame ms")
+	assert_string_contains(text, "nodes")
+	assert_string_contains(text, "enemies 8")
+
+
+func test_world_environment_glow() -> void:
+	var env_node: WorldEnvironment = _sandbox.get_node_or_null("WorldEnvironment") as WorldEnvironment
+	assert_not_null(env_node, "Sandbox/WorldEnvironment")
+	if env_node == null:
+		return
+	var env: Environment = env_node.environment
+	assert_not_null(env, "has an Environment")
+	if env == null:
+		return
+	assert_eq(env.background_mode, Environment.BG_CANVAS, "canvas background")
+	assert_true(env.glow_enabled, "glow on")
+	assert_lt(env.glow_hdr_threshold, 1.0, "full-bright neon blooms")
+
+
+func test_normal_sandbox_is_not_stress() -> void:
+	assert_false(_sandbox.stress_mode, "no user args in tests")
+	assert_eq(_wasps().size(), 8, "8-Wasp formation")
+
+
+## A fresh sandbox in stress mode (replaces the one from before_each).
+func _stress_sandbox() -> Node2D:
+	_sandbox.queue_free()
+	_sandbox = SANDBOX_SCENE.instantiate() as Node2D
+	_sandbox.stress_mode = true
+	add_child_autofree(_sandbox)
+	return _sandbox
+
+
+func test_stress_grid_spawns_40_in_the_enemy_zone() -> void:
+	_stress_sandbox()
+	var wasps: Array[Enemy] = _wasps()
+	assert_eq(wasps.size(), 40, "40 Wasps")
+	for wasp: Enemy in wasps:
+		assert_between(wasp.global_position.x, 0.0, 1920.0, "x on screen")
+		assert_between(wasp.global_position.y, 120.0, 432.0, "y in the enemy zone")
+	var unique: Dictionary = {}
+	for pos: Vector2 in _positions(wasps):
+		unique[pos] = true
+	assert_eq(unique.size(), 40, "every slot distinct")
+
+
+func test_stress_refills_a_dead_wasp_at_its_slot() -> void:
+	_stress_sandbox()
+	var wasps: Array[Enemy] = _wasps()
+	var victim: Enemy = wasps[13]
+	var slot: Vector2 = victim.global_position
+	victim.apply_damage(3, null)
+	await wait_process_frames(2)
+	var fresh: Array[Enemy] = _wasps()
+	assert_eq(fresh.size(), 40, "40 alive again")
+	var refilled: Array[Enemy] = []
+	for wasp: Enemy in fresh:
+		if not wasps.has(wasp):
+			refilled.append(wasp)
+	assert_eq(refilled.size(), 1, "exactly one new Wasp")
+	if refilled.size() == 1:
+		assert_eq(refilled[0].global_position, slot, "at the dead Wasp's slot")

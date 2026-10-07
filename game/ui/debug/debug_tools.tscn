@@ -1,0 +1,29 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://ui/debug/debug_tools.gd" id="1_debug_tools"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_overlay"]
+content_margin_left = 12.0
+content_margin_top = 8.0
+content_margin_right = 12.0
+content_margin_bottom = 8.0
+bg_color = Color(0.039, 0.071, 0.133, 0.85)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[node name="DebugTools" type="Node"]
+process_mode = 3
+script = ExtResource("1_debug_tools")
+
+[node name="OverlayLabel" type="Label" parent="."]
+visible = false
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 368.0
+offset_bottom = 132.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.133, 0.902, 1, 1)
+theme_override_font_sizes/font_size = 20
+theme_override_styles/normal = SubResource("StyleBoxFlat_overlay")
