@@ -1332,7 +1332,9 @@ CLI export (optional, for repeatability). Run the import step first; on a fresh 
 AI agents use the **headless CLI loop** instead, which covers editing, error checking, tests, running and logs:
 
 ```bash
-# One-time, on a fresh clone: import the project (builds the class_name cache and imports the WAVs Audio preloads)
+# Import the project (builds the class_name cache and imports the WAVs Audio preloads).
+# Run on a fresh clone; re-run after adding class_name scripts or new imported assets, or when game/.godot/ is stale
+# (headless -s runs don't rescan the class cache)
 "<GODOT_DIR>/Godot_v4.7.2-stable_win64_console.exe" --headless --path game --import
 
 # Run all GUT tests headless

@@ -134,7 +134,9 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 1; owner Developer; sprint-status status open)
-status: open
+status: done 2026-10-07
+resolution: resolved by sweep bundle dw-agents-md-import-and-commit-format
+resolution-undo: 7ab49461c95cd205854bbcce2fdc0821b7f3fd449b8b0be9cd403df12563bc9f 2026-10-07 7374617475733a206f70656e
 decision: 2026-10-07 Amend AGENTS.md section 5 — Amend AGENTS.md section 5 to accept the bmad-loop commit subject format ('story <key>: ...') alongside the manual 'Story X.Y: summary' form. The operator separately corrects the epic-1 status in sprint-status.yaml.
 
 ### DW-16: The new docs call the --import step "one-time", but an existing checkout also needs it re-run after adding class_name scripts or new imported assets (or when game/.godot/ is stale).
@@ -143,7 +145,9 @@ location: AGENTS.md:29-30; _bmad-output/game-architecture.md:1232
 source_spec: `spec-dw-6-dw-12-gut-import-step-docs.md`
 severity: medium
 reason: Stories 1.2-1.5 each re-ran --import to refresh the class cache for new class_name types (Player, Projectile, Enemy, Missile). Headless -s runs do not rescan the class cache. The fix rewords AGENTS.md (agent-context file), so it is deferred.
-status: open
+status: done 2026-10-07
+resolution: resolved by sweep bundle dw-agents-md-import-and-commit-format
+resolution-undo: 7ab49461c95cd205854bbcce2fdc0821b7f3fd449b8b0be9cd403df12563bc9f 2026-10-07 7374617475733a206f70656e
 
 ### DW-17: The architecture's CLI export command has the same fresh-clone gap: it runs --export-release without a prior --import.
 origin: spec-deferred 3ac631213abb
@@ -233,4 +237,36 @@ location: game/ui/debug/debug_tools.gd _ready; game/scenes/sandbox/sandbox.gd _r
 source_spec: `spec-dw-9-dw-21-stress-bench-nfr-peak.md`
 severity: medium
 reason: Both _ready methods read OS.get_cmdline_user_args() directly, so tests cannot inject --no-prewarm. Tests cover only DebugArgs.parse, the static Sandbox.should_prewarm, and DebugTools with _prewarm set by hand. Deleting `_prewarm = args.prewarm` in debug_tools.gd would leave the suite green. Fix: an injectable user-args source for both _ready paths (the --stress wiring has the same gap).
+status: open
+
+### DW-28: AGENTS.md section 5 still requires a story id or key, so bmad-loop's other commit subjects (`sweep <bundle>: DW-n via bmad-loop`, `chore(sweep|operator|decisions|retro): ...`) and manual non-story
+origin: spec-deferred ca109689f523
+location: AGENTS.md:60
+source_spec: `spec-dw-15-dw-16-agents-md-import-and-commit-format.md`
+severity: medium
+reason: git log shows `sweep dw-stress-bench-nfr-peak: DW-9, DW-21 via bmad-loop`, `chore(operator): confirm ...`, `chore(decisions): pre-answer DW-15`, `Epic 1 retro: revision 2`. The DW-15 decision only covers the `story <key>: ...` form, and the fix edits AGENTS.md (agent-context file), so it is deferred.
+status: open
+
+### DW-29: The --import re-run triggers name only adding class_name scripts or imported assets; renaming, moving or deleting class_name scripts, changing imported assets, and pulling or switching branches that
+origin: spec-deferred e5e258f88c18
+location: AGENTS.md:30; _bmad-output/game-architecture.md:1335-1337
+source_spec: `spec-dw-15-dw-16-agents-md-import-and-commit-format.md`
+severity: low
+reason: Headless -s runs never rescan the class cache, whatever the cause of the change. A typical symptom is a parse error naming a class_name that exists. The fix edits AGENTS.md (agent-context file), so it is deferred.
+status: open
+
+### DW-30: The DW-15 decision (amend AGENTS.md section 5) is recorded only in the deferred-work ledger, not in a decision log as AGENTS.md section 4 asks.
+origin: spec-deferred 5bfb1d58f231
+location: _bmad-output/implementation-artifacts/deferred-work.md (DW-15)
+source_spec: `spec-dw-15-dw-16-agents-md-import-and-commit-format.md`
+severity: low
+reason: Commit `chore(decisions): pre-answer DW-15` recorded it in the ledger before this run. No process decision log exists, and the GDD decision log covers game design. This is pre-existing and not caused by this change.
+status: open
+
+### DW-31: The --import re-run reason ("headless -s runs don't rescan the class cache") explains only the class_name trigger; it does not say why new imported assets also need a re-run (headless -s runs don't
+origin: spec-deferred a79436289cb2
+location: AGENTS.md:30; _bmad-output/game-architecture.md:1335-1337
+source_spec: `spec-dw-15-dw-16-agents-md-import-and-commit-format.md`
+severity: low
+reason: AGENTS.md:30 and game-architecture.md:1335-1337 list "new imported assets" as a trigger, but the stated cause is only the class cache. A new WAV that Audio preloads has no .import artefact until --import runs. The instruction itself is still correct, so following it gives the right result. The fix edits AGENTS.md (agent-context file), so it is deferred.
 status: open

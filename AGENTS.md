@@ -27,7 +27,7 @@ Local commits are fine when the user asks for them.
 - **Engine:** Godot **4.7.2-stable**, statically typed GDScript, Forward+ renderer. The project lives in `game/` (created by Story 1.1). Use the console build at `<GODOT_DIR>` (see `LOCAL.md`) for headless runs.
 - **Tests:** GUT 9.7.1 (`godot_4_7` branch), headless:
   `"<GODOT_DIR>/Godot_v4.7.2-stable_win64_console.exe" --headless --path game --import`
-  (one-time, on a fresh clone with no `game/.godot/`: builds the `class_name` cache and imports the WAVs that `Audio` preloads), then:
+  (builds the `class_name` cache and imports the WAVs that `Audio` preloads; run it on a fresh clone with no `game/.godot/`, and re-run it after adding `class_name` scripts or new imported assets, or whenever `game/.godot/` is stale, because headless `-s` runs don't rescan the class cache), then:
   `"<GODOT_DIR>/Godot_v4.7.2-stable_win64_console.exe" --headless --path game -s addons/gut/gut_cmdln.gd -gdir=res://tests -ginclude_subdirs -gexit`
 - **Assets:** free or CC0 only (Kenney packs first). Every third-party asset must be listed in `game/assets/CREDITS.md` with its source and licence.
 
@@ -57,4 +57,4 @@ All of these are in `_bmad-output/`:
 ## 5. Hygiene
 
 - Don't commit build output (`game/export/`, `*.zip`), the Godot cache (`game/.godot/`) or generated logs.
-- Keep commits small, with a clear message that references the story id (e.g. `Story 1.2: ship chases cursor`).
+- Keep commits small, with a clear message that references the story id or key: either the manual form `Story X.Y: summary` (e.g. `Story 1.2: ship chases cursor`) or the bmad-loop form `story <key>: ...`, where the key is the story file slug (e.g. `story 1-3-fire-the-laser: ...`).
