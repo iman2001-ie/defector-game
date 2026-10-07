@@ -7,5 +7,14 @@
     "key": "1",
     "label": "Set mask 84 and test equality",
     "resolution": ""
+  },
+  "DW-9": {
+    "answered_at": "2026-10-07",
+    "bundle_name": "",
+    "effect": "build",
+    "intent": "Extend the --stress/--bench sandbox mode to sustain about 200 live projectiles or moving enemies, report p99 and max frame time alongside the average with PASS judged on all three, and add a first-large-explosion measurement with and without Feedback.prewarm(). Leave the on-hardware run itself to the operator.",
+    "key": "1",
+    "label": "Build the bench now",
+    "resolution": ""
   }
 }
