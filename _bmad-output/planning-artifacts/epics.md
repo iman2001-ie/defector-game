@@ -52,11 +52,11 @@ The user asked for this workflow to run unattended. These are the decisions the 
 
 **Player ship and weapons**
 
-FR1: The player ship chases the mouse cursor without snapping, capped at 1400 px/s, covering a 150 px cursor move in about 0.12 s. It never rotates (always faces up) and is confined to the bottom 60% of the screen (y 432–1080), full width.
+FR1: The player ship sits exactly on the mouse cursor with zero delay (no chase, smoothing or speed cap). It never rotates (always faces up). The cursor is confined to the bottom 60% of the screen (y 432–1080), full width, so the ship is too (GDD decision #29).
 FR2: The player hurtbox is a 24 px circle centred on a ~96 px sprite.
-FR3: During gameplay the OS cursor is hidden and confined to the window, and a small reticle marks the cursor position.
+FR3: During gameplay the OS cursor is hidden and confined to the player zone. There is no reticle; the ship marks the cursor. On resume from any pause the cursor is warped to the ship, so the ship never jumps.
 FR4: Holding LMB fires the laser: twin bolts (visual only), 10 bolts/s, 1 damage per bolt, 1800 px/s, straight up, unlimited.
-FR5: RMB fires an unguided missile along the ship→cursor vector (straight up if the cursor is within 32 px of the ship) at 900 px/s. It deals 8 damage to the target it hits and 3 splash damage to every other target within 120 px. It has a 1.5 s cooldown, unlimited ammo, and a radial cooldown ring on the reticle.
+FR5: RMB fires an unguided missile straight up from the ship's nose at 900 px/s. It deals 8 damage to the target it hits and 3 splash damage to every other target within 120 px. It has a 1.5 s cooldown, unlimited ammo, and a radial cooldown ring drawn on top of the ship.
 FR6: Asteroids block every projectile from both sides (player lasers, missiles, micro-missiles, ally shots, enemy bullets, Needle bolts). Player projectiles damage the asteroid they hit.
 FR7: The player's projectiles (lasers, missile splash, Barrage) and ally shots never damage allies or the convoy. Convoy ships block them with no damage (GDD decision #23).
 FR8: Input is mouse and keyboard only: mouse to move, LMB laser, RMB missile, E Shield, Q Barrage, LMB to advance comms or pick a Final Choice option, Esc to pause. While a story line is paused, inputs are ignored except advancing the dialogue.
@@ -104,7 +104,7 @@ FR31: Weapon feel: muzzle flash on every shot; short bright laser bolts with a l
 
 **Escort and allies**
 
-FR32: In Level 1, three medium cargo ships (~160×80 px, hitbox ~80% of the sprite) fly as a tight triangle (a lead ship plus two flankers). The group crosses the screen left to right at 40 px/s within y 760–920, then loops back. They share one 100 HP bar that carries across waves and refills only when the level restarts. The convoy is solid to the player's ship (push-out, no damage), so the player can body-block shots aimed at it (GDD decision #25).
+FR32: In Level 1, three medium cargo ships (~160×80 px, hitbox ~80% of the sprite) fly as a tight triangle (a lead ship plus two flankers). The group crosses the screen left to right at 40 px/s within y 760–920, then loops back. They share one 100 HP bar that carries across waves and refills only when the level restarts. The convoy is solid to the player's ship (push-out, no damage), so the player can body-block shots aimed at it (GDD decision #25). When the convoy pushes the ship, the cursor is moved with it (decision #29).
 FR33: Convoy ships are solid to every projectile. Every enemy shot that touches one is stopped and damages the convoy: 5 if a Lancer aimed it at the convoy, 2 if stray. Maul dives deal 10. Bastions and Needles never aim at the convoy, but their strays can hit it. If the convoy bar reaches 0, the level restarts from wave 1.
 FR34: Ally ships (Tarek in Levels 1–2, Ryn in Level 3) patrol scripted horizontal paths at y 620–760 at 150 px/s and fire 1 damage every 0.5 s at the nearest enemy. They cannot be destroyed or damaged (except Tarek's scripted hit). They make roughly 10–15% of total kills.
 FR35: Tarek's fall (Level 2 Wave 5, at 50% of the wave destroyed): Tarek shields Vale, his comms line is cut off mid-sentence (combat line, no pause), a large-tier screen shake fires, his damaged ship trails fire and leaves, the comms channel goes silent until the wave clears, and the music drops out.
@@ -146,7 +146,7 @@ FR58: Clearing a level unlocks the next one. Unlocked levels and current energy 
 FR59: The game defaults to borderless fullscreen, supports windowed mode, and letterboxes the playfield to keep 16:9.
 FR60: A level is won when every scripted wave is destroyed (and in Level 3, the Flagship). There are no timers, score or ratings. The game is won when the Flagship is destroyed and the end screen appears.
 FR61: Dialogue, wave compositions and tuning values live in data files, not code. The surrender-prompt beats (and other optional beats) sit behind on/off flags.
-FR62: The HUD shows hearts, an energy bar (with markers at 50 and 100), the missile cooldown ring, the wave progress bar, the boss bar and the convoy bar.
+FR62: The HUD shows hearts, an energy bar (with markers at 50 and 100), the missile cooldown ring (in-world, on the ship), the wave progress bar, the boss bar and the convoy bar.
 
 **Presentation and release**
 
@@ -214,11 +214,11 @@ From `ux-designs/ux-defector-game-2026-10-06/` (added 2026-10-06, closing readin
 
 ### FR Coverage Map
 
-FR1: Epic 1 - Cursor-chase ship movement and bounds
+FR1: Epic 1 - Cursor-locked ship movement and bounds
 FR2: Epic 1 - Forgiving 24 px hurtbox
-FR3: Epic 1 - Hidden/confined cursor and reticle
+FR3: Epic 1 - Hidden cursor confined to the player zone
 FR4: Epic 1 - Laser
-FR5: Epic 1 - Aimed missile, splash, cooldown ring
+FR5: Epic 1 - Straight-up missile, splash, cooldown ring
 FR6: Epic 1 - Asteroids block both sides (enemy-side verified again in Epic 2)
 FR7: Epic 1 - Friendly fire impossible by mask (verified with the convoy and allies in Epic 6)
 FR8: Epic 1 - Input actions (abilities in Epic 3, pause in Epic 4, comms advance in Epic 5)
@@ -284,7 +284,7 @@ FR66: Epic 5 - Control hints (placed into Level 1 in Epic 7)
 ## Epic List
 
 ### Epic 1: Core Feel Prototype
-The player can fly the ship with the mouse, fire lasers and aimed missiles, and blast Wasps and asteroids in a sandbox where every impact scales with size. This proves the core hypothesis and is the go/no-go gate before any story work. **Tier:** MUST.
+The player can fly the ship with the mouse, fire lasers and missiles, and blast Wasps and asteroids in a sandbox where every impact scales with size. This proves the core hypothesis and is the go/no-go gate before any story work. **Tier:** MUST.
 **FRs covered:** FR1, FR2, FR3, FR4, FR5, FR6, FR7, FR8, FR18, FR30, FR31, FR61 (tuning, flags)
 
 ### Epic 2: Enemy Roster and Scripted Waves
@@ -323,7 +323,7 @@ Anyone can download DEFECTOR from GitHub and play a polished, stable build with 
 
 ## Epic 1: Core Feel Prototype
 
-The player can fly the ship with the mouse, fire lasers and aimed missiles, and blast Wasps and asteroids in a sandbox where every impact scales with size. Done when the developer and at least one colleague answer "yes" to "Was the shooting fun on its own?"
+The player can fly the ship with the mouse, fire lasers and missiles, and blast Wasps and asteroids in a sandbox where every impact scales with size. Done when the developer and at least one colleague answer "yes" to "Was the shooting fun on its own?"
 
 ### Story 1.1: Set Up the Godot Project and Data-Driven Foundation
 
@@ -367,6 +367,8 @@ I want my ship to chase my cursor smoothly within the bottom of the screen,
 So that I can position precisely and feel in control from the first second.
 
 **Tier / Covers:** MUST · FR1, FR2, FR3
+
+> **Superseded in part by Story 1.8 (decision #29):** the chase AC and the reticle AC.
 
 **Acceptance Criteria:**
 
@@ -450,6 +452,8 @@ I want to right-click to launch a missile toward my cursor that splashes nearby 
 So that I have a burst, aimable shot for formations and for curving around cover.
 
 **Tier / Covers:** MUST · FR5, FR31 (missile), FR62 (cooldown ring)
+
+> **Superseded in part by Story 1.8 (decision #29):** the ship→cursor direction AC and the reticle ring location.
 
 **Acceptance Criteria:**
 
@@ -536,6 +540,107 @@ So that I know the core loop is fun and fast enough before building anything on 
 **Given** the Godot 4.7.2 export templates are installed and a minimal Windows Desktop preset exists (with the `data/*.json` non-resource filter)
 **When** I export the sandbox with the headless CLI command and run the exe from a folder outside the repo
 **Then** it launches, loads `tuning.json` and the neon glow renders; any export problem is fixed now rather than in Story 8.5 (decision F19)
+
+### Story 1.8: Lock the Ship to the Cursor and Fire Missiles Straight Up
+
+As a player,
+I want my ship to sit exactly under my mouse and my missile to fire straight ahead,
+So that movement feels instant and precise and every weapon aims the same way.
+
+**Tier / Covers:** MUST · FR1, FR3, FR5, FR62 (cooldown ring) · GDD decisions #29, #31
+
+**Acceptance Criteria:**
+
+**Given** gameplay is running with no pause reasons
+**When** I move the mouse
+**Then** in the same physics tick, the ship's position equals the cursor position clamped to x 0–1920, y `player.bounds_y.min`–`max`, with no interpolation, speed cap or lag
+**And** `player.max_speed`, `player.chase_ref_distance_px` and `player.chase_ref_time_s` are removed from `tuning.json`, along with the chase solver code and its tests
+
+**Given** I move the mouse above y 432 (in viewport coordinates)
+**When** the next physics tick runs
+**Then** the cursor is warped back to the zone edge (`Viewport.warp_mouse`), the ship stays on the edge, and the first downward mouse movement moves the ship at once (no dead travel)
+
+**Given** any pause reason is popped and gameplay resumes
+**When** the mouse mode returns to `MOUSE_MODE_CONFINED_HIDDEN`
+**Then** the cursor is warped to the ship's current position, so the ship does not jump to where the cursor was left during the pause
+
+**Given** the missile is ready
+**When** I press RMB
+**Then** the missile spawns at the ship's nose and flies straight up (`Vector2.UP`) at 900 px/s, wherever the cursor was before clamping
+**And** `missile_direction` and `weapons.missile.straight_up_within_px` are removed
+
+**Given** the Reticle scene
+**When** this story is done
+**Then** `reticle.tscn`/`reticle.gd` no longer exist, and the sandbox has no reticle
+
+**Given** I just fired a missile
+**When** the 1.5 s cooldown runs
+**Then** a cooldown ring is drawn on top of the ship sprite (a Player child with a z-index above the sprite), no larger than the ship, in a high-contrast colour (`text` #E8F4FF with a dark `background` outline, 4–5 px stroke), sweeping clockwise from 12 o'clock over the remaining fraction and hidden when ready
+**And** it is driven only by `Events.missile_cooldown_changed(ratio)` and drawn with `draw_arc`
+**And** its radius, stroke and colours come from the UX token `missileRing`, with the radius and stroke as tunable data
+**And** it reads clearly over the ship while firing lasers over explosions (checked by the developer in the sandbox)
+
+**Given** the GUT suite
+**When** it runs headless
+**Then** tests cover: the lock places the ship on a clamped target in one tick, the zone clamp and the cursor warp decision (a pure function of the mouse position and bounds), resume-warp, straight-up missile direction, and the ring ratio handling; all pass
+
+### Story 1.9: Make Laser Bolts and the Neon Glow Brighter
+
+As a player,
+I want my laser bolts to glow like real bullets and the whole screen to pop a little more,
+So that my shots read instantly and the neon look lands.
+
+**Tier / Covers:** MUST (tuning) · FR64 (partial), NFR10 · GDD decision #30, ADR-003
+
+**Acceptance Criteria:**
+
+**Given** the WorldEnvironment glow values (intensity, bloom, HDR threshold)
+**When** the scene starts or F5 reloads data
+**Then** they are read from `tuning.json → render.glow` (not hard-coded in `.tscn`) and applied by the scene root
+**And** the first-pass values are slightly brighter than today (intensity 0.8, bloom 0.05, threshold 0.6 are the baseline)
+
+**Given** a laser bolt
+**When** it renders
+**Then** its core is HDR-bright (modulate/self-modulate above 1.0, so it clearly crosses the glow threshold) with a wider additive halo, and the brightness values come from `tuning.json` (for example `weapons.laser.glow_energy`)
+**And** with the WorldEnvironment glow turned off, the additive halo alone still makes the bolt read as a bullet (ADR-003 fallback)
+
+**Given** the `--bench=20` run
+**When** it runs after the change
+**Then** p99 frame time stays under 16.6 ms, and the result is recorded in the story
+
+**Given** an exported Windows build
+**When** the developer runs it
+**Then** the developer confirms that the bolts read as bullets and the neon is slightly brighter but not washed out (operator action), and records the final values in the decision log as a tuning note under #30
+
+### Story 1.10: Reconcile the Architecture with the As-Built
+
+As the developer,
+I want game-architecture.md to describe the code that actually exists,
+So that agents building Epic 2 onwards follow the real patterns.
+
+**Tier / Covers:** MUST (docs) · Epic 1 retro action item 5, DW-11, DW-17
+
+**Acceptance Criteria:**
+
+**Given** Stories 1.8 and 1.9 are done
+**When** I update `_bmad-output/game-architecture.md`
+**Then** it documents, matching the code:
+  - the `play_sfx` pitch parameter
+  - the tier `sfx_volume_db` (decision #26)
+  - the single explosion scene
+  - Spawner and ShakeCamera registering with Feedback (accepted as the design, retro C1)
+  - the `-- --stress` / `--bench=N` command-line modes
+  - the `Playfield` class and the `PlayerWeapons` split (DW-13)
+  - `Config.reload()` (DW-8)
+  - the cursor lock, zone confinement and the resume-warp owner
+  - the cooldown ring on the ship
+  - `render.glow` data
+**And** the export command shows the `--import` step first (DW-17)
+**And** every section changed is listed in a short "As-built reconciliation 2026-10-xx" note at the end of the document
+
+**Given** the updated document
+**When** I grep it for `reticle`, `max_speed`, `chase` and `toward the cursor`
+**Then** the only matches are in historical or superseded notes
 
 ---
 
@@ -1017,6 +1122,7 @@ So that I can step away or bail out of a bad attempt.
 **Given** the pause menu is open
 **When** I click Resume (or press Esc again)
 **Then** only the `menu` reason is removed, and the game resumes unless another reason is active
+**And** when gameplay resumes, the cursor is back on the ship and the ship has not moved (Story 1.8 resume-warp)
 
 **Given** the pause menu is open
 **When** I click Restart Level
@@ -1050,7 +1156,7 @@ So that it fits my setup without distorting the playfield.
 
 **Given** a display or window that isn't 16:9
 **When** the game renders
-**Then** the 1920×1080 playfield scales uniformly with letterbox bars, and the ship still tracks the cursor exactly
+**Then** the 1920×1080 playfield scales uniformly with letterbox bars, the ship still sits exactly on the cursor, and the cursor stays confined to the player zone (warps use viewport coordinates)
 
 ---
 
@@ -1302,7 +1408,9 @@ So that the escort mission adds a second thing to care about besides myself.
 
 **Given** the player moves the ship into a convoy ship
 **When** they overlap
-**Then** the Player (through a separate ~64 px `HullArea` circle that masks only `convoy`; the 24 px hurtbox is unchanged) pushes itself out along the shortest separation and slides along the hull, takes no damage, and is never pinned (the convoy moves only horizontally) (GDD decision #25)
+**Then** the Player (through a separate ~64 px `HullArea` circle that masks only `convoy`; the 24 px hurtbox is unchanged) stops at the hull. Its move from the previous position to the cursor target is swept against `convoy`, so a fast flick can't jump through a cargo ship. The ship pushes out along the shortest separation, slides along the hull, and takes no damage
+**And** whenever the convoy blocks or pushes the ship, the cursor is warped to the ship's position, so the ship and cursor stay locked (GDD decisions #25, #29)
+**And** the ship is never pinned: if the push-out and the zone clamp disagree, the push-out wins along y (the convoy moves only horizontally)
 
 **Given** a convoy-aimed Lancer bullet
 **When** the player's ship is between it and the convoy

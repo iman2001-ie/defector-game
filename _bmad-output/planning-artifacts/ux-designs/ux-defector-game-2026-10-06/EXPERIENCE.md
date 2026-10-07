@@ -32,7 +32,7 @@ Nothing is more than two clicks from the title screen.
 
 **HUD information hierarchy** (most-glanced first):
 1. Hearts (top-right)
-2. The reticle with its missile cooldown arc (at the cursor)
+2. The missile cooldown ring (on the ship)
 3. Energy (top-right)
 4. Wave or boss progress (top-centre)
 5. Convoy (top-right, Level 1 only)
@@ -66,6 +66,7 @@ The player learns one rule: **a centred panel with a dimmed screen means read th
 | Interruption box | Types out at 45 chars/s like the story panel (so a cut-off can stop mid-word). One short line (≤ 50 chars), auto-wrapping to at most 2 lines at 24px and clipped to the box. Slides in from the left over 0.15 s and stays for `max(2.0, chars/45 + 1.2)` s, then fades. Click-through (it ignores the mouse). Story lines preempt it. At most 3 queued |
 | Cut-off | The text stops mid-word, a static burst plays, the box hides after 0.6 s, and further interruptions are silenced until the wave clears |
 | Control hint | Fades in over 0.2 s. Fades out once the action is performed or after 5 s. Each hint shows once per session; retries don't repeat it | Move and fire are two hints shown in sequence: `MOVE THE MOUSE TO FLY` (dismissed after 150 px of movement), then `[HOLD LMB] FIRE` (dismissed on first shot). Only one pill shows at a time; a newer hint waits for the current one to fade
+| Missile cooldown ring | Appears full when the missile fires and empties clockwise over 1.5 s; hidden when ready. Freezes with the game while paused |
 | Wave bar | Fills smoothly (0.2 s tween) and never goes backwards within an attempt |
 | Boss bar | Replaces the wave bar with a 0.3 s cross-fade when the Flagship arrives |
 | Energy bar | Fills on pickup. If E/Q is pressed without enough energy, the bar flashes `danger` twice over 0.3 s and the "denied" SFX plays |
@@ -78,13 +79,13 @@ The player learns one rule: **a centred panel with a dimmed screen means read th
 
 | State | HUD | Cursor | Dim | Notes |
 |---|---|---|---|---|
-| Playing | Visible | Hidden, reticle shown | No | |
+| Playing | Visible | Hidden, locked to the ship | No | |
 | Story pause | Visible, frozen | Visible arrow | Yes | Centred story panel |
 | Opening story scene | None (no level loaded) | Visible arrow | No dim, static space backdrop | Centred story panel; Esc does nothing; ends by loading Level 1 |
 | Final Choice | Visible, frozen | Visible arrow | Yes | Buttons below the panel |
 | Paused (menu) | Visible, frozen | Visible arrow | Yes | Centred menu panel `PAUSED` |
 | Death / convoy lost | Visible, frozen | Visible arrow | Yes | After the 1.5 s death beat: the loss reason in `danger`, then RETRY · QUIT TO TITLE. Esc disabled |
-| Between waves (2.0 s) | Visible | Reticle | No | The next wave segment highlights |
+| Between waves (2.0 s) | Visible | Hidden, locked to the ship | No | The next wave segment highlights |
 | Level clear | Wave bar full | Visible arrow | Yes | Debrief story panel, then the next level loads |
 
 ## Interaction Primitives
@@ -96,7 +97,7 @@ The player learns one rule: **a centred panel with a dimmed screen means read th
 
 ## HUD & Diegetic UI
 
-Everything is a non-diegetic overlay, except the shield bubble, the Needle's targeting line and the telegraph glows, which are drawn in-world. The HUD is confined to the top 120px band, and the player zone (below y 432) never has HUD on it. Hints sit on the boundary at y 560 and are temporary.
+Everything is a non-diegetic overlay, except the shield bubble, the missile cooldown ring, the Needle's targeting line and the telegraph glows, which are drawn in-world. The HUD is confined to the top 120px band, and the player zone (below y 432) never has HUD on it. Hints sit on the boundary at y 560 and are temporary.
 
 ## Input Schemes
 
@@ -129,7 +130,7 @@ UI motion never exceeds 0.3 s, and the HUD freezes with the game (`PROCESS_MODE_
 1. Sam launches the zip, gets the title screen, and clicks PLAY.
 2. The opening plays in centred panels. Sam clicks through and learns who Vale, Tarek and Isolde are.
 3. Level 1 begins. [Example lines below are placeholders until Story 5.7 writes the script.] `MOVE THE MOUSE TO FLY` and `[HOLD LMB] FIRE` appear centre-low, Sam does both, and the hints fade.
-4. In W2, `[RMB] MISSILE` appears and Sam fires one around an asteroid.
+4. In W2, `[RMB] MISSILE` appears and Sam slides out from behind an asteroid and fires one up into the formation.
 5. W3: Tarek warns of the ambush (top-left), and Mauls dive at the convoy. The CONVOY bar flashes as it takes a hit.
 6. Sam reaches 50 energy, and `[E] SHIELD` appears.
 7. **Climax:** in W5 the screen dims and Isolde's centred panel says "You're outnumbered, General. Come home." Sam clicks, the Mauls pour in, and Sam clears the wave.

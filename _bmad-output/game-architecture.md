@@ -59,7 +59,7 @@ A **Pause Arbiter** stops the menu pause, story pause and hit-stop from fighting
 
 | System | Complexity | GDD Reference |
 |---|---|---|
-| Player ship (cursor-chase movement, laser, missile, hearts, i-frames) | Medium | Primary Mechanics |
+| Player ship (cursor-locked movement, laser, missile, hearts, i-frames) | Medium | Primary Mechanics |
 | Projectiles + asteroid blocking (both directions) | Medium | Weapons, Asteroids |
 | Enemies ×5 (+1 COULD) with telegraphed attacks | Medium | Enemy Design and AI |
 | Wave Director (scripted, data-driven, % triggers, reinforcements) | **High** | Level Design Framework |
@@ -70,14 +70,14 @@ A **Pause Arbiter** stops the menu pause, story pause and hit-stop from fighting
 | Flagship boss (3 phases, Final Choice) | **High** | Flagship |
 | Game flow: title, level select, pause, retry, end | Low | Platform-Specific Details |
 | Save (unlocks + energy) | Low | Save |
-| HUD: hearts, energy, cooldown ring, wave bar, boss bar, convoy bar | Low | Asset Requirements (UI) |
+| HUD: hearts, energy, cooldown ring (in-world on the ship), wave bar, boss bar, convoy bar | Low | Asset Requirements (UI) |
 | Audio (size-scaled SFX, music drop-out) | Low | Art and Audio Direction |
 
 ### Technical Requirements
 
 - **60 FPS** at 1920×1080 on an integrated-graphics laptop, with headroom for 40 enemies, 200 projectiles and their particles.
 - Cold launch to the title screen in **under 5 s**. Build under **200 MB**.
-- Borderless fullscreen by default, with a windowed option. The cursor is hidden and confined during gameplay.
+- Borderless fullscreen by default, with a windowed option. The cursor is hidden during gameplay and confined to the player zone (y 432–1080) by warping it back (Godot can only confine to the window).
 - **Data-driven:** dialogue, waves and tuning live in data files. The surrender beats sit behind on/off flags.
 - Mouse and keyboard only.
 
@@ -124,7 +124,7 @@ mkdir game
 
 | Component | Solution | Notes |
 |---|---|---|
-| Rendering | Forward+ renderer, 2D canvas | `rendering/viewport/hdr_2d = true` + `WorldEnvironment` glow for neon (see ADR-003) |
+| Rendering | Forward+ renderer, 2D canvas | `rendering/viewport/hdr_2d = true` + `WorldEnvironment` glow for neon (see ADR-003). Glow parameters are data (`tuning.json` → `render.glow`), applied by the scene root |
 | Physics / collision | Godot Physics 2D, `Area2D` only | No `RigidBody2D` / `CharacterBody2D`. Every entity moves itself and detects overlaps |
 | Physics tick | 60 Hz (default) | Collision-relevant movement goes in `_physics_process` |
 | Audio | `AudioServer` buses + `AudioStreamPlayer` | Buses: `Master` → `Music`, `SFX`, `UI` |
@@ -237,7 +237,7 @@ The game has two independent mechanisms. **No other code** may set `get_tree().p
 | Autoloads `PauseArbiter`, `SceneRouter`, `Audio`, `Feedback` | `PROCESS_MODE_ALWAYS` |
 | HUD | `PROCESS_MODE_PAUSABLE` (it freezes along with gameplay) |
 
-**Cursor:** while any pause reason is active, `Input.mouse_mode = MOUSE_MODE_VISIBLE`. During gameplay it is `MOUSE_MODE_CONFINED_HIDDEN`. `PauseArbiter` applies this, so the mode is set in one place.
+**Cursor:** while any pause reason is active, `Input.mouse_mode = MOUSE_MODE_VISIBLE`. During gameplay it is `MOUSE_MODE_CONFINED_HIDDEN`. `PauseArbiter` applies this, so the mode is set in one place. On returning to gameplay mode, the cursor is warped to the Player's position, so the ship never jumps after a pause. PauseArbiter still owns `mouse_mode`. The Player owns all `warp_mouse` calls (zone confinement, convoy push, resume), reacting to a PauseArbiter resume signal (GDD decisions #29, #31).
 
 ### Scene Structure
 
@@ -294,7 +294,7 @@ Configure these in `project.godot` → `layer_names/2d_physics`. Use these names
 - An **enemy shot touching the convoy** always stops and damages it: `damage.convoy_aimed` (5) if `targets_convoy == true` (a Lancer aiming at the convoy), otherwise `damage.convoy_stray` (2). (GDD decision #23)
 - A **player or ally shot touching the convoy** frees itself without applying damage. The convoy blocks it, but there's no friendly fire.
 - **Contact damage:** the **Player** detects overlaps with enemies and asteroids. It calls `apply_damage` on itself (1 or 2 hearts, from the data) and `destroy_by_contact()` on small and medium enemies.
-- **Player vs convoy:** the Player has a separate ~64 px `HullArea` circle (masking only `convoy`) next to its 24 px hurtbox. It detects convoy overlaps through it and, after moving in `_physics_process`, pushes itself out along the shortest separation vector (an Area2D push-out, no physics body). There's no damage. The convoy only moves horizontally, so the player can never be pinned. (GDD decision #25)
+- **Player vs convoy:** the Player has a separate ~64 px `HullArea` circle (masking only `convoy`) next to its 24 px hurtbox. It detects convoy overlaps through it and, after moving in `_physics_process`, pushes itself out along the shortest separation vector (an Area2D push-out, no physics body). There's no damage. The convoy only moves horizontally, so the player can never be pinned. (GDD decision #25) The move from the previous position to the cursor target is swept (shape cast against `convoy`) before the push-out, because the ship moves instantly. After any block or push, the cursor is warped to the ship (GDD decision #29).
 - The **Maul** detects the convoy and calls `convoy.apply_damage(10)`, then destroys itself.
 - **Friendly fire is impossible.** `player_shots` doesn't detect `allies`. It does detect `convoy`, but only to be blocked, and the projectile never calls `apply_damage` on the convoy.
 
@@ -316,7 +316,7 @@ The visual sprite may be shorter. No ray/shape casts are needed.
 
 - Built-in `Control` nodes. One `Theme` at `res://ui/theme/defector_theme.tres` (fonts, panel styles, button styles). Don't set per-node style overrides except in the comms panel portrait frame.
 - The HUD reads state **only via `Events` signals** (`hearts_changed`, `energy_changed`, `wave_progress_changed`, `boss_hp_changed`, `convoy_hp_changed`, `missile_cooldown_changed`). The HUD never polls gameplay nodes.
-- The reticle is a `Sprite2D` in `World` that follows `get_global_mouse_position()`. The missile cooldown ring is drawn on it with `draw_arc`.
+- There is no reticle: the ship is the cursor (GDD decision #29). The missile cooldown ring is a Player child, drawn above the ship sprite with `draw_arc` and driven only by `Events.missile_cooldown_changed`.
 
 ### Architecture Decision Records
 
@@ -422,18 +422,18 @@ Log.debug("beat", "Trigger %s at %.2f progress" % [trigger_id, progress])
 
 **Access rules:**
 
-- Use `Config.num("player.max_speed")` → `float`, `Config.int_("enemies.wasp.hp")` → `int`, `Config.flag("surrender_prompts")` → `bool`, and `Config.section("feedback.tiers")` → `Dictionary`.
+- Use `Config.num("weapons.missile.speed_px_s")` → `float`, `Config.int_("enemies.wasp.hp")` → `int`, `Config.flag("surrender_prompts")` → `bool`, and `Config.section("feedback.tiers")` → `Dictionary`.
 - A missing key gives `Log.error` + `assert` and returns `0` / `false` / `{}`. **Never** index `Config.tuning[...]` directly from gameplay code.
 - **JSON numbers are always `float` in Godot (verified on 4.7.2).** Anything used as a count, HP, index or loop bound **must** come through `Config.int_()` or be wrapped in `int()`.
 - Read tuning in `setup()` / `_ready()` and cache it in member variables. Never call `Config` per frame.
 
 ```gdscript
 # player.gd
-var _max_speed: float
+var _missile_speed: float
 var _max_hearts: int
 
 func _ready() -> void:
-	_max_speed = Config.num("player.max_speed")
+	_missile_speed = Config.num("weapons.missile.speed_px_s")
 	_max_hearts = Config.int_("player.hearts")
 ```
 
@@ -542,7 +542,7 @@ Debug tools are available **only when `OS.is_debug_build()`** (editor runs and d
     │   ├── enemy.gd                         # Enemy base (class_name)
     │   └── impact_tier.gd                   # ImpactTier enum holder
     ├── entities/
-    │   ├── player/            player.tscn, player.gd, reticle.tscn, reticle.gd, shield_bubble.tscn
+    │   ├── player/            player.tscn, player.gd, player_weapons.gd, cooldown_ring.gd, shield_bubble.tscn
     │   ├── projectiles/       laser_bolt.tscn, missile.tscn, micro_missile.tscn,
     │   │                      enemy_bullet.tscn, needle_bolt.tscn (+ .gd each)
     │   ├── enemies/
@@ -1159,8 +1159,8 @@ CLI export (optional, for repeatability):
 
 | GDD Requirement | How Addressed |
 |---|---|
-| Cursor-chase movement, bottom 60%, hidden or confined cursor | `player.gd` + `PauseArbiter` mouse modes + `get_global_mouse_position()` |
-| Laser / missile / splash / cooldown ring | `entities/projectiles/`, `Projectile` base, reticle `draw_arc`, `missile_cooldown_changed` |
+| Cursor-locked movement, cursor confined to bottom 60%, hidden cursor, resume-warp | `player.gd` + `PauseArbiter` mouse modes + `get_global_mouse_position()` |
+| Laser / missile / splash / cooldown ring | `entities/projectiles/`, `Projectile` base, ring on the ship (`draw_arc`), `missile_cooldown_changed` |
 | Asteroids block both sides | Masks: `player_shots` and `enemy_shots` both detect `asteroids` |
 | Friendly fire off; convoy solid (blocks every shot, damaged by enemy shots only) | Masks + `targets_convoy` flag (aimed 5 / stray 2) + Maul convoy mask + no-damage block for player shots |
 | Hearts, i-frames, shield, contact damage tiers | `player.gd` + `tuning.damage` |

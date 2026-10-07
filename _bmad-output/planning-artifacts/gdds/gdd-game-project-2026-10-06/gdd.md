@@ -3,9 +3,9 @@ title: DEFECTOR - Game Design Document
 game_type: shooter
 platforms: [Windows PC]
 created: 2026-10-06
-updated: 2026-10-06
+updated: 2026-10-07
 status: final-draft
-version: 0.3
+version: 0.4
 inputs:
   - _bmad-output/planning-artifacts/briefs/brief-game-project-2026-10-06/brief.md
   - _bmad-output/planning-artifacts/briefs/brief-game-project-2026-10-06/addendum.md
@@ -117,13 +117,11 @@ All values below are **initial tuning**, chosen to be easy to change. They are e
 
 | Parameter | Value |
 |---|---|
-| Movement model | Ship chases the cursor. It does not snap. |
-| Max speed | 1400 px/s |
-| Smoothing | Ship covers a 150 px cursor move in about 0.12 s |
-| Movement bounds | Bottom 60% of the screen (y 432–1080), full width |
+| Movement model | The ship sits exactly on the cursor, with zero delay (decision #29). |
+| Movement bounds | Bottom 60% of the screen (y 432–1080), full width. The **cursor itself** is confined to this zone during gameplay, so the lock is exact everywhere. |
 | Rotation | None. The ship always faces up. |
 | Hitbox | 24 px circle centred on a ~96 px sprite (shmup convention: forgiving) |
-| Cursor | Hidden during gameplay and confined to the window. A small reticle marks the cursor position. |
+| Cursor | Hidden during gameplay and confined to the player zone. There is no reticle: the ship is the cursor. If the convoy pushes the ship, the cursor moves with it. When the game resumes from any pause, the cursor is put back on the ship, so the ship never jumps. |
 
 **Hearts (hull)**
 
@@ -137,12 +135,9 @@ All values below are **initial tuning**, chosen to be easy to change. They are e
 | Weapon | Input | Damage | Rate / Cooldown | Projectile speed | Direction | Notes |
 |---|---|---|---|---|---|---|
 | Laser | Hold LMB | 1 per bolt | 10 bolts/s | 1800 px/s | Straight up | Twin bolts (visual only). Unlimited. |
-| Missile | RMB | 8 to the target it hits; 3 splash to every other target within 120 px | 1.5 s cooldown | 900 px/s | Toward the cursor (see note) | Unguided. Unlimited. A radial cooldown ring is shown on the reticle. |
+| Missile | RMB | 8 to the target it hits; 3 splash to every other target within 120 px | 1.5 s cooldown | 900 px/s | Straight up from the ship's nose | Unguided. Unlimited. A radial cooldown ring is drawn on top of the ship while it reloads. |
 
-- **Missile direction:** the missile flies along the ship-to-cursor vector.
-  - If the cursor is within 32 px of the ship, the missile flies straight up.
-  - The ship chases the cursor, so in practice the missile usually flies close to straight up, like the lasers.
-  - It angles off when the cursor leads the ship (for example during fast movement), which lets the player aim a missile around cover.
+- **Missile direction:** the missile fires straight up from the ship's nose, like the lasers (decision #29). The player aims it by positioning the ship, for example by sliding out from behind cover.
 - **Asteroids block projectiles from both sides.** Asteroids stop every laser bolt and missile, from the player and from enemies. Player projectiles damage the asteroid they hit.
 - **Enemy hitboxes:** each enemy's hitbox covers about 80% of its sprite.
 - **Friendly fire:** the player's projectiles (lasers, missile splash, Barrage, ally shots) never damage allies or the convoy. Convoy ships are solid: they **block** player and ally shots, like asteroids but without taking damage (decision #23).
@@ -225,9 +220,9 @@ All values below are **initial tuning**, chosen to be easy to change. They are e
 
 | Input | Action |
 |---|---|
-| Mouse movement | Ship chases the cursor |
+| Mouse movement | The ship sits on the cursor (bottom 60% only) |
 | LMB (hold) | Laser auto-fire |
-| RMB | Missile toward the cursor (1.5 s cooldown) |
+| RMB | Missile, straight up (1.5 s cooldown) |
 | E | Shield (50 energy) |
 | Q | Barrage (100 energy) |
 | LMB (on story line) | Advance comms dialogue / choose a Final Choice option |
@@ -245,7 +240,7 @@ All values below are **initial tuning**, chosen to be easy to change. They are e
 - **Fixed loadout with no progression.** The player has a Laser, a Missile, and two energy abilities (Shield and Barrage). There are no unlocks, upgrades, or shops. This matches the brief's out-of-scope list.
 - **Roles:**
   - **Laser:** sustained damage against fodder.
-  - **Missile:** burst damage and splash against formations and tanks, and the only aimable shot.
+  - **Missile:** burst damage and splash against formations and tanks, on a cooldown, so *when* you fire it matters.
   - **Shield:** an emergency answer to a pattern the player can't dodge.
   - **Barrage:** a panic button against a crowded screen.
 - **Risk/reward:** energy is scarce and wiped on death. Spending it early means survival now; holding it gives safety later (The Last of Us-style scarcity).
@@ -257,7 +252,7 @@ All values below are **initial tuning**, chosen to be easy to change. They are e
 
 ### Aiming and Combat Mechanics
 
-- **Aim model:** fixed upward fire for lasers. The missile is aimed by the cursor offset from the ship (see Primary Mechanics). There is no lock-on.
+- **Aim model:** all player weapons fire straight up; the player aims by positioning the ship. There is no lock-on.
 - **Hit detection:** every shot is a projectile; none are hitscan. There is no spread or recoil.
 - **Weak points:** only the Flagship has weak points. Phase 1 turrets must die before the core is exposed.
 - **Melee:** none. Ramming an enemy destroys small and medium enemies but costs hearts (see the damage table).

@@ -35,9 +35,9 @@ Planning is part of the 20 h total. The must-haves are budgeted to about 13 h; t
 
 **Stories:**
 
-1. **Ship movement:** the ship chases the cursor (1400 px/s cap, smoothing) and stays inside the bottom 60% of the screen. The cursor is hidden and replaced by a reticle.
+1. **Ship movement:** the ship sits exactly on the cursor, which is confined to the bottom 60% of the screen and hidden (decision #29).
 2. **Laser:** hold LMB to fire 10 bolts/s, 1 damage each, straight up.
-3. **Missile:** RMB fires a missile toward the cursor (straight up within 32 px). It deals 8 damage plus 3 splash in a 120 px radius, has a 1.5 s cooldown, and shows a radial cooldown ring.
+3. **Missile:** RMB fires a missile straight up from the ship's nose. It deals 8 damage plus 3 splash in a 120 px radius, has a 1.5 s cooldown, and shows a radial cooldown ring on the ship.
 4. **Test targets:** one Wasp (3 HP), plus one asteroid of each size that drifts, blocks projectiles, and takes damage.
 5. **Size-scaled feedback:** explosion scale, screen shake, and hit-stop follow the GDD feedback table.
 6. **Data-driven tuning:** all values above are loaded from one tuning data file.

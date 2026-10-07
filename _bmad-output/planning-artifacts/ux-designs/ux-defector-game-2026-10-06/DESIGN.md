@@ -2,7 +2,7 @@
 title: DESIGN.md - DEFECTOR
 status: final
 created: 2026-10-06
-updated: 2026-10-06
+updated: 2026-10-07
 sources:
   - ../../gdds/gdd-game-project-2026-10-06/gdd.md
   - ../../../game-architecture.md
@@ -45,7 +45,7 @@ components:
   energyBar: 'energy fill on heartEmpty track, tick marks at 50% and 100% in text colour'
   convoyBar: 'coalition fill, "CONVOY" label in muted, thinner than energy bar'
   hint: 'pill, surfaceAlt fill, text colour, key glyph in energy colour'
-  reticle: 'coalition ring 32px; missile cooldown arc 4px stroke radius 22px, muted'
+  missileRing: 'cooldown arc drawn over the ship, radius ≤ ship half-size (first pass 36px), 5px stroke in text with a 2px background outline, sweeps clockwise from 12 o''clock, hidden when ready'
   button: 'surfaceAlt fill, 1px border; hover/focus: coalition border + glow; danger variant not used'
   vignette: 'danger edge gradient, max alpha 0.5'
 ---
@@ -123,7 +123,7 @@ There are three CanvasLayers, as in the architecture: HUD (10) < Comms (20) < Ov
 
 ## Shapes
 
-Panels have 4px corners, bars 2px, buttons 4px. Hearts are icons, not shapes. The reticle is a circle, and the cooldown arc sweeps clockwise from 12 o'clock.
+Panels have 4px corners, bars 2px, buttons 4px. Hearts are icons, not shapes. The missile cooldown ring is a circular arc over the ship that sweeps clockwise from 12 o'clock.
 
 ## Components
 
@@ -133,7 +133,7 @@ Panels have 4px corners, bars 2px, buttons 4px. Hearts are icons, not shapes. Th
 - **Boss bar:** same slot, `enemy` fill showing combined remaining HP (300 = 4 turrets × 25 + core 200), draining right to left. Two `text`-coloured markers measured from the left: at 66.7% (turrets gone) and at 16.7% (core at 50 = Final Choice). Labelled `FLAGSHIP` in `muted`, centred below the bar at y 68.
 - **Hearts / energy / convoy:** see Layout. The energy bar has tick marks at 50 (Shield) and 100 (Barrage). The convoy bar is labelled `CONVOY` in `muted` 20px, right-aligned immediately to the left of the bar.
 - **Hint pill:** panel pill with the key in `energy` and the action in `text`, e.g. `[RMB] MISSILE`.
-- **Reticle:** drawn exactly at the cursor position (the ship chases it, so the ship trails the reticle during movement); 32px `coalition` ring with the cooldown arc in `muted` while the missile reloads.
+- **Missile cooldown ring:** drawn on top of the ship (the ship is the cursor; there is no reticle, decision #29/#31). No bigger than the ship, in high-contrast `text` with a dark `background` outline, so it reads over the cyan hull and over explosions. Visible only while the missile reloads.
 - **Buttons:** panel fill with a 1px border; hover shows a `coalition` border and glow.
 - **Ships:** allies and convoy use `coalition` in-world. Speaker accents (`tarek`, `ryn`, `isolde`) are used only in comms UI.
 - **Shield bubble:** `coalition` ring around the ship at 40% alpha.
