@@ -74,6 +74,7 @@ source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 1; owner Dev loop; sprint-status status open)
 status: open
+decision: 2026-10-07 Build the bench now — Extend the --stress/--bench sandbox mode to sustain about 200 live projectiles or moving enemies, report p99 and max frame time alongside the average with PASS judged on all three, and add a first-large-explosion measurement with and without Feedback.prewarm(). Leave the on-hardware run itself to the operator.
 
 ### DW-10: Decide the laser collision mask (recommend MASK_PLAYER_SHOTS=84), derive masks from CollisionLayers or test equality, and correct the epics.md Story 1.3 AC (DW-2)
 origin: retro action item epic-1-retro-item-4-decide-the-laser-collision-mask-recommen
