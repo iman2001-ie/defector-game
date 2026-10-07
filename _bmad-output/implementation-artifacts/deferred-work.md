@@ -15,6 +15,7 @@ source_spec: `spec-1-4-shoot-wasps-and-asteroids-in-the-sandbox.md`
 severity: low
 reason: game/entities/projectiles/laser_bolt.tscn has collision_mask = 20 (set in Story 1.3; Story 1.4 may not change the laser). game-architecture.md layer table: player_shots mask = enemies, asteroids, convoy; FR33 says convoy ships block every projectile. No convoy exists until Epic 6, so nothing breaks today, but player bolts would pass through convoy ships. test_laser_bolt_masks_enemies_and_asteroids checks single bits only, so the gap is not flagged.
 status: open
+decision: 2026-10-07 Set mask 84 and test equality — Set the laser bolt collision mask to CollisionLayers.MASK_PLAYER_SHOTS (84), add a test asserting exact mask equality with the constant, and correct the epics.md Story 1.3 AC.
 
 ### DW-3: A player's straight shot into the grid_4x2 formation hits a bottom-row Wasp and splashes nothing, so the missile does not "burst a formation" from the ship's firing position.
 origin: spec-deferred 4b2e391514c6
