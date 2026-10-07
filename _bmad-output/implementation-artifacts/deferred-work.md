@@ -83,6 +83,7 @@ source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 1; owner Developer (decision) then Dev loop; sprint-status status open)
 status: open
+decision: 2026-10-07 Follow the architecture: mask 84 — Set the laser bolt mask to CollisionLayers.MASK_PLAYER_SHOTS (84), preferably assigned from CollisionLayers in code or guarded by a test that asserts exact mask equality for laser and missile. Correct the Story 1.3 AC in epics.md to include convoy and record the decision in the decision log. This also closes DW-2.
 
 ### DW-11: Reconcile game-architecture.md with the as-built: play_sfx pitch param, tier sfx_volume_db, single explosion scene, Spawner/ShakeCamera to Feedback registration, CLI stress/bench modes
 origin: retro action item epic-1-retro-item-5-reconcile-game-architecture-md-with-the
