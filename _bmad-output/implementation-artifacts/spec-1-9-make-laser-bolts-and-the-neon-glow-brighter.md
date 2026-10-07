@@ -2,7 +2,7 @@
 title: 'Story 1.9: Make Laser Bolts and the Neon Glow Brighter'
 type: 'feature'
 created: '2026-10-07'
-status: 'awaiting-operator'
+status: done
 baseline_revision: 'dc24dce1736970fd0e48796adfcbad0347aaf4b4'
 review_loop_iteration: 0
 followup_review_recommended: false
@@ -213,3 +213,13 @@ Status: awaiting-operator
 - The look on an exported build (bolts read as bullets, slightly brighter but not washed out) and the glow-off fallback are not verified. See `operator_actions`.
 - DW-21: the final `Stress bench:` line is sometimes lost before quit.
 
+## Operator Confirmation
+
+Confirmed 2026-10-07: the external actions this story owed were carried out.
+
+- Export the build (`<GODOT_DIR>/Godot_v4.7.2-stable_win64_console.exe --headless --path game --import`, then `--headless --path game --export-release "Windows Desktop" export/windows/DEFECTOR.exe`), copy it outside the repo, run it, fire the laser and confirm the bolts read as bullets and the neon is slightly brighter than before but not washed out.
+- If the look needs tuning, edit `render.glow` (intensity / bloom / hdr_threshold) and `weapons.laser.glow_energy` / `halo_energy` in game/data/tuning.json (F5 reloads in a debug run), then re-export and re-check.
+- Check the ADR-003 fallback: set `render.glow.intensity` and `render.glow.bloom` to 0 (F5) and confirm the additive halo alone still makes the bolts read as bullets; restore the values afterwards.
+- Record the final values in decision-log row 32 (the #30 tuning note) and change its status from "Applied (provisional)" to applied/confirmed.
+
+_Appended by the bmad-loop orchestrator (`bmad-loop confirm`, #335): a human confirmed these external actions out of band, and the story was advanced from `awaiting-operator` to `done`._
