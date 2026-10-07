@@ -1,0 +1,247 @@
+{
+	"player": {
+		"max_speed": 1400,
+		"chase_ref_distance_px": 150,
+		"chase_ref_time_s": 0.12,
+		"bounds_y": { "min": 432, "max": 1080 },
+		"sprite_px": 96,
+		"hurtbox_diameter_px": 24,
+		"hull_diameter_px": 64,
+		"hearts": 5,
+		"iframes_s": 1.2,
+		"iframe_flicker_hz": 10
+	},
+	"weapons": {
+		"laser": {
+			"damage": 1,
+			"rate_per_s": 10,
+			"speed_px_s": 1800,
+			"sfx_pitch_jitter": 0.05
+		},
+		"missile": {
+			"damage": 8,
+			"splash_damage": 3,
+			"splash_radius_px": 120,
+			"cooldown_s": 1.5,
+			"speed_px_s": 900,
+			"straight_up_within_px": 32
+		},
+		"enemy_bullet": {
+			"min_diameter_px": 16,
+			"max_speed_px_s": 450,
+			"min_telegraph_s": 0.3
+		}
+	},
+	"abilities": {
+		"shield": {
+			"cost": 50,
+			"duration_s": 4.0
+		},
+		"barrage": {
+			"cost": 100,
+			"missiles": 12,
+			"duration_s": 2.0,
+			"damage": 6
+		}
+	},
+	"energy": {
+		"max": 100,
+		"orb_value": 10,
+		"orb_drift_px_s": 120,
+		"orb_magnet_radius_px": 160,
+		"orb_despawn_s": 6.0
+	},
+	"drops": {
+		"wasp": { "chance": 0.15, "orbs": 1 },
+		"hunter_wasp": { "chance": 0.15, "orbs": 1 },
+		"lancer": { "chance": 0.25, "orbs": 1 },
+		"maul": { "chance": 0.25, "orbs": 1 },
+		"needle": { "chance": 0.30, "orbs": 1 },
+		"bastion": { "chance": 1.0, "orbs": 2 },
+		"asteroid_small": { "chance": 0.10, "orbs": 1 },
+		"asteroid_medium": { "chance": 0.30, "orbs": 1 },
+		"asteroid_large": { "chance": 0.60, "orbs": 1 },
+		"flagship_turret": { "chance": 1.0, "orbs": 1 }
+	},
+	"enemies": {
+		"wasp": {
+			"tier": "small",
+			"hp": 3,
+			"hitbox_ratio": 0.8,
+			"entry_speed_px_s": 350,
+			"dive_interval_s": { "min": 3.0, "max": 5.0 },
+			"dive_speed_px_s": 600,
+			"telegraph_s": 0.4
+		},
+		"lancer": {
+			"tier": "medium",
+			"hp": 8,
+			"hitbox_ratio": 0.8,
+			"strafe_speed_px_s": 200,
+			"zone_height_ratio": 0.35,
+			"fire_interval_s": 2.0,
+			"bullet_speed_px_s": 450,
+			"telegraph_s": 0.3,
+			"convoy_aim_chance": 0.5
+		},
+		"needle": {
+			"tier": "medium",
+			"hp": 6,
+			"hitbox_ratio": 0.8,
+			"reposition_interval_s": 8.0,
+			"fire_interval_s": 4.0,
+			"bolt_speed_px_s": 1600,
+			"track_s": 1.2,
+			"lock_s": 0.3
+		},
+		"bastion": {
+			"tier": "large",
+			"hp": 40,
+			"hitbox_ratio": 0.8,
+			"drift_speed_px_s": 60,
+			"band_y": { "min": 80, "max": 400 },
+			"turrets": 2,
+			"spread_bullets": 3,
+			"spread_deg": 15,
+			"fire_interval_s": 2.5,
+			"bullet_speed_px_s": 350,
+			"telegraph_s": 0.5
+		},
+		"maul": {
+			"tier": "medium",
+			"hp": 6,
+			"hitbox_ratio": 0.8,
+			"dive_speed_px_s": 400
+		},
+		"hunter_wasp": {
+			"tier": "small",
+			"hp": 3,
+			"hitbox_ratio": 0.8,
+			"chase_speed_px_s": 300,
+			"turn_rate_deg_s": 90
+		}
+	},
+	"boss": {
+		"turrets": {
+			"count": 4,
+			"hp": 25,
+			"spread_bullets": 3,
+			"bullet_speed_px_s": 350,
+			"fire_interval_s": 3.0,
+			"telegraph_s": 0.5
+		},
+		"core": {
+			"hp": 200,
+			"radial_bullets": 12,
+			"radial_speed_px_s": 300,
+			"radial_interval_s": 3.0,
+			"charge_s": 0.6,
+			"wasp_launch_count": 5,
+			"wasp_launch_interval_s": 10.0,
+			"wasp_max_alive": 10
+		},
+		"final_choice_hp": 50,
+		"desperate": {
+			"radial_bursts": 2,
+			"radial_speed_px_s": 300,
+			"radial_interval_s": 1.5,
+			"radial_charge_s": 0.4,
+			"aimed_bullets": 3,
+			"aimed_speed_px_s": 400,
+			"aimed_interval_s": 2.0,
+			"aimed_telegraph_s": 0.3
+		},
+		"phase1_medium_asteroids": 2
+	},
+	"asteroids": {
+		"small": {
+			"diameter_px": 64,
+			"hp": 4,
+			"drift_speed_px_s": 140,
+			"spin_deg_s": { "min": 10, "max": 40 }
+		},
+		"medium": {
+			"diameter_px": 128,
+			"hp": 12,
+			"drift_speed_px_s": 100,
+			"spin_deg_s": { "min": 10, "max": 40 }
+		},
+		"large": {
+			"diameter_px": 224,
+			"hp": 30,
+			"drift_speed_px_s": 60,
+			"spin_deg_s": { "min": 10, "max": 40 }
+		}
+	},
+	"convoy": {
+		"hp": 100,
+		"ships": 3,
+		"ship_width_px": 160,
+		"ship_height_px": 80,
+		"hitbox_ratio": 0.8,
+		"speed_px_s": 40,
+		"band_y": { "min": 760, "max": 920 },
+		"lead_offset_px": 40
+	},
+	"allies": {
+		"patrol_band_y": { "min": 620, "max": 760 },
+		"speed_px_s": 150,
+		"damage": 1,
+		"fire_interval_s": 0.5,
+		"kill_share": { "min": 0.10, "max": 0.15 }
+	},
+	"waves": {
+		"gap_s": 2.0
+	},
+	"comms": {
+		"chars_per_s": 45,
+		"combat_line_min_s": 2.0,
+		"combat_line_extra_s": 1.2,
+		"combat_queue_max": 3,
+		"cutoff_hide_s": 0.6
+	},
+	"feedback": {
+		"tiers": {
+			"small": {
+				"explosion_scale": 0.5, "shake_px": 0, "shake_s": 0, "hit_stop_ms": 0,
+				"extras": ["sparks"], "sfx": "explosion_small", "sfx_pitch": 1.0
+			},
+			"medium": {
+				"explosion_scale": 1.0, "shake_px": 4, "shake_s": 0.15, "hit_stop_ms": 0,
+				"extras": ["debris"], "sfx": "explosion_medium", "sfx_pitch": 1.0
+			},
+			"large": {
+				"explosion_scale": 2.0, "shake_px": 8, "shake_s": 0.25, "hit_stop_ms": 40,
+				"extras": ["debris", "shockwave"], "sfx": "explosion_large", "sfx_pitch": 0.8
+			},
+			"boss_part": {
+				"explosion_scale": 1.5, "shake_px": 6, "shake_s": 0.2, "hit_stop_ms": 30,
+				"extras": [], "sfx": "explosion_boss_part", "sfx_pitch": 1.0
+			},
+			"boss_death": {
+				"explosion_scale": 4.0, "shake_px": 20, "shake_s": 1.0, "hit_stop_ms": 150,
+				"extras": ["white_flash"], "sfx": "explosion_boss_death", "sfx_pitch": 1.0
+			},
+			"player_hit": {
+				"explosion_scale": 0.5, "shake_px": 6, "shake_s": 0.2, "hit_stop_ms": 50,
+				"extras": ["red_vignette"], "sfx": "player_hit", "sfx_pitch": 1.0
+			},
+			"player_death": {
+				"explosion_scale": 2.0, "shake_px": 12, "shake_s": 0.5, "hit_stop_ms": 100,
+				"extras": [], "sfx": "player_death", "sfx_pitch": 1.0
+			}
+		},
+		"boss_death_chain_s": 2.0,
+		"player_death_pause_s": 1.5
+	},
+	"damage": {
+		"bullet_hearts": 1,
+		"contact_small_hearts": 1,
+		"contact_medium_hearts": 1,
+		"contact_large_hearts": 2,
+		"maul_contact_hearts": 1,
+		"convoy_aimed": 5,
+		"convoy_stray": 2,
+		"convoy_maul": 10
+	}
+}

@@ -43,7 +43,7 @@ story_location: _bmad-output/implementation-artifacts
 
 development_status:
   epic-1: backlog
-  1-1-set-up-the-godot-project-and-data-driven-foundation: backlog
+  1-1-set-up-the-godot-project-and-data-driven-foundation: done
   1-2-fly-the-ship-with-the-mouse: backlog
   1-3-fire-the-laser: backlog
   1-4-shoot-wasps-and-asteroids-in-the-sandbox: backlog
