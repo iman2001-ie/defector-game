@@ -8,6 +8,15 @@
     "label": "Follow the architecture: mask 84",
     "resolution": ""
   },
+  "DW-11": {
+    "answered_at": "2026-10-07",
+    "bundle_name": "",
+    "effect": "build",
+    "intent": "Edit _bmad-output/game-architecture.md to document the play_sfx pitch parameter, per-tier sfx_volume_db, the single explosion scene, Spawner and ShakeCamera registration with Feedback, and the --stress/--bench CLI modes, matching the current code, and add a decision-log note for each change.",
+    "key": "1",
+    "label": "Reconcile the doc to as-built",
+    "resolution": ""
+  },
   "DW-2": {
     "answered_at": "2026-10-07",
     "bundle_name": "",
