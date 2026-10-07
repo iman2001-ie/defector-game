@@ -3,7 +3,7 @@ title: 'Story 1.7: Validate the Core Feel in a Stress-Tested Sandbox'
 type: 'feature'
 created: '2026-10-07'
 baseline_revision: 'c423c0e22defc4663fee41746909febcdef7e7d8'
-status: 'awaiting-operator'
+status: done
 review_loop_iteration: 0
 followup_review_recommended: true
 operator_actions:
@@ -258,3 +258,13 @@ The human-only checks are listed under `operator_actions`.
 - Command-line stress activation has no automated test.
 - The pre-existing fresh-clone `--import` issue (DW-6) still applies.
 - Row 27 is marked pending until the operator confirms on the overlay.
+
+## Operator Confirmation
+
+Confirmed 2026-10-07: the external actions this story owed were carried out.
+
+- Fun gate: 2-minute sandbox playtest by the developer and at least one colleague ("Was the shooting fun on its own?"); log any tuning change in the GDD decision log (DW-3 missile splash vs grid_4x2 spacing is a candidate).
+- Stress overlay: run `<GODOT_DIR>/Godot_v4.7.2-stable_win64.exe --path game -- --stress`, hold fire, watch the F1 overlay frame ms stay under 16.6; then set decision-log row 27 from "pending operator confirmation" to confirmed. Also try F5 after editing data/tuning.json.
+- Glow look: launch the exported build (game/export/windows/DEFECTOR.exe, copied outside the repo) and judge the WorldEnvironment bloom; glow values in sandbox.tscn are art constants to tune.
+
+_Appended by the bmad-loop orchestrator (`bmad-loop confirm`, #335): a human confirmed these external actions out of band, and the story was advanced from `awaiting-operator` to `done`._

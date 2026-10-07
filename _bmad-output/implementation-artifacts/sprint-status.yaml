@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: "2026-10-07 09:00"
-last_updated: "10-07-2026 12:43"
+last_updated: 2026-10-07
 project: defector-game
 project_key: NOKEY
 tracking_system: file-system
@@ -49,7 +49,7 @@ development_status:
   1-4-shoot-wasps-and-asteroids-in-the-sandbox: done
   1-5-fire-aimed-missiles-with-splash-damage: done
   1-6-feel-every-impact-scale-with-size: done
-  1-7-validate-the-core-feel-in-a-stress-tested-sandbox: awaiting-operator
+  1-7-validate-the-core-feel-in-a-stress-tested-sandbox: done
   epic-1-retrospective: done
   epic-2: backlog
   2-1-count-wave-progress-and-evaluate-beat-triggers: backlog
