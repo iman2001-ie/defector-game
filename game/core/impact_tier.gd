@@ -1,8 +1,13 @@
 class_name ImpactTier
 ## Impact feedback tiers (architecture: Impact Feedback Tiers). Tier rows live in
-## tuning.feedback.tiers; entities store a tier and pass it to Feedback (Story 1.6).
+## tuning.feedback.tiers; entities store a tier and pass it to Feedback.impact().
 
 enum { SMALL, MEDIUM, LARGE, BOSS_PART, BOSS_DEATH, PLAYER_HIT, PLAYER_DEATH }
+
+## Tier names in enum order (the keys of tuning.feedback.tiers).
+const NAMES: Array[String] = [
+	"small", "medium", "large", "boss_part", "boss_death", "player_hit", "player_death",
+]
 
 const _BY_NAME: Dictionary[String, int] = {
 	"small": SMALL,

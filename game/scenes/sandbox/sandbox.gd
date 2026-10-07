@@ -28,6 +28,8 @@ func _ready() -> void:
 	_playfield_width = float(ProjectSettings.get_setting("display/window/size/viewport_width"))
 	spawn_formation()
 	Log.info("scene", "Sandbox ready")
+	# One explosion per tier off-screen, so the first real impact doesn't hitch.
+	Feedback.prewarm()
 
 
 func _physics_process(delta: float) -> void:

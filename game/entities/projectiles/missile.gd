@@ -11,6 +11,10 @@ var splash_damage: int = 0
 var splash_radius: float = 0.0
 
 
+func _init() -> void:
+	impact_tier = ImpactTier.MEDIUM
+
+
 func _ready() -> void:
 	splash_damage = Config.int_("weapons.missile.splash_damage")
 	splash_radius = Config.num("weapons.missile.splash_radius_px")
@@ -22,6 +26,7 @@ func _ready() -> void:
 
 func _on_impact(area: Area2D) -> void:
 	apply_splash(area)
+	super._on_impact(area)
 
 
 ## Deals splash_damage once to every enemy and asteroid (other than `hit`) whose

@@ -13,6 +13,8 @@ var damage: int = 1
 var velocity: Vector2 = Vector2.ZERO
 ## Set by ally shooters (later epics); enemies read it from the damage source.
 var from_ally: bool = false
+## Feedback tier played where this projectile hits (missile: MEDIUM).
+var impact_tier: int = ImpactTier.SMALL
 
 var _spawn_position: Vector2 = Vector2.ZERO
 var _has_spawn_position: bool = false
@@ -57,6 +59,7 @@ func _on_area_entered(area: Area2D) -> void:
 	queue_free()
 
 
-## Impact hook (missile overrides it for splash). Feedback arrives in Story 1.6.
+## Impact hook: plays the impact feedback. Missile overrides it for splash and
+## then calls this base version.
 func _on_impact(_area: Area2D) -> void:
-	pass
+	Feedback.impact(impact_tier, global_position)

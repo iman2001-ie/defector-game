@@ -24,6 +24,10 @@ const GAIN_SOLVE_ITERATIONS: int = 40
 const FIRE_EPS: float = 1e-6
 const LASER_TYPE: StringName = &"laser_bolt"
 const MISSILE_TYPE: StringName = &"missile"
+## Seconds the muzzle flash shows after a missile launch (art constant).
+const MISSILE_FLASH_S: float = 0.05
+const LASER_SFX: StringName = &"laser_zap"
+const MISSILE_SFX: StringName = &"missile_launch"
 
 var _max_speed: float
 var _gain: float
@@ -36,6 +40,7 @@ var _fire_interval: float = INF
 ## Seconds until the next bolt may fire; may dip below 0 while held (carried, no drift).
 var _fire_cooldown: float = 0.0
 var _flash_left: float = 0.0
+var _laser_pitch_jitter: float = 0.0
 
 var _missile_damage: int
 var _missile_speed: float
@@ -79,6 +84,7 @@ func _ready() -> void:
 		_fire_interval = 1.0 / rate
 	else:
 		Log.warn("data", "weapons.laser.rate_per_s %.3f is not positive; laser disabled" % rate)
+	_laser_pitch_jitter = Config.num("weapons.laser.sfx_pitch_jitter")
 	_muzzle_flash.visible = false
 
 	_missile_damage = Config.int_("weapons.missile.damage")
@@ -126,6 +132,7 @@ func _fire_bolt() -> void:
 	})
 	if bolt == null:
 		return
+	Audio.play_sfx(LASER_SFX, _laser_pitch_jitter)
 	_muzzle_flash.visible = true
 	_flash_left = _fire_interval * 0.5
 
@@ -147,7 +154,12 @@ func step_missile(pressed: bool, target: Vector2, delta: float) -> void:
 		"velocity": missile_direction(global_position, target, _missile_straight_up_px) * _missile_speed,
 		"damage": _missile_damage,
 	})
-	if missile == null or _missile_cooldown_s <= 0.0:
+	if missile == null:
+		return
+	Audio.play_sfx(MISSILE_SFX)
+	_muzzle_flash.visible = true
+	_flash_left = maxf(_flash_left, MISSILE_FLASH_S)
+	if _missile_cooldown_s <= 0.0:
 		return
 	_missile_cooldown = _missile_cooldown_s
 	Events.missile_cooldown_changed.emit(1.0)

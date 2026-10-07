@@ -35,6 +35,7 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	Feedback.reset()
 	Input.action_release(&"fire_missile")
 	Input.action_release(&"fire_laser")
 	PauseArbiter.clear()
@@ -187,8 +188,67 @@ func test_non_positive_cooldown_warns_fires_every_press_no_emit() -> void:
 	assert_push_warning("cooldown_s")
 	for i: int in 3:
 		fresh.step_missile(true, FAR_TARGET, DT)
+		var sfx: AudioStreamPlayer = Audio.newest_player()
+		assert_not_null(sfx)
+		if sfx != null:
+			assert_eq(sfx.stream, Audio.SFX[&"missile_launch"], "thump on every launch")
+		assert_true((fresh.get_node("Muzzle/MuzzleFlash") as Node2D).visible, "flash on every launch")
 	assert_eq(_missiles().size(), 3, "fires on every press")
 	assert_signal_not_emitted(Events, "missile_cooldown_changed")
+
+
+func test_launch_plays_thump_and_flashes() -> void:
+	var flash: Node2D = _player.get_node("Muzzle/MuzzleFlash") as Node2D
+	assert_false(flash.visible, "hidden at start")
+	_player.step_fire(true, DT)
+	_player.step_missile(true, FAR_TARGET, DT)
+	var sfx: AudioStreamPlayer = Audio.newest_player()
+	assert_not_null(sfx)
+	if sfx != null:
+		assert_eq(sfx.stream, Audio.SFX[&"missile_launch"])
+	assert_true(flash.visible, "muzzle flash on launch")
+
+
+func test_missile_flash_hides_after_flash_time() -> void:
+	var flash: Node2D = _player.get_node("Muzzle/MuzzleFlash") as Node2D
+	_player.step_missile(true, FAR_TARGET, DT)
+	assert_true(flash.visible, "shown on launch")
+	# step_fire decays the flash every tick: MISSILE_FLASH_S is 3 ticks at 1/60 s.
+	_player.step_fire(false, DT)
+	_player.step_fire(false, DT)
+	assert_true(flash.visible, "still shown after 2 ticks")
+	_player.step_fire(false, DT)
+	assert_false(flash.visible, "hidden after MISSILE_FLASH_S")
+
+
+func test_press_on_cooldown_no_thump() -> void:
+	_player.step_missile(true, FAR_TARGET, DT)
+	_player.step_missile(true, FAR_TARGET, DT)
+	assert_eq(_missiles().size(), 1, "second press on cooldown")
+	Audio.play_sfx(&"explosion_small")
+	var before: AudioStreamPlayer = Audio.newest_player()
+	_player.step_missile(true, FAR_TARGET, DT)
+	assert_eq(Audio.newest_player(), before, "no thump without a launch")
+
+
+func test_failed_spawn_no_thump_no_flash() -> void:
+	# A World without a Projectiles container: spawn_projectile returns null.
+	var bare: Node2D = Node2D.new()
+	for container: String in ["Enemies", "Asteroids"]:
+		var node: Node2D = Node2D.new()
+		node.name = container
+		bare.add_child(node)
+	add_child_autofree(bare)
+	var broken: Spawner = Spawner.new()
+	broken.world = bare
+	add_child_autofree(broken)
+	assert_push_error("Projectiles")
+	_player.set_spawner(broken)
+	Audio.play_sfx(&"explosion_small")
+	var before: AudioStreamPlayer = Audio.newest_player()
+	_player.step_missile(true, FAR_TARGET, DT)
+	assert_eq(Audio.newest_player(), before, "no missile_launch sound")
+	assert_false((_player.get_node("Muzzle/MuzzleFlash") as Node2D).visible, "muzzle flash stays hidden")
 
 
 ## Counts missiles added to the sandbox's Projectiles container (they may leave the screen).

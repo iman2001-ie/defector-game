@@ -68,7 +68,8 @@ func _die() -> void:
 	if _dead:
 		return
 	_dead = true
-	# Feedback.impact(tier, global_position) arrives in Story 1.6; drops in Epic 4.
+	Feedback.impact(tier, global_position)
+	# Drops arrive in Epic 4.
 	Events.enemy_killed.emit(type_id, global_position, _last_hit_by_ally)
 	resolved.emit()
 	queue_free()

@@ -8,6 +8,10 @@ const LAYER_PLAYER_SHOTS: int = 1 << 1
 const MASK_ENEMIES_ASTEROIDS: int = (1 << 2) | (1 << 4)
 
 
+func after_each() -> void:
+	Feedback.reset()
+
+
 func _make_bolt(pos: Vector2, velocity: Vector2 = Vector2(0, -1800), damage: int = 1) -> Projectile:
 	var bolt: Projectile = BOLT_SCENE.instantiate() as Projectile
 	bolt.setup({"position": pos, "velocity": velocity, "damage": damage})

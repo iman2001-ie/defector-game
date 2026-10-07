@@ -10,6 +10,10 @@ func before_each() -> void:
 	watch_signals(Events)
 
 
+func after_each() -> void:
+	Feedback.reset()
+
+
 func _make_wasp(pos: Vector2 = Vector2(960, 300)) -> Enemy:
 	var wasp: Enemy = WASP_SCENE.instantiate() as Enemy
 	wasp.setup({"position": pos})

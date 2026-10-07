@@ -9,6 +9,7 @@ extends Node
 var _projectiles: Node2D
 var _enemies: Node2D
 var _asteroids: Node2D
+var _effects: Node2D
 
 
 func _ready() -> void:
@@ -18,6 +19,16 @@ func _ready() -> void:
 	_projectiles = _container(^"Projectiles")
 	_enemies = _container(^"Enemies")
 	_asteroids = _container(^"Asteroids")
+	# Effects is optional (test worlds omit it); only a Spawner with one feeds Feedback.
+	_effects = world.get_node_or_null(^"Effects") as Node2D
+	if _effects != null:
+		Feedback.register_spawner(self)
+	else:
+		Log.debug("spawn", "World '%s' has no Effects container; explosions disabled" % world.name)
+
+
+func _exit_tree() -> void:
+	Feedback.unregister_spawner(self)
 
 
 ## Returns the spawned projectile, or null for an unknown id or a missing container.
@@ -77,6 +88,22 @@ func spawn_asteroid(params: Dictionary) -> Asteroid:
 	asteroid.setup(params)
 	_asteroids.add_child(asteroid)
 	return asteroid
+
+
+## Returns the spawned explosion, or null without an Effects container.
+## params: position, scale, extras (see Explosion.setup).
+func spawn_explosion(params: Dictionary) -> Explosion:
+	if _effects == null:
+		return null
+	var node: Node = EntityRegistry.EXPLOSION.instantiate()
+	var explosion: Explosion = node as Explosion
+	if explosion == null:
+		Log.error("spawn", "explosion scene is not an Explosion")
+		node.queue_free()
+		return null
+	explosion.setup(params)
+	_effects.add_child(explosion)
+	return explosion
 
 
 func _container(path: NodePath) -> Node2D:

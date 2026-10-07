@@ -21,6 +21,7 @@ var _spawn_position: Vector2 = Vector2.ZERO
 var _has_spawn_position: bool = false
 var _viewport_height: float = 0.0
 var _destroyed: bool = false
+var _impact_tier: int = ImpactTier.SMALL
 
 
 ## Stores params; nothing is applied until _ready(). Keys: position (global), size.
@@ -36,6 +37,7 @@ func _ready() -> void:
 	if _has_spawn_position:
 		global_position = _spawn_position
 	var key: String = "asteroids.%s" % size
+	_impact_tier = ImpactTier.from_name(String(size))
 	radius = Config.num(key + ".diameter_px") / 2.0
 	hp = Config.int_(key + ".hp")
 	drift_speed = Config.num(key + ".drift_speed_px_s")
@@ -71,6 +73,7 @@ func apply_damage(amount: int, _source: Node) -> void:
 	hp -= amount
 	if hp <= 0:
 		_destroyed = true
-		# Feedback.impact(...) arrives in Story 1.6; drops in Epic 4.
+		Feedback.impact(_impact_tier, global_position)
+		# Drops arrive in Epic 4.
 		Events.asteroid_destroyed.emit(size, global_position)
 		queue_free()

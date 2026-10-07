@@ -10,3 +10,5 @@ const PROJECTILES: Dictionary[StringName, PackedScene] = {
 }
 ## One scene for every asteroid size; the size is set through setup().
 const ASTEROID: PackedScene = preload("res://entities/asteroids/asteroid.tscn")
+## One explosion scene for every impact tier; scale and extras come through setup().
+const EXPLOSION: PackedScene = preload("res://entities/effects/explosion.tscn")

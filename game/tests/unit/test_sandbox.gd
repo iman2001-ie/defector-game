@@ -62,6 +62,18 @@ func test_spawner_wired_to_world_and_player() -> void:
 	assert_eq(_sandbox.get_node("World/Projectiles").get_child_count(), 1, "player fires through the sandbox Spawner")
 
 
+func test_shake_camera_frames_the_playfield() -> void:
+	var camera: ShakeCamera = _sandbox.get_node_or_null("ShakeCamera") as ShakeCamera
+	assert_not_null(camera, "Sandbox/ShakeCamera is a ShakeCamera")
+	if camera == null:
+		return
+	camera.set_process(false)
+	assert_true(camera.enabled, "enabled")
+	assert_eq(camera.position, Vector2(960, 540), "centred on the playfield")
+	assert_eq(camera.offset, Vector2.ZERO, "no shake")
+	assert_eq(camera.get_screen_center_position(), Vector2(960, 540), "screen centre")
+
+
 # --- Wasp formation and asteroids (Story 1.4) ---------------------------------
 
 func _wasps() -> Array[Enemy]:

@@ -6,6 +6,10 @@ const DamageTarget: GDScript = preload("res://tests/fixtures/damage_target.gd")
 const IMPACT: Vector2 = Vector2(500, 500)
 
 
+func after_each() -> void:
+	Feedback.reset()
+
+
 func _make_missile(pos: Vector2, velocity: Vector2 = Vector2.ZERO, damage: int = 8) -> Missile:
 	var missile: Missile = MISSILE_SCENE.instantiate() as Missile
 	missile.setup({"position": pos, "velocity": velocity, "damage": damage})

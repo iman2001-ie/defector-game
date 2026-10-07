@@ -22,6 +22,8 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	# Kills drive Feedback; a large kill would leave a hit-stop running.
+	Feedback.reset()
 	_world = null
 	_spawner = null
 

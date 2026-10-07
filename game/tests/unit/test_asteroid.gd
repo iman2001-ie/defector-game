@@ -14,6 +14,10 @@ func before_each() -> void:
 	watch_signals(Events)
 
 
+func after_each() -> void:
+	Feedback.reset()
+
+
 func _make(size: StringName, pos: Vector2 = Vector2(960, 400)) -> Asteroid:
 	var rock: Asteroid = ASTEROID_SCENE.instantiate() as Asteroid
 	rock.setup({"size": size, "position": pos})

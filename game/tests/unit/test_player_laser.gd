@@ -32,6 +32,7 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	Feedback.reset()
 	Input.action_release(&"fire_laser")
 	PauseArbiter.clear()
 	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_VISIBLE)
@@ -152,6 +153,54 @@ func test_flash_cycles_while_held() -> void:
 	_ticks(true, 3)
 	assert_eq(_projectiles.get_child_count(), 2)
 	assert_true(_flash().visible, "tick 7: next shot shows the flash again")
+
+
+func test_bolt_plays_laser_zap_with_jitter() -> void:
+	var jitter: float = Config.num("weapons.laser.sfx_pitch_jitter")
+	var pitches: Dictionary[float, bool] = {}
+	for shot: int in 10:
+		_player.step_fire(true, DT)
+		var sfx: AudioStreamPlayer = Audio.newest_player()
+		assert_not_null(sfx)
+		if sfx == null:
+			return
+		assert_eq(sfx.stream, Audio.SFX[&"laser_zap"])
+		assert_between(sfx.pitch_scale, 1.0 - jitter, 1.0 + jitter, "pitch within jitter")
+		pitches[sfx.pitch_scale] = true
+		# Let the cooldown elapse (6 ticks per bolt at 10/s) before the next shot.
+		_ticks(true, 5)
+	assert_eq(_projectiles.get_child_count(), 10, "one bolt per shot")
+	assert_gt(pitches.size(), 1, "pitch is jittered")
+
+
+func test_laser_zap_jitter_follows_tuning() -> void:
+	var laser_tuning: Dictionary = Config.tuning["weapons"]["laser"]
+	var original: Variant = laser_tuning["sfx_pitch_jitter"]
+	laser_tuning["sfx_pitch_jitter"] = 0.0
+	var fresh: Player = PLAYER_SCENE.instantiate() as Player
+	add_child_autofree(fresh)
+	laser_tuning["sfx_pitch_jitter"] = original
+	fresh.set_physics_process(false)
+	fresh.set_spawner(_spawner)
+	for shot: int in 5:
+		fresh.step_fire(true, DT)
+		var sfx: AudioStreamPlayer = Audio.newest_player()
+		assert_not_null(sfx)
+		if sfx == null:
+			return
+		assert_eq(sfx.pitch_scale, 1.0, "zero tuning jitter gives an unjittered zap")
+		for tick: int in 5:
+			fresh.step_fire(true, DT)
+
+
+func test_no_bolt_no_zap() -> void:
+	Audio.play_sfx(&"explosion_small")
+	var before: AudioStreamPlayer = Audio.newest_player()
+	var lone: Player = PLAYER_SCENE.instantiate() as Player
+	add_child_autofree(lone)
+	lone.set_physics_process(false)
+	lone.step_fire(true, DT)
+	assert_eq(Audio.newest_player(), before, "no sound without a spawned bolt")
 
 
 func test_paused_tree_does_not_fire() -> void:
