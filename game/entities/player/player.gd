@@ -6,20 +6,36 @@ extends Area2D
 ## along the offset to the clamped target. gain is solved once in _ready() so the
 ## continuous model covers chase_ref_distance_px (to within ARRIVE_EPS_PX) in
 ## chase_ref_time_s. The ship never rotates.
+##
+## Laser: while fire_laser is held, one bolt per 1 / weapons.laser.rate_per_s is
+## spawned at the Muzzle through the injected Spawner, with a muzzle flash.
 
 ## The chase counts as arrived within this many pixels when solving the gain.
 const ARRIVE_EPS_PX: float = 1.0
 const GAIN_MIN: float = 1.0
 const GAIN_MAX: float = 10000.0
 const GAIN_SOLVE_ITERATIONS: int = 40
+## Absorbs float drift so whole multiples of the physics delta add up to one interval.
+const FIRE_EPS: float = 1e-6
+const LASER_TYPE: StringName = &"laser_bolt"
 
 var _max_speed: float
 var _gain: float
 var _bounds_min: Vector2
 var _bounds_max: Vector2
 
+var _laser_damage: int
+var _laser_speed: float
+var _fire_interval: float = INF
+## Seconds until the next bolt may fire; may dip below 0 while held (carried, no drift).
+var _fire_cooldown: float = 0.0
+var _flash_left: float = 0.0
+var _spawner: Spawner
+
 @onready var _hurtbox: CollisionShape2D = $Hurtbox
 @onready var _sprite: Sprite2D = $Sprite
+@onready var _muzzle: Marker2D = $Muzzle
+@onready var _muzzle_flash: Node2D = $Muzzle/MuzzleFlash
 
 
 func _ready() -> void:
@@ -43,9 +59,54 @@ func _ready() -> void:
 		placeholder.width = px
 		placeholder.height = px
 
+	_laser_damage = Config.int_("weapons.laser.damage")
+	_laser_speed = Config.num("weapons.laser.speed_px_s")
+	var rate: float = Config.num("weapons.laser.rate_per_s")
+	if rate > 0.0:
+		_fire_interval = 1.0 / rate
+	else:
+		Log.warn("data", "weapons.laser.rate_per_s %.3f is not positive; laser disabled" % rate)
+	_muzzle_flash.visible = false
+
 
 func _physics_process(delta: float) -> void:
 	step_toward(get_global_mouse_position(), delta)
+	step_fire(Input.is_action_pressed(&"fire_laser"), delta)
+
+
+## Injected by the scene root. Without a spawner the ship does not fire.
+func set_spawner(spawner: Spawner) -> void:
+	_spawner = spawner
+
+
+## One fire tick. The cooldown is checked, then counted down, so a held trigger
+## fires on ticks 1, 7, 13, ... at 10/s and 1/60 s. At most one bolt per tick.
+## Released (or without a spawner) the cooldown floors at 0: the next press fires at once.
+func step_fire(held: bool, delta: float) -> void:
+	if _flash_left > 0.0:
+		_flash_left -= delta
+		if _flash_left <= FIRE_EPS:
+			_flash_left = 0.0
+			_muzzle_flash.visible = false
+	var can_fire: bool = held and is_finite(_fire_interval) and is_instance_valid(_spawner)
+	if can_fire and _fire_cooldown <= FIRE_EPS:
+		_fire_cooldown += _fire_interval
+		_fire_bolt()
+	_fire_cooldown -= delta
+	if not can_fire:
+		_fire_cooldown = maxf(_fire_cooldown, 0.0)
+
+
+func _fire_bolt() -> void:
+	var bolt: Projectile = _spawner.spawn_projectile(LASER_TYPE, {
+		"position": _muzzle.global_position,
+		"velocity": Vector2(0.0, -_laser_speed),
+		"damage": _laser_damage,
+	})
+	if bolt == null:
+		return
+	_muzzle_flash.visible = true
+	_flash_left = _fire_interval * 0.5
 
 
 ## One chase tick toward target. Both the target and the result are clamped.

@@ -48,3 +48,14 @@ func test_reticle_follows_mouse() -> void:
 	reticle.global_position = Vector2(-500, -500)
 	reticle._process(0.0)
 	assert_eq(reticle.global_position, reticle.get_global_mouse_position())
+
+
+func test_spawner_wired_to_world_and_player() -> void:
+	var spawner: Spawner = _sandbox.get_node_or_null("Spawner") as Spawner
+	assert_not_null(spawner, "Sandbox/Spawner is a Spawner")
+	if spawner == null:
+		return
+	assert_eq(spawner.world, _sandbox.get_node("World"), "Spawner.world is World")
+	var player: Player = _sandbox.get_node("World/Player") as Player
+	player.step_fire(true, 1.0 / 60.0)
+	assert_eq(_sandbox.get_node("World/Projectiles").get_child_count(), 1, "player fires through the sandbox Spawner")
