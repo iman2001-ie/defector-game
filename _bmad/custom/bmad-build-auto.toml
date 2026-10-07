@@ -1,0 +1,21 @@
+# Team overrides for bmad-build-auto (the dev skill bmad-loop drives).
+# Brings GDS game-dev knowledge and mindset into unattended runs while keeping
+# bmad-build-auto's implementation and multi-layer review machinery intact.
+# Merge rules: lists append to the skill defaults; strings replace.
+
+[workflow]
+
+persistent_facts = [
+  # Planning documents live in GDS locations, not the standard BMM ones.
+  "DEFECTOR is a Godot 4.7 game planned with the GDS module. The planning contract is: game architecture `{project-root}/_bmad-output/game-architecture.md`; GDD `{project-root}/_bmad-output/planning-artifacts/gdds/gdd-game-project-2026-10-06/gdd.md` (it plays the role of the PRD) plus its `decision-log.md`; epics `{project-root}/_bmad-output/planning-artifacts/epics.md`; UX spec `DESIGN.md` and `EXPERIENCE.md` under `{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-defector-game-2026-10-06/`. Use these when compiling epic context and planning a story.",
+  "Every spec's frontmatter `context:` must list `_bmad-output/game-architecture.md` and `.claude/skills/gds-agent-game-dev/gametest/knowledge/godot-testing.md`, plus the GDD or UX files the story touches, so the implementation subagent loads them.",
+
+  # GDS game-dev principles (from gds-agent-game-dev).
+  "Work as a senior game developer. Principles: 60fps is non-negotiable (no per-frame allocations or lookups in _process/_physics_process hot paths without reason). Write code designers can iterate without fear: tuning lives in data, never in code. Red, green, refactor: write the failing GUT test first, then the implementation. Test what matters: gameplay rules, state transitions, data loading and edge cases; automated tests catch regressions, humans catch fun problems, so never claim feel or fun is verified. Flaky tests are worse than no tests. Every story leaves the game runnable.",
+  "Statically typed GDScript only: type every variable, parameter and return value. Follow the architecture's ownership rules (PauseArbiter, Feedback, Spawner, Events, Config, Log) exactly as AGENTS.md states them.",
+  "If a story conflicts with the GDD, architecture or UX spec, or needs a design decision they do not make, do not choose silently: HALT with status `blocked` and name the conflict, so the human resolves it.",
+
+  # GDS testing knowledge.
+  "file:{project-root}/.claude/skills/gds-agent-game-dev/gametest/knowledge/godot-testing.md",
+  "file:{project-root}/.claude/skills/gds-agent-game-dev/gametest/knowledge/performance-testing.md",
+]
