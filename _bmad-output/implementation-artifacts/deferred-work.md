@@ -120,7 +120,9 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 1; owner Planning (SM); sprint-status status open)
-status: open
+status: done 2026-10-07
+resolution: closed by human decision: Per-story token cap raised deliberately in bmad-loop config by the operator.
+decision: 2026-10-07 Raise the token cap — Per-story token cap raised deliberately in bmad-loop config by the operator.
 
 ### DW-15: Fix the epic-1 status in sprint-status, and align the bmad-loop commit subject format with AGENTS.md section 5 (or amend section 5)
 origin: retro action item epic-1-retro-item-9-fix-the-epic-1-status-in-sprint-status-a
