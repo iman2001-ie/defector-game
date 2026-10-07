@@ -4,15 +4,15 @@
 
 ## Goal
 
-Prove the core hypothesis of DEFECTOR before any story or campaign work: flying the ship with the mouse, streaming lasers and firing missiles at Wasps and asteroids feels good on its own, with every impact scaled by the size of what was hit. The epic also lays the data-driven foundation (Godot project, logging, event bus, tuning config, tests) that every later epic builds on. The fun gate (Story 1.7) passed and Forward+ held the 40-Wasp stress test. The playtest then changed the design: the ship now sits exactly on the cursor, the missile fires straight up, the reticle is removed and the glow is brighter. Stories 1.8–1.10 apply these changes and bring the architecture doc in line with the code, so that Epic 2 is built against the final movement and patterns.
+Prove the core hypothesis before any story work: the player flies a neon ship locked to the mouse cursor, fires lasers and straight-up splash missiles, and blasts Wasps and asteroids in a sandbox where every impact scales with size. The epic also lays the data-driven Godot foundation (autoloads, Config, collision layers, input actions, GUT) that every later epic builds on. It is the go/no-go fun gate: done when the developer and at least one colleague say "yes" to "Was the shooting fun on its own?" The gate has passed. A playtest redesign then added Stories 1.8-1.10, which lock the ship to the cursor, fire the missile straight up, brighten the glow, and bring the architecture doc in line with the code. All three run before Epic 2.
 
 ## Stories
 
 - Story 1.1: Set Up the Godot Project and Data-Driven Foundation
-- Story 1.2: Fly the Ship with the Mouse (partly superseded by 1.8)
+- Story 1.2: Fly the Ship with the Mouse (chase and reticle superseded by 1.8)
 - Story 1.3: Fire the Laser
 - Story 1.4: Shoot Wasps and Asteroids in the Sandbox
-- Story 1.5: Fire Aimed Missiles with Splash Damage (partly superseded by 1.8)
+- Story 1.5: Fire Aimed Missiles with Splash Damage (aiming and reticle ring superseded by 1.8)
 - Story 1.6: Feel Every Impact Scale with Size
 - Story 1.7: Validate the Core Feel in a Stress-Tested Sandbox
 - Story 1.8: Lock the Ship to the Cursor and Fire Missiles Straight Up
@@ -21,107 +21,47 @@ Prove the core hypothesis of DEFECTOR before any story or campaign work: flying 
 
 ## Requirements & Constraints
 
-- **Movement:**
-  - The ship sits exactly on the cursor in the same physics tick. There is no chase, smoothing, speed cap or lag.
-  - It never rotates. It is clamped to x 0–1920 and y `player.bounds_y` (432–1080).
-  - The 24 px hurtbox circle is unchanged.
-- **Cursor:**
-  - During gameplay the cursor is hidden and confined to the player zone.
-  - Godot can only confine to the window, so when the cursor goes above the zone it is warped back to the zone edge. Moving back down responds immediately, with no dead travel.
-  - On resume from any pause, the cursor is warped to the ship, so the ship never jumps.
-- **Laser (LMB held):** 10 bolts/s. Each bolt is a twin visual but deals one damage instance of 1 damage. Bolts travel straight up at 1800 px/s, ammo is unlimited, and nothing fires while paused.
-- **Missile (RMB):**
-  - Fires from the ship's nose, always straight up (`Vector2.UP`), at 900 px/s.
-  - Deals 8 damage to the target it hits and 3 splash damage to every other enemy or asteroid within 120 px.
-  - 1.5 s cooldown, unlimited ammo.
-- **Asteroids:**
-  - Sizes S/M/L are 64/128/224 px, with 4/12/30 HP, falling at 140/100/60 px/s and spinning at a random 10–40°/s.
-  - They never split.
-  - They block projectiles from both sides.
-- **Wasp (sandbox target):** 3 HP, with a hitbox about 80% of the sprite.
-- **Impact tiers:**
-  - Small: 0.5x scale, no shake.
-  - Medium: 1x scale, 4 px / 0.15 s shake.
-  - Large: 2x scale, 8 px / 0.25 s shake, 40 ms hit-stop, shockwave.
-  - Explosion volume scales with the tier through `sfx_volume_db`.
-- **Glow (Story 1.9):**
-  - Bolts must read as bullets: an HDR core above 1.0 plus a wider additive halo.
-  - The whole scene should be slightly brighter than the baseline (intensity 0.8, bloom 0.05, threshold 0.6) without washing out. This is judged on an exported build.
-- **Performance:** 60 FPS at 1080p on the dev laptop iGPU. `--bench=20` p99 must stay under 16.6 ms (it was 7.01 ms before the glow change).
-- **No hard-coded GDD numbers.** Every GDD number is first-pass tuning in data. Tuning changes go in the GDD decision log.
-- **Friendly fire** must be impossible by layer and mask design.
+- **Movement (current model):** the ship sits exactly on the cursor in the same physics tick. There is no chase, smoothing or speed cap, and the ship never rotates. The cursor itself is confined to the player zone: full width, y 432-1080 (bottom 60%). If the mouse goes above the zone, the cursor is warped back to the edge so there is no dead travel. On resume from any pause, the cursor is warped to the ship so the ship never jumps. There is no reticle, because the ship is the cursor.
+- **Hurtbox:** a 24 px circle centred on a ~96 px cyan/teal ship.
+- **Laser:** hold LMB. Twin bolts (the twin is visual only) at 10 bolts/s, 1 damage each, 1800 px/s, straight up, unlimited. Muzzle flash on every shot. No firing while paused.
+- **Missile:** RMB fires from the ship's nose straight up at 900 px/s. It deals 8 damage to the target it hits and 3 splash damage to every other enemy or asteroid within 120 px (the hit target takes no splash). 1.5 s cooldown, unlimited ammo, smoke trail.
+- **Missile cooldown ring:** drawn on top of the ship and no bigger than it. High-contrast `text` (#E8F4FF) stroke with a dark `background` outline. It sweeps clockwise from 12 o'clock, is hidden when ready, and is driven only by `Events.missile_cooldown_changed(ratio)` (1 = just fired, 0 = ready). Radius and stroke are tunable data.
+- **Wasp (sandbox target):** 3 HP, hitbox about 80% of the sprite, magenta/red.
+- **Asteroids:** S/M/L are 64/128/224 px, 4/12/30 HP, and drift down at 140/100/60 px/s. They rotate at a random 10-40°/s, never split, and free themselves after exiting the bottom. They block every projectile from both sides, and player shots damage them.
+- **Impact tiers:** Small (0.5×, no shake, no hit-stop, spark burst), Medium (1×, 4 px/0.15 s, debris), Large (2×, 8 px/0.25 s, 40 ms hit-stop, shockwave). Explosion SFX volume and pitch scale with the tier. The laser zap has ±5% pitch jitter, and missile launch plays a thump.
+- **Performance:** 60 FPS at 1920×1080 on the dev laptop's iGPU with 40 Wasps and the fire button held (frame time under 16.6 ms). Forward+ was kept, and the bench passed with a p99 of about 7 ms. Any visual change must re-run the `--bench=20` check.
+- **Glow:** laser bolts must read as bullets, and the overall neon should be slightly brighter but not washed out. The final judgement is made by the operator on an exported build.
+- **Tunability:** every GDD number lives in `data/*.json` and is read through `Config`, never hard-coded. Tuning changes are recorded in the GDD decision log.
+- **Export:** a Windows export smoke check (run from a folder outside the repo) belongs to this epic, so export problems surface early.
 
 ## Technical Decisions
 
-- **Engine:** Godot 4.7.2, Forward+ (kept; the ADR-003 Compatibility fallback was not needed). `hdr_2d` plus WorldEnvironment glow, with additive `CanvasItemMaterial` so the look survives without the glow.
-  - Glow values now live in `tuning.json` under `render.glow` and are applied by the scene root, so F5 can reload them.
-  - Laser brightness is data too, for example `weapons.laser.glow_energy`.
-- **Removed tuning keys:**
-  - `player.max_speed`
-  - `player.chase_ref_distance_px`
-  - `player.chase_ref_time_s`
-  - `weapons.missile.straight_up_within_px`
-- **Removed code:**
-  - the chase solver code and its tests
-  - `missile_direction`
-  - `reticle.tscn` / `reticle.gd`
-- **Ownership rules:**
-  - Only `PauseArbiter` sets `tree.paused` and `mouse_mode`.
-  - The Player owns every `warp_mouse` call (zone confinement, resume, and later the convoy push), reacting to a PauseArbiter resume signal.
-  - Only `Feedback` touches `Engine.time_scale`.
-  - Only `Spawner.spawn_*()` creates entities, using `setup()` before `add_child`.
-  - Logging goes through `Log`.
-- **Cooldown ring:**
-  - It is a Player child drawn above the ship sprite with `draw_arc`.
-  - It is driven only by `Events.missile_cooldown_changed(ratio)`, where 1 means just fired and 0 means ready.
-- **Config:**
-  - Read values only through the typed getters `num/int_/flag/section`, and cache them in `setup()`/`_ready()`. Counts and HP go through `int_()`.
-  - `Config.reload()` backs the F5 reload.
-- **Collision layers:** 1 player, 2 player_shots, 3 enemies, 4 enemy_shots, 5 asteroids, 6 pickups, 7 convoy, 8 allies.
-  - Both shot layers mask asteroids.
-  - player_shots has `monitorable = false`.
-- **Projectiles and enemies:**
-  - Projectiles use a `CapsuleShape2D` with height at least speed / 60 and free themselves outside the playfield bounds.
-  - Enemies follow the `Enemy` contract (`resolved` emitted once, `apply_damage`, `destroy_by_contact`).
-  - Every impact goes through `Feedback.impact(tier, pos)`.
-- **Architecture doc (Story 1.10):** `game-architecture.md` must document what was actually built:
-  - the `play_sfx` pitch parameter and the tier `sfx_volume_db`
-  - the single explosion scene
-  - Spawner and ShakeCamera registering with Feedback
-  - the `-- --stress` and `--bench=N` modes
-  - the `Playfield` class and the `PlayerWeapons` split
-  - `Config.reload()`
-  - the cursor lock, zone confinement and resume-warp owner
-  - the ring on the ship
-  - `render.glow`
-  - the export command, with the `--import` step first
-
-  Also add an "As-built reconciliation" note at the end. Afterwards, `reticle`, `max_speed`, `chase` and `toward the cursor` may appear only in historical notes.
-- **Tests:** GUT runs headless and covers pure logic only. For 1.8, the tests cover:
-  - the one-tick clamped lock
-  - the zone clamp and the cursor-warp decision, as a pure function of the mouse position and bounds
-  - the resume warp
-  - the straight-up missile direction
-  - the ring ratio handling
+- Godot 4.7.2-stable, statically typed GDScript, Forward+ with `hdr_2d` and `WorldEnvironment` glow. The project lives in `game/`. No runtime plugins; GUT is dev-only and excluded from export.
+- **Autoload order:** `Log, Events, Config, GameState, SaveManager, PauseArbiter, Audio, Feedback, EntityRegistry, SceneRouter`. Each autoload is created by the first story that needs it.
+- **Collision layers 1-8:** `player, player_shots, enemies, enemy_shots, asteroids, pickups, convoy, allies`. `asteroids` is in the mask of both `player_shots` and `enemy_shots`. Every entity is an `Area2D` with no physics bodies. Projectiles apply damage to what they overlap, then free themselves. Player shots have `monitorable = false`.
+- **Anti-tunnelling:** every projectile uses a `CapsuleShape2D` aligned with travel, with height ≥ speed/60 (laser ≥ 30 px, missile ≥ 15 px).
+- **Creation:** only `Spawner.spawn_*()` instantiates gameplay entities. It uses scenes preloaded in `EntityRegistry`, and calls `setup(params)` before `add_child` into `World/<Container>`. No pooling.
+- **Enemy contract:** `resolved` is emitted exactly once, plus `type_id`, `tier`, `setup`, `apply_damage(amount, source)` and `destroy_by_contact()`. HP comes from `Config.int_("enemies.<id>.hp")`. A death calls `Feedback.impact(tier, pos)`, emits `Events.enemy_killed`, emits `resolved`, then calls `queue_free()`.
+- **Pause and time:** only `PauseArbiter` sets `tree.paused` and `mouse_mode`. Gameplay uses `CONFINED_HIDDEN`; any pause reason switches to `VISIBLE`. The Player owns every `warp_mouse` call (zone confinement, resume, and the planned Epic 6 convoy push) and reacts to a resume signal from PauseArbiter. Only `Feedback` sets `Engine.time_scale` (overlapping hit-stops keep the longest remaining) and drives the camera shake. `ShakeCamera` keeps the strongest active shake with linear decay. Spawner and ShakeCamera register with Feedback; this is the accepted design.
+- **Config:** typed getters `num`, `int_`, `flag`, `section`. JSON numbers are floats, so counts and HP must go through `int_()`. A missing key logs `Log.error`, asserts, and returns `0`/`false`/`{}`. A `tuning.json` parse failure sets `Config.load_error`. Values are cached in `setup()`/`_ready()` and never read per frame. `Config.reload()` backs the F5 hot-reload. The fixed `tuning.json` sections are listed in the architecture. The glow values live in `render.glow` (intensity, bloom, hdr_threshold) and the scene root applies them on start and on F5. Laser brightness lives in `weapons.laser.glow_energy` / `halo_energy`.
+- **ADR-003 fallback:** glow sprites also use an additive `CanvasItemMaterial`, so the neon still reads with the WorldEnvironment glow off or under the Compatibility renderer. Laser bolts use an HDR-bright core (modulate above 1.0) plus a wider additive halo.
+- **Audio:** buses Master → Music, SFX, UI. A pool of 12 `AudioStreamPlayer`s that steals the oldest when full. `play_sfx(id, pitch_jitter = DEFAULT_PITCH_JITTER, volume_db = 0.0, pitch = 1.0)`. Each tier row carries `sfx`, `sfx_pitch` and `sfx_volume_db`. `Feedback.prewarm()` spawns one explosion of each tier off-screen at (-1000, 540); the scene root calls it at the end of its `_ready`.
+- **Logging:** all logging goes through `Log` with the format `[LEVEL][category] message` and the fixed categories. Never use bare `print()`, and never log in per-frame paths.
+- **Debug tools (debug builds only):** F1 overlay (FPS, frame ms, node count, enemies alive) and F5, which runs the validating `Config.reload()` on `tuning.json` and `flags.json`, then restarts the scene (on failure it keeps the previous data and doesn't restart). The `-- --stress` and `--bench=N` command-line modes are used for the perf gate.
+- **Input:** code uses action names only (`fire_laser`, `fire_missile`, `ability_shield`, `ability_barrage`, `comms_advance`, `pause`, `toggle_fullscreen`, `debug_*`), never raw keys.
+- **Testing:** GUT 9.7.1 runs headless; run `--import` once on a fresh clone. Tests cover pure logic only (config, pause arbiter, the clamp and warp decision as a pure function of the mouse position and bounds, resume-warp, missile direction, ring ratio). Feel is validated by playtest.
+- **Export:** Windows Desktop preset with an embedded PCK, the non-resource filter `data/*.json`, and the exclude filter `addons/gut/*, tests/*`. Output goes to `game/export/` (gitignored). Run the `--import` step before the export command.
 
 ## UX & Interaction Patterns
 
-- **Palette:** player cyan `#22E6FF`, enemies and enemy shots magenta `#FF2BD6`, asteroids `#7A6E62` with a `#C9D8E8` rim, background `#05070F`.
-- **No reticle.** The ship is the cursor.
-- **Missile cooldown ring (`missileRing` token):**
-  - Drawn over the ship, with a radius no larger than half the ship's size (first pass 36 px).
-  - A 5 px stroke in `text` `#E8F4FF` with a 2 px `background` outline. The radius and stroke are tunable data.
-  - Sweeps clockwise from 12 o'clock over the remaining fraction, hides when ready, and freezes while paused.
-  - Must read clearly over the hull and over explosions.
-- **Layout zones:** the top 120 px are the HUD band, the enemy zone is y 120–432 and the player zone is y 432–1080.
+- Theme A "Cold Neon": coalition cyan #22E6FF for the player, enemy magenta #FF2BD6 for enemies and their shots, hazard grey-brown with a rim light for asteroids. Depth comes from glow, not shadows. The look is clean neon/vector on a dark space background.
+- The persistent HUD stays in the top 120 px band. The player zone (below y 432) stays clear apart from in-world elements such as the cooldown ring.
+- Laser bolts are elongated with a bright core and an additive glow. The cooldown ring must read clearly over the ship while lasers fire over explosions.
 
 ## Cross-Story Dependencies
 
-- Stories 1.1–1.7 are done. Run 1.8, then 1.9, then 1.10, all before Epic 2.
-- Story 1.10 depends on 1.8 and 1.9 so that it documents the final code. When it is done, it closes the deferred-work items DW-11 and DW-17.
-- The Epic 1 retrospective is re-run after Story 1.10.
-- Later stories build on the 1.8 rules:
-  - Story 4.4: on resume, the cursor is back on the ship.
-  - Story 4.5: the lock and zone confinement hold under letterbox, because warps use viewport coordinates.
-  - Story 6.1: the convoy push sweeps the ship's move and then warps the cursor to the ship.
-- With the missile fixed straight up, the risk of splash vs `grid_4x2` spacing (DW-3) is watched in Epic 2 playtests.
+- Story 1.1 provides the foundation every other story uses: Config, Log, Events, layers, input actions and GUT.
+- `PauseArbiter` arrives in 1.2. `Spawner`/`EntityRegistry` and the projectile contract arrive in 1.3, and the Enemy base in 1.4. `Feedback`/`Audio`/`ShakeCamera` arrive in 1.6, and debug tools and the export preset in 1.7.
+- Story 1.8 supersedes the chase movement and reticle from 1.2 and the cursor-aimed missile and reticle ring from 1.5. It removes `player.max_speed`, `chase_ref_*`, `missile_direction`, `weapons.missile.straight_up_within_px` and the reticle files.
+- Story 1.9 depends on the ADR-003 additive fallback and re-runs the 1.7 bench. Story 1.10 runs after 1.8 and 1.9 and updates the architecture doc, so that `reticle`, `max_speed`, `chase` and `toward the cursor` only appear in historical notes.
+- Later epics build on this: the convoy push-out in Epic 6 must sweep the ship's move against `convoy` and then warp the cursor to the ship. HUD elements must read `Events` only. All of Epic 1 must be finished before Epic 2.

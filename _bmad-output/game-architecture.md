@@ -77,7 +77,7 @@ A **Pause Arbiter** stops the menu pause, story pause and hit-stop from fighting
 
 - **60 FPS** at 1920×1080 on an integrated-graphics laptop, with headroom for 40 enemies, 200 projectiles and their particles.
 - Cold launch to the title screen in **under 5 s**. Build under **200 MB**.
-- Borderless fullscreen by default, with a windowed option. The cursor is hidden during gameplay and confined to the player zone (y 432–1080) by warping it back (Godot can only confine to the window).
+- Borderless fullscreen by default, with a windowed option. The cursor is hidden during gameplay and confined to the player zone (y 432–1080): the Player warps it back onto the zone edge (Godot can only confine to the window). See [Pause and Time Model](#pause-and-time-model) for the as-built cursor lock.
 - **Data-driven:** dialogue, waves and tuning live in data files. The surrender beats sit behind on/off flags.
 - Mouse and keyboard only.
 
@@ -94,7 +94,7 @@ A **Pause Arbiter** stops the menu pause, story pause and hit-stop from fighting
 |---|---|
 | Newcomer to Godot 2D | Use built-in nodes only, no plugins in the runtime. Simple `match`-based state machines. One generic level scene. |
 | Story beat soft-locks (the 3-playthrough success metric) | Wave Director owns the clear logic. Debug keys can skip waves. All data is validated at load. |
-| Performance on integrated graphics | No object pooling unless measured. Particles are pre-warmed at load. The E1 profiling gate can switch to the Compatibility renderer. |
+| Performance on integrated graphics | No object pooling unless measured. Particles are pre-warmed by `Feedback.prewarm()` at scene start. The E1 profiling gate can switch to the Compatibility renderer. |
 | GDScript JSON quirks | Number-type rule (all JSON numbers are `float`). The `Config` accessor fails loudly. |
 
 ---
@@ -124,14 +124,14 @@ mkdir game
 
 | Component | Solution | Notes |
 |---|---|---|
-| Rendering | Forward+ renderer, 2D canvas | `rendering/viewport/hdr_2d = true` + `WorldEnvironment` glow for neon (see ADR-003). Glow parameters are data (`tuning.json` → `render.glow`), applied by the scene root |
+| Rendering | Forward+ renderer, 2D canvas | `rendering/viewport/hdr_2d = true` + `WorldEnvironment` glow for neon (see ADR-003). Glow parameters are data (`tuning.json` → `render.glow`: `intensity`, `bloom`, `hdr_threshold`), applied by `RenderGlow.apply(env)` (`core/render_glow.gd`) from the scene root's `_ready` |
 | Physics / collision | Godot Physics 2D, `Area2D` only | No `RigidBody2D` / `CharacterBody2D`. Every entity moves itself and detects overlaps |
 | Physics tick | 60 Hz (default) | Collision-relevant movement goes in `_physics_process` |
 | Audio | `AudioServer` buses + `AudioStreamPlayer` | Buses: `Master` → `Music`, `SFX`, `UI` |
 | Input | InputMap actions | Defined in `project.godot` (see Input Actions) |
-| Scene management | `SceneTree.change_scene_to_file` behind the `SceneRouter` autoload | |
+| Scene management | `SceneTree.change_scene_to_file` behind the `SceneRouter` autoload (planned) | Today only the debug F5 reload restarts the scene (`DebugTools`, see Reload) |
 | Tweening / animation | `Tween` (code) for UI, flicker, shake decay | `AnimationPlayer` is optional, for sprite anims only |
-| Particles | `GPUParticles2D` one-shot | Pre-warmed at level load (see Performance) |
+| Particles | `GPUParticles2D` one-shot | Pre-warmed by `Feedback.prewarm()` when the scene starts (see Asset Management) |
 | Display scaling | Stretch mode `canvas_items`, aspect `keep`, base 1920×1080 | This gives the letterboxing |
 | Build | Godot export templates 4.7.2 → Windows Desktop preset | `.exe` + embedded `.pck` |
 | Logging | `print` / `push_warning` / `push_error` + built-in file logging | Wrapped by the `Log` autoload |
@@ -216,7 +216,7 @@ energy=40
 
 - `EntityRegistry` `preload`s every entity `PackedScene`, so spawning never hitches on disk I/O.
 - `Audio` `preload`s every SFX stream in its registry.
-- **Particle and shader pre-warm:** at the start of `level.tscn`, spawn one of each explosion tier off-screen (at x = -1000) and let it finish. This avoids the first-use shader compile hitch.
+- **Particle and shader pre-warm:** the scene root calls `Feedback.prewarm()` at the end of its `_ready` (today `scenes/sandbox/sandbox.gd`; `level.gd` when it lands). It spawns one explosion per tier at `Feedback.PREWARM_POSITION` (-1000, 540), off-screen, with no shake, hit-stop or sfx, and lets each finish. This avoids the first-use shader compile hitch.
 
 ### Pause and Time Model
 
@@ -232,12 +232,21 @@ The game has two independent mechanisms. **No other code** may set `get_tree().p
 
 | Node | `process_mode` |
 |---|---|
-| Gameplay world (`World` node in `level.tscn`) | `PROCESS_MODE_PAUSABLE` (inherit) |
+| Gameplay world (`World` node in the scene root: `sandbox.tscn` today, `level.tscn` planned) | `PROCESS_MODE_PAUSABLE` (inherit) |
 | `CommsPanel`, `PauseMenu`, `FinalChoice`, retry prompt | `PROCESS_MODE_ALWAYS` |
-| Autoloads `PauseArbiter`, `SceneRouter`, `Audio`, `Feedback` | `PROCESS_MODE_ALWAYS` |
+| Autoloads `PauseArbiter`, `Audio`, `Feedback` (and `SceneRouter`, planned) | `PROCESS_MODE_ALWAYS` |
+| `ShakeCamera`, `DebugTools` (as built; each sets it in `_ready`) | `PROCESS_MODE_ALWAYS` |
 | HUD | `PROCESS_MODE_PAUSABLE` (it freezes along with gameplay) |
 
-**Cursor:** while any pause reason is active, `Input.mouse_mode = MOUSE_MODE_VISIBLE`. During gameplay it is `MOUSE_MODE_CONFINED_HIDDEN`. `PauseArbiter` applies this, so the mode is set in one place. On returning to gameplay mode, the cursor is warped to the Player's position, so the ship never jumps after a pause. PauseArbiter still owns `mouse_mode`. The Player owns all `warp_mouse` calls (zone confinement, convoy push, resume), reacting to a PauseArbiter resume signal (GDD decisions #29, #31).
+**Cursor:** while any pause reason is active, `Input.mouse_mode = MOUSE_MODE_VISIBLE`. During gameplay it is the mode the scene declared with `PauseArbiter.set_gameplay_mouse_mode(mode)` (`MOUSE_MODE_CONFINED_HIDDEN` for gameplay scenes). `PauseArbiter` applies this, so the mode is set in one place. `clear()` drops the pause reasons but keeps the declared mode, so every scene root must declare its own (a menu scene that doesn't would inherit `CONFINED_HIDDEN`); `PauseArbiter.current_mouse_mode()` returns the mode it writes. PauseArbiter owns `mouse_mode`. The Player owns every gameplay `warp_mouse` call (zone confinement, resume, and the planned Epic 6 convoy push) (GDD decisions #29, #31). The one debug-only exception is the `--bench` mode, where `DebugTools` warps the cursor once to `BENCH_AIM`.
+
+**Cursor lock (as built, Story 1.8):**
+
+- Every physics tick `Player._physics_process` calls `step_lock(get_viewport().get_mouse_position())`. It reads the **viewport** mouse on purpose, not the camera-transformed global mouse, so the ShakeCamera offset can't feed back into the ship.
+- `static func confine(mouse, bounds_min, bounds_max)` is a pure clamp. The bounds are x 0..`Playfield.SIZE.x` and y `player.bounds_y.min`..`max` (432..1080).
+- If the mouse is more than `WARP_EPS_PX` (1.0) from the confined point **and** `PauseArbiter.current_mouse_mode() == MOUSE_MODE_CONFINED_HIDDEN`, the Player calls its injectable `warp_mouse: Callable` (defaults to the viewport's `warp_mouse`; tests inject a recorder) with the confined point.
+- Then `global_position = confined`. The ship sits exactly on the cursor with no delay and never rotates.
+- **Resume:** `PauseArbiter` emits `signal resumed` on every paused → unpaused transition, after it writes `mouse_mode`. `Player._on_resumed` warps the cursor to `global_position` (again only while the mode is `CONFINED_HIDDEN`), so the ship never jumps after a pause.
 
 ### Scene Structure
 
@@ -250,7 +259,7 @@ Title ──Play/Level Select──► Story (opening, only when starting Level 
                            └retry─┘ (reload same level)
 ```
 
-`level.tscn` node tree (fixed: all three levels use this tree):
+`level.tscn` node tree (fixed: all three levels use this tree). **Planned:** `level.tscn` arrives in Epic 2+. Today the main scene is the Epic 1 debug sandbox `scenes/sandbox/sandbox.tscn`, which uses the same `World/<Group>` containers, `Spawner`, `ShakeCamera`, `WorldEnvironment` and `Overlay/DebugTools`.
 
 ```
 Level (Node2D, level.gd)                 # reads data/levels/level_<id>.json
@@ -276,6 +285,8 @@ Spawned nodes are always parented to the matching `World/<Group>` container, whi
 ### Collision Layers
 
 Configure these in `project.godot` → `layer_names/2d_physics`. Use these names and numbers exactly.
+
+As built, `core/collision_layers.gd` (`CollisionLayers`) holds the bit values (`PLAYER` = 1 … `ALLIES` = 128) and the shot masks `MASK_PLAYER_SHOTS` / `MASK_ENEMY_SHOTS`. Code and tests use these constants; `.tscn` files store the numbers, and tests check them against the constants.
 
 | # | Name | Who is on it | Mask (what it detects) |
 |---|---|---|---|
@@ -307,16 +318,28 @@ The visual sprite may be shorter. No ray/shape casts are needed.
 ### Audio Architecture
 
 - Buses: `Master` → `Music`, `SFX`, `UI`. Volumes are fixed in v1 (there's no settings menu).
-- `Audio.play_sfx(id: StringName, pitch_jitter := 0.05, volume_db := 0.0)` picks a free player from a pool of 12 `AudioStreamPlayer` nodes. If the pool is full, it steals the oldest player.
-- `Audio.play_music(id)`, `Audio.stop_music(fade := 0.5)`, `Audio.duck_music(on: bool)`.
+- As built (`autoloads/audio.gd`):
+
+  ```gdscript
+  const DEFAULT_PITCH_JITTER: float = 0.05
+  func play_sfx(id: StringName, pitch_jitter: float = DEFAULT_PITCH_JITTER, volume_db: float = 0.0, pitch: float = 1.0) -> AudioStreamPlayer
+  ```
+
+  - `pitch_scale = pitch * (1 + randf_range(-pitch_jitter, pitch_jitter))`, and `volume_db` is set on the player.
+  - The stream comes from the `Audio.SFX` registry (id → preloaded stream). An unknown id logs `Log.warn` once per id and returns `null`.
+  - The pool has 12 (`POOL_SIZE`) `AudioStreamPlayer` nodes on the `SFX` bus. It uses the first free player. When all are busy it stops and reuses the one started longest ago.
+- **Planned (Epic 5/8):** `Audio.play_music(id)`, `Audio.stop_music(fade := 0.5)`, `Audio.duck_music(on: bool)`. Music isn't built yet.
 - SFX are in-world but on a fixed screen, so there's no positional audio (`AudioStreamPlayer`, not `2D`).
-- Explosion tier → SFX id plus pitch and volume offsets, set in `tuning.json → feedback`.
+- Explosion tier → SFX: each `tuning.json → feedback.tiers` row carries `sfx`, `sfx_pitch` and `sfx_volume_db` (GDD decision #26). `Feedback.impact` calls `Audio.play_sfx(row.sfx, Audio.DEFAULT_PITCH_JITTER, row.sfx_volume_db, row.sfx_pitch)`.
 
 ### UI Framework
 
 - Built-in `Control` nodes. One `Theme` at `res://ui/theme/defector_theme.tres` (fonts, panel styles, button styles). Don't set per-node style overrides except in the comms panel portrait frame.
 - The HUD reads state **only via `Events` signals** (`hearts_changed`, `energy_changed`, `wave_progress_changed`, `boss_hp_changed`, `convoy_hp_changed`, `missile_cooldown_changed`). The HUD never polls gameplay nodes.
 - There is no reticle: the ship is the cursor (GDD decision #29). The missile cooldown ring is a Player child, drawn above the ship sprite with `draw_arc` and driven only by `Events.missile_cooldown_changed`.
+  - As built: `entities/player/missile_ring.gd` (`class_name MissileRing`), the `MissileRing` child of the Player with `z_index = 1`.
+  - Data: `player.missile_ring.radius_px` / `stroke_px`. The radius is clamped to `player.sprite_px / 2` (with a `Log.warn`), so the ring is never bigger than the ship.
+  - Colours: a `text` (#E8F4FF) stroke over a `background` (#05070F) outline. It sweeps clockwise from 12 o'clock and draws nothing when the ratio is 0 (ready).
 
 ### Architecture Decision Records
 
@@ -409,12 +432,12 @@ Log.debug("beat", "Trigger %s at %.2f progress" % [trigger_id, progress])
 
 ### Configuration
 
-**Approach:** JSON files in `res://data/`, loaded once at boot by the `Config` autoload and accessed through typed getters. **F5 (debug builds)** reloads every JSON file; the next level start uses the new values.
+**Approach:** JSON files in `res://data/`, loaded once at boot by the `Config` autoload and accessed through typed getters. **F5 (debug builds)** reloads the data and restarts the current scene so every `_ready` cache re-reads it (see the reload rules below).
 
 | Type | Location | Example |
 |---|---|---|
-| Game constants (never tuned) | `const` in the owning script | `const PLAYFIELD := Vector2(1920, 1080)` |
-| Balancing values | `data/tuning.json` | player speed, weapon stats, enemy stats, drop table, feedback tiers |
+| Game constants (never tuned) | `const` in the owning script or a shared constants class | `Playfield.SIZE` / `Playfield.RECT` (`core/playfield.gd`, `class_name Playfield`: `const SIZE := Vector2(1920, 1080)`, `const RECT := Rect2(Vector2.ZERO, SIZE)`) |
+| Balancing values | `data/tuning.json` | player zone, weapon stats, enemy stats, drop table, feedback tiers |
 | Feature flags | `data/flags.json` | `{"surrender_prompts": true, "isolde_interruptions": true, "tarek_fall": true, "hunter_wasp": false}` |
 | Level content | `data/levels/level_<n>.json` | waves, triggers, ally, background, music |
 | Dialogue | `data/dialogue/<scene>.json` | `opening.json`, `level_1.json` … |
@@ -422,20 +445,27 @@ Log.debug("beat", "Trigger %s at %.2f progress" % [trigger_id, progress])
 
 **Access rules:**
 
-- Use `Config.num("weapons.missile.speed_px_s")` → `float`, `Config.int_("enemies.wasp.hp")` → `int`, `Config.flag("surrender_prompts")` → `bool`, and `Config.section("feedback.tiers")` → `Dictionary`.
-- A missing key gives `Log.error` + `assert` and returns `0` / `false` / `{}`. **Never** index `Config.tuning[...]` directly from gameplay code.
+- The getters are exactly: `Config.num("weapons.missile.speed_px_s")` → `float`, `Config.int_("enemies.wasp.hp")` → `int`, `Config.flag("surrender_prompts")` → `bool`, and `Config.section("feedback.tiers")` → `Dictionary` (a deep copy). Level and dialogue getters are planned (see Data Patterns).
+- A missing key gives `Log.error` + `assert` and returns `0` / `false` / `{}`. The `assert` fires only while `Config.assert_on_missing` is `true` (the default); tests set it to `false` to check the fallback. **Never** index `Config.tuning[...]` directly from gameplay code.
 - **JSON numbers are always `float` in Godot (verified on 4.7.2).** Anything used as a count, HP, index or loop bound **must** come through `Config.int_()` or be wrapped in `int()`.
 - Read tuning in `setup()` / `_ready()` and cache it in member variables. Never call `Config` per frame.
 
 ```gdscript
-# player.gd
+# entities/player/player_weapons.gd (excerpt)
 var _missile_speed: float
-var _max_hearts: int
+var _missile_damage: int
 
 func _ready() -> void:
 	_missile_speed = Config.num("weapons.missile.speed_px_s")
-	_max_hearts = Config.int_("player.hearts")
+	_missile_damage = Config.int_("weapons.missile.damage")
 ```
+
+**Reload (`Config.reload() -> bool`, as built):**
+
+- It re-reads the files last passed to `load_data()` into temporaries and validates their shape against the data loaded now. Every current key path must still exist with the same kind (int and float both count as a number). Extra keys are allowed. Array elements aren't checked. If the boot load failed, so the current data is empty, there is nothing to compare against and any shape is accepted.
+- On any failure it logs `Log.error("data", "Reload rejected (...); previous data kept")`, returns `false`, and leaves `tuning`, `flags` and `load_error` untouched.
+- On success it commits both files, clears `load_error`, logs the load summary and returns `true`.
+- F5 runs `DebugTools.reload_data()`: `Config.reload()`. If that returns `false`, it logs and stops (the scene isn't restarted). If `true`, it runs `Feedback.reset()`, `Feedback.load_tiers()`, `PauseArbiter.clear()`, then restarts the current scene (`get_tree().reload_current_scene`) so every `_ready` cache re-reads the data and the scene root re-applies `render.glow`.
 
 ### Event System
 
@@ -490,19 +520,28 @@ signal story_event_requested(event_name: StringName) # e.g. &"tarek_fall"
 
 ### Debug Tools
 
-Debug tools are available **only when `OS.is_debug_build()`** (editor runs and debug exports). Release exports compile them out by early return. A single `DebugTools` node in `Overlay` handles the keys.
+Debug tools are available **only when `OS.is_debug_build()`** (editor runs and debug exports). In release builds they do nothing (`DebugTools.debug_enabled` is false: early return, processing off). A single `DebugTools` node in `Overlay` (`ui/debug/debug_tools.tscn` + `debug_tools.gd`) handles the keys.
 
-| Key | Tool |
-|---|---|
-| F1 | Toggle debug overlay: FPS, frame ms, node count, enemies alive, wave `n/N`, resolved/total, pause reasons, current comms sequence |
-| F2 | Toggle player invincibility |
-| F3 | Resolve the current wave (kill every counted enemy and fire its pending triggers in order) |
-| F4 | Energy +100 (capped) |
-| F5 | Reload all JSON data |
-| F6 | Jump to the boss wave in the current level (if any) |
-| F7 | Unlock all levels (in memory, not saved) |
-| F8 | *(Add only if needed)* Save a screenshot of the viewport to `user://screenshots/shot_<timestamp>.png` so AI agents can inspect the running game. This replaces the screenshot feature of an engine MCP |
-| F11 | Toggle borderless fullscreen / windowed (**available in release too**) |
+**Implemented today: F1 and F5.** The other keys are planned for the epics that need them.
+
+| Key | Tool | Status |
+|---|---|---|
+| F1 | Toggle debug overlay. Built: FPS, frame ms (avg / max over a 0.25 s window, real time), node count, enemies alive. Planned additions: wave `n/N`, resolved/total, pause reasons, current comms sequence | Built (partial) |
+| F2 | Toggle player invincibility | Planned |
+| F3 | Resolve the current wave (kill every counted enemy and fire its pending triggers in order) | Planned |
+| F4 | Energy +100 (capped) | Planned |
+| F5 | Reload `tuning.json` and `flags.json` through `Config.reload()`, then restart the scene (see [Configuration](#configuration)) | Built |
+| F6 | Jump to the boss wave in the current level (if any) | Planned |
+| F7 | Unlock all levels (in memory, not saved) | Planned |
+| F8 | *(Add only if needed)* Save a screenshot of the viewport to `user://screenshots/shot_<timestamp>.png` so AI agents can inspect the running game. This replaces the screenshot feature of an engine MCP | Planned |
+| F11 | Toggle borderless fullscreen / windowed (**available in release too**) | Planned |
+
+**Command-line modes (debug builds only, Story 1.7):** `DebugArgs.parse(OS.get_cmdline_user_args())` (`ui/debug/debug_args.gd`) returns `{stress: bool, bench_s: float}`. The scene root and `DebugTools` both read it.
+
+- `-- --stress`: the sandbox spawns a 10×4 grid of 40 Wasps and refills each slot when its Wasp dies. The overlay starts on, and vsync is turned off so frame ms measures work, not the display wait.
+- `-- --bench=N` implies `--stress`. It warps the cursor to `DebugTools.BENCH_AIM` (1040, 900), holds `fire_laser`, skips 2 s of warm-up, samples N s of frame times into `FrameStats` (`ui/debug/frame_stats.gd`), then logs one line and quits:
+  `[INFO][debug] Stress bench: frames=… avg=… ms p99=… ms max=… ms enemies=… renderer=… window=… vsync=… result=PASS|FAIL`.
+  The exit code is 0 if the average is under 16.6 ms, otherwise 2. A malformed or non-positive N logs a warning and is ignored.
 
 ---
 
@@ -516,6 +555,8 @@ Debug tools are available **only when `OS.is_debug_build()`** (editor runs and d
 
 ### Directory Structure
 
+This is the target tree. As of Epic 1 the built parts are: `project.godot`, `export_presets.cfg` and `default_bus_layout.tres`; the autoloads `Log`, `Events`, `Config`, `PauseArbiter`, `Audio`, `Feedback`, `EntityRegistry`; `core/` except `health_component.gd`; `entities/player/` (without the shield); `entities/projectiles/` laser and missile; `entities/enemies/wasp/`; `entities/asteroids/`; `entities/effects/`; `systems/camera/`; `scenes/sandbox/`; `ui/debug/`; `data/tuning.json` and `data/flags.json`; `assets/audio/sfx/` and `assets/CREDITS.md`; `addons/gut/`; and `tests/unit/` (plus `tests/fixtures/`). Everything else is planned.
+
 ```
 <repo root>/
 ├── _bmad/, _bmad-output/, .claude/ …        # planning (not part of the Godot project)
@@ -523,6 +564,7 @@ Debug tools are available **only when `OS.is_debug_build()`** (editor runs and d
 └── game/                                    # ← Godot project root (res://)
     ├── project.godot
     ├── export_presets.cfg                   # Windows Desktop preset (commit it)
+    ├── default_bus_layout.tres              # audio buses: Master → Music, SFX, UI
     ├── .gitignore                           # .godot/, export/, *.tmp
     ├── autoloads/
     │   ├── events.gd                        # Events
@@ -536,13 +578,16 @@ Debug tools are available **only when `OS.is_debug_build()`** (editor runs and d
     │   ├── feedback.gd                      # Feedback (impact tiers, shake, hit-stop)
     │   └── entity_registry.gd               # EntityRegistry (id → PackedScene consts)
     ├── core/                                # shared non-autoload classes
-    │   ├── spawner.gd                       # Spawner (class_name), lives in level.tscn
+    │   ├── spawner.gd                       # Spawner (class_name), lives in sandbox.tscn today (level.tscn planned)
     │   ├── health_component.gd              # HealthComponent
     │   ├── projectile.gd                    # Projectile base (class_name)
     │   ├── enemy.gd                         # Enemy base (class_name)
-    │   └── impact_tier.gd                   # ImpactTier enum holder
+    │   ├── impact_tier.gd                   # ImpactTier enum holder + tier names
+    │   ├── playfield.gd                     # Playfield: SIZE, RECT (1920×1080)
+    │   ├── render_glow.gd                   # RenderGlow.apply(env): render.glow → Environment
+    │   └── collision_layers.gd              # CollisionLayers: layer bits + shot masks
     ├── entities/
-    │   ├── player/            player.tscn, player.gd, player_weapons.gd, cooldown_ring.gd, shield_bubble.tscn
+    │   ├── player/            player.tscn, player.gd, player_weapons.gd, missile_ring.gd, shield_bubble.tscn (planned)
     │   ├── projectiles/       laser_bolt.tscn, missile.tscn, micro_missile.tscn,
     │   │                      enemy_bullet.tscn, needle_bolt.tscn (+ .gd each)
     │   ├── enemies/
@@ -557,7 +602,8 @@ Debug tools are available **only when `OS.is_debug_build()`** (editor runs and d
     │   ├── asteroids/         asteroid.tscn, asteroid.gd           # one scene, size from setup()
     │   ├── pickups/           energy_orb.tscn, energy_orb.gd
     │   ├── allies/            ally_ship.tscn, ally_ship.gd, convoy.tscn, convoy.gd, convoy_ship.tscn
-    │   └── effects/           explosion.tscn, explosion.gd, shockwave_ring.tscn, spark_burst.tscn
+    │   └── effects/           explosion.tscn, explosion.gd (one scene for every tier),
+    │                          shockwave_ring.gd (ShockwaveRing, drawn in code, no .tscn)
     ├── systems/
     │   ├── waves/             wave_director.gd, beat_trigger.gd, wave_progress.gd
     │   ├── comms/             comms_channel.gd, comms_panel.tscn, comms_panel.gd,
@@ -568,12 +614,13 @@ Debug tools are available **only when `OS.is_debug_build()`** (editor runs and d
     │   ├── title/             title.tscn, title.gd, level_select.tscn, level_select.gd
     │   ├── story/             story.tscn, story.gd                # comms-only paused scene
     │   ├── level/             level.tscn, level.gd
-    │   └── end/               end_screen.tscn, end_screen.gd
+    │   ├── end/               end_screen.tscn, end_screen.gd
+    │   └── sandbox/           sandbox.tscn, sandbox.gd            # Epic 1 debug sandbox (current main scene)
     ├── ui/
     │   ├── hud/               hud.tscn, hud.gd, hearts_display.gd, energy_bar.gd,
     │   │                      wave_bar.gd, boss_bar.gd, convoy_bar.gd
     │   ├── menus/             pause_menu.tscn, pause_menu.gd, retry_prompt.tscn, retry_prompt.gd
-    │   ├── debug/             debug_tools.tscn, debug_tools.gd
+    │   ├── debug/             debug_tools.tscn, debug_tools.gd, debug_args.gd, frame_stats.gd
     │   └── theme/             defector_theme.tres, fonts/
     ├── data/
     │   ├── tuning.json
@@ -611,8 +658,8 @@ Debug tools are available **only when `OS.is_debug_build()`** (editor runs and d
 | Audio | `autoloads/audio.gd` | SFX pool, music, registry |
 | Impact feedback | `autoloads/feedback.gd` + `systems/camera/shake_camera.gd` | Tier → explosion, shake, hit-stop, SFX |
 | Entity scenes registry | `autoloads/entity_registry.gd` | `const` dicts of `preload`ed scenes |
-| Spawning | `core/spawner.gd` (node in `level.tscn`) | The only place that instantiates gameplay entities |
-| Player ship, weapons, abilities | `entities/player/` | Movement, laser, missile, hearts, shield, barrage |
+| Spawning | `core/spawner.gd` (node in the scene root: today `sandbox.tscn`; `level.tscn` planned) | The only place that instantiates gameplay entities |
+| Player ship, weapons, abilities | `entities/player/` | `player.gd` (`Player`): cursor lock, bounds, hurtbox and sizing; delegates firing to its `Weapons` child. `player_weapons.gd` (`class_name PlayerWeapons extends Node`, the `Weapons` child): laser and missile timing, spawning, sfx and `missile_cooldown_changed`; API `set_spawner(spawner)`, `step_fire(held, delta)`, `step_missile(pressed, delta)`, which `Player` keeps as one-line delegators. `missile_ring.gd` (`MissileRing`): cooldown ring. Planned: hearts, shield, barrage |
 | Enemies | `entities/enemies/<type>/` | Behaviour per type, extends `Enemy` |
 | Flagship | `entities/boss/` | Phases, turrets, core, final-choice hook |
 | Asteroids | `entities/asteroids/` | Drift, rotate, block, damage, drop |
@@ -642,7 +689,7 @@ Debug tools are available **only when `OS.is_debug_build()`** (editor runs and d
 |---|---|---|
 | Class (`class_name`) | PascalCase, only for types other scripts reference | `class_name Enemy`, `WaveDirector` |
 | Autoload name | PascalCase | `Events`, `Config`, `GameState` |
-| Function / variable | snake_case | `apply_damage()`, `max_speed` |
+| Function / variable | snake_case | `apply_damage()`, `fire_interval` |
 | Private member | `_` prefix | `_cooldown_left`, `_on_area_entered()` |
 | Constant | UPPER_SNAKE | `const MAX_ENERGY := 100` |
 | Enum type / values | PascalCase / UPPER_SNAKE | `enum State { ENTERING, HOLDING, DIVING }` |
@@ -662,10 +709,10 @@ Debug tools are available **only when `OS.is_debug_build()`** (editor runs and d
 
 ### Architectural Boundaries
 
-1. **Autoloads never reference scene nodes by path.** Scene nodes register themselves (for example `Feedback.register_camera(self)` in `ShakeCamera._ready()`) and unregister on `_exit_tree()`.
+1. **Autoloads never reference scene nodes by path.** Scene nodes register themselves and unregister on `_exit_tree()`. As built: `ShakeCamera` calls `Feedback.register_camera(self)` in `_enter_tree()` and `Feedback.unregister_camera(self)` in `_exit_tree()`; `Spawner` calls `Feedback.register_spawner(self)` in `_ready()` (see [Impact Feedback Tiers](#3-impact-feedback-tiers)).
 2. **Entities never touch the HUD, menus or other entities' internals.** They emit `Events` or local signals. Damage is the one direct call allowed: a projectile calls `apply_damage()` on whatever it hits.
 3. **Only the `Spawner` instantiates gameplay entities.** Only the `WaveDirector` decides *what* spawns and *when* (except boss-launched Wasps, which the Flagship requests through the `Spawner`).
-4. **Only `SceneRouter` changes scenes. Only `PauseArbiter` pauses. Only `Feedback` touches `Engine.time_scale` and the camera offset. Only `SaveManager` touches `user://`.**
+4. **Only `SceneRouter` changes scenes. Only `PauseArbiter` pauses. Only `Feedback` touches `Engine.time_scale` and the camera offset. Only `SaveManager` touches `user://`.** The one exception today is debug-only: F5 in `DebugTools` calls `get_tree().reload_current_scene` (see Reload).
 5. **Only `CommsChannel` shows dialogue.** Story logic never sets label text directly.
 6. **`data/` is read-only at runtime.** Code never writes to `res://`.
 7. **Never use absolute node paths** (`/root/...`) or `get_parent().get_parent()` chains. Use exported `NodePath`s, `%UniqueNames`, groups or signals.
@@ -882,8 +929,38 @@ enum { SMALL, MEDIUM, LARGE, BOSS_PART, BOSS_DEATH, PLAYER_HIT, PLAYER_DEATH }
 ```json
 // tuning.json → "feedback": { "tiers": { ... } }
 "large": { "explosion_scale": 2.0, "shake_px": 8, "shake_s": 0.25, "hit_stop_ms": 40,
-           "extras": ["debris", "shockwave"], "sfx": "explosion_large", "sfx_pitch": 0.8 }
+           "extras": ["debris", "shockwave"], "sfx": "explosion_large", "sfx_pitch": 0.8,
+           "sfx_volume_db": 0 }
 ```
+
+The real rows are in `data/tuning.json` → `feedback.tiers`, one per `ImpactTier.NAMES` entry. `sfx_volume_db` is small -6, medium -3, large 0, and 0 for the boss and player tiers (GDD decision #26).
+
+**`Feedback` as built (`autoloads/feedback.gd`):**
+
+- `Feedback.load_tiers()` reads every tier row through `Config` and caches it. It runs in `_ready` and again on F5.
+- `impact(tier, pos)` runs in this order:
+  1. range check (an unknown tier logs `Log.error` and returns),
+  2. `_spawner.spawn_explosion({position, scale: explosion_scale, extras})`,
+  3. `ShakeCamera.shake(shake_px, shake_s)` if both are above 0 and a camera is registered,
+  4. `hit_stop(hit_stop_ms)` if `hit_stop_ms` is above 0,
+  5. `Audio.play_sfx(row.sfx, Audio.DEFAULT_PITCH_JITTER, row.sfx_volume_db, row.sfx_pitch)`.
+- `prewarm()` spawns one explosion per tier at `PREWARM_POSITION` (-1000, 540) with no shake, hit-stop or sfx. The scene root calls it at the end of `_ready` (today `sandbox.gd`). It does nothing if no Spawner is registered, so it relies on Godot running the child `Spawner`'s `_ready` (which registers it) before the scene root's `_ready`.
+- `reset()` ends any hit-stop at once (`Engine.time_scale = 1.0`).
+
+**Single explosion scene:** `EntityRegistry.EXPLOSION` = `entities/effects/explosion.tscn` + `explosion.gd` (`class_name Explosion`), used by every tier. Sparks, debris and the shockwave are children of this scene, not separate scenes.
+
+- `setup(params)` takes `position`, `scale` and `extras`; `_ready` applies them.
+- Children: `Burst` (always plays), then `Sparks`, `Debris` and `Shockwave`, toggled by the extras `sparks` / `debris` / `shockwave`. `Shockwave` is a `ShockwaveRing` node drawn by `shockwave_ring.gd` (no `.tscn`).
+- It frees itself after `LIFETIME_S` (1.0 s). `Spawner.spawn_explosion(params)` parents it to `World/Effects`.
+
+**Registration (accepted design, Epic 1 retro C1):**
+
+- `ShakeCamera` calls `Feedback.register_camera(self)` in `_enter_tree` and `Feedback.unregister_camera(self)` in `_exit_tree`.
+- `Spawner` calls `Feedback.register_spawner(self)` in `_ready`, only if its `world` has an `Effects` container, and `Feedback.unregister_spawner(self)` in `_exit_tree`.
+- `unregister_*` clears the slot only if the argument is the registered node, so a freed old scene can't clear a newer one. The last registration wins.
+- With no spawner registered, `impact` skips the explosion. With no camera, it skips the shake.
+
+**Known gaps (registered when their epic lands):** the `boss_part`, `boss_death`, `player_hit` and `player_death` rows name sfx ids that `Audio.SFX` doesn't register yet (they warn once and play nothing). The extras `white_flash` and `red_vignette` aren't handled by `Explosion` yet (ignored).
 
 ```gdscript
 # Every entity death looks like this — nothing else:
@@ -896,17 +973,22 @@ func _die() -> void:
 ```
 
 - Shake: `ShakeCamera` keeps the **strongest** active shake. It decays its amplitude linearly over the duration and applies a random offset every frame. It uses `process_mode = ALWAYS` so the shake survives hit-stop but not the pause menu (it reads `PauseArbiter.is_paused()`).
-- The `BOSS_DEATH` chain explosions (4× over 2 s) are sequenced by `Feedback.boss_death(pos)`, not by the Flagship.
-- `PLAYER_HIT` adds the red edge vignette (a `ColorRect` shader in the HUD, triggered by `Events.player_hit`).
+- **Planned:** the `BOSS_DEATH` chain explosions (4× over 2 s) are sequenced by `Feedback.boss_death(pos)`, not by the Flagship.
+- **Planned:** `PLAYER_HIT` adds the red edge vignette (a `ColorRect` shader in the HUD, triggered by `Events.player_hit`).
 
 #### 4. Pause Arbiter
 
 The model is described in [Pause and Time Model](#pause-and-time-model) above. Here's the full API:
 
 ```gdscript
-# autoloads/pause_arbiter.gd
+# autoloads/pause_arbiter.gd (as built)
 extends Node
+
+signal resumed                         # once per paused -> unpaused transition, after mouse_mode is written
+
 var _reasons: Dictionary = {}          # StringName -> true
+var _gameplay_mode: Input.MouseMode = Input.MOUSE_MODE_VISIBLE
+var _was_paused: bool = false
 
 func push(reason: StringName) -> void:
 	_reasons[reason] = true
@@ -919,17 +1001,30 @@ func pop(reason: StringName) -> void:
 func is_paused() -> bool:
 	return not _reasons.is_empty()
 
-func clear() -> void:                  # SceneRouter calls this on every scene change
+func clear() -> void:                  # SceneRouter (planned) calls this on every scene change; F5 calls it today. Keeps _gameplay_mode
 	_reasons.clear()
 	_apply()
 
+func set_gameplay_mouse_mode(mode: Input.MouseMode) -> void:   # each scene root declares its mode
+	_gameplay_mode = mode
+	_apply()
+
+func current_mouse_mode() -> Input.MouseMode:                  # VISIBLE while paused
+	return Input.MOUSE_MODE_VISIBLE if is_paused() else _gameplay_mode
+
 func _apply() -> void:
-	get_tree().paused = is_paused()
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if is_paused() else _gameplay_mouse_mode()
+	var paused: bool = is_paused()
+	get_tree().paused = paused
+	Input.mouse_mode = current_mouse_mode()
+	var resuming: bool = _was_paused and not paused
+	_was_paused = paused
+	if resuming:
+		resumed.emit()
 ```
 
 - Esc opens the pause menu **only** when the reasons don't already contain `&"final_choice"` or `&"death"`. During `&"story"` it is allowed.
-- Menu scenes (title, level select, end, story) set gameplay mouse mode = `VISIBLE`. `level.tscn` sets it to `CONFINED_HIDDEN`.
+- Menu scenes (title, level select, end, story) set gameplay mouse mode = `VISIBLE`. `level.tscn` sets it to `CONFINED_HIDDEN` (today the sandbox does, in `_ready`). Both go through `set_gameplay_mouse_mode`.
+- `Player._on_resumed` answers `resumed` by warping the cursor to the ship (see [Pause and Time Model](#pause-and-time-model)).
 
 ### Communication Patterns
 
@@ -1046,15 +1141,14 @@ func _enter_state(s: State) -> void:
 
 ### Data Patterns
 
-**Access:** only through the `Config` autoload's typed getters (see Configuration). Level and dialogue data come through `Config.level(id) -> Dictionary` and `Config.sequence(id) -> Dictionary`. Both are validated at load.
+**Access:** only through the `Config` autoload's typed getters (see Configuration). The built getters are `num`, `int_`, `flag` and `section`. **Planned (Epics 2 and 5):** level and dialogue data will come through `Config.level(id) -> Dictionary` and `Config.sequence(id) -> Dictionary`, both validated at load.
 
 ```gdscript
 # autoloads/config.gd (excerpt)
 func num(path: String) -> float:
 	var v: Variant = _lookup(tuning, path)
 	if not (v is float or v is int):
-		Log.error("data", "tuning.%s missing or not a number" % path)
-		assert(false, path)
+		_report_missing("tuning." + path, "a number")   # Log.error + assert (when assert_on_missing)
 		return 0.0
 	return float(v)
 
@@ -1062,7 +1156,10 @@ func int_(path: String) -> int:
 	return int(num(path))
 ```
 
-**`tuning.json` top-level sections (fixed):** `player`, `weapons`, `abilities`, `energy`, `drops`, `enemies`, `boss`, `asteroids`, `convoy`, `allies`, `waves`, `comms`, `feedback`, `damage`.
+**`tuning.json` top-level sections (fixed):** `player`, `weapons`, `abilities`, `energy`, `drops`, `enemies`, `boss`, `asteroids`, `convoy`, `allies`, `waves`, `comms`, `feedback`, `damage`, `render`.
+
+- `render.glow` holds `intensity`, `bloom` and `hdr_threshold`. The scene root's `_ready` passes its `WorldEnvironment`'s environment to `RenderGlow.apply(env)` (`core/render_glow.gd`), so the F5 scene restart re-applies it. `glow_enabled` and the background mode stay in the `.tscn`.
+- `weapons.laser.glow_energy` / `halo_energy` set the HDR `self_modulate` on the additive bolt core and halo sprites (the ADR-003 fallback: the bolt still reads as a glowing bullet with WorldEnvironment glow off).
 
 ### Input Actions
 
@@ -1090,8 +1187,8 @@ The comms panel consumes `comms_advance` with `get_viewport().set_input_as_handl
 | Tuning values | Never hard-code a GDD number. Read it from `Config` in `setup` / `_ready` | Review; `grep` for magic numbers |
 | JSON numbers | Wrap counts and HP in `int()` / `Config.int_()` | Review |
 | Movement | `_physics_process` for anything with a collision shape. `_process` for visuals only | Review |
-| Positions | Playfield coordinates (1920×1080 logical). Use `get_global_mouse_position()`, never the raw viewport mouse | Review |
-| Scene changes / pause / time scale / save | Only through `SceneRouter` / `PauseArbiter` / `Feedback` / `SaveManager` | `grep` for `change_scene`, `.paused =`, `time_scale`, `user://` |
+| Positions | Gameplay world positions are playfield coordinates (1920×1080 logical, `Playfield.SIZE`). The cursor lock and every `warp_mouse` use **viewport** coordinates on purpose (`get_viewport().get_mouse_position()`), so the ShakeCamera offset can't feed back into the ship; with the camera centred and unzoomed they equal playfield coordinates (Story 1.8) | Review |
+| Scene changes / pause / time scale / save | Only through `SceneRouter` / `PauseArbiter` / `Feedback` / `SaveManager` (debug F5 reload excepted) | `grep` for `change_scene`, `reload_current_scene`, `.paused =`, `time_scale`, `user://` |
 | Spawning | Only through `Spawner` | `grep` for `.instantiate()` outside `core/spawner.gd`, `ui/`, `scenes/` |
 | Dialogue | Only through `Events.comms_sequence_requested` | Review |
 | New global signal | Add it to `events.gd` with typed params first | Review |
@@ -1110,12 +1207,12 @@ The comms panel consumes `comms_advance` with `get_viewport().set_input_as_handl
 | Instancing | No pooling (ADR-002). Every entity scene `preload`ed in `EntityRegistry` |
 | Off-screen projectiles | Freed by a bounds check in `Projectile._physics_process` (no `VisibleOnScreenNotifier2D` needed) |
 | Collision | Circles and capsules only. Strict layers and masks (above). `monitorable = false` on projectiles that no one needs to detect (`player_shots`) |
-| Particles | `GPUParticles2D` with `one_shot`, ≤ 32 particles per small explosion. Pre-warmed at level load |
+| Particles | `GPUParticles2D` with `one_shot`, ≤ 32 particles per small explosion. Pre-warmed by `Feedback.prewarm()` at scene start |
 | Shader compile hitch | Pre-warm (above). Renderer fallback per ADR-003 |
 | Logging | None per frame |
 | Barrage homing | Nearest enemy picked **once** on spawn and re-picked only when the target is freed (`is_instance_valid`). No per-frame group scans |
 | Ally targeting | Re-acquire the nearest enemy every 0.5 s (on fire), not every frame |
-| Verification | E1 sandbox stress test (spawn 40 Wasps + hold fire): debug overlay frame ms < 16.6 |
+| Verification | E1 sandbox stress test: `-- --stress` (40 Wasps refilled on death, F1 overlay on, vsync off) for a manual look, and `-- --bench=N` for a self-timing run (fire held at `BENCH_AIM`, 2 s warm-up, N s sampled, logs avg/p99/max, exit 0 if avg < 16.6 ms else 2). Re-run `--bench=20` after any visual change. Last results: GDD decision log #27 and #32 |
 
 ## Security Architecture
 
@@ -1135,9 +1232,13 @@ The game is a single-player offline game with no network, no accounts and no per
 5. Publish with `gh release create v1.0 DEFECTOR-v1.0-windows.zip --title "DEFECTOR v1.0" --notes-file RELEASE_NOTES.md`.
 6. **Smoke test** the zipped build on a clean folder: launch time under 5 s, the save is created in `%APPDATA%\DEFECTOR\`, and it plays through Level 1.
 
-CLI export (optional, for repeatability):
+CLI export (optional, for repeatability). Run the import step first; on a fresh clone with no `game/.godot/` the export fails without it:
 
 ```bash
+# 1. Import (builds the class_name cache and imports the WAVs Audio preloads)
+"<GODOT_DIR>/Godot_v4.7.2-stable_win64_console.exe" --headless --path game --import
+
+# 2. Export
 "<GODOT_DIR>/Godot_v4.7.2-stable_win64_console.exe" --headless --path game --export-release "Windows Desktop" export/windows/DEFECTOR.exe
 ```
 
@@ -1159,8 +1260,8 @@ CLI export (optional, for repeatability):
 
 | GDD Requirement | How Addressed |
 |---|---|
-| Cursor-locked movement, cursor confined to bottom 60%, hidden cursor, resume-warp | `player.gd` + `PauseArbiter` mouse modes + `get_global_mouse_position()` |
-| Laser / missile / splash / cooldown ring | `entities/projectiles/`, `Projectile` base, ring on the ship (`draw_arc`), `missile_cooldown_changed` |
+| Cursor-locked movement, cursor confined to bottom 60%, hidden cursor, resume-warp | `player.gd` (`step_lock` on the viewport mouse, `confine`, `warp_mouse`) + `PauseArbiter` mouse modes and `resumed` |
+| Laser / missile / splash / cooldown ring | `entities/projectiles/`, `Projectile` base, `PlayerWeapons`, `MissileRing` on the ship (`draw_arc`), `missile_cooldown_changed` |
 | Asteroids block both sides | Masks: `player_shots` and `enemy_shots` both detect `asteroids` |
 | Friendly fire off; convoy solid (blocks every shot, damaged by enemy shots only) | Masks + `targets_convoy` flag (aimed 5 / stray 2) + Maul convoy mask + no-damage block for player shots |
 | Hearts, i-frames, shield, contact damage tiers | `player.gd` + `tuning.damage` |
@@ -1294,6 +1395,37 @@ The user authorised this workflow to run without check-ins ("it's fine if you ma
 | ⚑ R13 | **No engine MCP (GoPeak rejected by the user).** CLI loop instead, plus an optional F8 debug screenshot key if needed | Install GoPeak | Supply-chain risk + corporate laptop. The CLI covers edit, test, run and logs |
 | R14 | Debug keys F1–F7, F11 fullscreen toggle | None | Fast testing of story beats (soft-lock metric) |
 | R15 | Opening story plays only when starting Level 1 fresh (not on Level 1 retry) | Every Level 1 start | Retries must be instant (Pillar 1) |
+
+---
+
+## As-built reconciliation 2026-10-07
+
+Story 1.10 brought this document in line with the Epic 1 code (after Stories 1.1-1.9). This story made no new design decision. The one rule that reverses (Positions, under Consistency Rules) follows the decision already made in Story 1.8 (spec-1-8 Design Notes, implementing GDD #29). Planned systems stay in the document and are marked as planned where an edit touched them. Sections changed:
+
+- **Technical Risks:** the Performance row says particles are pre-warmed by `Feedback.prewarm()` at scene start. Source: Story 1.6.
+- **Technical Requirements:** the cursor line says the Player warps the cursor back and points to the as-built lock. Source: Story 1.8, GDD #29.
+- **Engine-Provided Architecture:** the Rendering row names the `render.glow` keys and `RenderGlow.apply(env)`; the Particles row says pre-warm is `Feedback.prewarm()`; the Scene management row marks `SceneRouter` planned and names the debug F5 reload. Source: Stories 1.6, 1.7, 1.9, GDD #31.
+- **Asset Management:** pre-warm is `Feedback.prewarm()` at `PREWARM_POSITION` (-1000, 540), called at the end of the scene root's `_ready` (today `sandbox.gd`). Source: Story 1.6.
+- **Pause and Time Model:** the Process modes table marks `SceneRouter` planned, places `World` in today's sandbox scene, and adds `ShakeCamera` and `DebugTools` (`PROCESS_MODE_ALWAYS`); the Cursor paragraph uses `set_gameplay_mouse_mode` / `current_mouse_mode` and says `clear()` keeps the declared mode; it names the debug-only `DebugTools` bench warp to `BENCH_AIM` as the one exception to Player-owned warps; a new "Cursor lock (as built)" block describes `step_lock` on the viewport mouse, `confine`, `WARP_EPS_PX`, the injectable `warp_mouse` and the `resumed` warp. Source: Story 1.8, GDD #29/#31.
+- **Collision Layers:** a new sentence names `CollisionLayers` (`core/collision_layers.gd`) as the code-side source of the bits and shot masks. Source: Story 1.10 review.
+- **Scene Structure:** `level.tscn` is marked planned; the sandbox is today's main scene. Source: Story 1.10.
+- **Audio Architecture:** the real `play_sfx(id, pitch_jitter = DEFAULT_PITCH_JITTER, volume_db = 0.0, pitch = 1.0) -> AudioStreamPlayer` signature, the pitch formula, unknown-id warn-once, the 12-player oldest-steal pool; music marked planned; tier rows carry `sfx_volume_db`. Source: Story 1.6, GDD #26.
+- **UI Framework:** the cooldown ring is `MissileRing` (`missile_ring.gd`, `z_index = 1`), with `player.missile_ring.radius_px` / `stroke_px`, the radius clamp and its colours. Source: Story 1.8, GDD #31.
+- **Configuration:** the constants example is `Playfield.SIZE` / `RECT`; the Balancing example says "player zone"; the code example is `player_weapons.gd`; the getters are listed exactly; the missing-key `assert` depends on `Config.assert_on_missing`; F5 wording fixed; a new "Reload" block describes the validating `Config.reload() -> bool` (including that an empty current data set accepts any shape) and the F5 sequence. Source: Stories 1.7, 1.8, DW-8, DW-13.
+- **Debug Tools:** only F1 and F5 are built (the other keys are marked planned); new "Command-line modes" block for `DebugArgs`, `-- --stress` and `-- --bench=N`. Source: Story 1.7.
+- **Directory Structure:** says which parts exist (including `project.godot`, `export_presets.cfg`, `default_bus_layout.tres`, `assets/audio/sfx/`, `assets/CREDITS.md` and `addons/gut/`), and adds `default_bus_layout.tres` to the tree; the `spawner.gd` comment says it lives in `sandbox.tscn` today (`level.tscn` planned); `core/` lists `playfield.gd`, `render_glow.gd`, `collision_layers.gd`; the player folder has `missile_ring.gd`; `effects/` has the single explosion scene plus `shockwave_ring.gd`; adds `scenes/sandbox/` and `debug_args.gd`, `frame_stats.gd`. Source: Stories 1.6-1.9, DW-13.
+- **System Location Mapping:** the Spawning row says the Spawner lives in `sandbox.tscn` today (`level.tscn` planned); the player row splits `Player`, `PlayerWeapons` (with its API) and `MissileRing`. Source: DW-13, Story 1.8.
+- **Naming Conventions:** the variable example is now `fire_interval`. Source: Story 1.10.
+- **Architectural Boundaries:** rule 1 says ShakeCamera registers in `_enter_tree` and Spawner in `_ready`; rule 4 names the debug-only F5 `reload_current_scene` exception. Source: Epic 1 retro C1, Story 1.7.
+- **Impact Feedback Tiers:** the tier JSON includes `sfx_volume_db`; new blocks for `Feedback` as built (`load_tiers`, the `impact` call order, `prewarm` and its Spawner-first ordering dependency, `reset`), the single `Explosion` scene, the registration rules (accepted design) and the known sfx/extras gaps; boss-death chain and player-hit vignette marked planned. Source: Story 1.6, GDD #26, retro C1/A8.
+- **Pause Arbiter:** the API excerpt adds `signal resumed`, `set_gameplay_mouse_mode` and `current_mouse_mode`, and notes that `clear()` keeps `_gameplay_mode`. Source: Story 1.8.
+- **Data Patterns:** `Config.level()` / `Config.sequence()` marked planned; the `num` excerpt matches the code; the `tuning.json` sections add `render`, with the `render.glow` and laser `glow_energy` / `halo_energy` notes. Source: Story 1.9, GDD #31/#32.
+- **Consistency Rules:** the Positions rule now says the cursor lock and warps use viewport coordinates on purpose. This follows the decision made in Story 1.8 (spec-1-8 Design Notes, implementing GDD #29). The scene-changes row excepts the debug F5 reload and adds `reload_current_scene` to its grep. Source: Story 1.7.
+- **Performance Considerations:** the Particles row names `Feedback.prewarm()`; the Verification row describes `--stress` and `--bench=N`. Source: Story 1.7, GDD #27/#32.
+- **Deployment Architecture:** the CLI export runs `--import` before `--export-release`. Source: DW-17.
+- **GDD Coverage:** the movement row names `step_lock` on the viewport mouse and `resumed`; the weapons row names `PlayerWeapons` and `MissileRing`. Source: Story 1.8.
+
+Superseded terms removed: the chase movement and its speed cap (`max_speed`), the reticle, and the cursor-aimed missile ("toward the cursor") no longer appear as current design. GDD decisions #29 and #31 replaced them with the exact cursor lock, the straight-up missile and the ring on the ship. The getter `get_global_mouse_position()`, the `cooldown_ring.gd` file, the `spark_burst.tscn` scene, the `ShakeCamera._ready()` registration and the `const PLAYFIELD` example were also replaced by their as-built equivalents.
 
 ---
 
