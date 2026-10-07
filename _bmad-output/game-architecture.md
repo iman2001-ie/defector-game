@@ -1229,6 +1229,9 @@ CLI export (optional, for repeatability):
 AI agents use the **headless CLI loop** instead, which covers editing, error checking, tests, running and logs:
 
 ```bash
+# One-time, on a fresh clone: import the project (builds the class_name cache and imports the WAVs Audio preloads)
+"<GODOT_DIR>/Godot_v4.7.2-stable_win64_console.exe" --headless --path game --import
+
 # Run all GUT tests headless
 "<GODOT_DIR>/Godot_v4.7.2-stable_win64_console.exe" --headless --path game -s addons/gut/gut_cmdln.gd -gdir=res://tests -ginclude_subdirs -gexit
 

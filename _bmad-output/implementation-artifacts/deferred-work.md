@@ -42,7 +42,9 @@ location: AGENTS.md section 3 (test command); game/autoloads/audio.gd preloads
 source_spec: `spec-1-6-feel-every-impact-scale-with-size.md`
 severity: medium
 reason: Verified in a clean git-archive copy with no game/.godot: Audio's preload of the five WAVs fails, then every class_name type is missing, and the suite errors out. The baseline 01325de copy also fails (no class_name cache before --import), so the root cause predates this story. After --headless --path game --import, all 240 tests pass. The fix is to add the --import step before the test command in AGENTS.md (an agent-context file).
-status: open
+status: done 2026-10-07
+resolution: resolved by sweep bundle dw-gut-import-step-docs
+resolution-undo: f90452eaa0ef30bfda6085e7faf18c1689d0bb87c647454b5728702b505f82cd 2026-10-07 7374617475733a206f70656e
 
 ### DW-7: Complete story 1-7 operator actions (fun-gate playtest incl. DW-3 splash tuning, F1 overlay under --stress, glow on export), then bmad-loop confirm and re-run the Epic 1 retro
 origin: retro action item epic-1-retro-item-1-complete-story-1-7-operator-actions-fun
@@ -90,7 +92,9 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 1; owner Developer; sprint-status status open)
-status: open
+status: done 2026-10-07
+resolution: resolved by sweep bundle dw-gut-import-step-docs
+resolution-undo: f90452eaa0ef30bfda6085e7faf18c1689d0bb87c647454b5728702b505f82cd 2026-10-07 7374617475733a206f70656e
 
 ### DW-13: Add a shared playfield-rect constant before Epic 2; split the weapon logic out of player.gd before Epic 3
 origin: retro action item epic-1-retro-item-7-add-a-shared-playfield-rect-constant-bef
@@ -114,4 +118,28 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 1; owner Developer; sprint-status status open)
+status: open
+
+### DW-16: The new docs call the --import step "one-time", but an existing checkout also needs it re-run after adding class_name scripts or new imported assets (or when game/.godot/ is stale).
+origin: spec-deferred 3ba10d44cd3e
+location: AGENTS.md:29-30; _bmad-output/game-architecture.md:1232
+source_spec: `spec-dw-6-dw-12-gut-import-step-docs.md`
+severity: medium
+reason: Stories 1.2-1.5 each re-ran --import to refresh the class cache for new class_name types (Player, Projectile, Enemy, Missile). Headless -s runs do not rescan the class cache. The fix rewords AGENTS.md (agent-context file), so it is deferred.
+status: open
+
+### DW-17: The architecture's CLI export command has the same fresh-clone gap: it runs --export-release without a prior --import.
+origin: spec-deferred 3ac631213abb
+location: _bmad-output/game-architecture.md:1141
+source_spec: `spec-dw-6-dw-12-gut-import-step-docs.md`
+severity: low
+reason: Story 1.7 had to run --import before --export-release. Pre-existing; the bundle intent covers only the test command.
+status: open
+
+### DW-18: The godot-testing.md knowledge files show GUT commands with no --path and no import step, so agents reading them still get the failing fresh-clone procedure.
+origin: spec-deferred c0aa3f8fe839
+location: .claude/skills/gds-agent-game-dev/gametest/knowledge/godot-testing.md
+source_spec: `spec-dw-6-dw-12-gut-import-step-docs.md`
+severity: low
+reason: .claude/skills/gds-agent-game-dev/gametest/knowledge/godot-testing.md (and its .agents/skills copy) are untouched by this change; pre-existing agent-context files outside the intent's two named locations.
 status: open

@@ -26,6 +26,8 @@ Local commits are fine when the user asks for them.
 - **Game:** DEFECTOR, a 2D neon fixed-screen space shooter with a light comms-driven story. Windows only, mouse and keyboard.
 - **Engine:** Godot **4.7.2-stable**, statically typed GDScript, Forward+ renderer. The project lives in `game/` (created by Story 1.1). Use the console build at `<GODOT_DIR>` (see `LOCAL.md`) for headless runs.
 - **Tests:** GUT 9.7.1 (`godot_4_7` branch), headless:
+  `"<GODOT_DIR>/Godot_v4.7.2-stable_win64_console.exe" --headless --path game --import`
+  (one-time, on a fresh clone with no `game/.godot/`: builds the `class_name` cache and imports the WAVs that `Audio` preloads), then:
   `"<GODOT_DIR>/Godot_v4.7.2-stable_win64_console.exe" --headless --path game -s addons/gut/gut_cmdln.gd -gdir=res://tests -ginclude_subdirs -gexit`
 - **Assets:** free or CC0 only (Kenney packs first). Every third-party asset must be listed in `game/assets/CREDITS.md` with its source and licence.
 
