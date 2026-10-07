@@ -1,0 +1,111 @@
+# generated: 2026-10-07 09:00
+# last_updated: 2026-10-07 09:00
+# project: defector-game
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: _bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - Developer typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: "2026-10-07 09:00"
+last_updated: "2026-10-07 09:00"
+project: defector-game
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+
+development_status:
+  epic-1: backlog
+  1-1-set-up-the-godot-project-and-data-driven-foundation: backlog
+  1-2-fly-the-ship-with-the-mouse: backlog
+  1-3-fire-the-laser: backlog
+  1-4-shoot-wasps-and-asteroids-in-the-sandbox: backlog
+  1-5-fire-aimed-missiles-with-splash-damage: backlog
+  1-6-feel-every-impact-scale-with-size: backlog
+  1-7-validate-the-core-feel-in-a-stress-tested-sandbox: backlog
+  epic-1-retrospective: optional
+  epic-2: backlog
+  2-1-count-wave-progress-and-evaluate-beat-triggers: backlog
+  2-2-play-a-level-driven-by-wave-data: backlog
+  2-3-watch-the-wave-progress-bar-fill: backlog
+  2-4-dodge-wasp-formations-and-telegraphed-dives: backlog
+  2-5-face-lancers-aimed-shots: backlog
+  2-6-take-cover-from-the-needles-sniper-shot: backlog
+  2-7-bring-down-a-bastion-gunship: backlog
+  2-8-outrun-the-hunter-wasp: backlog
+  epic-2-retrospective: optional
+  epic-3: backlog
+  3-1-take-hits-with-hearts-and-mercy-invulnerability: backlog
+  3-2-die-and-retry-instantly: backlog
+  3-3-collect-energy-from-wreckage: backlog
+  3-4-raise-the-shield: backlog
+  3-5-unleash-the-barrage: backlog
+  epic-3-retrospective: optional
+  epic-4: backlog
+  4-1-launch-into-the-title-screen: backlog
+  4-2-unlock-the-next-level-and-save-progress: backlog
+  4-3-choose-a-level-from-level-select: backlog
+  4-4-pause-the-game-with-esc: backlog
+  4-5-play-fullscreen-or-windowed: backlog
+  epic-4-retrospective: optional
+  epic-5: backlog
+  5-1-read-story-lines-on-the-comms-panel: backlog
+  5-2-hear-combat-chatter-without-stopping-the-fight: backlog
+  5-3-trigger-dialogue-and-music-from-wave-events: backlog
+  5-4-cut-a-line-off-mid-sentence: backlog
+  5-5-open-the-campaign-with-the-comms-sequence: backlog
+  5-6-let-isolde-interrupt-and-tempt-surrender: backlog
+  5-7-write-the-dialogue-script: backlog
+  5-8-learn-the-controls-from-on-screen-hints: backlog
+  epic-5-retrospective: optional
+  epic-6: backlog
+  6-1-protect-the-convoy: backlog
+  6-2-stop-the-mauls-before-they-hit-the-convoy: backlog
+  6-3-defend-the-convoy-from-lancer-fire: backlog
+  6-4-fly-alongside-tarek-and-ryn: backlog
+  6-5-lose-tarek-at-the-blockade: backlog
+  epic-6-retrospective: optional
+  epic-7: backlog
+  7-1-play-level-1-cargo-ambush: backlog
+  7-2-play-level-2-the-blockade: backlog
+  7-3-face-the-flagships-turrets-phase-1: backlog
+  7-4-break-the-exposed-core-phase-2: backlog
+  7-5-make-the-final-choice-phase-3: backlog
+  7-6-play-level-3-siege-of-the-throne-world: backlog
+  7-7-end-the-war-isoldes-final-line-and-the-end-screen: backlog
+  7-8-hear-the-council-epilogue: backlog
+  epic-7-retrospective: optional
+  epic-8: backlog
+  8-1-make-the-game-sound-right: backlog
+  8-2-make-the-game-look-neon: backlog
+  8-3-hit-the-performance-targets: backlog
+  8-4-prove-the-game-is-finishable: backlog
+  8-5-ship-defector-on-github: backlog
+  epic-8-retrospective: optional
