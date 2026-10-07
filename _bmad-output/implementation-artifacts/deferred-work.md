@@ -43,3 +43,75 @@ source_spec: `spec-1-6-feel-every-impact-scale-with-size.md`
 severity: medium
 reason: Verified in a clean git-archive copy with no game/.godot: Audio's preload of the five WAVs fails, then every class_name type is missing, and the suite errors out. The baseline 01325de copy also fails (no class_name cache before --import), so the root cause predates this story. After --headless --path game --import, all 240 tests pass. The fix is to add the --import step before the test command in AGENTS.md (an agent-context file).
 status: open
+
+### DW-7: Complete story 1-7 operator actions (fun-gate playtest incl. DW-3 splash tuning, F1 overlay under --stress, glow on export), then bmad-loop confirm and re-run the Epic 1 retro
+origin: retro action item epic-1-retro-item-1-complete-story-1-7-operator-actions-fun
+location: n/a
+source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
+severity: low
+reason: retrospective action item from sprint-status.yaml (epic 1; owner Developer (operator); sprint-status status open)
+status: open
+
+### DW-8: Add a validating Config.reload() API that restores its own state on failure; DebugTools stops writing Config fields; run the follow-up review story 1-7 recommended
+origin: retro action item epic-1-retro-item-2-add-a-validating-config-reload-api-that
+location: n/a
+source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
+severity: low
+reason: retrospective action item from sprint-status.yaml (epic 1; owner Dev loop; sprint-status status open)
+status: open
+
+### DW-9: Bring the stress bench up to the NFR peak (about 200 projectiles), judge on p99/max as well as the average, and measure the first large explosion with and without pre-warm (DW-4, DW-5)
+origin: retro action item epic-1-retro-item-3-bring-the-stress-bench-up-to-the-nfr-pea
+location: n/a
+source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
+severity: low
+reason: retrospective action item from sprint-status.yaml (epic 1; owner Dev loop; sprint-status status open)
+status: open
+
+### DW-10: Decide the laser collision mask (recommend MASK_PLAYER_SHOTS=84), derive masks from CollisionLayers or test equality, and correct the epics.md Story 1.3 AC (DW-2)
+origin: retro action item epic-1-retro-item-4-decide-the-laser-collision-mask-recommen
+location: n/a
+source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
+severity: low
+reason: retrospective action item from sprint-status.yaml (epic 1; owner Developer (decision) then Dev loop; sprint-status status open)
+status: open
+
+### DW-11: Reconcile game-architecture.md with the as-built: play_sfx pitch param, tier sfx_volume_db, single explosion scene, Spawner/ShakeCamera to Feedback registration, CLI stress/bench modes
+origin: retro action item epic-1-retro-item-5-reconcile-game-architecture-md-with-the
+location: n/a
+source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
+severity: low
+reason: retrospective action item from sprint-status.yaml (epic 1; owner Developer / Architect; sprint-status status open)
+status: open
+
+### DW-12: Add the --import step before the GUT command in AGENTS.md section 3 and in the architecture test command (DW-6)
+origin: retro action item epic-1-retro-item-6-add-the-import-step-before-the-gut-comma
+location: n/a
+source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
+severity: low
+reason: retrospective action item from sprint-status.yaml (epic 1; owner Developer; sprint-status status open)
+status: open
+
+### DW-13: Add a shared playfield-rect constant before Epic 2; split the weapon logic out of player.gd before Epic 3
+origin: retro action item epic-1-retro-item-7-add-a-shared-playfield-rect-constant-bef
+location: n/a
+source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
+severity: low
+reason: retrospective action item from sprint-status.yaml (epic 1; owner Dev loop; sprint-status status open)
+status: open
+
+### DW-14: Split oversized stories (5+ new systems, like 1-6) or raise the per-story token cap deliberately; 1-4 and 1-6 overran 2M weighted tokens
+origin: retro action item epic-1-retro-item-8-split-oversized-stories-5-new-systems-li
+location: n/a
+source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
+severity: low
+reason: retrospective action item from sprint-status.yaml (epic 1; owner Planning (SM); sprint-status status open)
+status: open
+
+### DW-15: Fix the epic-1 status in sprint-status, and align the bmad-loop commit subject format with AGENTS.md section 5 (or amend section 5)
+origin: retro action item epic-1-retro-item-9-fix-the-epic-1-status-in-sprint-status-a
+location: n/a
+source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
+severity: low
+reason: retrospective action item from sprint-status.yaml (epic 1; owner Developer; sprint-status status open)
+status: open
