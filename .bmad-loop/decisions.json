@@ -1,4 +1,13 @@
 {
+  "DW-10": {
+    "answered_at": "2026-10-07",
+    "bundle_name": "",
+    "effect": "build",
+    "intent": "Set the laser bolt mask to CollisionLayers.MASK_PLAYER_SHOTS (84), preferably assigned from CollisionLayers in code or guarded by a test that asserts exact mask equality for laser and missile. Correct the Story 1.3 AC in epics.md to include convoy and record the decision in the decision log. This also closes DW-2.",
+    "key": "1",
+    "label": "Follow the architecture: mask 84",
+    "resolution": ""
+  },
   "DW-2": {
     "answered_at": "2026-10-07",
     "bundle_name": "",
