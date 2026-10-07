@@ -131,6 +131,7 @@ source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 1; owner Developer; sprint-status status open)
 status: open
+decision: 2026-10-07 Amend AGENTS.md section 5 — Amend AGENTS.md section 5 to accept the bmad-loop commit subject format ('story <key>: ...') alongside the manual 'Story X.Y: summary' form. The operator separately corrects the epic-1 status in sprint-status.yaml.
 
 ### DW-16: The new docs call the --import step "one-time", but an existing checkout also needs it re-run after adding class_name scripts or new imported assets (or when game/.godot/ is stale).
 origin: spec-deferred 3ba10d44cd3e
