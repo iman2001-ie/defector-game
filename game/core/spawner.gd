@@ -7,15 +7,17 @@ extends Node
 @export var world: Node2D
 
 var _projectiles: Node2D
+var _enemies: Node2D
+var _asteroids: Node2D
 
 
 func _ready() -> void:
 	if world == null:
 		Log.error("spawn", "Spawner '%s' has no world set" % name)
 		return
-	_projectiles = world.get_node_or_null(^"Projectiles") as Node2D
-	if _projectiles == null:
-		Log.error("spawn", "World '%s' has no Projectiles container" % world.name)
+	_projectiles = _container(^"Projectiles")
+	_enemies = _container(^"Enemies")
+	_asteroids = _container(^"Asteroids")
 
 
 ## Returns the spawned projectile, or null for an unknown id or a missing container.
@@ -35,3 +37,50 @@ func spawn_projectile(type_id: StringName, params: Dictionary) -> Projectile:
 	projectile.setup(params)
 	_projectiles.add_child(projectile)
 	return projectile
+
+
+## Returns the spawned enemy, or null for an unknown id or a missing container.
+## Callers must treat null as "not counted".
+func spawn_enemy(type_id: StringName, params: Dictionary) -> Enemy:
+	var scene: PackedScene = EntityRegistry.ENEMIES.get(type_id) as PackedScene
+	if scene == null:
+		Log.error("spawn", "unknown enemy type '%s'" % type_id)
+		return null
+	if _enemies == null:
+		return null
+	var node: Node = scene.instantiate()
+	var enemy: Enemy = node as Enemy
+	if enemy == null:
+		Log.error("spawn", "enemy type '%s' is not an Enemy" % type_id)
+		node.queue_free()
+		return null
+	enemy.setup(params)
+	_enemies.add_child(enemy)
+	return enemy
+
+
+## Returns the spawned asteroid, or null for an unknown size or a missing container.
+## params.size must be one of Asteroid.SIZES.
+func spawn_asteroid(params: Dictionary) -> Asteroid:
+	var size: StringName = StringName(str(params.get("size", "")))
+	if not Asteroid.SIZES.has(size):
+		Log.error("spawn", "unknown asteroid size '%s'" % size)
+		return null
+	if _asteroids == null:
+		return null
+	var node: Node = EntityRegistry.ASTEROID.instantiate()
+	var asteroid: Asteroid = node as Asteroid
+	if asteroid == null:
+		Log.error("spawn", "asteroid scene is not an Asteroid")
+		node.queue_free()
+		return null
+	asteroid.setup(params)
+	_asteroids.add_child(asteroid)
+	return asteroid
+
+
+func _container(path: NodePath) -> Node2D:
+	var node: Node2D = world.get_node_or_null(path) as Node2D
+	if node == null:
+		Log.error("spawn", "World '%s' has no %s container" % [world.name, path])
+	return node

@@ -15,6 +15,10 @@ func before_each() -> void:
 	_projectiles = Node2D.new()
 	_projectiles.name = "Projectiles"
 	world.add_child(_projectiles)
+	for container: String in ["Enemies", "Asteroids"]:
+		var node: Node2D = Node2D.new()
+		node.name = container
+		world.add_child(node)
 	add_child_autofree(world)
 	_spawner = Spawner.new()
 	_spawner.world = world
