@@ -245,5 +245,20 @@
 	},
 	"render": {
 		"glow": { "intensity": 1.0, "bloom": 0.08, "hdr_threshold": 0.55 }
+	},
+	"debug": {
+		"bench": {
+			"avg_ms_max": 16.6,
+			"p99_ms_max": 16.6,
+			"max_ms_max": 16.6,
+			"warmup_s": 2.0,
+			"first_large_at_s": 1.0,
+			"first_large_frames": 3,
+			"quit_delay_s": 0.25
+		},
+		"stress": {
+			"projectiles": 200,
+			"projectile_spawn_per_tick": 20
+		}
 	}
 }

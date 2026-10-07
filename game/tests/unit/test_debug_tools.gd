@@ -24,6 +24,7 @@ func after_each() -> void:
 	Feedback.reset()
 	PauseArbiter.clear()
 	Input.action_release(&"fire_laser")
+	Log.sink = Callable()
 	for path: String in [TEMP_TUNING, TEMP_FLAGS]:
 		if FileAccess.file_exists(path):
 			DirAccess.remove_absolute(path)
@@ -207,13 +208,43 @@ func test_f5_missing_key_refuses_restart() -> void:
 
 # --- Bench --------------------------------------------------------------------
 
-## A DebugTools with a started 1 s bench; _process off so real frames never finish it.
+const USEC: float = 1000000.0
+
+var _quits: Array[int] = []
+var _lines: Array[String] = []
+
+
+func _record_quit(code: int) -> void:
+	_quits.append(code)
+
+
+func _capture(level: String, category: String, msg: String) -> void:
+	_lines.append(Log.format(level, category, msg))
+
+
+func _lines_containing(text: String) -> Array[String]:
+	var out: Array[String] = []
+	for line: String in _lines:
+		if line.contains(text):
+			out.append(line)
+	return out
+
+
+## A DebugTools with a started 1 s bench; _process off so real frames never finish
+## it, and an injected quit callable that only records the exit code.
 func _bench_tools() -> DebugTools:
+	_quits.clear()
+	_lines.clear()
 	var tools: DebugTools = _make_tools()
 	tools.set_process(false)
+	tools.quit_game = _record_quit
 	tools._bench_s = 1.0
 	tools._start_bench()
 	return tools
+
+
+func _at(tools: DebugTools, seconds: float) -> int:
+	return tools._bench_start_usec + int(seconds * USEC)
 
 
 func test_bench_start_holds_fire() -> void:
@@ -223,11 +254,12 @@ func test_bench_start_holds_fire() -> void:
 
 func test_bench_skips_warm_up_then_samples() -> void:
 	_tools = _bench_tools()
-	var start: int = _tools._bench_start_usec
-	_tools._step_bench(start + int(DebugTools.BENCH_WARMUP_S * 1000000.0) - 1000, 5.0)
+	var warmup: float = Config.num("debug.bench.warmup_s")
+	assert_gt(warmup, 0.0, "warm-up from Config")
+	_tools._step_bench(_at(_tools, warmup) - 1000, 5.0)
 	assert_eq(_tools._bench_stats.count(), 0, "warm-up not sampled")
-	_tools._step_bench(start + int((DebugTools.BENCH_WARMUP_S + 0.5) * 1000000.0), 5.0)
-	_tools._step_bench(start + int((DebugTools.BENCH_WARMUP_S + 0.6) * 1000000.0), 7.0)
+	_tools._step_bench(_at(_tools, warmup + 0.5), 5.0)
+	_tools._step_bench(_at(_tools, warmup + 0.6), 7.0)
 	assert_eq(_tools._bench_stats.count(), 2, "window sampled")
 	assert_false(_tools._bench_done, "still running")
 
@@ -244,3 +276,145 @@ func test_bench_exit_code_pass_and_fail() -> void:
 	_tools._bench_stats.clear()
 	_tools._bench_stats.add(30.0)
 	assert_eq(_tools._bench_exit_code(), 2, "over budget fails")
+
+
+func test_bench_fails_on_a_max_spike_with_a_passing_average() -> void:
+	_tools = _bench_tools()
+	_tools._bench_stats = FrameStats.new(1000)
+	for i: int in 999:
+		_tools._bench_stats.add(4.0)
+	_tools._bench_stats.add(Config.num("debug.bench.max_ms_max"))
+	assert_lt(_tools._bench_stats.average_ms(), Config.num("debug.bench.avg_ms_max"), "average passes")
+	assert_lt(_tools._bench_stats.percentile_ms(99.0), Config.num("debug.bench.p99_ms_max"), "p99 passes")
+	assert_eq(_tools._bench_exit_code(), 2, "max at its limit fails")
+
+
+func test_bench_fails_on_p99_with_a_passing_average() -> void:
+	_tools = _bench_tools()
+	(Config.tuning["debug"]["bench"] as Dictionary)["max_ms_max"] = 1000.0
+	_tools._bench_stats = FrameStats.new(100)
+	for i: int in 97:
+		_tools._bench_stats.add(4.0)
+	for i: int in 3:
+		_tools._bench_stats.add(20.0)
+	assert_lt(_tools._bench_stats.average_ms(), Config.num("debug.bench.avg_ms_max"), "average passes")
+	assert_gte(_tools._bench_stats.percentile_ms(99.0), Config.num("debug.bench.p99_ms_max"), "p99 over")
+	assert_eq(_tools._bench_exit_code(), 2, "p99 over its limit fails")
+
+
+func test_bench_fails_with_no_samples() -> void:
+	_tools = _bench_tools()
+	_tools._bench_stats = FrameStats.new(4)
+	assert_eq(_tools._bench_exit_code(), 2, "empty bench is not a PASS")
+
+
+func test_bench_limits_come_from_config() -> void:
+	_tools = _bench_tools()
+	_tools._bench_stats = FrameStats.new(4)
+	_tools._bench_stats.add(20.0)
+	assert_eq(_tools._bench_exit_code(), 2, "fails at the default limits")
+	var bench: Dictionary = Config.tuning["debug"]["bench"]
+	bench["avg_ms_max"] = 25.0
+	bench["p99_ms_max"] = 25.0
+	bench["max_ms_max"] = 25.0
+	assert_eq(_tools._bench_exit_code(), 0, "passes once the limits are raised")
+
+
+func test_finish_logs_then_quits_after_the_delay() -> void:
+	# A generous delay so a slow headless frame can't fire the quit before the
+	# next-frame check (the same-frame check below needs no margin).
+	(Config.tuning["debug"]["bench"] as Dictionary)["quit_delay_s"] = 1.0
+	_tools = _bench_tools()
+	Log.sink = _capture
+	_tools._bench_stats = FrameStats.new(4)
+	_tools._bench_stats.add(5.0)
+	_tools._bench_stats.add(6.0)
+	_tools._finish_bench()
+	Log.sink = Callable()
+	var finals: Array[String] = _lines_containing("Stress bench: frames=")
+	assert_eq(finals.size(), 1, "one final line")
+	if finals.size() == 1:
+		var line: String = finals[0]
+		assert_true(line.begins_with("[INFO][debug] Stress bench:"), line)
+		for part: String in ["frames=2", "avg=5.50 ms", "p99=6.00 ms", "max=6.00 ms", "enemies=", "projectiles=", "result=PASS"]:
+			assert_string_contains(line, part)
+	assert_true(_tools._bench_done, "bench done")
+	assert_false(Input.is_action_pressed(&"fire_laser"), "fire released")
+	assert_eq(_quits.size(), 0, "no quit in the same frame as the log")
+	await wait_process_frames(1)
+	assert_eq(_quits.size(), 0, "no quit on the next frame either")
+	await wait_seconds(Config.num("debug.bench.quit_delay_s") + 0.2)
+	assert_eq(_quits, [0] as Array[int], "quit once with the PASS exit code")
+
+
+func test_finish_quits_with_fail_code() -> void:
+	_tools = _bench_tools()
+	Log.sink = _capture
+	_tools._bench_stats = FrameStats.new(4)
+	_tools._finish_bench()
+	Log.sink = Callable()
+	var finals: Array[String] = _lines_containing("Stress bench: frames=")
+	assert_eq(finals.size(), 1, "final line still written for an empty bench")
+	if finals.size() == 1:
+		assert_string_contains(finals[0], "frames=0")
+		assert_string_contains(finals[0], "result=FAIL")
+	assert_eq(_quits.size(), 0, "not yet")
+	await wait_seconds(Config.num("debug.bench.quit_delay_s") + 0.2)
+	assert_eq(_quits, [2] as Array[int], "empty bench quits with 2")
+
+
+func test_step_past_the_window_finishes_once() -> void:
+	_tools = _bench_tools()
+	var end_s: float = Config.num("debug.bench.warmup_s") + _tools._bench_s
+	_tools._step_bench(_at(_tools, end_s + 0.1), 5.0)
+	assert_true(_tools._bench_done, "finished")
+	await wait_seconds(Config.num("debug.bench.quit_delay_s") + 0.2)
+	assert_eq(_quits.size(), 1, "quit called once")
+
+
+## One bench step inside warm-up, after the first-large time.
+func _step_first_large(tools: DebugTools, ms: float) -> void:
+	tools._step_bench(_at(tools, Config.num("debug.bench.first_large_at_s") + 0.01), ms)
+
+
+func test_first_large_impact_fires_once_and_logs_its_frames() -> void:
+	_tools = _bench_tools()
+	Log.sink = _capture
+	var at_s: float = Config.num("debug.bench.first_large_at_s")
+	assert_lt(at_s, Config.num("debug.bench.warmup_s"), "inside warm-up")
+	_tools._step_bench(_at(_tools, at_s) - 1000, 3.0)
+	assert_false(Feedback.is_hit_stopped(), "nothing before its time")
+	_step_first_large(_tools, 3.0)
+	assert_true(Feedback.is_hit_stopped(), "LARGE impact fired (hit-stop running)")
+	Feedback.reset()
+	var frames: int = Config.int_("debug.bench.first_large_frames")
+	assert_gt(frames, 0, "frames from Config")
+	for i: int in frames - 1:
+		_step_first_large(_tools, 10.0 + i)
+	assert_eq(_lines_containing("first LARGE impact").size(), 0, "not logged before every frame is measured")
+	_step_first_large(_tools, 30.0)
+	_step_first_large(_tools, 3.0)
+	Log.sink = Callable()
+	assert_false(Feedback.is_hit_stopped(), "fired once only")
+	var logged: Array[String] = _lines_containing("Stress bench: first LARGE impact")
+	assert_eq(logged.size(), 1, "one first-large line")
+	if logged.size() == 1:
+		assert_true(logged[0].begins_with("[INFO][debug]"), logged[0])
+		assert_string_contains(logged[0], "max=30.00 ms")
+		assert_string_contains(logged[0], "prewarm=on")
+	assert_eq(_tools._bench_stats.count(), 0, "warm-up frames are not sampled")
+
+
+func test_first_large_logs_prewarm_off() -> void:
+	_tools = _bench_tools()
+	_tools._prewarm = false
+	Log.sink = _capture
+	_step_first_large(_tools, 3.0)
+	Feedback.reset()
+	for i: int in Config.int_("debug.bench.first_large_frames"):
+		_step_first_large(_tools, 8.0)
+	Log.sink = Callable()
+	var logged: Array[String] = _lines_containing("Stress bench: first LARGE impact")
+	assert_eq(logged.size(), 1, "one first-large line")
+	if logged.size() == 1:
+		assert_string_contains(logged[0], "prewarm=off")

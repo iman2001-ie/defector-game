@@ -289,3 +289,72 @@ func test_stress_refills_a_dead_wasp_at_its_slot() -> void:
 	assert_eq(refilled.size(), 1, "exactly one new Wasp")
 	if refilled.size() == 1:
 		assert_eq(refilled[0].global_position, slot, "at the dead Wasp's slot")
+
+
+# --- Stress projectiles at the NFR peak (DW-9) ---------------------------------
+
+## The stress grid's bottom row y (rows from STRESS_TOP_Y, STRESS_SPACING.y apart).
+const STRESS_GRID_BOTTOM_Y: float = 150.0 + 3 * 72.0
+
+
+func _projectiles() -> Array[Projectile]:
+	var out: Array[Projectile] = []
+	for child: Node in _sandbox.get_node("World/Projectiles").get_children():
+		if child is Projectile and not child.is_queued_for_deletion():
+			out.append(child as Projectile)
+	return out
+
+
+func test_stress_tops_up_projectiles_within_the_per_tick_cap() -> void:
+	_stress_sandbox()
+	_sandbox.set_physics_process(false)
+	var target: int = Config.int_("debug.stress.projectiles")
+	var cap: int = Config.int_("debug.stress.projectile_spawn_per_tick")
+	assert_gt(target, 0, "target from Config")
+	assert_gt(cap, 0, "cap from Config")
+	var ticks: int = ceili(float(target) / cap)
+	var previous: int = 0
+	for i: int in ticks:
+		_sandbox.step_stress_projectiles()
+		var live: int = _projectiles().size()
+		assert_lte(live - previous, cap, "tick %d spawns at most the cap" % i)
+		previous = live
+	assert_eq(_projectiles().size(), target, "at the target after %d ticks" % ticks)
+	_sandbox.step_stress_projectiles()
+	assert_eq(_projectiles().size(), target, "spawns nothing at the target")
+
+
+func test_stress_projectiles_spawn_below_the_grid_and_fly_down() -> void:
+	_stress_sandbox()
+	_sandbox.set_physics_process(false)
+	_sandbox.step_stress_projectiles()
+	var shots: Array[Projectile] = _projectiles()
+	assert_gt(shots.size(), 0, "some spawned")
+	for shot: Projectile in shots:
+		assert_gt(shot.global_position.y, STRESS_GRID_BOTTOM_Y, "below the Wasp grid")
+		assert_between(shot.global_position.x, 0.0, 1920.0, "x on screen")
+		assert_gt(shot.velocity.y, 0.0, "flies down")
+		assert_almost_eq(shot.velocity.length(), Config.num("weapons.enemy_bullet.max_speed_px_s"), 0.001, "enemy-bullet speed")
+
+
+func test_stress_reaches_the_target_while_running() -> void:
+	_stress_sandbox()
+	var target: int = Config.int_("debug.stress.projectiles")
+	var cap: int = Config.int_("debug.stress.projectile_spawn_per_tick")
+	await wait_physics_frames(ceili(float(target) / cap) + 2)
+	var live: int = _projectiles().size()
+	assert_between(live, target - cap, target, "about the target live, never above it")
+	assert_eq(_wasps().size(), 40, "alongside the 40-Wasp grid")
+
+
+func test_normal_sandbox_spawns_no_stress_projectiles() -> void:
+	await wait_physics_frames(5)
+	assert_eq(_projectiles().size(), 0, "no projectiles without stress mode")
+
+
+func test_prewarm_skipped_only_by_no_prewarm_in_debug_builds() -> void:
+	var on: Dictionary = DebugArgs.parse(PackedStringArray())
+	var off: Dictionary = DebugArgs.parse(PackedStringArray(["--no-prewarm"]))
+	assert_true(_sandbox.should_prewarm(true, on), "debug build, no flag: pre-warm")
+	assert_false(_sandbox.should_prewarm(true, off), "debug build, --no-prewarm: skip")
+	assert_true(_sandbox.should_prewarm(false, off), "release build ignores --no-prewarm")

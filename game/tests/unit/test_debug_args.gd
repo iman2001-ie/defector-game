@@ -52,3 +52,24 @@ func test_bad_bench_with_stress_keeps_stress() -> void:
 	assert_true(parsed.stress, "stress from --stress")
 	assert_eq(parsed.bench_s, 0.0, "no bench")
 	assert_push_warning_count(1)
+
+
+# --- Pre-warm switch (DW-9) ---------------------------------------------------
+
+func test_prewarm_defaults_to_true() -> void:
+	assert_true(DebugArgs.parse(PackedStringArray()).prewarm, "no args: pre-warm on")
+	assert_true(DebugArgs.parse(PackedStringArray(["--bench=5"])).prewarm, "bench alone: pre-warm on")
+
+
+func test_no_prewarm_flag() -> void:
+	var parsed: Dictionary = DebugArgs.parse(PackedStringArray(["--no-prewarm"]))
+	assert_false(parsed.prewarm, "pre-warm off")
+	assert_false(parsed.stress, "does not imply stress")
+	assert_eq(parsed.bench_s, 0.0, "no bench")
+
+
+func test_no_prewarm_combines_with_bench() -> void:
+	var parsed: Dictionary = DebugArgs.parse(PackedStringArray(["--bench=2", "--no-prewarm"]))
+	assert_false(parsed.prewarm, "pre-warm off")
+	assert_true(parsed.stress, "bench implies stress")
+	assert_eq(parsed.bench_s, 2.0, "bench seconds")

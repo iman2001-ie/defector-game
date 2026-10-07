@@ -74,7 +74,9 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 1; owner Dev loop; sprint-status status open)
-status: open
+status: done 2026-10-07
+resolution: resolved by sweep bundle dw-stress-bench-nfr-peak
+resolution-undo: 74db697bf92a309658c29e0bec9198c418e34c4c99e27252cf3d5a488bc87ba7 2026-10-07 7374617475733a206f70656e
 decision: 2026-10-07 Build the bench now — Extend the --stress/--bench sandbox mode to sustain about 200 live projectiles or moving enemies, report p99 and max frame time alongside the average with PASS judged on all three, and add a first-large-explosion measurement with and without Feedback.prewarm(). Leave the on-hardware run itself to the operator.
 
 ### DW-10: Decide the laser collision mask (recommend MASK_PLAYER_SHOTS=84), derive masks from CollisionLayers or test equality, and correct the epics.md Story 1.3 AC (DW-2)
@@ -181,7 +183,9 @@ location: game/ui/debug/debug_tools.gd _finish_bench
 source_spec: `spec-1-9-make-laser-bolts-and-the-neon-glow-brighter.md`
 severity: low
 reason: Observed by the Story 1.9 implementer across several `-- --bench=20` runs (most runs without --verbose, one of three with it). Looks like an output-flush race between Log and get_tree().quit() in DebugTools._finish_bench. Pre-existing (Story 1.7 code); settle by flushing the log before quit and re-running the bench several times.
-status: open
+status: done 2026-10-07
+resolution: resolved by sweep bundle dw-stress-bench-nfr-peak
+resolution-undo: 74db697bf92a309658c29e0bec9198c418e34c4c99e27252cf3d5a488bc87ba7 2026-10-07 7374617475733a206f70656e
 
 ### DW-22: Record the fun-gate colleague waiver as decision-log #32 and amend epics.md lines 326 and 536 to match
 origin: retro action item epic-1-retro-item-10-record-the-fun-gate-colleague-waiver-as
@@ -221,4 +225,12 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 1; owner Developer; sprint-status status open)
+status: open
+
+### DW-27: The --no-prewarm wiring through Sandbox._ready and DebugTools._ready is not covered by any test, so a regression could mislabel the prewarm on/off comparison.
+origin: spec-deferred def51ca50f5c
+location: game/ui/debug/debug_tools.gd _ready; game/scenes/sandbox/sandbox.gd _ready
+source_spec: `spec-dw-9-dw-21-stress-bench-nfr-peak.md`
+severity: medium
+reason: Both _ready methods read OS.get_cmdline_user_args() directly, so tests cannot inject --no-prewarm. Tests cover only DebugArgs.parse, the static Sandbox.should_prewarm, and DebugTools with _prewarm set by hand. Deleting `_prewarm = args.prewarm` in debug_tools.gd would leave the suite green. Fix: an injectable user-args source for both _ready paths (the --stress wiring has the same gap).
 status: open

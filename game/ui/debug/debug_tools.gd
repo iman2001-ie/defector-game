@@ -2,15 +2,12 @@ class_name DebugTools
 extends Node
 ## Debug-build tools (architecture "Debug Tools"): F1 toggles a frame-stats
 ## overlay, F5 reloads every JSON file and restarts the scene. With the
-## `-- --bench=<s>` user arg it also runs the self-timing stress bench.
-## Does nothing at all when debug_enabled is false (release builds).
+## `-- --bench=<s>` user arg it also runs the self-timing stress bench; its
+## numbers (limits, warm-up, first-large timing, quit delay) come from
+## tuning.debug.bench. Does nothing at all when debug_enabled is false (release builds).
 
 ## Overlay text refresh period (real time).
 const OVERLAY_REFRESH_S: float = 0.25
-## Bench: real seconds skipped before sampling (spawn, pre-warm, first kills).
-const BENCH_WARMUP_S: float = 2.0
-## NFR1 frame budget: 60 FPS.
-const FRAME_BUDGET_MS: float = 16.6
 ## Bench sample buffer size per second of bench (vsync is off, so frames are fast).
 const BENCH_MAX_FPS: int = 5000
 ## Bench cursor: under a stress-grid column, in the player zone.
@@ -26,6 +23,8 @@ static var _overlay_initialised: bool = false
 var debug_enabled: bool = OS.is_debug_build()
 ## Called after a successful F5 reload. Defaults to get_tree().reload_current_scene.
 var restart_scene: Callable
+## Called with the bench exit code once the bench is over. Defaults to get_tree().quit.
+var quit_game: Callable
 
 var _last_frame_usec: int = 0
 var _window_start_usec: int = 0
@@ -37,6 +36,18 @@ var _bench_s: float = 0.0
 var _bench_start_usec: int = 0
 var _bench_done: bool = false
 var _bench_stats: FrameStats = null
+## False with the `--no-prewarm` user arg (the sandbox then skipped Feedback.prewarm()).
+var _prewarm: bool = true
+var _warmup_s: float = 0.0
+var _quit_delay_s: float = 0.0
+var _first_large_at_s: float = 0.0
+var _first_large_frames: int = 0
+var _first_large_fired: bool = false
+## Frames still to measure after the deliberate LARGE impact.
+var _first_large_left: int = 0
+var _first_large_measured: int = 0
+var _first_large_sum_ms: float = 0.0
+var _first_large_max_ms: float = 0.0
 
 @onready var _label: Label = $OverlayLabel
 
@@ -50,8 +61,11 @@ func _ready() -> void:
 		return
 	if not restart_scene.is_valid():
 		restart_scene = get_tree().reload_current_scene
+	if not quit_game.is_valid():
+		quit_game = get_tree().quit
 	var args: Dictionary = DebugArgs.parse(OS.get_cmdline_user_args())
 	var stress: bool = args.stress
+	_prewarm = args.prewarm
 	if not _overlay_initialised:
 		_overlay_initialised = true
 		overlay_visible = stress
@@ -151,41 +165,106 @@ func _mark_handled() -> void:
 
 
 func _start_bench() -> void:
+	_warmup_s = Config.num("debug.bench.warmup_s")
+	_quit_delay_s = Config.num("debug.bench.quit_delay_s")
+	_first_large_at_s = Config.num("debug.bench.first_large_at_s")
+	_first_large_frames = Config.int_("debug.bench.first_large_frames")
+	_first_large_fired = false
+	_first_large_left = 0
 	_bench_stats = FrameStats.new(ceili(_bench_s * BENCH_MAX_FPS))
 	_bench_start_usec = Time.get_ticks_usec()
 	get_viewport().warp_mouse(BENCH_AIM)
 	Input.action_press(&"fire_laser")
-	Log.info("debug", "Stress bench: %.1f s warm-up, then %.1f s sampled with fire held" % [BENCH_WARMUP_S, _bench_s])
+	if _first_large_at_s >= _warmup_s:
+		Log.warn("debug", "Stress bench: debug.bench.first_large_at_s (%.2f) is not inside the %.2f s warm-up; no deliberate LARGE impact" % [_first_large_at_s, _warmup_s])
+	Log.info("debug", "Stress bench: %.1f s warm-up (LARGE impact at %.1f s), then %.1f s sampled with fire held, prewarm=%s" % [
+		_warmup_s, _first_large_at_s, _bench_s, _prewarm_label(),
+	])
 
 
 func _step_bench(now: int, ms: float) -> void:
+	if _first_large_left > 0:
+		_measure_first_large(ms)
 	var elapsed_s: float = (now - _bench_start_usec) / _USEC_PER_S
-	if elapsed_s < BENCH_WARMUP_S:
+	if elapsed_s < _warmup_s:
+		if not _first_large_fired and elapsed_s >= _first_large_at_s:
+			_fire_first_large()
 		return
-	if elapsed_s < BENCH_WARMUP_S + _bench_s:
+	if elapsed_s < _warmup_s + _bench_s:
 		_bench_stats.add(ms)
 		return
 	_finish_bench()
 
 
+## The one deliberate LARGE impact of the bench (its debris and shockwave are the
+## first ones of the run). Its cost shows in the frames that follow, measured by
+## _measure_first_large.
+func _fire_first_large() -> void:
+	_first_large_fired = true
+	_first_large_measured = 0
+	_first_large_sum_ms = 0.0
+	_first_large_max_ms = 0.0
+	_first_large_left = _first_large_frames
+	Feedback.impact(ImpactTier.LARGE, Playfield.RECT.get_center())
+	if _first_large_left <= 0:
+		_log_first_large()
+
+
+func _measure_first_large(ms: float) -> void:
+	_first_large_measured += 1
+	_first_large_sum_ms += ms
+	if ms > _first_large_max_ms:
+		_first_large_max_ms = ms
+	_first_large_left -= 1
+	if _first_large_left == 0:
+		_log_first_large()
+
+
+func _log_first_large() -> void:
+	var avg_ms: float = _first_large_sum_ms / _first_large_measured if _first_large_measured > 0 else 0.0
+	Log.info("debug", "Stress bench: first LARGE impact max=%.2f ms avg=%.2f ms over %d frames prewarm=%s" % [
+		_first_large_max_ms, avg_ms, _first_large_measured, _prewarm_label(),
+	])
+
+
+func _prewarm_label() -> String:
+	return "on" if _prewarm else "off"
+
+
+## Releases fire, logs the final line, then quits on a later frame: the real-time
+## quit delay gives stdout and the file logger time to drain (DW-21).
 func _finish_bench() -> void:
 	_bench_done = true
 	var exit_code: int = _bench_exit_code()
-	Log.info("debug", "Stress bench: frames=%d avg=%.2f ms p99=%.2f ms max=%.2f ms enemies=%d renderer=%s window=%s vsync=%d result=%s" % [
+	Input.action_release(&"fire_laser")
+	if _first_large_left > 0:
+		_first_large_left = 0
+		_log_first_large()
+	Log.info("debug", "Stress bench: frames=%d avg=%.2f ms p99=%.2f ms max=%.2f ms enemies=%d projectiles=%d renderer=%s window=%s vsync=%d result=%s" % [
 		_bench_stats.count(),
 		_bench_stats.average_ms(),
 		_bench_stats.percentile_ms(99.0),
 		_bench_stats.max_ms(),
 		get_tree().get_node_count_in_group(&"enemies"),
+		get_tree().get_node_count_in_group(&"projectiles"),
 		RenderingServer.get_current_rendering_method(),
 		DisplayServer.window_get_size(),
 		DisplayServer.window_get_vsync_mode(),
 		"PASS" if exit_code == 0 else "FAIL",
 	])
-	Input.action_release(&"fire_laser")
-	get_tree().quit(exit_code)
+	# Real time, process_always, ignoring time_scale: hit-stop cannot hold the quit.
+	# Bound to quit_game itself, so the quit survives this node being freed meanwhile.
+	get_tree().create_timer(_quit_delay_s, true, false, true).timeout.connect(quit_game.bind(exit_code))
 
 
-## 0 (PASS) when the sampled average is under FRAME_BUDGET_MS, else 2 (FAIL).
+## 0 (PASS) when the sampled avg, p99 and max are all under their
+## tuning.debug.bench limits, else 2 (FAIL). An empty bench fails.
 func _bench_exit_code() -> int:
-	return 0 if _bench_stats.average_ms() < FRAME_BUDGET_MS else 2
+	if _bench_stats == null or _bench_stats.count() == 0:
+		return 2
+	var passed: bool = (
+		_bench_stats.average_ms() < Config.num("debug.bench.avg_ms_max")
+		and _bench_stats.percentile_ms(99.0) < Config.num("debug.bench.p99_ms_max")
+		and _bench_stats.max_ms() < Config.num("debug.bench.max_ms_max")
+	)
+	return 0 if passed else 2

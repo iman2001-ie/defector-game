@@ -536,12 +536,13 @@ Debug tools are available **only when `OS.is_debug_build()`** (editor runs and d
 | F8 | *(Add only if needed)* Save a screenshot of the viewport to `user://screenshots/shot_<timestamp>.png` so AI agents can inspect the running game. This replaces the screenshot feature of an engine MCP | Planned |
 | F11 | Toggle borderless fullscreen / windowed (**available in release too**) | Planned |
 
-**Command-line modes (debug builds only, Story 1.7):** `DebugArgs.parse(OS.get_cmdline_user_args())` (`ui/debug/debug_args.gd`) returns `{stress: bool, bench_s: float}`. The scene root and `DebugTools` both read it.
+**Command-line modes (debug builds only, Story 1.7, DW-9/DW-21):** `DebugArgs.parse(OS.get_cmdline_user_args())` (`ui/debug/debug_args.gd`) returns `{stress: bool, bench_s: float, prewarm: bool}`. The scene root and `DebugTools` both read it. The bench and stress numbers come from `tuning.json` → `debug.bench` / `debug.stress` (see [Data Patterns](#data-patterns)).
 
-- `-- --stress`: the sandbox spawns a 10×4 grid of 40 Wasps and refills each slot when its Wasp dies. The overlay starts on, and vsync is turned off so frame ms measures work, not the display wait.
-- `-- --bench=N` implies `--stress`. It warps the cursor to `DebugTools.BENCH_AIM` (1040, 900), holds `fire_laser`, skips 2 s of warm-up, samples N s of frame times into `FrameStats` (`ui/debug/frame_stats.gd`), then logs one line and quits:
-  `[INFO][debug] Stress bench: frames=… avg=… ms p99=… ms max=… ms enemies=… renderer=… window=… vsync=… result=PASS|FAIL`.
-  The exit code is 0 if the average is under 16.6 ms, otherwise 2. A malformed or non-positive N logs a warning and is ignored.
+- `-- --stress`: the sandbox spawns a 10×4 grid of 40 Wasps and refills each slot when its Wasp dies. It also keeps `debug.stress.projectiles` (200) projectiles live, the NFR1 peak: each physics tick it spawns `min(target - live, debug.stress.projectile_spawn_per_tick)` laser bolts through `Spawner`, one grid row below the Wasps, flying down at `weapons.enemy_bullet.max_speed_px_s` (they stand in for enemy bullets; live count = the `projectiles` group, the player's bolts included). The overlay starts on, and vsync is turned off so frame ms measures work, not the display wait.
+- `-- --no-prewarm`: the sandbox logs that it skipped `Feedback.prewarm()` and does not call it, so the operator can compare the first-explosion cost with and without pre-warm. Release builds ignore it and still pre-warm.
+- `-- --bench=N` implies `--stress`. It warps the cursor to `DebugTools.BENCH_AIM` (1040, 900) and holds `fire_laser`. During the `debug.bench.warmup_s` warm-up (2 s) it fires one deliberate `Feedback.impact(ImpactTier.LARGE, …)` at `first_large_at_s` and, after the next `first_large_frames` frames, logs `[INFO][debug] Stress bench: first LARGE impact max=… ms avg=… ms over … frames prewarm=on|off`. It then samples N s of frame times into `FrameStats` (`ui/debug/frame_stats.gd`), releases fire and logs one line:
+  `[INFO][debug] Stress bench: frames=… avg=… ms p99=… ms max=… ms enemies=… projectiles=… renderer=… window=… vsync=… result=PASS|FAIL`.
+  PASS (exit 0) needs avg, p99 and max all under `debug.bench.avg_ms_max` / `p99_ms_max` / `max_ms_max` (16.6 ms each); otherwise, or with no samples, FAIL (exit 2). The quit runs through the injectable `DebugTools.quit_game` callable (default `get_tree().quit`) after a real-time `debug.bench.quit_delay_s` timer, never in the frame that logs, so the final line reaches stdout and the log file. A malformed or non-positive N logs a warning and is ignored.
 
 ---
 
@@ -1156,8 +1157,9 @@ func int_(path: String) -> int:
 	return int(num(path))
 ```
 
-**`tuning.json` top-level sections (fixed):** `player`, `weapons`, `abilities`, `energy`, `drops`, `enemies`, `boss`, `asteroids`, `convoy`, `allies`, `waves`, `comms`, `feedback`, `damage`, `render`.
+**`tuning.json` top-level sections (fixed):** `player`, `weapons`, `abilities`, `energy`, `drops`, `enemies`, `boss`, `asteroids`, `convoy`, `allies`, `waves`, `comms`, `feedback`, `damage`, `render`, `debug`.
 
+- `debug.bench` (`avg_ms_max`, `p99_ms_max`, `max_ms_max`, `warmup_s`, `first_large_at_s`, `first_large_frames`, `quit_delay_s`) and `debug.stress` (`projectiles`, `projectile_spawn_per_tick`) hold the debug-build stress bench numbers (GDD decision log #33). Only `DebugTools` and the sandbox's stress mode read them; the stress-grid layout and `BENCH_MAX_FPS` / `BENCH_AIM` / `OVERLAY_REFRESH_S` stay code consts.
 - `render.glow` holds `intensity`, `bloom` and `hdr_threshold`. The scene root's `_ready` passes its `WorldEnvironment`'s environment to `RenderGlow.apply(env)` (`core/render_glow.gd`), so the F5 scene restart re-applies it. `glow_enabled` and the background mode stay in the `.tscn`.
 - `weapons.laser.glow_energy` / `halo_energy` set the HDR `self_modulate` on the additive bolt core and halo sprites (the ADR-003 fallback: the bolt still reads as a glowing bullet with WorldEnvironment glow off).
 
@@ -1212,7 +1214,7 @@ The comms panel consumes `comms_advance` with `get_viewport().set_input_as_handl
 | Logging | None per frame |
 | Barrage homing | Nearest enemy picked **once** on spawn and re-picked only when the target is freed (`is_instance_valid`). No per-frame group scans |
 | Ally targeting | Re-acquire the nearest enemy every 0.5 s (on fire), not every frame |
-| Verification | E1 sandbox stress test: `-- --stress` (40 Wasps refilled on death, F1 overlay on, vsync off) for a manual look, and `-- --bench=N` for a self-timing run (fire held at `BENCH_AIM`, 2 s warm-up, N s sampled, logs avg/p99/max, exit 0 if avg < 16.6 ms else 2). Re-run `--bench=20` after any visual change. Last results: GDD decision log #27 and #32 |
+| Verification | E1 sandbox stress test at the NFR1 peak: `-- --stress` (40 Wasps refilled on death, ~200 live projectiles topped up through `Spawner`, F1 overlay on, vsync off) for a manual look, and `-- --bench=N` for a self-timing run (fire held at `BENCH_AIM`, one deliberate LARGE impact during the 2 s warm-up with its frame ms logged, N s sampled, logs avg/p99/max, exit 0 only if avg, p99 and max are all < 16.6 ms (`debug.bench`), else 2; quits after a short real-time delay so the final line is never lost). Add `-- --no-prewarm` to compare the first LARGE impact without `Feedback.prewarm()`. Re-run `--bench=20` after any visual change. Last results: GDD decision log #27 and #32 (taken before the 200-projectile load and the p99/max gate) |
 
 ## Security Architecture
 
