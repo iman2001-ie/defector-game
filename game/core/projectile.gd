@@ -6,7 +6,7 @@ extends Area2D
 ## Created only by Spawner: setup(params) stores values before add_child, and
 ## _ready() applies them.
 
-## How far past the viewport edge a projectile may travel before it is freed.
+## How far past the playfield edge a projectile may travel before it is freed.
 const OFFSCREEN_MARGIN_PX: float = 64.0
 
 var damage: int = 1
@@ -35,10 +35,7 @@ func setup(params: Dictionary) -> void:
 func _ready() -> void:
 	if _has_spawn_position:
 		global_position = _spawn_position
-	var size: Vector2 = Vector2(
-		float(ProjectSettings.get_setting("display/window/size/viewport_width")),
-		float(ProjectSettings.get_setting("display/window/size/viewport_height")))
-	_bounds = Rect2(Vector2.ZERO, size).grow(OFFSCREEN_MARGIN_PX)
+	_bounds = Playfield.RECT.grow(OFFSCREEN_MARGIN_PX)
 	add_to_group(&"projectiles")
 	area_entered.connect(_on_area_entered)
 

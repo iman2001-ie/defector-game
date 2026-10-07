@@ -104,7 +104,9 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 1; owner Dev loop; sprint-status status open)
-status: open
+status: done 2026-10-07
+resolution: resolved by sweep bundle dw-playfield-rect-and-weapon-split
+resolution-undo: 32bbe04986e2fcf0d466a2988e0a98302fea1d33e860b519de92d9d73e492671 2026-10-07 7374617475733a206f70656e
 
 ### DW-14: Split oversized stories (5+ new systems, like 1-6) or raise the per-story token cap deliberately; 1-4 and 1-6 overran 2M weighted tokens
 origin: retro action item epic-1-retro-item-8-split-oversized-stories-5-new-systems-li

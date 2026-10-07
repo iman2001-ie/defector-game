@@ -34,7 +34,7 @@ var _playfield_width: float = 0.0
 func _ready() -> void:
 	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_CONFINED_HIDDEN)
 	_player.set_spawner(_spawner)
-	_playfield_width = float(ProjectSettings.get_setting("display/window/size/viewport_width"))
+	_playfield_width = Playfield.SIZE.x
 	if OS.is_debug_build() and DebugArgs.parse(OS.get_cmdline_user_args()).stress:
 		stress_mode = true
 	if stress_mode:

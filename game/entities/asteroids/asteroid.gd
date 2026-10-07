@@ -19,7 +19,6 @@ var spin_deg_s: float = 0.0
 
 var _spawn_position: Vector2 = Vector2.ZERO
 var _has_spawn_position: bool = false
-var _viewport_height: float = 0.0
 var _destroyed: bool = false
 var _impact_tier: int = ImpactTier.SMALL
 
@@ -43,7 +42,6 @@ func _ready() -> void:
 	drift_speed = Config.num(key + ".drift_speed_px_s")
 	var spin: float = randf_range(Config.num(key + ".spin_deg_s.min"), Config.num(key + ".spin_deg_s.max"))
 	spin_deg_s = spin if randf() < 0.5 else -spin
-	_viewport_height = float(ProjectSettings.get_setting("display/window/size/viewport_height"))
 
 	var hitbox: CollisionShape2D = get_node_or_null(^"Hitbox") as CollisionShape2D
 	if hitbox != null:
@@ -63,7 +61,7 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	position.y += drift_speed * delta
 	rotation_degrees += spin_deg_s * delta
-	if global_position.y - radius > _viewport_height:
+	if global_position.y - radius > Playfield.SIZE.y:
 		queue_free()
 
 

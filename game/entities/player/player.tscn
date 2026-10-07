@@ -1,6 +1,7 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://entities/player/player.gd" id="1_player"]
+[ext_resource type="Script" path="res://entities/player/player_weapons.gd" id="2_weapons"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_hurtbox"]
 radius = 12.0
@@ -58,3 +59,8 @@ texture = SubResource("GradientTexture2D_flash")
 material = SubResource("CanvasItemMaterial_add")
 position = Vector2(8, 0)
 texture = SubResource("GradientTexture2D_flash")
+
+[node name="Weapons" type="Node" parent="."]
+script = ExtResource("2_weapons")
+muzzle = NodePath("../Muzzle")
+muzzle_flash = NodePath("../Muzzle/MuzzleFlash")
