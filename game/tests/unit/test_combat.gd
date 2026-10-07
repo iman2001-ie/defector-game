@@ -1,6 +1,6 @@
 extends GutTest
 ## Combat through real physics: laser bolts kill a Wasp; an asteroid blocks bolts
-## aimed at a Wasp behind it. Layer config checks.
+## aimed at a Wasp behind it; missile hits and splash. Layer config checks.
 
 const BOLT_SPEED: float = 1800.0
 
@@ -62,6 +62,68 @@ func test_asteroid_blocks_bolts_aimed_at_a_wasp() -> void:
 	assert_eq(wasp.hp, 3, "the wasp takes none")
 	assert_signal_not_emitted(Events, "enemy_killed")
 	assert_eq(_world.get_node("Projectiles").get_child_count(), 0, "every bolt stopped")
+
+
+func test_missile_hits_asteroid_and_stops() -> void:
+	var wasp: Enemy = _spawner.spawn_enemy(&"wasp", {"position": Vector2(960, 200)})
+	var rock: Asteroid = _spawner.spawn_asteroid({"size": &"large", "position": Vector2(960, 500)})
+	assert_not_null(wasp)
+	assert_not_null(rock)
+	if wasp == null or rock == null:
+		return
+	rock.set_physics_process(false)
+	var missile: Projectile = _spawner.spawn_projectile(&"missile", {"position": Vector2(960, 900), "velocity": Vector2(0, -900), "damage": 8})
+	assert_not_null(missile)
+	await wait_physics_frames(40)
+	assert_eq(rock.hp, 22, "8 direct damage")
+	assert_eq(wasp.hp, 3, "the wasp behind the asteroid takes none")
+	assert_eq(_world.get_node("Projectiles").get_child_count(), 0, "missile stopped")
+
+
+func test_missile_asteroid_hit_splashes_nearby_wasp() -> void:
+	var rock: Asteroid = _spawner.spawn_asteroid({"size": &"large", "position": Vector2(960, 500)})
+	# Impact is near (960, 610-625): this Wasp is ~100 px away and off the missile's path.
+	var wasp: Enemy = _spawner.spawn_enemy(&"wasp", {"position": Vector2(1060, 620)})
+	assert_not_null(rock)
+	assert_not_null(wasp)
+	if rock == null or wasp == null:
+		return
+	rock.set_physics_process(false)
+	_spawner.spawn_projectile(&"missile", {"position": Vector2(960, 900), "velocity": Vector2(0, -900), "damage": 8})
+	await wait_physics_frames(40)
+	assert_eq(rock.hp, 22, "8 direct damage to the asteroid")
+	# A Wasp has 3 HP, so exactly 3 splash damage kills it.
+	assert_signal_emit_count(Events, "enemy_killed", 1)
+	assert_signal_emitted_with_parameters(Events, "enemy_killed", [&"wasp", Vector2(1060, 620), false])
+	assert_true(not is_instance_valid(wasp) or wasp.is_queued_for_deletion(), "splashed wasp dies")
+	assert_eq(_world.get_node("Projectiles").get_child_count(), 0, "missile stopped")
+
+
+func test_missile_splash_in_formation() -> void:
+	var wasps: Array[Enemy] = []
+	for y: float in [160.0, 280.0]:
+		for x: float in [720.0, 880.0, 1040.0, 1200.0]:
+			var wasp: Enemy = _spawner.spawn_enemy(&"wasp", {"position": Vector2(x, y)})
+			assert_not_null(wasp)
+			if wasp == null:
+				return
+			wasps.append(wasp)
+	var hit: Enemy = wasps[1]
+	var below: Enemy = wasps[5]
+	assert_eq(hit.global_position, Vector2(880, 160))
+	assert_eq(below.global_position, Vector2(880, 280))
+	_spawner.spawn_projectile(&"missile", {"position": Vector2(880, 220), "velocity": Vector2(0, -900), "damage": 8})
+	await wait_physics_frames(10)
+	assert_true(not is_instance_valid(hit) or hit.is_queued_for_deletion(), "direct hit dies")
+	assert_true(not is_instance_valid(below) or below.is_queued_for_deletion(), "splashed wasp below dies")
+	assert_signal_emit_count(Events, "enemy_killed", 2)
+	for i: int in wasps.size():
+		if i == 1 or i == 5:
+			continue
+		assert_true(is_instance_valid(wasps[i]), "wasp %d alive" % i)
+		if is_instance_valid(wasps[i]):
+			assert_eq(wasps[i].hp, 3, "wasp %d untouched" % i)
+	assert_eq(_world.get_node("Projectiles").get_child_count(), 0, "missile spent")
 
 
 func test_layer_constants() -> void:

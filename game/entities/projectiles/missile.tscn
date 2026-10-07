@@ -1,0 +1,57 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://entities/projectiles/missile.gd" id="1_missile"]
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_missile"]
+radius = 6.0
+height = 24.0
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_add"]
+blend_mode = 1
+
+[sub_resource type="Gradient" id="Gradient_smoke"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.7, 0.7, 0.72, 0.7, 0.45, 0.45, 0.48, 0)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_smoke"]
+gradient = SubResource("Gradient_smoke")
+
+[sub_resource type="Curve" id="Curve_smoke_scale"]
+_data = [Vector2(0, 0.6), 0.0, 0.0, 0, 0, Vector2(1, 1.6), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="CurveTexture" id="CurveTexture_smoke_scale"]
+curve = SubResource("Curve_smoke_scale")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_smoke"]
+particle_flag_disable_z = true
+direction = Vector3(0, 1, 0)
+spread = 20.0
+initial_velocity_min = 10.0
+initial_velocity_max = 30.0
+gravity = Vector3(0, 0, 0)
+scale_min = 3.0
+scale_max = 5.0
+scale_curve = SubResource("CurveTexture_smoke_scale")
+color_ramp = SubResource("GradientTexture1D_smoke")
+
+[node name="Missile" type="Area2D"]
+collision_layer = 2
+collision_mask = 84
+monitorable = false
+script = ExtResource("1_missile")
+
+[node name="Hitbox" type="CollisionShape2D" parent="."]
+shape = SubResource("CapsuleShape2D_missile")
+
+[node name="SmokeTrail" type="GPUParticles2D" parent="."]
+position = Vector2(0, 12)
+amount = 32
+process_material = SubResource("ParticleProcessMaterial_smoke")
+lifetime = 0.4
+local_coords = false
+
+[node name="Body" type="Polygon2D" parent="."]
+material = SubResource("CanvasItemMaterial_add")
+color = Color(0.133333, 0.901961, 1, 1)
+polygon = PackedVector2Array(0, -11, 4, -4, 4, 11, -4, 11, -4, -4)
