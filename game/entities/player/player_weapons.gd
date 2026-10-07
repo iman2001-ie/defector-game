@@ -6,10 +6,9 @@ extends Node
 ## Laser: while held, one bolt per 1 / weapons.laser.rate_per_s is spawned at the
 ## muzzle through the injected Spawner, with a muzzle flash.
 ##
-## Missile: a press launches one missile at the muzzle along the origin->target
-## vector (straight up when the target is within straight_up_within_px), then a
-## cooldown_s cooldown broadcast as a ratio through Events.missile_cooldown_changed
-## (1 = just fired, 0 = ready).
+## Missile: a press launches one missile at the muzzle, always straight up
+## (Vector2.UP * weapons.missile.speed_px_s), then a cooldown_s cooldown broadcast
+## as a ratio through Events.missile_cooldown_changed (1 = just fired, 0 = ready).
 
 ## Absorbs float drift so whole multiples of the physics delta add up to one interval.
 const FIRE_EPS: float = 1e-6
@@ -36,7 +35,6 @@ var _laser_pitch_jitter: float = 0.0
 var _missile_damage: int
 var _missile_speed: float
 var _missile_cooldown_s: float
-var _missile_straight_up_px: float
 ## Seconds until the missile is ready; 0 when ready.
 var _missile_cooldown: float = 0.0
 var _spawner: Spawner
@@ -65,7 +63,6 @@ func _ready() -> void:
 	_missile_damage = Config.int_("weapons.missile.damage")
 	_missile_speed = Config.num("weapons.missile.speed_px_s")
 	_missile_cooldown_s = Config.num("weapons.missile.cooldown_s")
-	_missile_straight_up_px = Config.num("weapons.missile.straight_up_within_px")
 	if _missile_cooldown_s <= 0.0:
 		Log.warn("data", "weapons.missile.cooldown_s %.3f is not positive; missile has no cooldown" % _missile_cooldown_s)
 
@@ -113,9 +110,9 @@ func _fire_bolt() -> void:
 ## One missile tick. The cooldown is counted down first (emitting its ratio, the
 ## last emit exactly 0), then a press fires if the missile is ready, so the 90th
 ## tick after a launch at 1.5 s and 1/60 s is the first that can fire again.
-## Presses during the cooldown are dropped, not buffered. origin is the ship
-## position the aim is measured from; the missile itself spawns at the muzzle.
-func step_missile(pressed: bool, origin: Vector2, target: Vector2, delta: float) -> void:
+## Presses during the cooldown are dropped, not buffered. The missile spawns at
+## the muzzle and flies straight up.
+func step_missile(pressed: bool, delta: float) -> void:
 	if _missile_cooldown > 0.0:
 		_missile_cooldown -= delta
 		if _missile_cooldown <= FIRE_EPS:
@@ -125,7 +122,7 @@ func step_missile(pressed: bool, origin: Vector2, target: Vector2, delta: float)
 		return
 	var missile: Projectile = _spawner.spawn_projectile(MISSILE_TYPE, {
 		"position": _muzzle.global_position,
-		"velocity": missile_direction(origin, target, _missile_straight_up_px) * _missile_speed,
+		"velocity": Vector2.UP * _missile_speed,
 		"damage": _missile_damage,
 	})
 	if missile == null:
@@ -138,9 +135,3 @@ func step_missile(pressed: bool, origin: Vector2, target: Vector2, delta: float)
 	_missile_cooldown = _missile_cooldown_s
 	Events.missile_cooldown_changed.emit(1.0)
 
-
-## Unit direction from the ship toward the cursor; straight up within straight_up_within px.
-static func missile_direction(from: Vector2, target: Vector2, straight_up_within: float) -> Vector2:
-	if from.distance_to(target) <= straight_up_within:
-		return Vector2.UP
-	return (target - from).normalized()

@@ -1,5 +1,5 @@
 extends GutTest
-## PlayerWeapons on its own: laser rate, bolt params, missile aim and cooldown,
+## PlayerWeapons on its own: laser rate, bolt params, straight-up missile and cooldown,
 ## no-spawner gating, and its place in the Player scene.
 
 const PLAYER_SCENE: PackedScene = preload("res://entities/player/player.tscn")
@@ -93,38 +93,28 @@ func test_bolt_at_muzzle_with_tuning_params_and_flash() -> void:
 	assert_true(_flash.visible, "flash shown on the shot")
 
 
-func test_missile_from_origin_toward_target_then_cooldown_drops_press() -> void:
-	# Origin differs from the rig's ship position so the aim must use origin.
-	var origin: Vector2 = Vector2(560, 900)
-	var target: Vector2 = Vector2(860, 500)
-	_weapons.step_missile(true, origin, target, DT)
+func test_missile_straight_up_then_cooldown_drops_press() -> void:
+	_weapons.step_missile(true, DT)
 	var missiles: Array[Missile] = _missiles()
 	assert_eq(missiles.size(), 1, "one missile")
 	if missiles.size() != 1:
 		return
 	var missile: Missile = missiles[0]
 	assert_eq(missile.global_position, SHIP + MUZZLE_OFFSET, "spawned at the muzzle")
-	assert_almost_eq(missile.velocity,
-		Vector2(0.6, -0.8) * Config.num("weapons.missile.speed_px_s"), Vector2(0.001, 0.001))
+	assert_eq(missile.velocity, Vector2.UP * Config.num("weapons.missile.speed_px_s"))
 	assert_eq(missile.damage, Config.int_("weapons.missile.damage"))
 	assert_signal_emit_count(Events, "missile_cooldown_changed", 1)
 	assert_eq(float(get_signal_parameters(Events, "missile_cooldown_changed", 0)[0]), 1.0,
 		"cooldown starts full")
-	_weapons.step_missile(true, origin, target, DT)
+	_weapons.step_missile(true, DT)
 	assert_eq(_missiles().size(), 1, "press on cooldown is dropped")
-
-
-func test_missile_direction_straight_up_rule() -> void:
-	assert_eq(PlayerWeapons.missile_direction(SHIP, SHIP + Vector2(32, 0), 32.0), Vector2.UP)
-	assert_eq(PlayerWeapons.missile_direction(SHIP, SHIP, 32.0), Vector2.UP)
-	assert_eq(PlayerWeapons.missile_direction(SHIP, SHIP + Vector2(33, 0), 32.0), Vector2.RIGHT)
 
 
 func test_no_spawner_fires_nothing() -> void:
 	var lone: PlayerWeapons = _make_weapons()
 	for i: int in 60:
 		lone.step_fire(true, DT)
-	lone.step_missile(true, SHIP, Vector2(960, 100), DT)
+	lone.step_missile(true, DT)
 	assert_eq(_projectiles.get_child_count(), 0)
 	assert_signal_not_emitted(Events, "missile_cooldown_changed")
 	assert_false(_flash.visible, "flash stays hidden")
@@ -144,7 +134,7 @@ func test_missing_muzzle_logs_and_fires_nothing() -> void:
 	broken.set_spawner(_spawner)
 	for i: int in 60:
 		broken.step_fire(true, DT)
-	broken.step_missile(true, SHIP, Vector2(960, 100), DT)
+	broken.step_missile(true, DT)
 	assert_eq(_projectiles.get_child_count(), 0)
 	assert_signal_not_emitted(Events, "missile_cooldown_changed")
 

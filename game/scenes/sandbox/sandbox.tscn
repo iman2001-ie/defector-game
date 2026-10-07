@@ -1,8 +1,7 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scenes/sandbox/sandbox.gd" id="1_sandbox"]
 [ext_resource type="PackedScene" path="res://entities/player/player.tscn" id="2_player"]
-[ext_resource type="PackedScene" path="res://entities/player/reticle.tscn" id="3_reticle"]
 [ext_resource type="Script" path="res://core/spawner.gd" id="4_spawner"]
 [ext_resource type="Script" path="res://systems/camera/shake_camera.gd" id="5_camera"]
 [ext_resource type="PackedScene" path="res://ui/debug/debug_tools.tscn" id="6_debug_tools"]
@@ -33,8 +32,6 @@ script = ExtResource("1_sandbox")
 
 [node name="Player" parent="World" instance=ExtResource("2_player")]
 position = Vector2(960, 900)
-
-[node name="Reticle" parent="World" instance=ExtResource("3_reticle")]
 
 [node name="Spawner" type="Node" parent="." node_paths=PackedStringArray("world")]
 script = ExtResource("4_spawner")

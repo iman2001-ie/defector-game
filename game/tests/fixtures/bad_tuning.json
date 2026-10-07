@@ -1,6 +1,6 @@
 {
 	"player": {
-		"max_speed": 1400,
+		"sprite_px": 96,
 		"hearts": 5
 	,,
 }

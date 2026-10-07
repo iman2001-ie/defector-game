@@ -1,5 +1,5 @@
 extends GutTest
-## PauseArbiter: reason set -> tree.paused, and the derived mouse mode.
+## PauseArbiter: reason set -> tree.paused, the derived mouse mode and the resumed signal.
 
 
 func after_each() -> void:
@@ -71,3 +71,57 @@ func test_gameplay_mode_set_while_paused_stays_visible() -> void:
 	assert_eq(PauseArbiter.current_mouse_mode(), Input.MOUSE_MODE_VISIBLE, "reason active")
 	PauseArbiter.pop(&"death")
 	assert_eq(PauseArbiter.current_mouse_mode(), Input.MOUSE_MODE_CONFINED_HIDDEN, "reason popped")
+
+
+# --- resumed --------------------------------------------------------------------
+
+func test_resumed_once_on_last_pop() -> void:
+	watch_signals(PauseArbiter)
+	PauseArbiter.push(&"menu")
+	assert_signal_not_emitted(PauseArbiter, "resumed", "not on push")
+	PauseArbiter.pop(&"menu")
+	assert_signal_emit_count(PauseArbiter, "resumed", 1)
+
+
+func test_resumed_not_on_pop_while_another_reason_remains() -> void:
+	PauseArbiter.push(&"story")
+	PauseArbiter.push(&"menu")
+	watch_signals(PauseArbiter)
+	PauseArbiter.pop(&"menu")
+	assert_signal_not_emitted(PauseArbiter, "resumed", "story still active")
+	PauseArbiter.pop(&"story")
+	assert_signal_emit_count(PauseArbiter, "resumed", 1)
+
+
+func test_resumed_not_on_pop_while_unpaused() -> void:
+	watch_signals(PauseArbiter)
+	PauseArbiter.pop(&"menu")
+	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_CONFINED_HIDDEN)
+	assert_signal_not_emitted(PauseArbiter, "resumed")
+
+
+func test_resumed_once_on_clear_while_paused() -> void:
+	PauseArbiter.push(&"menu")
+	PauseArbiter.push(&"story")
+	watch_signals(PauseArbiter)
+	PauseArbiter.clear()
+	assert_signal_emit_count(PauseArbiter, "resumed", 1)
+
+
+func test_resumed_not_on_clear_while_unpaused() -> void:
+	watch_signals(PauseArbiter)
+	PauseArbiter.clear()
+	assert_signal_not_emitted(PauseArbiter, "resumed")
+
+
+func test_resumed_after_mouse_mode_written() -> void:
+	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_CONFINED_HIDDEN)
+	PauseArbiter.push(&"menu")
+	var seen: Array = []
+	var probe: Callable = func() -> void:
+		seen.append(PauseArbiter.current_mouse_mode())
+		seen.append(get_tree().paused)
+	PauseArbiter.resumed.connect(probe)
+	PauseArbiter.pop(&"menu")
+	PauseArbiter.resumed.disconnect(probe)
+	assert_eq(seen, [Input.MOUSE_MODE_CONFINED_HIDDEN, false] as Array, "listeners see the gameplay state")

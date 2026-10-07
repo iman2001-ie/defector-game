@@ -164,3 +164,10 @@ source_spec: `spec-dw-8-config-validating-reload.md`
 severity: low
 reason: Pre-existing gap (epic 1 retro finding B4, deferred there). This change keeps the injected-restart test seam; the B1 failure it fixes is pinned at the Config and reload_data() level only.
 status: open
+
+### DW-20: After a resume warp the next physics tick may still read the pre-warp mouse position, giving a one-tick ship jump.
+origin: spec-deferred c9296c5c0ffe
+location: game/entities/player/player.gd _on_resumed / step_lock
+source_spec: `spec-1-8-lock-the-ship-to-the-cursor-and-fire-missiles-straight-up.md`
+reason: Unverified (maybe-false). Depends on whether Viewport.get_mouse_position() queries the OS cursor (immediate after SetCursorPos) or the last motion event. Settle with a live pause/resume test once Story 4.4 adds the pause menu; tests only use a recorder Callable.
+status: open

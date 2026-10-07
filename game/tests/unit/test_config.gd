@@ -121,6 +121,8 @@ func test_mandatory_key_paths() -> void:
 	assert_eq(Config.int_("damage.convoy_aimed"), 5)
 	assert_eq(Config.int_("damage.convoy_stray"), 2)
 	assert_eq(Config.int_("boss.final_choice_hp"), 50)
+	assert_gt(Config.num("player.missile_ring.radius_px"), 0.0, "player.missile_ring.radius_px")
+	assert_gt(Config.num("player.missile_ring.stroke_px"), 0.0, "player.missile_ring.stroke_px")
 	for type_id: String in ["wasp", "lancer", "needle", "bastion", "maul", "hunter_wasp"]:
 		assert_gt(Config.int_("enemies.%s.hp" % type_id), 0, "enemies.%s.hp" % type_id)
 		assert_false(Config.section("drops.%s" % type_id).is_empty(), "drops.%s" % type_id)
@@ -131,9 +133,9 @@ func test_mandatory_key_paths() -> void:
 # --- Typed getters ----------------------------------------------------------
 
 func test_num_returns_float() -> void:
-	var v: Variant = Config.num("player.max_speed")
+	var v: Variant = Config.num("weapons.laser.speed_px_s")
 	assert_eq(typeof(v), TYPE_FLOAT)
-	assert_eq(v, 1400.0)
+	assert_eq(v, 1800.0)
 
 
 func test_int_converts_json_float_to_int() -> void:
@@ -184,8 +186,8 @@ func test_num_on_dictionary_returns_fallback() -> void:
 
 
 func test_section_on_number_returns_fallback() -> void:
-	assert_eq(Config.section("player.max_speed"), {})
-	assert_push_error("tuning.player.max_speed")
+	assert_eq(Config.section("weapons.laser.speed_px_s"), {})
+	assert_push_error("tuning.weapons.laser.speed_px_s")
 
 
 # --- Bad files --------------------------------------------------------------
@@ -251,17 +253,17 @@ func test_reload_keeps_values() -> void:
 	assert_true(Config.reload())
 	assert_eq(Config.load_error, "")
 	assert_eq(Config.tuning, before)
-	assert_eq(Config.num("player.max_speed"), 1400.0)
+	assert_eq(Config.num("weapons.laser.speed_px_s"), 1800.0)
 	assert_eq(Config.flags, FLAG_DEFAULTS)
 
 
 func test_reload_serves_changed_value() -> void:
 	_load_temp_copies()
 	var data: Dictionary = _real(Config.DEFAULT_TUNING_PATH)
-	data["player"]["max_speed"] = 900.0
+	data["weapons"]["laser"]["speed_px_s"] = 900.0
 	_write(TEMP_TUNING, JSON.stringify(data))
 	assert_true(Config.reload(), "reload accepted")
-	assert_eq(Config.num("player.max_speed"), 900.0, "new value served")
+	assert_eq(Config.num("weapons.laser.speed_px_s"), 900.0, "new value served")
 	assert_eq(Config.load_error, "")
 	assert_push_error_count(0)
 
@@ -326,12 +328,12 @@ func test_reload_wrong_type_keeps_state() -> void:
 	_load_temp_copies()
 	var old_tuning: Dictionary = Config.tuning.duplicate(true)
 	var data: Dictionary = _real(Config.DEFAULT_TUNING_PATH)
-	data["player"]["max_speed"] = "fast"
+	data["weapons"]["laser"]["speed_px_s"] = "fast"
 	_write(TEMP_TUNING, JSON.stringify(data))
 	assert_false(Config.reload(), "reload refused")
 	assert_eq(Config.tuning, old_tuning, "old tuning kept")
-	assert_eq(Config.num("player.max_speed"), 1400.0, "old value served")
-	assert_push_error("tuning.player.max_speed: expected number, got String")
+	assert_eq(Config.num("weapons.laser.speed_px_s"), 1800.0, "old value served")
+	assert_push_error("tuning.weapons.laser.speed_px_s: expected number, got String")
 
 
 func test_reload_missing_flag_fails() -> void:
@@ -352,7 +354,7 @@ func test_reload_without_reference_after_failed_boot() -> void:
 	_write(TEMP_TUNING, JSON.stringify(_real(Config.DEFAULT_TUNING_PATH)))
 	assert_true(Config.reload(), "fixed file accepted")
 	assert_eq(Config.load_error, "", "load_error cleared")
-	assert_eq(Config.num("player.max_speed"), 1400.0)
+	assert_eq(Config.num("weapons.laser.speed_px_s"), 1800.0)
 	assert_push_error("parse error")
 
 

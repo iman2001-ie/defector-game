@@ -1,15 +1,13 @@
 {
 	"player": {
-		"max_speed": 1400,
-		"chase_ref_distance_px": 150,
-		"chase_ref_time_s": 0.12,
 		"bounds_y": { "min": 432, "max": 1080 },
 		"sprite_px": 96,
 		"hurtbox_diameter_px": 24,
 		"hull_diameter_px": 64,
 		"hearts": 5,
 		"iframes_s": 1.2,
-		"iframe_flicker_hz": 10
+		"iframe_flicker_hz": 10,
+		"missile_ring": { "radius_px": 36, "stroke_px": 5 }
 	},
 	"weapons": {
 		"laser": {
@@ -23,8 +21,7 @@
 			"splash_damage": 3,
 			"splash_radius_px": 120,
 			"cooldown_s": 1.5,
-			"speed_px_s": 900,
-			"straight_up_within_px": 32
+			"speed_px_s": 900
 		},
 		"enemy_bullet": {
 			"min_diameter_px": 16,

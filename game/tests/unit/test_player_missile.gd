@@ -1,11 +1,10 @@
 extends GutTest
-## Player missile: aim direction, cooldown gating, cooldown ratio broadcast.
+## Player missile: straight-up launch, cooldown gating, cooldown ratio broadcast.
 
 const PLAYER_SCENE: PackedScene = preload("res://entities/player/player.tscn")
 const SANDBOX_SCENE: PackedScene = preload("res://scenes/sandbox/sandbox.tscn")
 const DT: float = 1.0 / 60.0
 const SHIP: Vector2 = Vector2(960, 900)
-const FAR_TARGET: Vector2 = Vector2(960, 100)
 
 var _player: Player
 var _spawner: Spawner
@@ -38,16 +37,16 @@ func after_each() -> void:
 	Feedback.reset()
 	Input.action_release(&"fire_missile")
 	Input.action_release(&"fire_laser")
-	PauseArbiter.clear()
 	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	PauseArbiter.clear()
 	_player = null
 	_spawner = null
 	_projectiles = null
 
 
-func _ticks(pressed: bool, n: int, target: Vector2 = FAR_TARGET) -> void:
+func _ticks(pressed: bool, n: int) -> void:
 	for i: int in n:
-		_player.step_missile(pressed, target, DT)
+		_player.step_missile(pressed, DT)
 
 
 func _missiles() -> Array[Missile]:
@@ -58,37 +57,36 @@ func _missiles() -> Array[Missile]:
 	return out
 
 
-func _fire_once_at(target: Vector2) -> Missile:
-	_player.step_missile(true, target, DT)
-	var missiles: Array[Missile] = _missiles()
-	assert_eq(missiles.size(), 1, "one missile")
-	return missiles[0] if missiles.size() == 1 else null
-
-
-func test_aimed_shot() -> void:
-	var missile: Missile = _fire_once_at(Vector2(1260, 500))
-	if missile == null:
-		return
+func test_flies_straight_up_from_any_ship_position() -> void:
 	var muzzle: Marker2D = _player.get_node("Muzzle") as Marker2D
-	assert_eq(missile.global_position, muzzle.global_position, "spawned at the Muzzle")
-	assert_almost_eq(missile.velocity, Vector2(0.6, -0.8) * 900.0, Vector2(0.001, 0.001))
-	assert_eq(missile.damage, 8)
-	assert_almost_eq(missile.rotation, missile.velocity.angle() + PI / 2.0, 0.0001)
+	var positions: Array[Vector2] = [SHIP, Vector2(0, 432), Vector2(1920, 1080), Vector2(300, 700)]
+	for i: int in positions.size():
+		_player.global_position = positions[i]
+		_ticks(true, 1)
+		var missiles: Array[Missile] = _missiles()
+		assert_eq(missiles.size(), i + 1, "one more missile at %s" % positions[i])
+		if missiles.size() != i + 1:
+			return
+		var missile: Missile = missiles[i]
+		assert_eq(missile.global_position, muzzle.global_position, "spawned at the Muzzle")
+		assert_eq(missile.velocity, Vector2(0, -900), "straight up at %s" % positions[i])
+		assert_eq(missile.damage, 8)
+		assert_almost_eq(missile.rotation, 0.0, 0.0001, "nose up")
+		# Drain the cooldown so the next press fires.
+		_ticks(false, 89)
 
 
-func test_close_cursor_flies_straight_up() -> void:
-	for offset: Vector2 in [Vector2(32, 0), Vector2(-32, 0), Vector2(0, 32), Vector2(0, -32), Vector2.ZERO]:
-		assert_eq(Player.missile_direction(SHIP, SHIP + offset, 32.0), Vector2.UP, "offset %s" % offset)
-	var missile: Missile = _fire_once_at(SHIP + Vector2(32, 0))
-	if missile != null:
-		assert_eq(missile.velocity, Vector2(0, -900))
-
-
-func test_just_outside_aims_at_cursor() -> void:
-	assert_eq(Player.missile_direction(SHIP, SHIP + Vector2(33, 0), 32.0), Vector2.RIGHT)
-	var missile: Missile = _fire_once_at(SHIP + Vector2(33, 0))
-	if missile != null:
-		assert_almost_eq(missile.velocity, Vector2(900, 0), Vector2(0.001, 0.001))
+func test_physics_process_fires_straight_up_wherever_the_cursor_is() -> void:
+	_player.set_physics_process(true)
+	Input.action_press(&"fire_missile")
+	await wait_physics_frames(1)
+	_player.set_physics_process(false)
+	var missiles: Array[Missile] = _missiles()
+	assert_eq(missiles.size(), 1)
+	if missiles.size() == 1:
+		assert_eq(missiles[0].velocity, Vector2(0, -900))
+		var muzzle: Marker2D = _player.get_node("Muzzle") as Marker2D
+		assert_eq(missiles[0].global_position, muzzle.global_position, "spawned at the locked ship's Muzzle")
 
 
 func test_cooldown_drops_presses_then_fires() -> void:
@@ -133,13 +131,13 @@ func test_no_spawner_no_missile_no_emit() -> void:
 	var lone: Player = PLAYER_SCENE.instantiate() as Player
 	add_child_autofree(lone)
 	lone.set_physics_process(false)
-	lone.step_missile(true, FAR_TARGET, DT)
-	lone.step_missile(true, FAR_TARGET, DT)
+	lone.step_missile(true, DT)
+	lone.step_missile(true, DT)
 	assert_eq(_projectiles.get_child_count(), 0)
 	assert_signal_not_emitted(Events, "missile_cooldown_changed")
 	# Cooldown stayed 0: once a spawner arrives the first press fires.
 	lone.set_spawner(_spawner)
-	lone.step_missile(true, FAR_TARGET, DT)
+	lone.step_missile(true, DT)
 	assert_eq(_projectiles.get_child_count(), 1)
 
 
@@ -156,17 +154,17 @@ func test_failed_spawn_does_not_start_cooldown() -> void:
 	add_child_autofree(broken)
 	assert_push_error("Projectiles")
 	_player.set_spawner(broken)
-	_player.step_missile(true, FAR_TARGET, DT)
+	_player.step_missile(true, DT)
 	assert_signal_not_emitted(Events, "missile_cooldown_changed")
 	# Cooldown stayed 0: the next press with a working spawner fires at once.
 	_player.set_spawner(_spawner)
-	_player.step_missile(true, FAR_TARGET, DT)
+	_player.step_missile(true, DT)
 	assert_eq(_missiles().size(), 1)
 
 
 func test_laser_and_missile_fire_in_same_tick() -> void:
 	_player.step_fire(true, DT)
-	_player.step_missile(true, FAR_TARGET, DT)
+	_player.step_missile(true, DT)
 	assert_eq(_projectiles.get_child_count(), 2)
 	var bolts: int = 0
 	for child: Node in _projectiles.get_children():
@@ -187,7 +185,7 @@ func test_non_positive_cooldown_warns_fires_every_press_no_emit() -> void:
 	fresh.set_spawner(_spawner)
 	assert_push_warning("cooldown_s")
 	for i: int in 3:
-		fresh.step_missile(true, FAR_TARGET, DT)
+		fresh.step_missile(true, DT)
 		var sfx: AudioStreamPlayer = Audio.newest_player()
 		assert_not_null(sfx)
 		if sfx != null:
@@ -201,7 +199,7 @@ func test_launch_plays_thump_and_flashes() -> void:
 	var flash: Node2D = _player.get_node("Muzzle/MuzzleFlash") as Node2D
 	assert_false(flash.visible, "hidden at start")
 	_player.step_fire(true, DT)
-	_player.step_missile(true, FAR_TARGET, DT)
+	_player.step_missile(true, DT)
 	var sfx: AudioStreamPlayer = Audio.newest_player()
 	assert_not_null(sfx)
 	if sfx != null:
@@ -211,7 +209,7 @@ func test_launch_plays_thump_and_flashes() -> void:
 
 func test_missile_flash_hides_after_flash_time() -> void:
 	var flash: Node2D = _player.get_node("Muzzle/MuzzleFlash") as Node2D
-	_player.step_missile(true, FAR_TARGET, DT)
+	_player.step_missile(true, DT)
 	assert_true(flash.visible, "shown on launch")
 	# step_fire decays the flash every tick: MISSILE_FLASH_S is 3 ticks at 1/60 s.
 	_player.step_fire(false, DT)
@@ -222,12 +220,12 @@ func test_missile_flash_hides_after_flash_time() -> void:
 
 
 func test_press_on_cooldown_no_thump() -> void:
-	_player.step_missile(true, FAR_TARGET, DT)
-	_player.step_missile(true, FAR_TARGET, DT)
+	_player.step_missile(true, DT)
+	_player.step_missile(true, DT)
 	assert_eq(_missiles().size(), 1, "second press on cooldown")
 	Audio.play_sfx(&"explosion_small")
 	var before: AudioStreamPlayer = Audio.newest_player()
-	_player.step_missile(true, FAR_TARGET, DT)
+	_player.step_missile(true, DT)
 	assert_eq(Audio.newest_player(), before, "no thump without a launch")
 
 
@@ -246,7 +244,7 @@ func test_failed_spawn_no_thump_no_flash() -> void:
 	_player.set_spawner(broken)
 	Audio.play_sfx(&"explosion_small")
 	var before: AudioStreamPlayer = Audio.newest_player()
-	_player.step_missile(true, FAR_TARGET, DT)
+	_player.step_missile(true, DT)
 	assert_eq(Audio.newest_player(), before, "no missile_launch sound")
 	assert_false((_player.get_node("Muzzle/MuzzleFlash") as Node2D).visible, "muzzle flash stays hidden")
 

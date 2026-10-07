@@ -4,9 +4,18 @@ extends Node
 ## Holds a set of pause reasons (&"menu", &"story", &"final_choice", &"death").
 ## The tree is paused while any reason is active. The mouse is VISIBLE while
 ## paused, otherwise the gameplay mode the current scene declared.
+##
+## resumed fires on every paused -> unpaused transition (the last pop, or clear()
+## while paused), after the mouse mode is written. The Player answers it by warping
+## the cursor onto the ship, so the ship never jumps after a pause.
+
+## Emitted once per paused -> unpaused transition, after mouse_mode is written.
+signal resumed
 
 var _reasons: Dictionary = {}  # StringName -> true
 var _gameplay_mode: Input.MouseMode = Input.MOUSE_MODE_VISIBLE
+## The paused state _apply() last wrote, to detect the resume transition.
+var _was_paused: bool = false
 
 
 func _ready() -> void:
@@ -45,5 +54,10 @@ func current_mouse_mode() -> Input.MouseMode:
 
 
 func _apply() -> void:
-	get_tree().paused = is_paused()
+	var paused: bool = is_paused()
+	get_tree().paused = paused
 	Input.mouse_mode = current_mouse_mode()
+	var resuming: bool = _was_paused and not paused
+	_was_paused = paused
+	if resuming:
+		resumed.emit()

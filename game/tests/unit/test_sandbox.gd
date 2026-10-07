@@ -1,5 +1,5 @@
 extends GutTest
-## Sandbox scene: World containers, Player and Reticle, gameplay mouse mode,
+## Sandbox scene: World containers, Player (no reticle node), gameplay mouse mode,
 ## Wasp formation respawn and the asteroid timer.
 
 const SANDBOX_SCENE: PackedScene = preload("res://scenes/sandbox/sandbox.tscn")
@@ -15,8 +15,8 @@ func before_each() -> void:
 
 func after_each() -> void:
 	_sandbox = null
-	PauseArbiter.clear()
 	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	PauseArbiter.clear()
 
 
 func test_world_containers() -> void:
@@ -29,8 +29,14 @@ func test_world_containers() -> void:
 		var node: Node = world.get_node_or_null(container)
 		assert_true(node is Node2D, "World/%s is a Node2D" % container)
 	assert_true(world.get_node_or_null("Player") is Player, "World/Player is a Player")
-	assert_true(world.get_node_or_null("Reticle") is Sprite2D, "World/Reticle is a Sprite2D")
-	assert_eq(world.get_child(world.get_child_count() - 1).name, &"Reticle", "Reticle draws last")
+	# No reticle node (decision #29): the ship is the cursor, so World holds only
+	# the containers and the Player.
+	var names: Array[String] = []
+	for child: Node in world.get_children():
+		names.append(String(child.name))
+	var expected: Array[String] = CONTAINERS.duplicate()
+	expected.append("Player")
+	assert_eq(names, expected, "World holds only the containers and the Player")
 
 
 func test_player_starts_at_spawn_point() -> void:
@@ -42,13 +48,6 @@ func test_gameplay_mouse_mode_confined_hidden() -> void:
 	assert_eq(PauseArbiter.current_mouse_mode(), Input.MOUSE_MODE_CONFINED_HIDDEN, "no reasons")
 	PauseArbiter.push(&"menu")
 	assert_eq(PauseArbiter.current_mouse_mode(), Input.MOUSE_MODE_VISIBLE, "with a reason")
-
-
-func test_reticle_follows_mouse() -> void:
-	var reticle: Sprite2D = _sandbox.get_node("World/Reticle") as Sprite2D
-	reticle.global_position = Vector2(-500, -500)
-	reticle._process(0.0)
-	assert_eq(reticle.global_position, reticle.get_global_mouse_position())
 
 
 func test_spawner_wired_to_world_and_player() -> void:

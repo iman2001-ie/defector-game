@@ -1,156 +1,194 @@
 extends GutTest
-## Player: cursor-chase model (pure helpers + instanced scene) and the hurtbox scene shape.
+## Player: zero-delay cursor lock, zone confinement, cursor warps (zone edge and
+## resume), and the hurtbox scene shape.
 
 const PLAYER_SCENE: PackedScene = preload("res://entities/player/player.tscn")
 const DT: float = 1.0 / 60.0
 const LAYER_PLAYER: int = 1
 const MASK_ENEMIES_ASTEROIDS_PICKUPS: int = (1 << 2) | (1 << 4) | (1 << 5)
+const HIDDEN: Input.MouseMode = Input.MOUSE_MODE_CONFINED_HIDDEN
+const VISIBLE: Input.MouseMode = Input.MOUSE_MODE_VISIBLE
 
-var _max_speed: float
-var _gain: float
 var _player: Player
+## Every warp_mouse call the Player made (recorder injected in before_each).
+var _warps: Array[Vector2] = []
 
 
 func before_each() -> void:
-	_max_speed = Config.num("player.max_speed")
-	_gain = Player.solve_chase_gain(
-		_max_speed, Config.num("player.chase_ref_distance_px"), Config.num("player.chase_ref_time_s"))
+	_warps.clear()
 	_player = PLAYER_SCENE.instantiate() as Player
+	_player.warp_mouse = _record_warp
 	add_child_autofree(_player)
 	# Tests drive the ship explicitly; the real mouse must not move it.
 	_player.set_physics_process(false)
 
 
-func _settle(target: Vector2, steps: int = 240) -> void:
-	for i: int in steps:
-		_player.step_toward(target, DT)
+func after_each() -> void:
+	PauseArbiter.set_gameplay_mouse_mode(VISIBLE)
+	PauseArbiter.clear()
+	_player = null
 
 
-# --- Pure helpers -----------------------------------------------------------
-
-func test_solved_gain_matches_reference() -> void:
-	assert_almost_eq(_gain, 116.0, 1.0, "1400 / 150 / 0.12 -> ~116 /s")
+func _record_warp(p: Vector2) -> void:
+	_warps.append(p)
 
 
-func test_reference_move_arrives_in_time_without_overshoot() -> void:
-	var target: Vector2 = Vector2(1110, 800)
-	var pos: Vector2 = Vector2(960, 800)
-	var arrived_at: float = -1.0
-	for i: int in 30:
-		pos = Player.chase_step(pos, target, DT, _max_speed, _gain)
-		assert_true(pos.x <= target.x, "never overshoots (step %d)" % i)
-		if arrived_at < 0.0 and pos.distance_to(target) <= 1.0:
-			arrived_at = (i + 1) * DT
-	assert_between(arrived_at, 0.10, 0.14, "within 1 px after 0.10-0.14 s")
+# --- Pure confine -------------------------------------------------------------
+
+func test_confine_pure_cases() -> void:
+	var lo: Vector2 = Vector2(0, 432)
+	var hi: Vector2 = Vector2(1920, 1080)
+	assert_eq(Player.confine(Vector2(700, 600), lo, hi), Vector2(700, 600), "inside")
+	assert_eq(Player.confine(Vector2(700, 100), lo, hi), Vector2(700, 432), "above")
+	assert_eq(Player.confine(Vector2(-50, 1200), lo, hi), Vector2(0, 1080), "left and below")
+	assert_eq(Player.confine(Vector2(2000, 1200), lo, hi), Vector2(1920, 1080), "right and below")
+	assert_eq(Player.confine(Vector2(700, 432), lo, hi), Vector2(700, 432), "on the edge")
+	assert_eq(Player.confine(Vector2(5, 5), Vector2(10, 20), Vector2(30, 40)), Vector2(10, 20), "other bounds")
 
 
-func test_speed_cap_on_far_target() -> void:
-	var from: Vector2 = Vector2(960, 800)
-	var to: Vector2 = Player.chase_step(from, from + Vector2(1000, 0), DT, _max_speed, _gain)
-	assert_almost_eq(from.distance_to(to), _max_speed * DT, 0.001, "moves exactly max_speed/60")
-
-
-func test_no_snap_on_first_step() -> void:
-	for offset: Vector2 in [Vector2(2, 0), Vector2(0, -5), Vector2(150, 0), Vector2(-400, 300)]:
-		var from: Vector2 = Vector2(960, 800)
-		var target: Vector2 = from + offset
-		var to: Vector2 = Player.chase_step(from, target, DT, _max_speed, _gain)
-		var remaining: float = to.distance_to(target)
-		assert_lt(remaining, offset.length(), "distance shrinks for %s" % offset)
-		assert_gt(remaining, 0.0, "does not snap for %s" % offset)
-
-
-func test_small_offset_is_smoothed() -> void:
-	var from: Vector2 = Vector2(960, 800)
-	var to: Vector2 = Player.chase_step(from, from + Vector2(5, 0), DT, _max_speed, _gain)
-	assert_gt(from.distance_to(to), 0.0)
-	assert_lt(from.distance_to(to), _max_speed * DT, "moves less than the cap")
-
-
-func test_infeasible_ref_time_falls_back_to_upper_bound() -> void:
-	# 150 px at 1400 px/s needs at least ~0.107 s; 0.05 s cannot be met.
-	assert_eq(Player.solve_chase_gain(1400.0, 150.0, 0.05), Player.GAIN_MAX)
-	assert_eq(Player.solve_chase_gain(1400.0, 150.0, 150.0 / 1400.0), Player.GAIN_MAX)
-	assert_false(Player.is_ref_time_feasible(1400.0, 150.0, 0.05))
-	assert_true(Player.is_ref_time_feasible(1400.0, 150.0, 0.12))
-
-
-# --- Instanced scene driven by step_toward ----------------------------------
-
-func test_scene_reference_move() -> void:
-	_player.global_position = Vector2(960, 800)
-	var target: Vector2 = Vector2(1110, 800)
-	for i: int in 7:
-		_player.step_toward(target, DT)
-		assert_gt(_player.global_position.distance_to(target), 1.0, "not yet arrived at step %d" % i)
-	_player.step_toward(target, DT)
-	assert_lt(_player.global_position.distance_to(target), 1.0, "arrived by 8 steps (0.133 s)")
-	assert_true(_player.global_position.x <= target.x, "no overshoot")
-
-
-func test_scene_speed_cap() -> void:
-	_player.global_position = Vector2(960, 800)
-	_player.step_toward(Vector2(960, 800) + Vector2(-1000, 0), DT)
-	assert_almost_eq(_player.global_position.x, 960.0 - _max_speed * DT, 0.001)
-
-
-func test_clamp_low() -> void:
-	_player.global_position = Vector2(960, 800)
-	_settle(Vector2(960, 100))
-	assert_almost_eq(_player.global_position, Vector2(960, 432), Vector2(0.01, 0.01))
-
-
-func test_clamp_bottom_left() -> void:
-	_player.global_position = Vector2(960, 800)
-	_settle(Vector2(-50, 1200))
-	assert_almost_eq(_player.global_position, Vector2(0, 1080), Vector2(0.01, 0.01))
-
-
-func test_clamp_bottom_right() -> void:
-	_player.global_position = Vector2(960, 800)
-	_settle(Vector2(2000, 1200))
-	assert_almost_eq(_player.global_position, Vector2(1920, 1080), Vector2(0.01, 0.01))
-
-
-func test_position_clamped_even_when_starting_outside() -> void:
-	_player.global_position = Vector2(-300, 100)
-	_player.step_toward(Vector2(-300, 100), DT)
-	assert_eq(_player.global_position, Vector2(0, 432))
-
-
-func test_clamp_to_bounds() -> void:
+func test_clamp_to_bounds_uses_tuning() -> void:
 	assert_eq(_player.clamp_to_bounds(Vector2(-1, 0)), Vector2(0, 432))
 	assert_eq(_player.clamp_to_bounds(Vector2(5000, 5000)), Vector2(1920, 1080))
 	assert_eq(_player.clamp_to_bounds(Vector2(700, 600)), Vector2(700, 600))
 
 
+# --- step_lock: the I/O matrix ------------------------------------------------
+
+func test_inside_zone_locks_same_tick_no_warp() -> void:
+	PauseArbiter.set_gameplay_mouse_mode(HIDDEN)
+	_player.global_position = Vector2(960, 900)
+	_player.step_lock(Vector2(700, 600))
+	assert_eq(_player.global_position, Vector2(700, 600), "exactly on the cursor, no residual offset")
+	assert_eq(_warps, [] as Array[Vector2], "no warp inside the zone")
+
+
+func test_above_zone_clamps_and_warps_to_edge() -> void:
+	PauseArbiter.set_gameplay_mouse_mode(HIDDEN)
+	_player.step_lock(Vector2(700, 100))
+	assert_eq(_player.global_position, Vector2(700, 432))
+	assert_eq(_warps, [Vector2(700, 432)] as Array[Vector2])
+
+
+func test_outside_x_and_below_clamp_and_warp() -> void:
+	PauseArbiter.set_gameplay_mouse_mode(HIDDEN)
+	_player.step_lock(Vector2(-50, 1200))
+	assert_eq(_player.global_position, Vector2(0, 1080))
+	_player.step_lock(Vector2(2000, 1200))
+	assert_eq(_player.global_position, Vector2(1920, 1080))
+	assert_eq(_warps, [Vector2(0, 1080), Vector2(1920, 1080)] as Array[Vector2])
+
+
+func test_on_the_edge_no_repeated_warps() -> void:
+	PauseArbiter.set_gameplay_mouse_mode(HIDDEN)
+	for i: int in 5:
+		_player.step_lock(Vector2(700, 432))
+	assert_eq(_player.global_position, Vector2(700, 432))
+	assert_eq(_warps, [] as Array[Vector2], "the edge itself never warps")
+
+
+func test_sub_pixel_past_the_edge_does_not_warp() -> void:
+	PauseArbiter.set_gameplay_mouse_mode(HIDDEN)
+	_player.step_lock(Vector2(700, 431.6))
+	assert_eq(_player.global_position, Vector2(700, 432), "still clamped")
+	assert_eq(_warps, [] as Array[Vector2], "within WARP_EPS_PX: no warp")
+
+
+func test_beyond_warp_eps_warps_once() -> void:
+	PauseArbiter.set_gameplay_mouse_mode(HIDDEN)
+	_player.step_lock(Vector2(700, 430))
+	assert_eq(_player.global_position, Vector2(700, 432))
+	assert_eq(_warps, [Vector2(700, 432)] as Array[Vector2])
+
+
+func test_visible_mode_clamps_without_warp() -> void:
+	PauseArbiter.set_gameplay_mouse_mode(VISIBLE)
+	_player.step_lock(Vector2(700, 100))
+	assert_eq(_player.global_position, Vector2(700, 432))
+	assert_eq(_warps, [] as Array[Vector2], "VISIBLE mode never moves the OS cursor")
+
+
+func test_paused_mode_clamps_without_warp() -> void:
+	PauseArbiter.set_gameplay_mouse_mode(HIDDEN)
+	PauseArbiter.push(&"menu")
+	_player.step_lock(Vector2(700, 100))
+	assert_eq(_warps, [] as Array[Vector2], "mode is VISIBLE while paused")
+
+
+func test_lock_follows_every_tick_without_lag() -> void:
+	PauseArbiter.set_gameplay_mouse_mode(HIDDEN)
+	for target: Vector2 in [Vector2(100, 900), Vector2(1800, 500), Vector2(960, 1080), Vector2(0, 432)]:
+		_player.step_lock(target)
+		assert_eq(_player.global_position, target, "one tick to %s" % target)
+
+
 func test_never_rotates() -> void:
-	_player.global_position = Vector2(960, 800)
-	for target: Vector2 in [Vector2(0, 432), Vector2(1920, 1080), Vector2(100, 900), Vector2(1500, 500)]:
-		_settle(target, 20)
+	PauseArbiter.set_gameplay_mouse_mode(HIDDEN)
+	for target: Vector2 in [Vector2(0, 432), Vector2(1920, 1080), Vector2(100, 900), Vector2(1500, 100)]:
+		_player.step_lock(target)
 		assert_eq(_player.rotation, 0.0)
 
 
-func test_physics_process_chases_global_mouse() -> void:
-	_player.global_position = Vector2(960, 800)
-	var expected: Vector2 = _player.clamp_to_bounds(Player.chase_step(
-		Vector2(960, 800), _player.clamp_to_bounds(_player.get_global_mouse_position()), DT, _max_speed, _gain))
+func test_physics_process_locks_to_viewport_mouse() -> void:
+	_player.global_position = Vector2(-300, 100)
+	var expected: Vector2 = _player.clamp_to_bounds(_player.get_viewport().get_mouse_position())
 	_player._physics_process(DT)
 	assert_eq(_player.global_position, expected)
 
 
-func test_infeasible_ref_time_warns_and_uses_capped_chase() -> void:
-	var player_tuning: Dictionary = Config.tuning["player"]
-	var original: Variant = player_tuning["chase_ref_time_s"]
-	player_tuning["chase_ref_time_s"] = 0.05
+func test_lock_reads_viewport_not_global_mouse() -> void:
+	var camera: Camera2D = Camera2D.new()
+	camera.position = Vector2(960, 540)
+	camera.offset = Vector2(40, 0)
+	add_child_autofree(camera)
+	camera.make_current()
+	await wait_process_frames(2)
+	var viewport_target: Vector2 = _player.clamp_to_bounds(_player.get_viewport().get_mouse_position())
+	var global_target: Vector2 = _player.clamp_to_bounds(_player.get_global_mouse_position())
+	assert_ne(viewport_target, global_target, "the camera offset separates the two spaces")
+	_player._physics_process(DT)
+	assert_eq(_player.global_position, viewport_target, "locks in viewport coordinates")
+
+
+func test_default_warp_is_the_viewport() -> void:
 	var fresh: Player = PLAYER_SCENE.instantiate() as Player
 	add_child_autofree(fresh)
-	player_tuning["chase_ref_time_s"] = original
 	fresh.set_physics_process(false)
-	assert_push_warning("chase_ref_time_s")
-	fresh.global_position = Vector2(960, 800)
-	fresh.step_toward(Vector2(1960, 800), DT)
-	assert_almost_eq(fresh.global_position.distance_to(Vector2(960, 800)), _max_speed * DT, 0.001)
+	assert_true(fresh.warp_mouse.is_valid(), "defaulted in _ready")
+	assert_eq(fresh.warp_mouse.get_method(), &"warp_mouse")
+	assert_eq(fresh.warp_mouse.get_object(), fresh.get_viewport())
+
+
+# --- Resume ---------------------------------------------------------------------
+
+func test_resume_warps_cursor_to_ship_once() -> void:
+	PauseArbiter.set_gameplay_mouse_mode(HIDDEN)
+	_player.global_position = Vector2(800, 900)
+	PauseArbiter.push(&"menu")
+	assert_eq(_warps, [] as Array[Vector2], "no warp on push")
+	PauseArbiter.pop(&"menu")
+	assert_eq(_warps, [Vector2(800, 900)] as Array[Vector2], "one warp to the ship")
+	# The cursor now reads the warped point: the ship does not jump.
+	_player.step_lock(Vector2(800, 900))
+	assert_eq(_player.global_position, Vector2(800, 900))
+	assert_eq(_warps.size(), 1, "no further warp")
+
+
+func test_pop_while_still_paused_no_warp() -> void:
+	PauseArbiter.set_gameplay_mouse_mode(HIDDEN)
+	_player.global_position = Vector2(800, 900)
+	PauseArbiter.push(&"story")
+	PauseArbiter.push(&"menu")
+	PauseArbiter.pop(&"menu")
+	assert_eq(_warps, [] as Array[Vector2], "story still pauses")
+	PauseArbiter.pop(&"story")
+	assert_eq(_warps, [Vector2(800, 900)] as Array[Vector2])
+
+
+func test_resume_in_visible_mode_no_warp() -> void:
+	PauseArbiter.set_gameplay_mouse_mode(VISIBLE)
+	PauseArbiter.push(&"menu")
+	PauseArbiter.pop(&"menu")
+	assert_eq(_warps, [] as Array[Vector2])
 
 
 # --- Scene shape --------------------------------------------------------------

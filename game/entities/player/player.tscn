@@ -1,7 +1,8 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://entities/player/player.gd" id="1_player"]
 [ext_resource type="Script" path="res://entities/player/player_weapons.gd" id="2_weapons"]
+[ext_resource type="Script" path="res://entities/player/missile_ring.gd" id="3_ring"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_hurtbox"]
 radius = 12.0
@@ -64,3 +65,7 @@ texture = SubResource("GradientTexture2D_flash")
 script = ExtResource("2_weapons")
 muzzle = NodePath("../Muzzle")
 muzzle_flash = NodePath("../Muzzle/MuzzleFlash")
+
+[node name="MissileRing" type="Node2D" parent="."]
+z_index = 1
+script = ExtResource("3_ring")
