@@ -55,7 +55,8 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 1; owner Developer (operator); sprint-status status open)
-status: open
+status: done 2026-10-07
+resolution: already resolved: a2386df confirmed Story 1-7 operator actions (spec-1-7 Operator Confirmation; decision-log #27, #28, #30 in 52a3621); sprint-status.yaml action item epic-1-retro-item-1 is status: done
 
 ### DW-8: Add a validating Config.reload() API that restores its own state on failure; DebugTools stops writing Config fields; run the follow-up review story 1-7 recommended
 origin: retro action item epic-1-retro-item-2-add-a-validating-config-reload-api-that
@@ -91,7 +92,8 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 1; owner Developer / Architect; sprint-status status open)
-status: open
+status: done 2026-10-07
+resolution: already resolved: Story 1.10 (1a40a12) reconciled game-architecture.md: play_sfx pitch param :325-333, tier sfx_volume_db :933-936, single explosion scene :950, Spawner/ShakeCamera Feedback registration :712 and :958-959, --stress/--bench CLI modes :541-542 and :1215
 decision: 2026-10-07 Reconcile the doc to as-built — Edit _bmad-output/game-architecture.md to document the play_sfx pitch parameter, per-tier sfx_volume_db, the single explosion scene, Spawner and ShakeCamera registration with Feedback, and the --stress/--bench CLI modes, matching the current code, and add a decision-log note for each change.
 
 ### DW-12: Add the --import step before the GUT command in AGENTS.md section 3 and in the architecture test command (DW-6)
@@ -147,7 +149,8 @@ location: _bmad-output/game-architecture.md:1141
 source_spec: `spec-dw-6-dw-12-gut-import-step-docs.md`
 severity: low
 reason: Story 1.7 had to run --import before --export-release. Pre-existing; the bundle intent covers only the test command.
-status: open
+status: done 2026-10-07
+resolution: already resolved: Story 1.10 (1a40a12): _bmad-output/game-architecture.md:1236-1242 CLI export now runs --headless --path game --import before --export-release (change log :1425 cites DW-17)
 
 ### DW-18: The godot-testing.md knowledge files show GUT commands with no --path and no import step, so agents reading them still get the failing fresh-clone procedure.
 origin: spec-deferred c0aa3f8fe839
