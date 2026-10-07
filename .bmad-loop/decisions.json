@@ -8,24 +8,6 @@
     "label": "Follow the architecture: mask 84",
     "resolution": ""
   },
-  "DW-11": {
-    "answered_at": "2026-10-07",
-    "bundle_name": "",
-    "effect": "build",
-    "intent": "Edit _bmad-output/game-architecture.md to document the play_sfx pitch parameter, per-tier sfx_volume_db, the single explosion scene, Spawner and ShakeCamera registration with Feedback, and the --stress/--bench CLI modes, matching the current code, and add a decision-log note for each change.",
-    "key": "1",
-    "label": "Reconcile the doc to as-built",
-    "resolution": ""
-  },
-  "DW-15": {
-    "answered_at": "2026-10-07",
-    "bundle_name": "",
-    "effect": "build",
-    "intent": "Amend AGENTS.md section 5 to accept the bmad-loop commit subject format ('story <key>: ...') alongside the manual 'Story X.Y: summary' form. The operator separately corrects the epic-1 status in sprint-status.yaml.",
-    "key": "1",
-    "label": "Amend AGENTS.md section 5",
-    "resolution": ""
-  },
   "DW-2": {
     "answered_at": "2026-10-07",
     "bundle_name": "",
@@ -33,15 +15,6 @@
     "intent": "Set the laser bolt collision mask to CollisionLayers.MASK_PLAYER_SHOTS (84), add a test asserting exact mask equality with the constant, and correct the epics.md Story 1.3 AC.",
     "key": "1",
     "label": "Set mask 84 and test equality",
-    "resolution": ""
-  },
-  "DW-9": {
-    "answered_at": "2026-10-07",
-    "bundle_name": "",
-    "effect": "build",
-    "intent": "Extend the --stress/--bench sandbox mode to sustain about 200 live projectiles or moving enemies, report p99 and max frame time alongside the average with PASS judged on all three, and add a first-large-explosion measurement with and without Feedback.prewarm(). Leave the on-hardware run itself to the operator.",
-    "key": "1",
-    "label": "Build the bench now",
     "resolution": ""
   }
 }
