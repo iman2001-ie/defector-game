@@ -179,3 +179,43 @@ source_spec: `spec-1-9-make-laser-bolts-and-the-neon-glow-brighter.md`
 severity: low
 reason: Observed by the Story 1.9 implementer across several `-- --bench=20` runs (most runs without --verbose, one of three with it). Looks like an output-flush race between Log and get_tree().quit() in DebugTools._finish_bench. Pre-existing (Story 1.7 code); settle by flushing the log before quit and re-running the bench several times.
 status: open
+
+### DW-22: Record the fun-gate colleague waiver as decision-log #32 and amend epics.md lines 326 and 536 to match
+origin: retro action item epic-1-retro-item-10-record-the-fun-gate-colleague-waiver-as
+location: n/a
+source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
+severity: low
+reason: retrospective action item from sprint-status.yaml (epic 1; owner Developer; sprint-status status open)
+status: open
+
+### DW-23: Schedule the decided DW-10 (laser mask 84, equality test, Story 1.3 AC fix) and DW-9 (bench to NFR peak) into stories (1.8/1.10, a pre-Epic-2 story, or 8.3)
+origin: retro action item epic-1-retro-item-11-schedule-the-decided-dw-10-laser-mask-84
+location: n/a
+source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
+severity: low
+reason: retrospective action item from sprint-status.yaml (epic 1; owner Planning (SM); sprint-status status open)
+status: open
+
+### DW-24: Add a human AC to Story 1.8: developer re-checks the core feel under the cursor lock and straight-up missile before Epic 2 tuning
+origin: retro action item epic-1-retro-item-12-add-a-human-ac-to-story-1-8-developer-re
+location: n/a
+source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
+severity: low
+reason: retrospective action item from sprint-status.yaml (epic 1; owner Planning (SM); sprint-status status open)
+status: open
+
+### DW-25: Mark DW-7 done in deferred-work.md (resolved by a2386df)
+origin: retro action item epic-1-retro-item-13-mark-dw-7-done-in-deferred-work-md-resol
+location: n/a
+source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
+severity: low
+reason: retrospective action item from sprint-status.yaml (epic 1; owner Developer; sprint-status status open)
+status: open
+
+### DW-26: Re-run the Epic 1 retrospective once Stories 1.8-1.10 are done
+origin: retro action item epic-1-retro-item-14-re-run-the-epic-1-retrospective-once-sto
+location: n/a
+source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
+severity: low
+reason: retrospective action item from sprint-status.yaml (epic 1; owner Developer; sprint-status status open)
+status: open
