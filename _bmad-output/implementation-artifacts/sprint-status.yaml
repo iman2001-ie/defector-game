@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: "2026-10-07 09:00"
-last_updated: "2026-10-07 09:00"
+last_updated: "10-07-2026 12:43"
 project: defector-game
 project_key: NOKEY
 tracking_system: file-system
@@ -50,7 +50,7 @@ development_status:
   1-5-fire-aimed-missiles-with-splash-damage: done
   1-6-feel-every-impact-scale-with-size: done
   1-7-validate-the-core-feel-in-a-stress-tested-sandbox: awaiting-operator
-  epic-1-retrospective: optional
+  epic-1-retrospective: done
   epic-2: backlog
   2-1-count-wave-progress-and-evaluate-beat-triggers: backlog
   2-2-play-a-level-driven-by-wave-data: backlog
@@ -109,3 +109,71 @@ development_status:
   8-4-prove-the-game-is-finishable: backlog
   8-5-ship-defector-on-github: backlog
   epic-8-retrospective: optional
+action_items:
+  - id: "epic-1-retro-item-1-complete-story-1-7-operator-actions-fun"
+    epic: 1
+    action: "Complete story 1-7 operator actions (fun-gate playtest incl. DW-3 splash
+      tuning, F1 overlay under --stress, glow on export), then bmad-loop confirm and
+      re-run the Epic 1 retro"
+    owner: "Developer (operator)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md"
+  - id: "epic-1-retro-item-2-add-a-validating-config-reload-api-that"
+    epic: 1
+    action: "Add a validating Config.reload() API that restores its own state on failure;
+      DebugTools stops writing Config fields; run the follow-up review story 1-7 recommended"
+    owner: "Dev loop"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md"
+  - id: "epic-1-retro-item-3-bring-the-stress-bench-up-to-the-nfr-pea"
+    epic: 1
+    action: "Bring the stress bench up to the NFR peak (about 200 projectiles), judge
+      on p99/max as well as the average, and measure the first large explosion with
+      and without pre-warm (DW-4, DW-5)"
+    owner: "Dev loop"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md"
+  - id: "epic-1-retro-item-4-decide-the-laser-collision-mask-recommen"
+    epic: 1
+    action: "Decide the laser collision mask (recommend MASK_PLAYER_SHOTS=84), derive
+      masks from CollisionLayers or test equality, and correct the epics.md Story
+      1.3 AC (DW-2)"
+    owner: "Developer (decision) then Dev loop"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md"
+  - id: "epic-1-retro-item-5-reconcile-game-architecture-md-with-the"
+    epic: 1
+    action: "Reconcile game-architecture.md with the as-built: play_sfx pitch param,
+      tier sfx_volume_db, single explosion scene, Spawner/ShakeCamera to Feedback
+      registration, CLI stress/bench modes"
+    owner: "Developer / Architect"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md"
+  - id: "epic-1-retro-item-6-add-the-import-step-before-the-gut-comma"
+    epic: 1
+    action: "Add the --import step before the GUT command in AGENTS.md section 3 and
+      in the architecture test command (DW-6)"
+    owner: "Developer"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md"
+  - id: "epic-1-retro-item-7-add-a-shared-playfield-rect-constant-bef"
+    epic: 1
+    action: "Add a shared playfield-rect constant before Epic 2; split the weapon
+      logic out of player.gd before Epic 3"
+    owner: "Dev loop"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md"
+  - id: "epic-1-retro-item-8-split-oversized-stories-5-new-systems-li"
+    epic: 1
+    action: "Split oversized stories (5+ new systems, like 1-6) or raise the per-story
+      token cap deliberately; 1-4 and 1-6 overran 2M weighted tokens"
+    owner: "Planning (SM)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md"
+  - id: "epic-1-retro-item-9-fix-the-epic-1-status-in-sprint-status-a"
+    epic: 1
+    action: "Fix the epic-1 status in sprint-status, and align the bmad-loop commit
+      subject format with AGENTS.md section 5 (or amend section 5)"
+    owner: "Developer"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md"
