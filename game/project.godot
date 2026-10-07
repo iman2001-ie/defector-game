@@ -11,6 +11,7 @@ config_version=5
 [application]
 
 config/name="DEFECTOR"
+run/main_scene="res://scenes/sandbox/sandbox.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/use_custom_user_dir=true
 config/custom_user_dir_name="DEFECTOR"
@@ -20,6 +21,7 @@ config/custom_user_dir_name="DEFECTOR"
 Log="*res://autoloads/log.gd"
 Events="*res://autoloads/events.gd"
 Config="*res://autoloads/config.gd"
+PauseArbiter="*res://autoloads/pause_arbiter.gd"
 
 [debug]
 
@@ -126,4 +128,5 @@ debug_unlock_all={
 [rendering]
 
 renderer/rendering_method="forward_plus"
+environment/defaults/default_clear_color=Color(0.0196, 0.0275, 0.0588, 1)
 viewport/hdr_2d=true

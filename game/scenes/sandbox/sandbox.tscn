@@ -1,0 +1,27 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scenes/sandbox/sandbox.gd" id="1_sandbox"]
+[ext_resource type="PackedScene" path="res://entities/player/player.tscn" id="2_player"]
+[ext_resource type="PackedScene" path="res://entities/player/reticle.tscn" id="3_reticle"]
+
+[node name="Sandbox" type="Node2D"]
+script = ExtResource("1_sandbox")
+
+[node name="World" type="Node2D" parent="."]
+
+[node name="Asteroids" type="Node2D" parent="World"]
+
+[node name="Enemies" type="Node2D" parent="World"]
+
+[node name="Allies" type="Node2D" parent="World"]
+
+[node name="Pickups" type="Node2D" parent="World"]
+
+[node name="Projectiles" type="Node2D" parent="World"]
+
+[node name="Effects" type="Node2D" parent="World"]
+
+[node name="Player" parent="World" instance=ExtResource("2_player")]
+position = Vector2(960, 900)
+
+[node name="Reticle" parent="World" instance=ExtResource("3_reticle")]
