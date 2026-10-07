@@ -1,0 +1,11 @@
+{
+  "DW-2": {
+    "answered_at": "2026-10-07",
+    "bundle_name": "",
+    "effect": "build",
+    "intent": "Set the laser bolt collision mask to CollisionLayers.MASK_PLAYER_SHOTS (84), add a test asserting exact mask equality with the constant, and correct the epics.md Story 1.3 AC.",
+    "key": "1",
+    "label": "Set mask 84 and test equality",
+    "resolution": ""
+  }
+}
