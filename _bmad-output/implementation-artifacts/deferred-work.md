@@ -92,6 +92,7 @@ source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 1; owner Developer / Architect; sprint-status status open)
 status: open
+decision: 2026-10-07 Reconcile the doc to as-built — Edit _bmad-output/game-architecture.md to document the play_sfx pitch parameter, per-tier sfx_volume_db, the single explosion scene, Spawner and ShakeCamera registration with Feedback, and the --stress/--bench CLI modes, matching the current code, and add a decision-log note for each change.
 
 ### DW-12: Add the --import step before the GUT command in AGENTS.md section 3 and in the architecture test command (DW-6)
 origin: retro action item epic-1-retro-item-6-add-the-import-step-before-the-gut-comma
