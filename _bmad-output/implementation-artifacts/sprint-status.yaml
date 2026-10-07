@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: "2026-10-07 09:00"
-last_updated: 2026-10-07
+last_updated: 10-07-2026 14:49
 project: defector-game
 project_key: NOKEY
 tracking_system: file-system
@@ -119,14 +119,14 @@ action_items:
       tuning, F1 overlay under --stress, glow on export), then bmad-loop confirm and
       re-run the Epic 1 retro"
     owner: "Developer (operator)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md"
   - id: "epic-1-retro-item-2-add-a-validating-config-reload-api-that"
     epic: 1
     action: "Add a validating Config.reload() API that restores its own state on failure;
       DebugTools stops writing Config fields; run the follow-up review story 1-7 recommended"
     owner: "Dev loop"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md"
   - id: "epic-1-retro-item-3-bring-the-stress-bench-up-to-the-nfr-pea"
     epic: 1
@@ -150,33 +150,67 @@ action_items:
       tier sfx_volume_db, single explosion scene, Spawner/ShakeCamera to Feedback
       registration, CLI stress/bench modes"
     owner: "Developer / Architect"
-    status: open
+    status: in-progress
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md"
   - id: "epic-1-retro-item-6-add-the-import-step-before-the-gut-comma"
     epic: 1
     action: "Add the --import step before the GUT command in AGENTS.md section 3 and
       in the architecture test command (DW-6)"
     owner: "Developer"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md"
   - id: "epic-1-retro-item-7-add-a-shared-playfield-rect-constant-bef"
     epic: 1
     action: "Add a shared playfield-rect constant before Epic 2; split the weapon
       logic out of player.gd before Epic 3"
     owner: "Dev loop"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md"
   - id: "epic-1-retro-item-8-split-oversized-stories-5-new-systems-li"
     epic: 1
     action: "Split oversized stories (5+ new systems, like 1-6) or raise the per-story
       token cap deliberately; 1-4 and 1-6 overran 2M weighted tokens"
     owner: "Planning (SM)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md"
   - id: "epic-1-retro-item-9-fix-the-epic-1-status-in-sprint-status-a"
     epic: 1
     action: "Fix the epic-1 status in sprint-status, and align the bmad-loop commit
       subject format with AGENTS.md section 5 (or amend section 5)"
+    owner: "Developer"
+    status: in-progress
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md"
+  - id: "epic-1-retro-item-10-record-the-fun-gate-colleague-waiver-as"
+    epic: 1
+    action: "Record the fun-gate colleague waiver as decision-log #32 and amend epics.md
+      lines 326 and 536 to match"
+    owner: "Developer"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md"
+  - id: "epic-1-retro-item-11-schedule-the-decided-dw-10-laser-mask-84"
+    epic: 1
+    action: "Schedule the decided DW-10 (laser mask 84, equality test, Story 1.3 AC
+      fix) and DW-9 (bench to NFR peak) into stories (1.8/1.10, a pre-Epic-2 story,
+      or 8.3)"
+    owner: "Planning (SM)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md"
+  - id: "epic-1-retro-item-12-add-a-human-ac-to-story-1-8-developer-re"
+    epic: 1
+    action: "Add a human AC to Story 1.8: developer re-checks the core feel under
+      the cursor lock and straight-up missile before Epic 2 tuning"
+    owner: "Planning (SM)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md"
+  - id: "epic-1-retro-item-13-mark-dw-7-done-in-deferred-work-md-resol"
+    epic: 1
+    action: "Mark DW-7 done in deferred-work.md (resolved by a2386df)"
+    owner: "Developer"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md"
+  - id: "epic-1-retro-item-14-re-run-the-epic-1-retrospective-once-sto"
+    epic: 1
+    action: "Re-run the Epic 1 retrospective once Stories 1.8-1.10 are done"
     owner: "Developer"
     status: open
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md"
