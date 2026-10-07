@@ -162,6 +162,7 @@ func test_f5_bad_json_refuses_restart() -> void:
 	assert_eq(Config.num("feedback.tiers.large.shake_px"), 8.0, "old tuning kept")
 	assert_eq(Config.load_error, "", "load_error cleared")
 	assert_eq(Feedback.tier_row(ImpactTier.LARGE).get("shake_px"), 8.0, "Feedback tiers untouched")
+	assert_push_error("Reload rejected")
 	assert_push_error("parse error")
 	assert_push_error("[ERROR][debug]")
 
@@ -181,7 +182,26 @@ func test_f5_bad_flags_refuses_restart() -> void:
 	assert_eq(_restarts, 0, "restart not called")
 	assert_eq(Config.flags, old_flags, "old flags kept")
 	assert_eq(Config.load_error, "", "load_error clear")
+	assert_push_error("Reload rejected")
 	assert_push_error("parse error")
+	assert_push_error("[ERROR][debug]")
+
+
+func test_f5_missing_key_refuses_restart() -> void:
+	_write_tuning(8.0)
+	Config.load_data(TEMP_TUNING, Config.DEFAULT_FLAGS_PATH)
+	Feedback.load_tiers()
+	_tools = _make_tools()
+	var data: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(TEMP_TUNING))
+	(data["player"] as Dictionary).erase("hearts")
+	data["feedback"]["tiers"]["large"]["shake_px"] = 12.0
+	_write_tuning(0.0, JSON.stringify(data))
+	assert_false(_tools.reload_data(), "reload refused")
+	assert_eq(_restarts, 0, "restart not called")
+	assert_eq(Config.int_("player.hearts"), 5, "old value served")
+	assert_eq(Config.num("feedback.tiers.large.shake_px"), 8.0, "old tuning kept")
+	assert_eq(Feedback.tier_row(ImpactTier.LARGE).get("shake_px"), 8.0, "Feedback tiers untouched")
+	assert_push_error("tuning.player.hearts missing")
 	assert_push_error("[ERROR][debug]")
 
 

@@ -60,7 +60,9 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 1; owner Dev loop; sprint-status status open)
-status: open
+status: done 2026-10-07
+resolution: resolved by sweep bundle dw-config-validating-reload
+resolution-undo: 5b21ee29b0532637dae15f9788efd5f8de66642e1143626926536d054cf4295d 2026-10-07 7374617475733a206f70656e
 
 ### DW-9: Bring the stress bench up to the NFR peak (about 200 projectiles), judge on p99/max as well as the average, and measure the first large explosion with and without pre-warm (DW-4, DW-5)
 origin: retro action item epic-1-retro-item-3-bring-the-stress-bench-up-to-the-nfr-pea
@@ -142,4 +144,12 @@ location: .claude/skills/gds-agent-game-dev/gametest/knowledge/godot-testing.md
 source_spec: `spec-dw-6-dw-12-gut-import-step-docs.md`
 severity: low
 reason: .claude/skills/gds-agent-game-dev/gametest/knowledge/godot-testing.md (and its .agents/skills copy) are untouched by this change; pre-existing agent-context files outside the intent's two named locations.
+status: open
+
+### DW-19: The real F5 path (input event, then get_tree().reload_current_scene and consumers re-reading Config) is still untested; tests inject restart_scene and call reload_data() directly.
+origin: spec-deferred 8ed8e1eb8e32
+location: game/ui/debug/debug_tools.gd:28,51-52
+source_spec: `spec-dw-8-config-validating-reload.md`
+severity: low
+reason: Pre-existing gap (epic 1 retro finding B4, deferred there). This change keeps the injected-restart test seam; the B1 failure it fixes is pinned at the Config and reload_data() level only.
 status: open

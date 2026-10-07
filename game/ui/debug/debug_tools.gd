@@ -119,21 +119,14 @@ func refresh_overlay() -> void:
 	_reset_window(Time.get_ticks_usec())
 
 
-## F5: reloads tuning and flags. If either file fails to load, the previous
-## tuning and flags are restored, load_error is cleared and nothing restarts.
-## Returns true when the scene restarted.
+## F5: asks Config to reload tuning and flags. Config validates the new files
+## and keeps its previous data if either fails to load or drops or retypes a
+## key; then nothing restarts. Returns true when the scene restarted.
 func reload_data() -> bool:
 	if not debug_enabled:
 		return false
-	var old_tuning: Dictionary = Config.tuning
-	var old_flags: Dictionary = Config.flags
-	Config.reload()
-	if not Config.load_error.is_empty() or Config.flags.is_empty():
-		var reason: String = Config.load_error if not Config.load_error.is_empty() else "flags file failed to load"
-		Config.tuning = old_tuning
-		Config.flags = old_flags
-		Config.load_error = ""
-		Log.error("debug", "F5 reload failed (%s); previous data kept, scene not restarted" % reason)
+	if not Config.reload():
+		Log.error("debug", "F5 reload failed; previous data kept, scene not restarted")
 		return false
 	# Feedback is an autoload: a scene restart does not re-read its tier cache.
 	Feedback.reset()

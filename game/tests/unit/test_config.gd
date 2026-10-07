@@ -6,6 +6,8 @@ const BAD_FLAGS: String = "res://tests/fixtures/bad_flags.json"
 const MISSING_FILE: String = "res://tests/fixtures/does_not_exist.json"
 const ARRAY_ROOT: String = "res://tests/fixtures/array_root.json"
 const NON_BOOL_FLAGS: String = "res://tests/fixtures/non_bool_flags.json"
+const TEMP_TUNING: String = "user://test_config_tuning.json"
+const TEMP_FLAGS: String = "user://test_config_flags.json"
 
 const SECTIONS: Array[String] = [
 	"player", "weapons", "abilities", "energy", "drops", "enemies", "boss",
@@ -32,6 +34,42 @@ func before_each() -> void:
 func after_each() -> void:
 	Config.assert_on_missing = true
 	Config.load_data()
+	for path: String in [TEMP_TUNING, TEMP_FLAGS]:
+		if FileAccess.file_exists(path):
+			DirAccess.remove_absolute(path)
+
+
+## Parsed copy of a real data file, for tests to edit and write back.
+func _real(path: String) -> Dictionary:
+	return JSON.parse_string(FileAccess.get_file_as_string(path))
+
+
+func _write(path: String, text: String) -> void:
+	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
+	file.store_string(text)
+	file.close()
+
+
+## Asserts the single "Reload rejected" line contains every fragment (in any
+## order), then claims it. GUT lets each push_error be asserted only once.
+func _assert_rejection_names(fragments: Array[String]) -> void:
+	var line: Variant = null
+	for err: Variant in get_errors():
+		if not err.handled and err.contains_text("Reload rejected"):
+			line = err
+			break
+	assert_not_null(line, "a Reload rejected line was pushed")
+	if line != null:
+		for fragment: String in fragments:
+			assert_true(line.contains_text(fragment), "rejection names '%s'" % fragment)
+	assert_push_error("Reload rejected")
+
+
+## Loads temp copies of the real tuning and flags, so reload() re-reads the temp paths.
+func _load_temp_copies() -> void:
+	_write(TEMP_TUNING, JSON.stringify(_real(Config.DEFAULT_TUNING_PATH)))
+	_write(TEMP_FLAGS, JSON.stringify(_real(Config.DEFAULT_FLAGS_PATH)))
+	Config.load_data(TEMP_TUNING, TEMP_FLAGS)
 
 
 # --- Shape of the real data files -------------------------------------------
@@ -183,17 +221,166 @@ func test_flag_non_bool_returns_false_and_logs_path() -> void:
 
 func test_reload_rereads_custom_paths() -> void:
 	Config.load_data(BAD_TUNING, Config.DEFAULT_FLAGS_PATH)
-	Config.reload()
+	assert_false(Config.reload(), "still broken")
 	assert_ne(Config.load_error, "")
 	assert_eq(Config.tuning, {})
-	assert_push_error_count(2)
+	# Boot read error, reload read error, "Reload rejected" line.
+	assert_push_error("previous data kept")
+	assert_push_error_count(3)
 
 
 func test_reload_keeps_values() -> void:
 	Config.load_data()
 	var before: Dictionary = Config.tuning.duplicate(true)
-	Config.reload()
+	assert_true(Config.reload())
 	assert_eq(Config.load_error, "")
 	assert_eq(Config.tuning, before)
 	assert_eq(Config.num("player.max_speed"), 1400.0)
 	assert_eq(Config.flags, FLAG_DEFAULTS)
+
+
+func test_reload_serves_changed_value() -> void:
+	_load_temp_copies()
+	var data: Dictionary = _real(Config.DEFAULT_TUNING_PATH)
+	data["player"]["max_speed"] = 900.0
+	_write(TEMP_TUNING, JSON.stringify(data))
+	assert_true(Config.reload(), "reload accepted")
+	assert_eq(Config.num("player.max_speed"), 900.0, "new value served")
+	assert_eq(Config.load_error, "")
+	assert_push_error_count(0)
+
+
+func test_reload_accepts_extra_key() -> void:
+	_load_temp_copies()
+	var data: Dictionary = _real(Config.DEFAULT_TUNING_PATH)
+	data["player"]["brand_new"] = 3.0
+	data["new_section"] = {"a": true}
+	_write(TEMP_TUNING, JSON.stringify(data))
+	assert_true(Config.reload(), "extra keys allowed")
+	assert_eq(Config.num("player.brand_new"), 3.0)
+
+
+func test_reload_serves_changed_flag() -> void:
+	_load_temp_copies()
+	var data: Dictionary = _real(Config.DEFAULT_FLAGS_PATH)
+	data["tarek_fall"] = false
+	_write(TEMP_FLAGS, JSON.stringify(data))
+	assert_true(Config.reload(), "reload accepted")
+	assert_false(Config.flag("tarek_fall"), "new flag value served")
+	assert_push_error_count(0)
+
+
+func test_reload_parse_failure_keeps_state() -> void:
+	_load_temp_copies()
+	var old_tuning: Dictionary = Config.tuning.duplicate(true)
+	var old_flags: Dictionary = Config.flags.duplicate(true)
+	_write(TEMP_TUNING, "{ not json")
+	assert_false(Config.reload(), "reload refused")
+	assert_eq(Config.tuning, old_tuning, "old tuning kept")
+	assert_eq(Config.flags, old_flags, "old flags kept")
+	assert_eq(Config.load_error, "", "load_error unchanged")
+	assert_push_error("parse error")
+	assert_push_error("previous data kept")
+
+
+func test_reload_flags_parse_failure_keeps_flags() -> void:
+	_load_temp_copies()
+	_write(TEMP_FLAGS, "{ not json")
+	assert_false(Config.reload(), "reload refused")
+	assert_eq(Config.flags, FLAG_DEFAULTS, "old flags kept")
+	assert_eq(Config.load_error, "")
+	assert_push_error("Reload rejected")
+	assert_push_error("parse error")
+
+
+func test_reload_missing_key_keeps_state() -> void:
+	_load_temp_copies()
+	var old_tuning: Dictionary = Config.tuning.duplicate(true)
+	var data: Dictionary = _real(Config.DEFAULT_TUNING_PATH)
+	(data["player"] as Dictionary).erase("hearts")
+	_write(TEMP_TUNING, JSON.stringify(data))
+	assert_false(Config.reload(), "reload refused")
+	assert_eq(Config.tuning, old_tuning, "old tuning kept")
+	assert_eq(Config.int_("player.hearts"), 5, "old value served")
+	assert_eq(Config.load_error, "")
+	assert_push_error("tuning.player.hearts missing")
+
+
+func test_reload_wrong_type_keeps_state() -> void:
+	_load_temp_copies()
+	var old_tuning: Dictionary = Config.tuning.duplicate(true)
+	var data: Dictionary = _real(Config.DEFAULT_TUNING_PATH)
+	data["player"]["max_speed"] = "fast"
+	_write(TEMP_TUNING, JSON.stringify(data))
+	assert_false(Config.reload(), "reload refused")
+	assert_eq(Config.tuning, old_tuning, "old tuning kept")
+	assert_eq(Config.num("player.max_speed"), 1400.0, "old value served")
+	assert_push_error("tuning.player.max_speed: expected number, got String")
+
+
+func test_reload_missing_flag_fails() -> void:
+	_load_temp_copies()
+	var data: Dictionary = _real(Config.DEFAULT_FLAGS_PATH)
+	data.erase("tarek_fall")
+	data["hunter_wasp"] = 1
+	_write(TEMP_FLAGS, JSON.stringify(data))
+	assert_false(Config.reload(), "reload refused")
+	assert_eq(Config.flags, FLAG_DEFAULTS, "old flags kept")
+	_assert_rejection_names(["flags.hunter_wasp: expected bool, got number", "flags.tarek_fall missing"])
+
+
+func test_reload_without_reference_after_failed_boot() -> void:
+	_write(TEMP_TUNING, "{ not json")
+	Config.load_data(TEMP_TUNING, Config.DEFAULT_FLAGS_PATH)
+	assert_ne(Config.load_error, "", "boot failed")
+	_write(TEMP_TUNING, JSON.stringify(_real(Config.DEFAULT_TUNING_PATH)))
+	assert_true(Config.reload(), "fixed file accepted")
+	assert_eq(Config.load_error, "", "load_error cleared")
+	assert_eq(Config.num("player.max_speed"), 1400.0)
+	assert_push_error("parse error")
+
+
+func test_reload_still_broken_keeps_load_error() -> void:
+	_write(TEMP_TUNING, "{ not json")
+	Config.load_data(TEMP_TUNING, Config.DEFAULT_FLAGS_PATH)
+	var boot_error: String = Config.load_error
+	assert_ne(boot_error, "", "boot failed")
+	assert_false(Config.reload(), "still broken")
+	assert_eq(Config.load_error, boot_error, "load_error unchanged")
+	assert_eq(Config.tuning, {})
+	assert_push_error_count(3)
+
+
+func test_reload_reports_problems_in_both_files() -> void:
+	_load_temp_copies()
+	var data: Dictionary = _real(Config.DEFAULT_TUNING_PATH)
+	(data["player"] as Dictionary).erase("hearts")
+	_write(TEMP_TUNING, JSON.stringify(data))
+	_write(TEMP_FLAGS, "{ not json")
+	assert_false(Config.reload(), "reload refused")
+	assert_eq(Config.int_("player.hearts"), 5, "old tuning kept")
+	assert_eq(Config.flags, FLAG_DEFAULTS, "old flags kept")
+	_assert_rejection_names(["test_config_flags.json parse error", "tuning.player.hearts missing"])
+	assert_push_error("parse error")
+
+
+func test_reload_missing_file_keeps_state() -> void:
+	_load_temp_copies()
+	var old_tuning: Dictionary = Config.tuning.duplicate(true)
+	DirAccess.remove_absolute(TEMP_TUNING)
+	assert_false(Config.reload(), "reload refused")
+	assert_eq(Config.tuning, old_tuning, "old tuning kept")
+	assert_eq(Config.load_error, "")
+	assert_push_error("Reload rejected")
+	assert_push_error("not found")
+
+
+func test_reload_nested_wrong_type_names_full_path() -> void:
+	_load_temp_copies()
+	var old_tuning: Dictionary = Config.tuning.duplicate(true)
+	var data: Dictionary = _real(Config.DEFAULT_TUNING_PATH)
+	data["feedback"]["tiers"]["large"]["shake_px"] = "big"
+	_write(TEMP_TUNING, JSON.stringify(data))
+	assert_false(Config.reload(), "reload refused")
+	assert_eq(Config.tuning, old_tuning, "old tuning kept")
+	assert_push_error("tuning.feedback.tiers.large.shake_px: expected number, got String")

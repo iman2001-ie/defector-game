@@ -40,10 +40,33 @@ func load_data(tuning_path: String = DEFAULT_TUNING_PATH, flags_path: String = D
 	flags = flags_result.data
 
 
-## Reloads the files most recently passed to load_data().
-func reload() -> void:
-	load_data(_tuning_path, _flags_path)
+## Re-reads the files most recently passed to load_data() and validates them
+## against the shape of the data loaded now: every current key path must still
+## exist with the same kind (extra keys are fine). On success commits both,
+## clears load_error and returns true. On any failure logs every problem, leaves
+## tuning, flags and load_error untouched and returns false.
+func reload() -> bool:
+	var problems: Array[String] = []
+	var tuning_result: Dictionary = _read_json_dict(_tuning_path)
+	var flags_result: Dictionary = _read_json_dict(_flags_path)
+	var new_tuning: Dictionary = tuning_result.data
+	var new_flags: Dictionary = flags_result.data
+	if (tuning_result.error as String).is_empty():
+		_check_shape(tuning, new_tuning, "tuning", problems)
+	else:
+		problems.append(tuning_result.error)
+	if (flags_result.error as String).is_empty():
+		_check_shape(flags, new_flags, "flags", problems)
+	else:
+		problems.append(flags_result.error)
+	if not problems.is_empty():
+		Log.error("data", "Reload rejected (%s); previous data kept" % "; ".join(problems))
+		return false
+	tuning = new_tuning
+	flags = new_flags
+	load_error = ""
 	_log_summary()
+	return true
 
 
 func num(path: String) -> float:
@@ -88,6 +111,30 @@ func _report_missing(full_path: String, expected: String) -> void:
 	Log.error("data", msg)
 	if assert_on_missing:
 		assert(false, msg)
+
+
+## Appends a problem for every key path in `reference` that is missing from
+## `candidate` or holds a different kind of value. Recurses into Dictionaries;
+## Array elements are not checked. An empty reference accepts anything.
+func _check_shape(reference: Dictionary, candidate: Dictionary, prefix: String, problems: Array[String]) -> void:
+	for key: Variant in reference:
+		var path: String = "%s.%s" % [prefix, key]
+		if not candidate.has(key):
+			problems.append("%s missing" % path)
+			continue
+		var want: String = _kind(reference[key])
+		var got: String = _kind(candidate[key])
+		if want != got:
+			problems.append("%s: expected %s, got %s" % [path, want, got])
+		elif want == "Dictionary":
+			_check_shape(reference[key], candidate[key], path, problems)
+
+
+## Shape kind of a JSON value; int and float are both "number".
+func _kind(v: Variant) -> String:
+	if v is int or v is float:
+		return "number"
+	return type_string(typeof(v))
 
 
 ## Returns {"data": Dictionary, "error": String}; error is empty on success.
