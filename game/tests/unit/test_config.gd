@@ -26,17 +26,33 @@ const TIERS: Array[String] = [
 	"small", "medium", "large", "boss_part", "boss_death", "player_hit", "player_death",
 ]
 
+var _captured: Array[Array] = []
+
 
 func before_each() -> void:
 	Config.assert_on_missing = false
+	_captured.clear()
 
 
 func after_each() -> void:
+	Log.sink = Callable()
 	Config.assert_on_missing = true
 	Config.load_data()
 	for path: String in [TEMP_TUNING, TEMP_FLAGS]:
 		if FileAccess.file_exists(path):
 			DirAccess.remove_absolute(path)
+
+
+func _capture(level: String, category: String, msg: String) -> void:
+	_captured.append([level, category, msg])
+
+
+## True when an INFO/data line starting "Loaded " was captured.
+func _captured_load_summary() -> bool:
+	for entry: Array in _captured:
+		if entry[0] == "INFO" and entry[1] == "data" and (entry[2] as String).begins_with("Loaded "):
+			return true
+	return false
 
 
 ## Parsed copy of a real data file, for tests to edit and write back.
@@ -384,3 +400,18 @@ func test_reload_nested_wrong_type_names_full_path() -> void:
 	assert_false(Config.reload(), "reload refused")
 	assert_eq(Config.tuning, old_tuning, "old tuning kept")
 	assert_push_error("tuning.feedback.tiers.large.shake_px: expected number, got String")
+
+
+# --- Load summary log -------------------------------------------------------
+
+func test_ready_logs_load_summary() -> void:
+	Log.sink = _capture
+	Config._ready()
+	assert_true(_captured_load_summary(), "boot logs an [INFO][data] Loaded ... summary")
+
+
+func test_reload_logs_load_summary() -> void:
+	Config.load_data()
+	Log.sink = _capture
+	assert_true(Config.reload(), "reload accepted")
+	assert_true(_captured_load_summary(), "reload logs an [INFO][data] Loaded ... summary")

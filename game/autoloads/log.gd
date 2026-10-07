@@ -16,6 +16,10 @@ const CATEGORIES: Array[String] = [
 
 ## Injectable so tests can simulate a release build.
 var debug_enabled: bool = OS.is_debug_build()
+## Test hook only: production code never sets this. When valid, it is called with
+## (level: String, category: String, msg: String) once per line actually written,
+## after the line is printed. Tests reset it to Callable() when done.
+var sink: Callable = Callable()
 
 
 func debug(category: String, msg: String) -> bool:
@@ -47,6 +51,8 @@ func emit_line(level: String, category: String, msg: String) -> bool:
 		push_warning("Log: unknown category '%s'" % category)
 	var line: String = format(level, category, msg)
 	print(line)
+	if sink.is_valid():
+		sink.call(level, category, msg)
 	if level == LEVEL_ERROR:
 		push_error(line)
 	elif level == LEVEL_WARN:

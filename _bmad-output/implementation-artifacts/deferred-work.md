@@ -4,7 +4,9 @@ location: game/autoloads/config.gd:22
 source_spec: `spec-1-1-set-up-the-godot-project-and-data-driven-foundation.md`
 severity: low
 reason: Verification-gap layer: removing _log_summary() from Config._ready() leaves all tests green; the line is only seen by reading GUT output. Capturing Log output needs a sink or last-line hook, which this story does not add.
-status: open
+status: done 2026-10-07
+resolution: resolved by sweep bundle dw-boot-summary-log-test
+resolution-undo: 146c36bcf218d42d45614b2f28ec7b45ec8721196398ead825300f883083e974 2026-10-07 7374617475733a206f70656e
 
 ### DW-2: The laser bolt scene masks enemies and asteroids (20) but not convoy, while CollisionLayers.MASK_PLAYER_SHOTS and the architecture layer table include convoy (84).
 origin: spec-deferred 23f5fc59453c
