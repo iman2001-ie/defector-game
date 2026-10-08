@@ -272,7 +272,9 @@ location: AGENTS.md:30; _bmad-output/game-architecture.md:1335-1337
 source_spec: `spec-dw-15-dw-16-agents-md-import-and-commit-format.md`
 severity: low
 reason: Headless -s runs never rescan the class cache, whatever the cause of the change. A typical symptom is a parse error naming a class_name that exists. The fix edits AGENTS.md (agent-context file), so it is deferred.
-status: open
+status: done 2026-10-07
+resolution: resolved by sweep bundle dw-agents-md-import-rerun-wording
+resolution-undo: 102fee74f99c252aea09f90531630a3add6b0084a13b41d6c00f9ab98c8c91f3 2026-10-07 7374617475733a206f70656e
 
 ### DW-30: The DW-15 decision (amend AGENTS.md section 5) is recorded only in the deferred-work ledger, not in a decision log as AGENTS.md section 4 asks.
 origin: spec-deferred 5bfb1d58f231
@@ -290,7 +292,9 @@ location: AGENTS.md:30; _bmad-output/game-architecture.md:1335-1337
 source_spec: `spec-dw-15-dw-16-agents-md-import-and-commit-format.md`
 severity: low
 reason: AGENTS.md:30 and game-architecture.md:1335-1337 list "new imported assets" as a trigger, but the stated cause is only the class cache. A new WAV that Audio preloads has no .import artefact until --import runs. The instruction itself is still correct, so following it gives the right result. The fix edits AGENTS.md (agent-context file), so it is deferred.
-status: open
+status: done 2026-10-07
+resolution: resolved by sweep bundle dw-agents-md-import-rerun-wording
+resolution-undo: 102fee74f99c252aea09f90531630a3add6b0084a13b41d6c00f9ab98c8c91f3 2026-10-07 7374617475733a206f70656e
 
 ### DW-32: Projectile._on_area_entered calls apply_damage on any overlapped area, so once a convoy with apply_damage exists, player bolts (now masking CONVOY) would damage it instead of being blocked with no
 origin: spec-deferred f39d733a65b1
@@ -427,4 +431,60 @@ location: game/scenes/level/level.gd:22
 source_spec: `spec-dw-27-dw-19-debug-tools-injectable-user-args.md`
 severity: medium
 reason: game/scenes/level/level.gd:22 calls DebugArgs.parse(OS.get_cmdline_user_args()); test_level.gd only exercises the static helpers should_redirect_to_stress and should_prewarm with hand-built dictionaries, so breaking the args wiring in _ready leaves the suite green. Pre-existing and outside the bundle intent (which names DebugTools and Sandbox); the redirect also needs an injectable change_scene seam.
+status: open
+
+### DW-47: The asset cause says new or changed assets have "no up-to-date `.import` artefact", but the `.import` sidecars are tracked in git; after a pull or branch switch, what is actually missing is the
+origin: spec-deferred a10711430ba6
+location: AGENTS.md:30; _bmad-output/game-architecture.md:1339-1340
+source_spec: `spec-dw-29-dw-31-agents-md-import-rerun-wording.md`
+severity: low
+reason: `git ls-files '*.import'` lists 31 tracked sidecars, including every `game/assets/audio/sfx/*.wav.import`, and `game/.gitignore` ignores `.godot/`. The instruction (re-run `--import`) is still correct; only the stated cause is imprecise. The wording came from the bundle intent. The fix edits AGENTS.md (agent-context file), so it is deferred.
+status: open
+
+### DW-48: Only the class_name symptom is named; a stale or missing asset import shows up as a preload or resource-load failure for an asset that exists, and nothing links that to the `--import` re-run.
+origin: spec-deferred 46ab44a663bf
+location: AGENTS.md:30; _bmad-output/game-architecture.md:1341
+source_spec: `spec-dw-29-dw-31-agents-md-import-rerun-wording.md`
+severity: low
+reason: Both places list asset triggers and the asset cause, but the only symptom given is "a parse error naming a `class_name` that exists". `Audio` preloads WAVs, so a missing import fails at load, not parse. Raised by the blind and edge-case layers. The fix edits AGENTS.md (agent-context file), so it is deferred.
+status: open
+
+### DW-49: The trigger list names adding or changing imported assets but not renaming, moving or deleting them, although a moved asset's new path has no imported copy until `--import` runs.
+origin: spec-deferred 6f2b67a0d5d1
+location: AGENTS.md:30; _bmad-output/game-architecture.md:1338-1339
+source_spec: `spec-dw-29-dw-31-agents-md-import-rerun-wording.md`
+severity: low
+reason: Imported copies in `game/.godot/imported/` are keyed by source path, so a moved WAV with its tracked sidecar has no imported copy at the new path. Only the generic "stale game/.godot/" clause covers it. The fix edits AGENTS.md (agent-context file), so it is deferred.
+status: open
+
+### DW-50: The class_name triggers name adding, renaming, moving or deleting class_name *scripts*, but not adding, changing or removing a `class_name` declaration inside an existing script.
+origin: spec-deferred 89cb535ace78
+location: AGENTS.md:30; _bmad-output/game-architecture.md:1338
+source_spec: `spec-dw-29-dw-31-agents-md-import-rerun-wording.md`
+severity: low
+reason: Editing the `class_name` line in place changes the global class cache just like adding a new script, and headless `-s` runs don't rescan it. "Renaming class_name scripts" reads as a file rename. Raised by the intent-alignment layer. The fix edits AGENTS.md (agent-context file), so it is deferred.
+status: open
+
+### DW-51: The `--import` guidance is kept by hand in two places (AGENTS.md section 3 and the architecture's headless CLI block) with no cross-reference, so the copies can drift.
+origin: spec-deferred 5bb76b34b077
+location: AGENTS.md:30; _bmad-output/game-architecture.md:1337-1341
+source_spec: `spec-dw-29-dw-31-agents-md-import-rerun-wording.md`
+severity: low
+reason: DW-6/DW-12, DW-15/DW-16 and now DW-29/DW-31 each had to edit both copies in step. Neither marks the other as the source. This is pre-existing, not caused by this change.
+status: open
+
+### DW-52: The opening clause says `--import` "imports the WAVs that `Audio` preloads", but the new triggers cover imported assets in general, and most tracked imports are not WAVs.
+origin: spec-deferred c7bd2bd3c86f
+location: AGENTS.md:30; _bmad-output/game-architecture.md:1337
+source_spec: `spec-dw-29-dw-31-agents-md-import-rerun-wording.md`
+severity: low
+reason: `git ls-files '*.import'` lists 31 sidecars: 5 wav, 12 ttf, 9 png, 4 svg, 1 fnt. The clause predates this change (the diff kept it), and following the note still gives the right result. The fix edits AGENTS.md (agent-context file), so it is deferred.
+status: open
+
+### DW-53: The trigger "after pulling or switching to a branch that does either" asks the agent to inspect the incoming changes for class_name or asset edits before deciding whether to re-import.
+origin: spec-deferred 995801a338e8
+location: AGENTS.md:30; _bmad-output/game-architecture.md:1339
+source_spec: `spec-dw-29-dw-31-agents-md-import-rerun-wording.md`
+severity: low
+reason: This clause was added by this change. Agents rarely inspect a pull's contents, so they may skip a needed re-import. "After any pull or branch switch" would be simpler, and re-importing costs little. The "stale game/.godot/" catch-all only partly covers it. The fix edits AGENTS.md (agent-context file), so it is deferred.
 status: open

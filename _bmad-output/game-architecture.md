@@ -1335,8 +1335,10 @@ AI agents use the **headless CLI loop** instead, which covers editing, error che
 
 ```bash
 # Import the project (builds the class_name cache and imports the WAVs Audio preloads).
-# Run on a fresh clone; re-run after adding class_name scripts or new imported assets, or when game/.godot/ is stale
-# (headless -s runs don't rescan the class cache)
+# Run on a fresh clone. Re-run after adding, renaming, moving or deleting class_name scripts, after adding or changing
+# imported assets, after pulling or switching to a branch that does either, or when game/.godot/ is stale:
+# headless -s runs don't rescan the class cache, and new or changed assets have no up-to-date .import artefact
+# until --import runs. Typical symptom: a parse error naming a class_name that exists.
 "<GODOT_DIR>/Godot_v4.7.2-stable_win64_console.exe" --headless --path game --import
 
 # Run all GUT tests headless
