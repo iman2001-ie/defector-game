@@ -263,7 +263,9 @@ location: AGENTS.md:60
 source_spec: `spec-dw-15-dw-16-agents-md-import-and-commit-format.md`
 severity: medium
 reason: git log shows `sweep dw-stress-bench-nfr-peak: DW-9, DW-21 via bmad-loop`, `chore(operator): confirm ...`, `chore(decisions): pre-answer DW-15`, `Epic 1 retro: revision 2`. The DW-15 decision only covers the `story <key>: ...` form, and the fix edits AGENTS.md (agent-context file), so it is deferred.
-status: open
+status: done 2026-10-08
+resolution: resolved by sweep bundle dw-agents-md-commit-subject-forms
+resolution-undo: 937eccf24e8833b1900438b3a979b4f722ad9fa80d73da7714624d8dcad1d6ff 2026-10-08 7374617475733a206f70656e
 decision: 2026-10-07 Amend section 5 to list the loop forms — Amend AGENTS.md section 5 to also accept 'sweep <bundle>: DW-n ...', 'chore(<scope>): ...' for orchestration/bookkeeping commits, and a clear summary for non-story manual work (retros, correct-course), keeping story references required for story work.
 
 ### DW-29: The --import re-run triggers name only adding class_name scripts or imported assets; renaming, moving or deleting class_name scripts, changing imported assets, and pulling or switching branches that
@@ -553,4 +555,12 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-3-retro-2026-10-08.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 3; owner Dev loop; sprint-status status open)
+status: open
+
+### DW-62: Retro commits now fit two forms, `chore(retro): ...` and a clear summary such as `Epic 1 retro: revision 2`. AGENTS.md section 5 doesn't say which to use when, for example only bmad-loop or
+origin: spec-deferred f957477ee131
+location: AGENTS.md:62-63
+source_spec: `spec-dw-28-agents-md-commit-subject-forms.md`
+severity: low
+reason: AGENTS.md:62 gives `chore(retro): epic 3 retrospective` as a bookkeeping example, and AGENTS.md:63 lists retros as manual non-story work with `Epic 1 retro: revision 2`. Both are real subjects in git log. An agent writing a retro commit can't tell from the text which form applies. The fix is a short clarifying clause in AGENTS.md (agent-context file), so it is deferred.
 status: open

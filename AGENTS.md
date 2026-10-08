@@ -57,4 +57,7 @@ All of these are in `_bmad-output/`:
 ## 5. Hygiene
 
 - Don't commit build output (`game/export/`, `*.zip`), the Godot cache (`game/.godot/`) or generated logs.
-- Keep commits small, with a clear message that references the story id or key: either the manual form `Story X.Y: summary` (e.g. `Story 1.2: ship chases cursor`) or the bmad-loop form `story <key>: ...`, where the key is the story file slug (e.g. `story 1-3-fire-the-laser: ...`).
+- Keep commits small, with a clear message. Story work must reference the story id or key: either the manual form `Story X.Y: summary` (e.g. `Story 1.2: ship chases cursor`) or the bmad-loop form `story <key>: ...`, where the key is the story file slug (e.g. `story 1-3-fire-the-laser: ...`). Other commits use:
+  - bmad-loop deferred-work bundles: `sweep <bundle>: DW-n ...` (e.g. `sweep dw-wave-test-reliability: DW-35, DW-36, DW-39, DW-38 via bmad-loop`)
+  - orchestration and bookkeeping: `chore(<scope>): ...` (e.g. `chore(retro): epic 3 retrospective`, `chore(decisions): pre-answer DW-24`)
+  - manual non-story work such as retros and correct-course: a clear summary of the change (e.g. `Epic 1 retro: revision 2`)
