@@ -2,7 +2,7 @@
 title: 'Story 4.5: Play Fullscreen or Windowed'
 type: 'feature'
 created: '2026-10-08'
-status: 'awaiting-operator'
+status: done
 operator_actions:
   - 'Launch the game normally (no --windowed) and confirm it opens in borderless fullscreen with no title bar.'
   - 'Press F11 on the title screen, on Level Select, in a running level and with the Esc pause menu open, and confirm each press switches between borderless fullscreen and a centred window.'
@@ -165,3 +165,15 @@ Status: awaiting-operator
 - No person has watched the toggle inside the title, Level Select or a running level, or felt the cursor confinement after a window-mode change. The probe ran with `-s` (autoloads only, no main scene).
 - On this display the windowed size came out as 1264×681, not exactly 1280×720 (Windows adjusts it for borders and DPI). It is centred and letterboxes correctly.
 - The release export was not exercised. The handler has no debug gate.
+
+## Operator Confirmation
+
+Confirmed 2026-10-08: the external actions this story owed were carried out.
+
+- Launch the game normally (no --windowed) and confirm it opens in borderless fullscreen with no title bar.
+- Press F11 on the title screen, on Level Select, in a running level and with the Esc pause menu open, and confirm each press switches between borderless fullscreen and a centred window.
+- In windowed mode, drag the window to a clearly non-16:9 shape (tall or wide) and confirm the playfield keeps its shape with black bars, the ship stays exactly under the cursor, and the cursor cannot leave the player zone while flying.
+- Switch to windowed with F11, quit, relaunch, and confirm the game opens in fullscreen again (the choice is not saved).
+- Optionally, export a release build and confirm F11 also works there.
+
+_Appended by the bmad-loop orchestrator (`bmad-loop confirm`, #335): a human confirmed these external actions out of band, and the story was advanced from `awaiting-operator` to `done`._
