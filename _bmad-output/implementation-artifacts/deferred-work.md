@@ -581,7 +581,9 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-3-retro-2026-10-08.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 3; owner Planning (SM); sprint-status status open)
-status: open
+status: done 2026-10-08
+resolution: closed by human decision: adopted as operator practice for decision-closes
+decision: 2026-10-08 Adopt as operator practice; close — adopted as operator practice for decision-closes
 
 ### DW-61: Tidy debug and retry edges: SceneRouter clears pauses at the swap (F2), F5 resets GameState energy and retry (F3), add a Groups const class (A5)
 origin: retro action item epic-3-retro-item-31-tidy-debug-and-retry-edges-scenerouter-c
