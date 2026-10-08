@@ -89,6 +89,37 @@ func test_tree() -> void:
 	assert_almost_eq(env.glow_intensity, Config.num("render.glow.intensity"), 0.0001, "glow from data")
 
 
+func test_wasp_dive_clock_under_the_wave_director() -> void:
+	_make_level()
+	var clock: WaspDiveClock = _level.get_node_or_null("WaveDirector/WaspDiveClock") as WaspDiveClock
+	assert_not_null(clock, "WaveDirector/WaspDiveClock is a WaspDiveClock")
+	if clock != null:
+		assert_eq(clock.process_mode, Node.PROCESS_MODE_INHERIT, "freezes with the game")
+
+
+func test_player_is_in_group_player() -> void:
+	_make_level()
+	var player: Node = _level.get_node("World/Player")
+	assert_true(player.is_in_group(&"player"))
+	assert_eq(get_tree().get_first_node_in_group(&"player"), player)
+
+
+func test_dev_wasps_enter_from_above_to_slots_in_the_top_zone() -> void:
+	_make_level()
+	var zone_y: float = Config.num("enemies.wasp.zone_height_ratio") * Playfield.SIZE.y
+	var wasps: int = 0
+	for child: Node in _level.get_node("World/Enemies").get_children():
+		var wasp: Wasp = child as Wasp
+		if wasp == null or not wasp.is_in_group(&"counted"):
+			continue
+		wasps += 1
+		assert_lt(wasp.global_position.y, 0.0, "starts above the top edge")
+		assert_eq(wasp.state(), Wasp.State.ENTER)
+		assert_lte(wasp.formation_slot().y, zone_y, "slot inside the top 40%")
+		assert_eq(wasp.global_position.x, wasp.formation_slot().x, "top entry above its slot")
+	assert_eq(wasps, 8, "level_dev wave 1 Wasps")
+
+
 func test_process_modes() -> void:
 	_make_level()
 	assert_eq(_level.get_node("World").process_mode, Node.PROCESS_MODE_INHERIT, "World pausable")

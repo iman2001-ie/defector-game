@@ -70,7 +70,10 @@
 			"entry_speed_px_s": 350,
 			"dive_interval_s": { "min": 3.0, "max": 5.0 },
 			"dive_speed_px_s": 600,
-			"telegraph_s": 0.4
+			"telegraph_s": 0.4,
+			"zone_height_ratio": 0.4,
+			"wing_flash_hz": 10,
+			"wing_flash_energy": 2.0
 		},
 		"lancer": {
 			"tier": "medium",

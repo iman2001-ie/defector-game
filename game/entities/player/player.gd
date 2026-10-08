@@ -36,6 +36,7 @@ var _bounds_max: Vector2
 
 
 func _ready() -> void:
+	add_to_group(&"player")
 	if not warp_mouse.is_valid():
 		warp_mouse = get_viewport().warp_mouse
 	_bounds_min = Vector2(0.0, Config.num("player.bounds_y.min"))

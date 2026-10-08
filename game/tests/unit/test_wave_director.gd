@@ -139,16 +139,56 @@ func test_wave_start_counts_spawns_and_groups() -> void:
 	assert_eq(_lines_containing("[INFO][wave] Level 3 wave 1/1 started").size(), 1, "INFO wave start")
 	assert_eq(_lines_containing("[INFO][beat]").size(), 1, "INFO beat fired")
 	var first: Enemy = _counted()[0]
-	assert_eq(first.global_position, Vector2(720, 160), "grid_4x2 slot from waves.formation tuning")
+	assert_eq((first as Wasp).formation_slot(), Vector2(720, 160), "grid_4x2 slot from waves.formation tuning")
 
 
 func test_entries_stack_on_the_next_free_rows() -> void:
 	_start([{"spawns": [_wasps(4, "grid_4x1"), _wasps(2, "grid_2x1")]}])
 	var ys: Dictionary = {}
 	for enemy: Enemy in _counted():
-		ys[enemy.global_position.y] = true
+		ys[(enemy as Wasp).formation_slot().y] = true
 	assert_eq(ys.keys().size(), 2, "two rows")
 	assert_true(ys.has(160.0) and ys.has(280.0), "second entry starts on row 1")
+
+
+func test_sides_entry_reaches_the_wasp() -> void:
+	_start([{"spawns": [{"type": "wasp", "count": 2.0, "formation": "grid_2x1", "entry": "sides"}]}])
+	var counted: Array[Enemy] = _counted()
+	assert_eq(counted.size(), 2)
+	for enemy: Enemy in counted:
+		var wasp: Wasp = enemy as Wasp
+		var slot: Vector2 = wasp.formation_slot()
+		var half: float = wasp.sprite_px / 2.0
+		var side_x: float = -half if slot.x <= Playfield.SIZE.x / 2.0 else Playfield.SIZE.x + half
+		assert_eq(wasp.state(), Wasp.State.ENTER, "entering")
+		assert_eq(wasp.global_position.y, slot.y, "at its slot's height")
+		assert_eq(wasp.global_position.x, side_x, "off-screen on the nearer side")
+
+
+## AC3: a diving Wasp that leaves and returns leaves the wave's counts untouched.
+func test_wasp_leaving_the_screen_does_not_resolve() -> void:
+	_start([{"spawns": [_wasps(1)]}])
+	var wasp: Wasp = _counted()[0] as Wasp
+	wasp.set_physics_process(false)
+	var dt: float = 1.0 / 60.0
+	var t: float = 0.0
+	while not wasp.is_holding() and t < 5.0:
+		wasp.step(dt)
+		t += dt
+	assert_true(wasp.is_holding(), "reached its slot")
+	wasp.start_dive()
+	var left: bool = false
+	t = 0.0
+	while t < 10.0 and not (left and wasp.is_holding()):
+		wasp.step(dt)
+		t += dt
+		if wasp.state() == Wasp.State.ENTER:
+			left = true
+	assert_true(left, "left the screen and re-entered")
+	assert_true(wasp.is_holding(), "back on its slot")
+	assert_eq(_director.resolved_count(), 0, "nothing resolved")
+	assert_eq(_director.total_count(), 1)
+	assert_eq(_events_named("wave_cleared").size(), 0, "no wave_cleared")
 
 
 # --- Asteroids ----------------------------------------------------------------

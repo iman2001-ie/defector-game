@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://scenes/level/level.gd" id="1_level"]
 [ext_resource type="PackedScene" path="res://entities/player/player.tscn" id="2_player"]
@@ -9,6 +9,7 @@
 [ext_resource type="PackedScene" path="res://ui/debug/debug_tools.tscn" id="7_debug_tools"]
 [ext_resource type="Script" path="res://ui/hud/wave_bar.gd" id="8_wave_bar"]
 [ext_resource type="Theme" path="res://ui/theme/defector_theme.tres" id="9_theme"]
+[ext_resource type="Script" path="res://entities/enemies/wasp/wasp_dive_clock.gd" id="10_dive_clock"]
 
 [sub_resource type="Environment" id="Environment_glow"]
 background_mode = 3
@@ -43,6 +44,9 @@ world = NodePath("../World")
 [node name="WaveDirector" type="Node" parent="." node_paths=PackedStringArray("spawner")]
 script = ExtResource("4_director")
 spawner = NodePath("../Spawner")
+
+[node name="WaspDiveClock" type="Node" parent="WaveDirector"]
+script = ExtResource("10_dive_clock")
 
 [node name="ShakeCamera" type="Camera2D" parent="."]
 position = Vector2(960, 540)
