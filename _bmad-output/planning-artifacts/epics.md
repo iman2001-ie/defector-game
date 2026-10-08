@@ -277,7 +277,7 @@ FR60: Epic 2 (level clear) and Epic 7 (game win)
 FR61: Epic 1 (tuning and flags), Epic 2 (waves), Epic 5 (dialogue and flag-gated beats)
 FR62: Epic 1 (cooldown ring), Epic 2 (wave bar), Epic 3 (hearts, energy), Epic 6 (convoy bar), Epic 7 (boss bar)
 FR63: Epic 8 - Audio pass (SFX framework from Epic 1)
-FR64: Epic 8 - Art pass
+FR64: Epic 3 - Player ship sprite (Story 3.6); Epic 8 - Art pass
 FR65: Epic 8 - Windows release
 FR66: Epic 5 - Control hints (placed into Level 1 in Epic 7)
 
@@ -292,8 +292,8 @@ The player fights through data-scripted waves of Wasps, Lancers, Needles and Bas
 **FRs covered:** FR19, FR20, FR21, FR22, FR24, FR25, FR26, FR27, FR28, FR29, FR60, FR61 (waves)
 
 ### Epic 3: Player Survival and Energy
-The player can take hits, die and retry instantly, collect energy from wreckage and spend it on a Shield or a Barrage to survive spikes. **Tier:** MUST hearts and retry, SHOULD energy, Shield and Barrage.
-**FRs covered:** FR9, FR10, FR11, FR12, FR13, FR14, FR15, FR16, FR17
+The player can take hits, die and retry instantly, collect energy from wreckage and spend it on a Shield or a Barrage to survive spikes. **Tier:** MUST hearts and retry, SHOULD energy, Shield, Barrage and the player ship sprite.
+**FRs covered:** FR9, FR10, FR11, FR12, FR13, FR14, FR15, FR16, FR17, FR64 (player ship)
 
 ### Epic 4: Game Flow, Progression and Save
 The player launches into a title screen, continues where they left off, picks unlocked levels, pauses at any time and keeps their progress between sessions, in fullscreen or windowed mode. **Tier:** MUST.
@@ -868,6 +868,8 @@ So that later waves force me to keep moving.
 
 The player can take hits, die and retry instantly, collect energy from wreckage and spend it on a Shield or a Barrage to survive spikes.
 
+> **Amended 2026-10-08 (decision #37):** Story 3.6 (player ship sprite) was pulled forward from Story 8.2 and runs before Epic 4.
+
 ### Story 3.1: Take Hits with Hearts and Mercy Invulnerability
 
 As a player,
@@ -1002,6 +1004,50 @@ So that I have a panic button against a crowded screen.
 **Given** I have less than 100 energy
 **When** I press Q
 **Then** nothing fires, `Events.ability_denied(&"barrage")` fires, the "denied" SFX plays and the energy bar flashes
+
+### Story 3.6: Fly a Real Ship
+
+As a player,
+I want my ship to look like a fighter instead of a glowing circle,
+So that I can read where my ship is and where its nose points at a glance.
+
+**Tier / Covers:** SHOULD · FR64 (partial: player ship), NFR10 · GDD decision #37 (pulled forward from Story 8.2)
+
+**Acceptance Criteria:**
+
+**Given** the Kenney Space Shooter Redux pack (CC0)
+**When** the Player scene loads
+**Then** `Player/Sprite` shows a Kenney fighter hull (e.g. `playerShip1_blue.png`) stored under `game/assets/sprites/player/`, facing up (nose toward −y), instead of the radial `GradientTexture2D` circle
+**And** the hull is recoloured to `coalition` cyan/teal (#22E6FF), either baked into the committed PNG or by a tint at or below 1.0, so it no longer reads as Kenney's default blue and doesn't bloom into a blob under `render.glow`
+**And** the PNG's `.import` sidecar is committed, and the headless `--import` step runs before the tests (AGENTS.md section 3)
+
+**Given** `player.sprite_px` (96) in `tuning.json`
+**When** the Player runs `_ready`
+**Then** the sprite is scaled uniformly so its longer side equals `player.sprite_px`, keeping its aspect ratio, with no hard-coded size
+**And** the hurtbox stays the circle from `player.hurtbox_diameter_px` (24 px), centred on the hull
+**And** lasers, the missile and the barrage still leave from the hull's nose (the `Muzzle` marker moved to the nose if needed), with the muzzle flash on it
+
+**Given** the existing ship feedback
+**When** I take a hit, die, raise the Shield or wait for the missile to reload
+**Then** the i-frame flicker, the ship hidden on death, the shield bubble and the missile cooldown ring all still work over the new sprite, and the ring stays readable on top of it
+
+**Given** the new art asset
+**When** I check `game/assets/CREDITS.md`
+**Then** it is listed under "Third-party assets" with its file, source (Kenney Space Shooter Redux, kenney.nl), licence (CC0 1.0) and a note that it was recoloured
+**And** the "placeholder sprites are drawn in code" note no longer covers the player ship
+
+**Given** the GUT suite runs headless
+**When** the player tests run
+**Then** a test asserts that the sprite has a non-null texture that is not a `GradientTexture2D`, and that its scaled longer side equals `player.sprite_px` within 1 px
+**And** the existing player, shield-bubble and missile-ring tests still pass
+
+**Given** the story is done
+**When** I read `game-architecture.md`
+**Then** it records the as-built: `assets/sprites/player/` exists, and `Player` scales the hull from `player.sprite_px`
+
+**Given** I play the dev level (human check)
+**When** I fly and fight
+**Then** the ship reads at a glance as a cyan/teal fighter pointing up, distinct from enemies and pickups, with glow on
 
 ---
 
@@ -1786,7 +1832,8 @@ So that I can read friend, foe, pickup and hazard at a glance.
 
 **Given** the Kenney space packs recoloured to the palette
 **When** the art pass is complete
-**Then** Coalition ships (player, allies, convoy) are cyan/teal, Sovereignty enemies and all enemy projectiles are magenta/red, energy orbs are gold, and asteroids are desaturated grey-brown with a rim light
+**Then** Coalition ships (allies and convoy; the player ship is already done in Story 3.6, decision #37) are cyan/teal, Sovereignty enemies and all enemy projectiles are magenta/red, energy orbs are gold, and asteroids are desaturated grey-brown with a rim light
+**And** the player ship from Story 3.6 is kept, and is only re-tinted if the final palette pass changes `coalition`
 
 **Given** the asset list
 **When** I check the project
