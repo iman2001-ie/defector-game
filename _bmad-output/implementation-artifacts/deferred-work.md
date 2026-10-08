@@ -350,7 +350,9 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-2-retro-2026-10-07.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 2; owner Dev loop; sprint-status status open)
-status: open
+status: done 2026-10-08
+resolution: resolved by sweep bundle dw-wave-data-validation-hardening
+resolution-undo: a92b52114ad60ef039959c621c1aa394b64e3c6a212a663bca8461c3b546f5f0 2026-10-08 7374617475733a206f70656e
 decision: 2026-10-07 Build: unreachable group is a validation error — LevelValidator rejects any group whose naming trigger can never fire (wave_clear, off or unknown flag, unevaluated boss_* triggers) and any progress `at` that cannot be reached before the group spawns; also type-check at/phase/hp/flag (against flags.json)/wait/entry and unknown action keys, add Bastion to ZONED_TYPES in test_data_files.gd, bound grid columns to the playfield width in validator and Formation, and stop _next_row advancing for Needle and Hunter Wasp. Tests for each rule.
 
 ### DW-38: Add an integration test that plays level_dev.json to LEVEL CLEAR with real kills (no F3) and asserts no stall ERROR (R3)
@@ -617,4 +619,20 @@ location: AGENTS.md:30; _bmad-output/game-architecture.md:1347
 source_spec: `spec-dw-47-dw-53-agents-md-import-guidance-wording.md`
 severity: low
 reason: Imported copies in `game/.godot/imported/` are keyed by source path, so a changed asset keeps its old copy. Wording such as "no up-to-date imported copy" covers both cases. The simplification comes from the bundle intent. The fix edits AGENTS.md (agent-context file).
+status: open
+
+### DW-67: LevelValidator doesn't detect a group named by more than one spawn_group action that can fire in the same wave.
+origin: spec-deferred ec3ee6a059ef
+location: game/systems/waves/level_validator.gd
+source_spec: `spec-dw-37-wave-data-validation-hardening.md`
+severity: low
+reason: WaveDirector._request_group logs a WARN and ignores a second request for an already-spawned group (wave_director.gd:319); the validator's reachability pass accepts duplicate naming. Pre-existing, not introduced by DW-37.
+status: open
+
+### DW-68: A Needle entry authored after another entry anchors on row 0 over the earlier entry's Wasps, while the row WaveDirector reserves for it stays empty.
+origin: spec-deferred 9ab5c792c2ca
+location: game/systems/waves/wave_director.gd:264
+source_spec: `spec-dw-37-wave-data-validation-hardening.md`
+severity: low
+reason: needle.gd anchors at enemies.needle.anchor_y_px (160 = waves.formation.top_y) whatever its slot y, but WaveDirector._spawn_entry gives it the next free row. Only a first-in-wave Needle (as in level_dev.json wave 4) lines up. Pre-existing: before DW-37 every type advanced the row. Neither LevelValidator nor test_zoned_formations_fit_their_top_zone detects it, and no shipped wave hits it.
 status: open

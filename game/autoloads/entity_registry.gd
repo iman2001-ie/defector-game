@@ -14,11 +14,12 @@ const ENEMIES: Dictionary[StringName, PackedScene] = {
 const ENEMY_FLAGS: Dictionary[StringName, String] = {
 	&"hunter_wasp": "hunter_wasp",
 }
-## Enemy types that don't hold a formation row: the Needle anchors at its own y,
-## and the Hunter Wasp never holds its slot (a sides entry only starts at the
-## slot's y, so it may share a row with the next entry). The WaveDirector
-## doesn't advance its formation row for them.
-const ROWLESS_TYPES: Array[StringName] = [&"needle", &"hunter_wasp"]
+## Enemy types that don't hold a formation row: the Hunter Wasp never holds its
+## slot (a sides entry only starts at the slot's y, so it may share a row with
+## the next entry). The WaveDirector doesn't advance its formation row for them.
+## The Needle is not rowless: it anchors at enemies.needle.anchor_y_px (= top_y)
+## and roams that row, so it takes a row like a formation type.
+const ROWLESS_TYPES: Array[StringName] = [&"hunter_wasp"]
 const PROJECTILES: Dictionary[StringName, PackedScene] = {
 	&"laser_bolt": preload("res://entities/projectiles/laser_bolt.tscn"),
 	&"missile": preload("res://entities/projectiles/missile.tscn"),

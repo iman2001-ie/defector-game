@@ -151,8 +151,8 @@ func test_entries_stack_on_the_next_free_rows() -> void:
 	assert_true(ys.has(160.0) and ys.has(280.0), "second entry starts on row 1")
 
 
-## DW-37 (R5): Needles and Hunter Wasps use only a slot's x, so they don't
-## advance the formation row; the next entry starts on the same row.
+## DW-37 (R5): Hunter Wasps never hold their slot, so they don't advance the
+## formation row; the next entry starts on the same row.
 func _assert_rowless(rowless: String) -> void:
 	_start([{"spawns": [{"type": rowless, "count": 2.0, "formation": "grid_2x2"}, _wasps(2, "grid_2x1")]}])
 	var wasps: int = 0
@@ -167,8 +167,27 @@ func _assert_rowless(rowless: String) -> void:
 	assert_eq(rowless_count, 2, "two %s spawned" % rowless)
 
 
-func test_needles_do_not_advance_the_row() -> void:
-	_assert_rowless("needle")
+## DW-37 (R5): the Needle anchors on row 0 (enemies.needle.anchor_y_px = top_y)
+## and roams it, so it takes a row: the shipped level_dev.json wave 4's Wasps
+## after its Needles start on row 1, off the Needle anchors.
+func test_needles_take_a_row() -> void:
+	var level: Dictionary = Config.level("dev")
+	_start([(level.waves as Array)[3]])
+	var row_1: float = Config.num("waves.formation.top_y") + Config.num("waves.formation.spacing_px.y")
+	var anchor_y: float = Config.num("enemies.needle.anchor_y_px")
+	var wasps: int = 0
+	var needles: int = 0
+	for enemy: Enemy in _counted():
+		if enemy is Wasp:
+			wasps += 1
+			var slot: Vector2 = (enemy as Wasp).formation_slot()
+			assert_eq(slot.y, row_1, "after Needles, Wasps start on row 1")
+			assert_ne(slot.y, anchor_y, "no Wasp slot on the Needle anchor row")
+		elif enemy is Needle:
+			needles += 1
+	assert_eq(row_1, 280.0, "row 1 is y 280 with the shipped tuning")
+	assert_eq(wasps, 4, "four Wasps after the Needles")
+	assert_eq(needles, 2, "two Needles spawned")
 
 
 func test_hunter_wasps_do_not_advance_the_row() -> void:

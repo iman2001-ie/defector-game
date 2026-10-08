@@ -16,9 +16,10 @@ extends Node
 ## A stall net subtracts groups that can never spawn, so no wave soft-locks.
 ##
 ## Formation rows: each entry starts on the next free row, except the
-## EntityRegistry.ROWLESS_TYPES, which don't advance the row: the Needle anchors
-## at its own y, and the Hunter Wasp never holds its slot (a sides entry only
-## starts at the slot's y, so it may share a row with the next entry).
+## EntityRegistry.ROWLESS_TYPES (the Hunter Wasp), which don't advance the row:
+## it never holds its slot (a sides entry only starts at the slot's y, so it may
+## share a row with the next entry). The Needle takes a row: it anchors on and
+## roams it.
 ##
 ## Feature-flag gate: a type listed in EntityRegistry.ENEMY_FLAGS whose flag is
 ## false at wave start is disabled for that wave. Its spawn and group entries

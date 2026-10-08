@@ -465,13 +465,30 @@ func test_level_problems_are_logged_and_data_returned() -> void:
 	assert_push_error("%s waves[0].spawns[0].type" % TEMP_LEVEL)
 
 
-## DW-37: level_at passes the flags, type gates and column bound to the validator.
+## DW-37: level_at passes the flags, type gates and column bound to the
+## validator. The test sets surrender_prompts true and hunter_wasp false
+## (after_each reloads the shipped flags). With Config's flags, triggers[0]'s
+## flag is known; with the real type gates, group h's Hunter Wasps count 0, so
+## its progress `at` 1.0 is reachable (13/13). Passing {} for either would add a
+## triggers[0].flag, a .at or a groups.h problem.
 func test_level_at_passes_flags_and_column_bound() -> void:
+	Config.flags["surrender_prompts"] = true
+	Config.flags["hunter_wasp"] = false
 	_write(TEMP_LEVEL, JSON.stringify({"id": 4, "waves": [{
 		"spawns": [{"type": "wasp", "count": 13, "formation": "grid_13x1"}],
-		"triggers": [{"when": "wave_start", "flag": "nope", "actions": []}],
+		"groups": {"h": [{"type": "hunter_wasp", "count": 4}]},
+		"triggers": [
+			{"when": "progress", "at": 1.0, "flag": "surrender_prompts", "actions": [{"spawn_group": "h"}]},
+			{"when": "wave_start", "flag": "nope", "actions": []},
+		],
 	}]}))
+	Log.sink = _capture
 	Config.level_at(TEMP_LEVEL)
 	DirAccess.remove_absolute(TEMP_LEVEL)
+	var errors: Array[String] = []
+	for entry: Array in _captured:
+		if entry[0] == "ERROR" and entry[1] == "data":
+			errors.append(entry[2] as String)
+	assert_eq(errors.size(), 2, "only the column and unknown-flag problems: %s" % [errors])
 	assert_push_error("%s waves[0].spawns[0].formation" % TEMP_LEVEL)
-	assert_push_error("%s waves[0].triggers[0].flag" % TEMP_LEVEL)
+	assert_push_error("%s waves[0].triggers[1].flag" % TEMP_LEVEL)

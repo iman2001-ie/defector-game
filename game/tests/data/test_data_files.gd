@@ -158,7 +158,7 @@ func _zone_y(type_id: StringName, half: float) -> Vector2:
 
 ## Mirrors WaveDirector._spawn_entry: spawns then groups, in order, on a running
 ## first row; non-objects, unknown types and empty entries take no rows, and
-## nor do EntityRegistry.ROWLESS_TYPES (Needle, Hunter Wasp).
+## nor do EntityRegistry.ROWLESS_TYPES (the Hunter Wasp; the Needle takes a row).
 ## Every Wasp, Lancer and Bastion slot must be inside its type's zone (see _zone_y)
 ## and fully on screen horizontally.
 func test_zoned_formations_fit_their_top_zone() -> void:

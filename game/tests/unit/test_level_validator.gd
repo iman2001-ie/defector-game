@@ -306,3 +306,21 @@ func test_grid_wider_than_the_playfield_is_a_problem() -> void:
 	_assert_one(data, "waves[0].spawns[0].formation")
 	data["waves"][0]["spawns"][0]["formation"] = "grid_12x1"
 	assert_eq(_validate(data), [] as Array[String], "12 columns fit")
+
+
+## A wave whose progress `at` 0.7 can't be reached (4/8 without a bad entry).
+func _unreachable_wave(spawns: Array, group: Array) -> Dictionary:
+	return {"id": 7, "waves": [{
+		"spawns": spawns,
+		"groups": {"g": group},
+		"triggers": [{"when": "progress", "at": 0.7, "actions": [{"spawn_group": "g"}]}],
+	}]}
+
+
+## A non-object spawn or group entry leaves the wave's counts unknown, so the
+## reachability pass is skipped: the `at` 0.7 and group g aren't reported on
+## top of the entry problem.
+func test_non_object_entry_skips_reachability() -> void:
+	var wasps: Dictionary = {"type": "wasp", "count": 4.0}
+	_assert_one(_unreachable_wave([3, wasps], [wasps.duplicate()]), "waves[0].spawns[0]")
+	_assert_one(_unreachable_wave([wasps], [3, wasps.duplicate()]), "waves[0].groups.g[0]")

@@ -205,7 +205,7 @@ static func _gated_total(entries: Array, ctx: Dictionary) -> int:
 
 ## Spawn and group entries: a known type and an integer count > 0; an optional
 ## valid formation within the column bound; an optional valid entry. Sets
-## counts_known[0] false on a type or count problem.
+## counts_known[0] false on a non-object entry or a type or count problem.
 static func _check_entries(entries: Array, ctx: Dictionary, path: String, problems: Array[String], counts_known: Array[bool]) -> void:
 	var source: String = ctx.source
 	var known_types: Array[StringName] = ctx.known_types
@@ -215,6 +215,7 @@ static func _check_entries(entries: Array, ctx: Dictionary, path: String, proble
 		var entry: Variant = entries[e]
 		if not (entry is Dictionary):
 			problems.append(_problem(source, entry_path, "is not an object"))
+			counts_known[0] = false
 			continue
 		var dict: Dictionary = entry
 		var type_id: StringName = StringName(str(dict.get("type", "")))
