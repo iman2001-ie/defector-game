@@ -23,7 +23,9 @@ const LAYERS: Array[String] = [
 	"player", "player_shots", "enemies", "enemy_shots",
 	"asteroids", "pickups", "convoy", "allies",
 ]
-const AUTOLOADS: Array[String] = ["Log", "Events", "Config", "PauseArbiter", "Audio", "Feedback", "EntityRegistry"]
+const AUTOLOADS: Array[String] = [
+	"Log", "Events", "Config", "GameState", "PauseArbiter", "Audio", "Feedback", "EntityRegistry", "SceneRouter",
+]
 
 ## Signal name -> argument types, per the architecture's Events catalogue.
 const EVENTS: Dictionary = {

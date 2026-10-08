@@ -12,7 +12,7 @@ const TEMP_FLAGS: String = "user://test_config_flags.json"
 const SECTIONS: Array[String] = [
 	"player", "weapons", "abilities", "energy", "drops", "enemies", "boss",
 	"asteroids", "convoy", "allies", "waves", "comms", "feedback", "damage",
-	"hud", "render", "debug",
+	"hud", "ui", "render", "debug",
 ]
 const FLAG_DEFAULTS: Dictionary = {
 	"surrender_prompts": true,

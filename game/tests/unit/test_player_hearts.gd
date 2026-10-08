@@ -1,9 +1,9 @@
 extends GutTest
 ## Player hearts (Story 3.1): apply_damage, i-frames and their 10 Hz sprite
 ## flicker, contact costs by enemy tier and asteroid size, the persistent-overlap
-## re-check, debug_invincible, the 0-heart floor and the deferred first
-## hearts_changed. Driven through step_iframes / on_contact with physics
-## processing off.
+## re-check, debug_invincible, the 0-heart floor (now death, Story 3.2; see
+## test_player_death.gd) and the deferred first hearts_changed. Driven through
+## step_iframes / on_contact with physics processing off.
 
 const PLAYER_SCENE: PackedScene = preload("res://entities/player/player.tscn")
 const WASP_SCENE: PackedScene = preload("res://entities/enemies/wasp/wasp.tscn")
@@ -214,15 +214,19 @@ func test_step_iframes_without_a_hit_does_nothing() -> void:
 	assert_false(_player.is_invulnerable())
 
 
-func test_overkill_floors_at_zero_and_logs_once() -> void:
+func test_overkill_floors_at_zero_and_kills_once() -> void:
 	_player.hearts = 1
 	_player.apply_damage(2, null)
 	assert_eq(_player.hearts, 0, "not negative")
 	assert_signal_emitted_with_parameters(Events, "hearts_changed", [0, 5])
+	assert_true(_player.is_dead(), "0 hearts is death")
+	assert_false(_player.is_invulnerable(), "no i-frames after death")
 	_step(_iframes_s() + DT)
 	_player.apply_damage(1, null)
 	assert_eq(_player.hearts, 0)
 	assert_signal_emit_count(Events, "player_hit", 1, "later damage ignored")
+	assert_signal_emit_count(Events, "player_died", 1)
+	assert_signal_emit_count(Events, "level_failed", 1)
 	assert_eq(_logged("[INFO][combat]").size(), 1, "one INFO line")
 
 

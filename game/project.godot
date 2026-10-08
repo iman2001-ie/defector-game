@@ -21,10 +21,12 @@ config/custom_user_dir_name="DEFECTOR"
 Log="*res://autoloads/log.gd"
 Events="*res://autoloads/events.gd"
 Config="*res://autoloads/config.gd"
+GameState="*res://autoloads/game_state.gd"
 PauseArbiter="*res://autoloads/pause_arbiter.gd"
 Audio="*res://autoloads/audio.gd"
 Feedback="*res://autoloads/feedback.gd"
 EntityRegistry="*res://autoloads/entity_registry.gd"
+SceneRouter="*res://autoloads/scene_router.gd"
 
 [debug]
 

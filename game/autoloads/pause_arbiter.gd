@@ -44,7 +44,7 @@ func reasons() -> Array[StringName]:
 	return out
 
 
-## SceneRouter calls this on every scene change (later epics).
+## SceneRouter calls this on every scene change.
 func clear() -> void:
 	_reasons.clear()
 	_apply()

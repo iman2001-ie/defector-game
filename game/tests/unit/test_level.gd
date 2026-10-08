@@ -1,7 +1,10 @@
 extends GutTest
 ## level.tscn: the architecture tree, process modes, level_started with the
 ## JSON id, the gameplay mouse mode, wave 1 from level_dev.json and the
-## LEVEL CLEAR banner, and the hearts display and hit vignette in the HUD.
+## LEVEL CLEAR banner, the hearts display and hit vignette in the HUD, the
+## retry prompt in the Overlay, the level id resolution and the death -> retry
+## reload (Story 3.2). Long wave runs make the player debug_invincible so a
+## death can't pause the tree mid-test.
 
 const LEVEL_SCENE: PackedScene = preload("res://scenes/level/level.tscn")
 const CONTAINERS: Array[String] = ["Asteroids", "Enemies", "Allies", "Pickups", "Projectiles", "Effects"]
@@ -13,6 +16,7 @@ var _level: Node2D
 var _started: Array[int] = []
 var _cleared: Array[int] = []
 var _lines: Array[String] = []
+var _scene_calls: Array[String] = []
 
 
 func _on_level_started(id: int) -> void:
@@ -31,6 +35,8 @@ func before_each() -> void:
 	_started.clear()
 	_cleared.clear()
 	_lines.clear()
+	_scene_calls.clear()
+	_reset_game_state()
 	Events.level_started.connect(_on_level_started)
 	Events.level_cleared.connect(_on_level_cleared)
 
@@ -40,9 +46,28 @@ func after_each() -> void:
 	Events.level_cleared.disconnect(_on_level_cleared)
 	Log.sink = Callable()
 	_level = null
+	SceneRouter.change_scene = SceneRouter.default_change_scene()
+	_reset_game_state()
 	Config.load_data()
+	Feedback.reset()
 	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	PauseArbiter.clear()
+
+
+func _reset_game_state() -> void:
+	GameState.energy = 0
+	GameState.current_level_id = ""
+	GameState.is_retry = false
+
+
+func _record_scene(path: String) -> Error:
+	_scene_calls.append(path)
+	return OK
+
+
+## Long wave runs: enemies may reach the static ship; a death would pause the tree.
+func _make_player_invincible() -> void:
+	(_level.get_node("World/Player") as Player).debug_invincible = true
 
 
 func _make_level(level_id: String = "dev") -> Node2D:
@@ -84,6 +109,11 @@ func test_tree() -> void:
 	assert_eq((_level.get_node("Overlay") as CanvasLayer).layer, 30)
 	assert_true(_level.get_node_or_null("HUD/LevelClearBanner") is LevelClearBanner)
 	assert_true(_level.get_node_or_null("Overlay/DebugTools") is DebugTools)
+	var prompt: RetryPrompt = _level.get_node_or_null("Overlay/RetryPrompt") as RetryPrompt
+	assert_not_null(prompt, "Overlay/RetryPrompt is a RetryPrompt")
+	if prompt != null:
+		assert_lt(prompt.get_index(), _level.get_node("Overlay/DebugTools").get_index(), "the debug overlay draws on top")
+		assert_false(prompt.visible, "hidden at start")
 	var env: Environment = (_level.get_node("WorldEnvironment") as WorldEnvironment).environment
 	assert_true(env.glow_enabled, "glow on")
 	assert_almost_eq(env.glow_intensity, Config.num("render.glow.intensity"), 0.0001, "glow from data")
@@ -127,6 +157,7 @@ func test_process_modes() -> void:
 	assert_eq(_level.get_node("HUD").process_mode, Node.PROCESS_MODE_INHERIT, "HUD pausable")
 	assert_eq(_level.get_node("ShakeCamera").process_mode, Node.PROCESS_MODE_ALWAYS)
 	assert_eq(_level.get_node("Overlay/DebugTools").process_mode, Node.PROCESS_MODE_ALWAYS)
+	assert_eq(_level.get_node("Overlay/RetryPrompt").process_mode, Node.PROCESS_MODE_ALWAYS)
 
 
 func test_level_started_with_the_json_id_and_wave_1() -> void:
@@ -252,6 +283,7 @@ func test_clearing_every_dev_wave_clears_the_level() -> void:
 	(Config.tuning["waves"] as Dictionary)["gap_s"] = 0.05
 	Log.sink = _capture
 	_make_level()
+	_make_player_invincible()
 	var director: WaveDirector = _level.get_node("WaveDirector") as WaveDirector
 	var banner: Label = _level.get_node("HUD/LevelClearBanner") as Label
 	for wave: int in 6:
@@ -281,6 +313,7 @@ func test_dev_level_clears_with_real_kills_and_no_stall() -> void:
 	(Config.tuning["waves"] as Dictionary)["gap_s"] = 0.05
 	Log.sink = _capture
 	_make_level()
+	_make_player_invincible()
 	var director: WaveDirector = _level.get_node("WaveDirector") as WaveDirector
 	var banner: Label = _level.get_node("HUD/LevelClearBanner") as Label
 	var enemies: Node = _level.get_node("World/Enemies")
@@ -326,6 +359,7 @@ func test_dev_level_clears_with_real_kills_and_no_stall() -> void:
 func test_dev_wave_3_has_lancers() -> void:
 	(Config.tuning["waves"] as Dictionary)["gap_s"] = 0.05
 	_make_level()
+	_make_player_invincible()
 	var director: WaveDirector = _level.get_node("WaveDirector") as WaveDirector
 	for wave: int in 2:
 		director.debug_resolve_wave()
@@ -353,6 +387,7 @@ func test_dev_wave_3_has_lancers() -> void:
 func test_dev_wave_4_has_needles_and_cover() -> void:
 	(Config.tuning["waves"] as Dictionary)["gap_s"] = 0.05
 	_make_level()
+	_make_player_invincible()
 	var director: WaveDirector = _level.get_node("WaveDirector") as WaveDirector
 	for wave: int in 3:
 		director.debug_resolve_wave()
@@ -384,6 +419,7 @@ func test_dev_wave_5_has_a_bastion() -> void:
 	(Config.tuning["waves"] as Dictionary)["gap_s"] = 0.05
 	Log.sink = _capture
 	_make_level()
+	_make_player_invincible()
 	var director: WaveDirector = _level.get_node("WaveDirector") as WaveDirector
 	for wave: int in 4:
 		director.debug_resolve_wave()
@@ -413,6 +449,7 @@ func test_dev_wave_6_skips_hunters_with_the_default_flag() -> void:
 	(Config.tuning["waves"] as Dictionary)["gap_s"] = 0.05
 	Log.sink = _capture
 	_make_level()
+	_make_player_invincible()
 	var director: WaveDirector = _level.get_node("WaveDirector") as WaveDirector
 	for wave: int in 5:
 		director.debug_resolve_wave()
@@ -439,6 +476,97 @@ func test_dev_wave_6_skips_hunters_with_the_default_flag() -> void:
 			skips += 1
 	assert_eq(skips, 1, "one DEBUG skip line")
 
+
+# --- Level id and retry (Story 3.2) ---------------------------------------------
+
+func test_resolve_level_id_prefers_the_game_state_id() -> void:
+	assert_eq(LEVEL_SCRIPT.resolve_level_id("dev", ""), "dev", "no state id: the export")
+	assert_eq(LEVEL_SCRIPT.resolve_level_id("dev", "2"), "2", "state id wins")
+	assert_eq(LEVEL_SCRIPT.resolve_level_id("", "dev"), "dev")
+
+
+func test_level_writes_its_id_back_to_game_state() -> void:
+	Log.sink = _capture
+	_make_level()
+	Log.sink = Callable()
+	assert_eq(GameState.current_level_id, "dev")
+	assert_eq(_level.get("level_id"), "dev")
+	for line: String in _lines:
+		assert_false(line.contains("(retry)"), "a fresh start is not tagged: " + line)
+
+
+func test_level_uses_the_game_state_id_and_tags_a_retry() -> void:
+	GameState.current_level_id = "dev"
+	GameState.is_retry = true
+	Log.sink = _capture
+	_make_level("does_not_exist")
+	Log.sink = Callable()
+	assert_eq(_level.get("level_id"), "dev", "GameState id wins over the export")
+	assert_eq(_started, [0] as Array[int], "level_dev started")
+	assert_eq(_retry_start_lines(), 1, "start line tagged (retry)")
+
+
+func _retry_start_lines() -> int:
+	var tagged: int = 0
+	for line: String in _lines:
+		if line.begins_with("[INFO][scene] Level 0") and line.ends_with(" (retry)"):
+			tagged += 1
+	return tagged
+
+
+## Acceptance: death in a real level -> beat -> prompt + `death` pause -> RETRY
+## -> SceneRouter reloads level.tscn; the reloaded level is clean.
+func test_death_and_retry_reload_a_clean_level() -> void:
+	(Config.tuning["feedback"] as Dictionary)["player_death_pause_s"] = 0.2
+	SceneRouter.change_scene = _record_scene
+	_make_level()
+	await wait_process_frames(1)
+	var player: Player = _level.get_node("World/Player") as Player
+	var prompt: RetryPrompt = _level.get_node("Overlay/RetryPrompt") as RetryPrompt
+	player.hearts = 1
+	player.apply_damage(1, null)
+	assert_true(player.is_dead())
+	assert_true(prompt.is_pending(), "death beat running")
+	assert_false(PauseArbiter.is_paused())
+	# The beat is pausable and stretched by the 100 ms death hit-stop; wait in real time.
+	await get_tree().create_timer(0.6, true, false, true).timeout
+	assert_true(prompt.is_shown(), "prompt after the beat")
+	assert_eq(PauseArbiter.reasons(), [&"death"] as Array[StringName])
+	assert_eq(PauseArbiter.current_mouse_mode(), Input.MOUSE_MODE_VISIBLE, "cursor visible")
+	assert_eq(prompt.reason_text(), "HULL DESTROYED")
+	(prompt.get_node("Retry") as Button).pressed.emit()
+	assert_eq(_scene_calls, [SceneRouter.LEVEL_SCENE_PATH] as Array[String], "level.tscn reloaded once")
+	assert_false(PauseArbiter.is_paused(), "not paused")
+	assert_eq(Engine.time_scale, 1.0)
+	assert_true(GameState.is_retry)
+	assert_eq(GameState.energy, 0)
+	assert_eq(GameState.current_level_id, "dev")
+	# Stand in for the scene change: free the old level, instantiate the recorded path.
+	_level.queue_free()
+	await wait_process_frames(1)
+	var scene: PackedScene = load(_scene_calls[0]) as PackedScene
+	_lines.clear()
+	Log.sink = _capture
+	_level = scene.instantiate() as Node2D
+	_level.set("level_id", "does_not_exist")
+	add_child_autofree(_level)
+	Log.sink = Callable()
+	assert_eq(_level.get("level_id"), "dev", "same level id")
+	var fresh: Player = _level.get_node("World/Player") as Player
+	assert_eq(fresh.hearts, 5, "5 hearts")
+	assert_false(fresh.is_dead())
+	assert_true(fresh.visible)
+	var director: WaveDirector = _level.get_node("WaveDirector") as WaveDirector
+	assert_eq(director.wave_number(), 1, "wave 1")
+	assert_eq(_counted(), 8, "only wave 1's spawns")
+	assert_eq(_level.get_node("World/Enemies").get_child_count(), 8, "no leftover enemies")
+	assert_eq(_level.get_node("World/Projectiles").get_child_count(), 0, "no projectiles")
+	assert_false(PauseArbiter.is_paused())
+	assert_true(GameState.is_retry)
+	var fresh_prompt: RetryPrompt = _level.get_node("Overlay/RetryPrompt") as RetryPrompt
+	assert_false(fresh_prompt.visible, "retry prompt hidden")
+	assert_false(fresh_prompt.is_pending())
+	assert_eq(_retry_start_lines(), 1, "retry start logged")
 
 # --- Debug-arg gates ----------------------------------------------------------
 

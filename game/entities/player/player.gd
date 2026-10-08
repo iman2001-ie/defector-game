@@ -24,8 +24,15 @@ extends Area2D
 ## starts player.iframes_s of i-frames. Damage while invulnerable (i-frames or
 ## debug_invincible) is ignored entirely. I-frame time accumulates from physics
 ## delta in step_iframes, so it freezes under pause and hit-stop; meanwhile only
-## the Sprite flickers at player.iframe_flicker_hz. At 0 hearts no more damage is
-## taken (death is Story 3.2).
+## the Sprite flickers at player.iframe_flicker_hz.
+##
+## Death (Story 3.2): the hit that brings hearts to 0 still emits hearts_changed
+## and player_hit, then plays the PLAYER_DEATH feedback (instead of PLAYER_HIT)
+## and emits Events.player_died then Events.level_failed(&"hearts"), once. The
+## dead ship is hidden (the MissileRing with it), has no i-frames, switches its
+## collision off, forgets its contacts and ignores damage and contact; its
+## physics tick does nothing (no lock, fire or missile). Retry reloads the scene
+## (ADR-004), so nothing here is ever reset.
 ##
 ## Contact: the Player watches its own area_entered/area_exited. A small or
 ## medium Enemy costs damage.contact_<tier>_hearts and is destroyed by contact,
@@ -68,7 +75,7 @@ var _contact_medium: int = 0
 var _contact_large: int = 0
 ## Surviving hazards (large enemies, asteroids) the hurtbox overlaps right now.
 var _contacts: Array[Area2D] = []
-var _zero_logged: bool = false
+var _dead: bool = false
 
 @onready var _hurtbox: CollisionShape2D = $Hurtbox
 @onready var _sprite: Sprite2D = $Sprite
@@ -107,6 +114,8 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if _dead:
+		return
 	step_lock(get_viewport().get_mouse_position())
 	step_fire(Input.is_action_pressed(&"fire_laser"), delta)
 	step_missile(Input.is_action_just_pressed(&"fire_missile"), delta)
@@ -120,19 +129,41 @@ func is_invulnerable() -> bool:
 	return _iframe_active or debug_invincible
 
 
-## Costs `amount` hearts (floored at 0) and starts the i-frames. Ignored when
-## amount <= 0, while invulnerable or at 0 hearts.
+## True once hearts reached 0 in this attempt.
+func is_dead() -> bool:
+	return _dead
+
+
+## Costs `amount` hearts (floored at 0) and starts the i-frames; the hit that
+## reaches 0 kills the ship instead. Ignored when amount <= 0, while
+## invulnerable, at 0 hearts or once dead.
 func apply_damage(amount: int, _source: Node) -> void:
-	if amount <= 0 or is_invulnerable() or hearts <= 0:
+	if _dead or amount <= 0 or is_invulnerable() or hearts <= 0:
 		return
 	hearts = maxi(hearts - amount, 0)
 	Events.hearts_changed.emit(hearts, max_hearts)
 	Events.player_hit.emit(global_position)
+	if hearts == 0:
+		_die()
+		return
 	Feedback.impact(ImpactTier.PLAYER_HIT, global_position)
 	_start_iframes()
-	if hearts == 0 and not _zero_logged:
-		_zero_logged = true
-		Log.info("combat", "player hearts reached 0; no more damage this attempt")
+
+
+## The lethal hit: PLAYER_DEATH feedback, the ship goes hidden and inert, then
+## player_died and level_failed(&"hearts"). Runs once (apply_damage guards it).
+func _die() -> void:
+	_dead = true
+	_iframe_active = false
+	_sprite.visible = true
+	visible = false
+	set_deferred(&"monitoring", false)
+	set_deferred(&"monitorable", false)
+	_contacts.clear()
+	Feedback.impact(ImpactTier.PLAYER_DEATH, global_position)
+	Log.info("combat", "Player destroyed: hearts reached 0")
+	Events.player_died.emit()
+	Events.level_failed.emit(&"hearts")
 
 
 ## One i-frame tick: advances the window by `delta`, flickers the sprite and,
@@ -165,6 +196,8 @@ func _emit_hearts() -> void:
 ## and medium enemies are then destroyed (even while invulnerable). Other areas
 ## (pickups) and dead enemies are ignored. Surviving hazards are remembered.
 func on_contact(area: Area2D) -> void:
+	if _dead:
+		return
 	var enemy: Enemy = area as Enemy
 	if enemy != null:
 		if enemy.is_dead():
@@ -173,7 +206,7 @@ func on_contact(area: Area2D) -> void:
 		apply_damage(_enemy_contact_cost(enemy.tier), enemy)
 		if destroyed:
 			enemy.destroy_by_contact()
-		else:
+		elif not _dead:
 			_remember(area)
 		return
 	var rock: Asteroid = area as Asteroid
@@ -181,7 +214,8 @@ func on_contact(area: Area2D) -> void:
 		if rock.is_queued_for_deletion():
 			return
 		apply_damage(_asteroid_contact_cost(rock.size), rock)
-		_remember(area)
+		if not _dead:
+			_remember(area)
 
 
 func _enemy_contact_cost(tier: int) -> int:
@@ -208,6 +242,9 @@ func _remember(area: Area2D) -> void:
 ## Drops freed, dying or dead hazards, then (when vulnerable) lets the newest
 ## remaining one hit again; on_contact restarts the i-frames, so one hit per expiry.
 func _recheck_contacts() -> void:
+	if _dead:
+		_contacts.clear()
+		return
 	var i: int = _contacts.size() - 1
 	while i >= 0:
 		if not _is_live_hazard(_contacts[i]):

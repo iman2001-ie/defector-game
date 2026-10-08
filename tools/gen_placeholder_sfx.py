@@ -1,7 +1,7 @@
 """Generate DEFECTOR's placeholder SFX (Story 1.6).
 
 Stdlib only, fixed seed, so the output is reproducible. Writes 16-bit mono
-44.1 kHz WAVs, each under 1 s, into game/assets/audio/sfx/. These stand in for
+44.1 kHz WAVs, each 1 s or shorter, into game/assets/audio/sfx/. These stand in for
 Kenney sounds until real assets can be downloaded.
 
 Run from the repo root:  uv run python tools/gen_placeholder_sfx.py
@@ -19,6 +19,7 @@ RATE = 44100
 SEED = 1606
 # Sounds added after Story 1.6 use their own RNG, so the original WAVs stay byte-identical.
 PLAYER_HIT_SEED = 3101
+PLAYER_DEATH_SEED = 3201
 OUT_DIR = Path(__file__).resolve().parent.parent / "game" / "assets" / "audio" / "sfx"
 
 
@@ -98,6 +99,23 @@ def player_hit(rng: random.Random) -> list[float]:
     return out
 
 
+def player_death(rng: random.Random) -> list[float]:
+    """Heavy 1.0 s ship loss: a dark explosion with a sub rumble plus a falling clipped buzz (180 -> 40 Hz)."""
+    n = int(1.0 * RATE)
+    boom = explosion(rng, 1.0, 0.08, 45.0)
+    out: list[float] = []
+    phase_a = 0.0
+    phase_b = 0.0
+    for i in range(n):
+        t = i / n
+        freq = 180.0 * (40.0 / 180.0) ** t
+        phase_a += 2.0 * math.pi * freq / RATE
+        phase_b += 2.0 * math.pi * freq * 1.11 / RATE
+        buzz = math.tanh(3.0 * (math.sin(phase_a) + math.sin(phase_b))) * _envelope(i, n, 0.002, 2.5)
+        out.append(1.0 * boom[i] + 0.35 * buzz)
+    return out
+
+
 def _normalise(samples: list[float], peak: float = 0.9) -> list[float]:
     top = max(abs(s) for s in samples) or 1.0
     return [s * peak / top for s in samples]
@@ -127,6 +145,7 @@ def main() -> None:
         "explosion_large": explosion(rng, 0.90, 0.10, 50.0),
     }
     sounds["player_hit"] = player_hit(random.Random(PLAYER_HIT_SEED))
+    sounds["player_death"] = player_death(random.Random(PLAYER_DEATH_SEED))
     for name, samples in sounds.items():
         path = _write(name, samples)
         print(f"wrote {path.name} ({len(samples) / RATE:.2f} s)")

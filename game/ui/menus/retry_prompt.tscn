@@ -1,0 +1,51 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://ui/menus/retry_prompt.gd" id="1_retry"]
+[ext_resource type="Theme" path="res://ui/theme/defector_theme.tres" id="2_theme"]
+
+[node name="RetryPrompt" type="Control"]
+process_mode = 3
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_retry")
+
+[node name="Dim" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 0.6)
+
+[node name="Reason" type="Label" parent="."]
+layout_mode = 0
+offset_top = 440.0
+offset_right = 1920.0
+offset_bottom = 488.0
+text = "HULL DESTROYED"
+horizontal_alignment = 1
+
+[node name="Retry" type="Button" parent="."]
+layout_mode = 0
+offset_left = 616.0
+offset_top = 560.0
+offset_right = 936.0
+offset_bottom = 640.0
+text = "RETRY"
+
+[node name="Quit" type="Button" parent="."]
+layout_mode = 0
+offset_left = 984.0
+offset_top = 560.0
+offset_right = 1304.0
+offset_bottom = 640.0
+text = "QUIT TO TITLE"

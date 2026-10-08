@@ -129,7 +129,7 @@ mkdir game
 | Physics tick | 60 Hz (default) | Collision-relevant movement goes in `_physics_process` |
 | Audio | `AudioServer` buses + `AudioStreamPlayer` | Buses: `Master` → `Music`, `SFX`, `UI` |
 | Input | InputMap actions | Defined in `project.godot` (see Input Actions) |
-| Scene management | `SceneTree.change_scene_to_file` behind the `SceneRouter` autoload (planned) | Today only the debug F5 reload restarts the scene (`DebugTools`, see Reload) |
+| Scene management | `SceneTree.change_scene_to_file` behind the `SceneRouter` autoload | Built (Story 3.2): `restart_level()` and a placeholder `goto_title()`, through an injectable `change_scene` callable. The debug F5 reload (`DebugTools`, see Reload) and the `--stress` redirect are the debug-only exceptions |
 | Tweening / animation | `Tween` (code) for UI, flicker, shake decay | `AnimationPlayer` is optional, for sprite anims only |
 | Particles | `GPUParticles2D` one-shot | Pre-warmed by `Feedback.prewarm()` when the scene starts (see Asset Management) |
 | Display scaling | Stretch mode `canvas_items`, aspect `keep`, base 1920×1080 | This gives the letterboxing |
@@ -178,7 +178,7 @@ The sections below resolve: state management, data format and access, save, the 
 
 | State | Owner | Lifetime |
 |---|---|---|
-| `energy` (0–100), `current_level_id`, `highest_unlocked_level`, `is_retry` | `GameState` autoload | Whole session. Unlocks and energy are persisted by `SaveManager` |
+| `energy` (0–100), `current_level_id`, `highest_unlocked_level`, `is_retry` | `GameState` autoload | Whole session. Unlocks and energy are persisted by `SaveManager`. Built (Story 3.2): `energy`, `current_level_id` (the level file key, e.g. `"dev"`) and `is_retry`, fields only; `highest_unlocked_level` is Epic 4 |
 | Hearts, i-frames, shield, missile cooldown | `Player` node | One level attempt |
 | Wave index, alive and resolved counts, triggers fired | `WaveDirector` node | One level attempt |
 | Convoy HP | `Convoy` node | One level attempt |
@@ -233,8 +233,8 @@ The game has two independent mechanisms. **No other code** may set `get_tree().p
 | Node | `process_mode` |
 |---|---|
 | Gameplay world (`World` node in the scene root: `level.tscn`, and the `sandbox.tscn` stress bench) | `PROCESS_MODE_PAUSABLE` (inherit) |
-| `CommsPanel`, `PauseMenu`, `FinalChoice`, retry prompt | `PROCESS_MODE_ALWAYS` |
-| Autoloads `PauseArbiter`, `Audio`, `Feedback` (and `SceneRouter`, planned) | `PROCESS_MODE_ALWAYS` |
+| `CommsPanel`, `PauseMenu`, `FinalChoice`, retry prompt (`Overlay/RetryPrompt`, built) | `PROCESS_MODE_ALWAYS` |
+| Autoloads `PauseArbiter`, `Audio`, `Feedback`, `SceneRouter` | `PROCESS_MODE_ALWAYS` |
 | `ShakeCamera`, `DebugTools` (as built; each sets it in `_ready`) | `PROCESS_MODE_ALWAYS` |
 | HUD | `PROCESS_MODE_PAUSABLE` (it freezes along with gameplay) |
 
@@ -559,7 +559,7 @@ Debug tools are available **only when `OS.is_debug_build()`** (editor runs and d
 
 ### Directory Structure
 
-This is the target tree. As of Story 2.2 the built parts are: `project.godot`, `export_presets.cfg` and `default_bus_layout.tres`; the autoloads `Log`, `Events`, `Config`, `PauseArbiter`, `Audio`, `Feedback`, `EntityRegistry`; `core/` except `health_component.gd`; `entities/player/` (without the shield); `entities/projectiles/` laser and missile; `entities/enemies/wasp/`; `entities/asteroids/`; `entities/effects/`; `systems/camera/`; `systems/waves/`; `scenes/sandbox/`; `scenes/level/`; `ui/debug/`; `ui/hud/level_clear_banner.gd`, `wave_bar.gd`, `hearts_display.gd` and `hit_vignette.gd` (+ `.gdshader`); `data/tuning.json`, `data/flags.json` and `data/levels/`; `assets/audio/sfx/` and `assets/CREDITS.md`; `addons/gut/`; `tests/unit/` (plus `tests/fixtures/`); and `tests/data/`. Everything else is planned.
+This is the target tree. As of Story 3.2 the built parts are: `project.godot`, `export_presets.cfg` and `default_bus_layout.tres`; the autoloads `Log`, `Events`, `Config`, `GameState`, `PauseArbiter`, `Audio`, `Feedback`, `EntityRegistry`, `SceneRouter`; `core/` except `health_component.gd`; `entities/player/` (without the shield); `entities/projectiles/` laser and missile; `entities/enemies/wasp/`; `entities/asteroids/`; `entities/effects/`; `systems/camera/`; `systems/waves/`; `scenes/sandbox/`; `scenes/level/`; `ui/debug/`; `ui/hud/level_clear_banner.gd`, `wave_bar.gd`, `hearts_display.gd` and `hit_vignette.gd` (+ `.gdshader`); `ui/menus/retry_prompt.tscn` + `.gd`; `data/tuning.json`, `data/flags.json` and `data/levels/`; `assets/audio/sfx/` and `assets/CREDITS.md`; `addons/gut/`; `tests/unit/` (plus `tests/fixtures/`); and `tests/data/`. Everything else is planned.
 
 ```
 <repo root>/
@@ -655,15 +655,15 @@ This is the target tree. As of Story 2.2 the built parts are: `project.godot`, `
 | Global events | `autoloads/events.gd` | Signal catalogue only, no logic |
 | Logging | `autoloads/log.gd` | Levelled, categorised logging |
 | Tuning, flags, level and dialogue data | `autoloads/config.gd` + `data/` | Load, validate, typed getters, hot reload |
-| Run state (energy, unlocks, current level) | `autoloads/game_state.gd` | Single source of truth for cross-scene state |
+| Run state (energy, unlocks, current level) | `autoloads/game_state.gd` | Single source of truth for cross-scene state. Built (Story 3.2): `energy`, `current_level_id`, `is_retry` |
 | Save / load | `autoloads/save_manager.gd` | Only writer and reader of `user://save.cfg` |
 | Pause | `autoloads/pause_arbiter.gd` | Pause reasons → `tree.paused` + mouse mode |
-| Scene flow | `autoloads/scene_router.gd` | `goto_title()`, `start_level(id)`, `restart_level()`, `goto_story(id, next)`, `goto_end()` |
+| Scene flow | `autoloads/scene_router.gd` | `goto_title()`, `start_level(id)`, `restart_level()`, `goto_story(id, next)`, `goto_end()`. Built (Story 3.2): `restart_level()` and a placeholder `goto_title()` (loads the main scene until Story 4.1/4.2); the others are planned |
 | Audio | `autoloads/audio.gd` | SFX pool, music, registry |
 | Impact feedback | `autoloads/feedback.gd` + `systems/camera/shake_camera.gd` | Tier → explosion, shake, hit-stop, SFX |
 | Entity scenes registry | `autoloads/entity_registry.gd` | `const` dicts of `preload`ed scenes |
 | Spawning | `core/spawner.gd` (node in the scene root: today `sandbox.tscn`; `level.tscn` planned) | The only place that instantiates gameplay entities |
-| Player ship, weapons, abilities | `entities/player/` | `player.gd` (`Player`): cursor lock, bounds, hurtbox and sizing; delegates firing to its `Weapons` child. `player_weapons.gd` (`class_name PlayerWeapons extends Node`, the `Weapons` child): laser and missile timing, spawning, sfx and `missile_cooldown_changed`; API `set_spawner(spawner)`, `step_fire(held, delta)`, `step_missile(pressed, delta)`, which `Player` keeps as one-line delegators. `missile_ring.gd` (`MissileRing`): cooldown ring. Built (Story 3.1): hearts, i-frames with the sprite flicker, contact damage and `debug_invincible` on `Player` (API `apply_damage(amount, source)`, `step_iframes(delta)`, `on_contact(area)`, `is_invulnerable()`, `hearts`, `max_hearts`). Planned: shield, barrage |
+| Player ship, weapons, abilities | `entities/player/` | `player.gd` (`Player`): cursor lock, bounds, hurtbox and sizing; delegates firing to its `Weapons` child. `player_weapons.gd` (`class_name PlayerWeapons extends Node`, the `Weapons` child): laser and missile timing, spawning, sfx and `missile_cooldown_changed`; API `set_spawner(spawner)`, `step_fire(held, delta)`, `step_missile(pressed, delta)`, which `Player` keeps as one-line delegators. `missile_ring.gd` (`MissileRing`): cooldown ring. Built (Story 3.1): hearts, i-frames with the sprite flicker, contact damage and `debug_invincible` on `Player` (API `apply_damage(amount, source)`, `step_iframes(delta)`, `on_contact(area)`, `is_invulnerable()`, `hearts`, `max_hearts`). Built (Story 3.2): death at 0 hearts (`is_dead()`; PLAYER_DEATH feedback, `player_died` + `level_failed(&"hearts")`, the ship hidden and inert). Planned: shield, barrage |
 | Enemies | `entities/enemies/<type>/` | Behaviour per type, extends `Enemy` |
 | Flagship | `entities/boss/` | Phases, turrets, core, final-choice hook |
 | Asteroids | `entities/asteroids/` | Drift, rotate, block, damage, drop |
@@ -964,7 +964,7 @@ The real rows are in `data/tuning.json` → `feedback.tiers`, one per `ImpactTie
 - `unregister_*` clears the slot only if the argument is the registered node, so a freed old scene can't clear a newer one. The last registration wins.
 - With no spawner registered, `impact` skips the explosion. With no camera, it skips the shake.
 
-**Known gaps (registered when their epic lands):** the `boss_part`, `boss_death` and `player_death` rows name sfx ids that `Audio.SFX` doesn't register yet (they warn once and play nothing); `player_hit` is registered (Story 3.1). The extras `white_flash` and `red_vignette` aren't handled by `Explosion` (ignored); the red vignette is the HUD `HitVignette` instead.
+**Known gaps (registered when their epic lands):** the `boss_part` and `boss_death` rows name sfx ids that `Audio.SFX` doesn't register yet (they warn once and play nothing); `player_hit` (Story 3.1) and `player_death` (Story 3.2) are registered. The extras `white_flash` and `red_vignette` aren't handled by `Explosion` (ignored); the red vignette is the HUD `HitVignette` instead.
 
 ```gdscript
 # Every entity death looks like this — nothing else:
@@ -1005,7 +1005,7 @@ func pop(reason: StringName) -> void:
 func is_paused() -> bool:
 	return not _reasons.is_empty()
 
-func clear() -> void:                  # SceneRouter (planned) calls this on every scene change; F5 calls it today. Keeps _gameplay_mode
+func clear() -> void:                  # SceneRouter calls this on every scene change; so does F5. Keeps _gameplay_mode
 	_reasons.clear()
 	_apply()
 
@@ -1161,7 +1161,7 @@ func int_(path: String) -> int:
 	return int(num(path))
 ```
 
-**`tuning.json` top-level sections (fixed):** `player`, `weapons`, `abilities`, `energy`, `drops`, `enemies`, `boss`, `asteroids`, `convoy`, `allies`, `waves`, `comms`, `feedback`, `damage`, `hud`, `render`, `debug`.
+**`tuning.json` top-level sections (fixed):** `player`, `weapons`, `abilities`, `energy`, `drops`, `enemies`, `boss`, `asteroids`, `convoy`, `allies`, `waves`, `comms`, `feedback`, `damage`, `hud`, `ui`, `render`, `debug`.
 
 - `debug.bench` (`avg_ms_max`, `p99_ms_max`, `max_ms_max`, `warmup_s`, `first_large_at_s`, `first_large_frames`, `quit_delay_s`) and `debug.stress` (`projectiles`, `projectile_spawn_per_tick`) hold the debug-build stress bench numbers (GDD decision log #33). Only `DebugTools` and the sandbox's stress mode read them; the stress-grid layout and `BENCH_MAX_FPS` / `BENCH_AIM` / `OVERLAY_REFRESH_S` stay code consts.
 - `render.glow` holds `intensity`, `bloom` and `hdr_threshold`. The scene root's `_ready` passes its `WorldEnvironment`'s environment to `RenderGlow.apply(env)` (`core/render_glow.gd`), so the F5 scene restart re-applies it. `glow_enabled` and the background mode stay in the `.tscn`.
@@ -1517,6 +1517,19 @@ Status update only; no design decision changed.
 - **Audio:** `player_hit` is registered in `Audio.SFX` (`sfx_player_hit.wav`, generated by `tools/gen_placeholder_sfx.py` with its own seed so the older WAVs are unchanged).
 - **Debug:** F2 `DebugTools.toggle_invincible()` and the overlay `invincible` line.
 - **Tuning:** `hud.hearts` (`right_x`, `y`, `icon_px`, `gap_px`, `pop_scale`, `pop_s`) and `hud.hit_vignette` (`duration_s`, `max_alpha`).
+
+## As-built 2026-10-07 (Story 3.2)
+
+Status update only; no design decision changed.
+
+- **Autoloads:** `GameState` (`autoloads/game_state.gd`: `energy: int`, `current_level_id: String`, `is_retry: bool`, no logic) and `SceneRouter` (`autoloads/scene_router.gd`, `PROCESS_MODE_ALWAYS`). The order is now `Log, Events, Config, GameState, PauseArbiter, Audio, Feedback, EntityRegistry, SceneRouter`; `SaveManager` (Epic 4) takes its slot between `GameState` and `PauseArbiter`.
+- **SceneRouter:** `LEVEL_SCENE_PATH` = `res://scenes/level/level.tscn`. `change_scene: Callable` defaults to `get_tree().change_scene_to_file` (`default_change_scene()`); tests inject a recorder. `restart_level()` sets `GameState.energy = 0` and `is_retry = true`, then `PauseArbiter.clear()`, `Feedback.reset()`, one `Log.info("scene", …)` and `change_scene.call(LEVEL_SCENE_PATH)`; no counter, no limit. `goto_title()` is a placeholder until Story 4.1/4.2: `energy = 0`, `is_retry = false`, `current_level_id = ""` (so the main scene runs its own exported id), the same clear/reset, then the `application/run/main_scene` (today the level, so a fresh non-retry attempt).
+- **Level id:** `level.gd` runs `resolve_level_id(exported, GameState.current_level_id)` (the state id when non-empty, else the export), writes the result back to `GameState.current_level_id`, and tags its start line ` (retry)` when `GameState.is_retry`.
+- **Player death:** the hit that brings hearts to 0 still emits `hearts_changed` and `player_hit`, then plays `Feedback.impact(ImpactTier.PLAYER_DEATH, …)` instead of `PLAYER_HIT`, logs once and emits `Events.player_died` then `Events.level_failed(&"hearts")`. The dead ship is hidden (`visible = false`, MissileRing included), its i-frames stop, `monitoring` / `monitorable` go off (deferred), `_contacts` is cleared, `apply_damage` / `on_contact` / the contact re-check are no-ops and `_physics_process` returns at once. This replaces the Story 3.1 "hearts reached 0" line.
+- **Retry prompt:** `ui/menus/retry_prompt.tscn` + `.gd` (`class_name RetryPrompt extends Control`), full rect under `Overlay` before `DebugTools`; `PROCESS_MODE_ALWAYS`, hidden at start, `MOUSE_FILTER_STOP` only while shown. On the first `Events.level_failed` it starts a pausable `create_timer(feedback.player_death_pause_s, false)` (the death beat freezes under any pause and stretches with hit-stop); then `show_prompt(reason)` pushes `&"death"`, shows the `Dim`, the `Reason` (`HULL DESTROYED` for `hearts`, `CONVOY LOST` for `convoy`, anything else `HULL DESTROYED` plus a WARN) and RETRY · QUIT TO TITLE, and focuses RETRY with the focus ring hidden (`grab_focus(true)`; the UI is mouse-only). Later failures are ignored; a `_leaving` flag ignores repeat presses. RETRY → `SceneRouter.restart_level()`, QUIT → `SceneRouter.goto_title()`. It reads only `Events`.
+- **Theme:** `RetryPrompt/colors/dim|reason|text`, `RetryPrompt/font_sizes/button` (28) and `RetryPrompt/styles/button_normal|button_hover|button_focus` (`surfaceAlt` fill, 1 px `border`; hover and focus have a `coalition` border).
+- **Audio:** `player_death` is registered in `Audio.SFX` (`sfx_player_death.wav`, a 1.0 s explosion plus buzz generated by `tools/gen_placeholder_sfx.py` with its own seed, so the older WAVs are unchanged).
+- **Tuning:** a new `ui` top-level section, `ui.retry_prompt` (`headline_y`, `headline_px`, `button_w`, `button_h`, `button_gap_px`, `buttons_top_y`). The beat is the existing `feedback.player_death_pause_s`.
 
 ---
 
