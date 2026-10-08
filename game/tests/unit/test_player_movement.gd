@@ -80,6 +80,19 @@ func test_outside_x_and_below_clamp_and_warp() -> void:
 	assert_eq(_warps, [Vector2(0, 1080), Vector2(1920, 1080)] as Array[Vector2])
 
 
+## Story 4.5: under a non-16:9 window the mouse can sit in a letterbox bar,
+## which arrives as a viewport coordinate outside the playfield. It is confined
+## and warped back in viewport coordinates like any other outside point.
+func test_mouse_in_a_letterbox_bar_clamps_and_warps_in_viewport_coords() -> void:
+	PauseArbiter.set_gameplay_mouse_mode(HIDDEN)
+	_player.step_lock(Vector2(-150, 1200))
+	assert_eq(_player.global_position, Vector2(0, 1080), "left pillarbox, below the field")
+	assert_eq(_warps, [Vector2(0, 1080)] as Array[Vector2], "one warp, viewport coordinates")
+	_player.step_lock(Vector2(2100, 300))
+	assert_eq(_player.global_position, Vector2(1920, 432), "right pillarbox, above the zone")
+	assert_eq(_warps, [Vector2(0, 1080), Vector2(1920, 432)] as Array[Vector2])
+
+
 func test_on_the_edge_no_repeated_warps() -> void:
 	PauseArbiter.set_gameplay_mouse_mode(HIDDEN)
 	for i: int in 5:

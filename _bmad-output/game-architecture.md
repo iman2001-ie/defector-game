@@ -528,7 +528,7 @@ signal story_event_requested(event_name: StringName) # e.g. &"tarek_fall"
 
 Debug tools are available **only when `OS.is_debug_build()`** (editor runs and debug exports). In release builds they do nothing (`DebugTools.debug_enabled` is false: early return, processing off). A single `DebugTools` node in `Overlay` (`ui/debug/debug_tools.tscn` + `debug_tools.gd`) handles the keys.
 
-**Implemented today: F1, F2, F3, F4, F5, F6 and F7.** The other keys are planned for the epics that need them.
+**Implemented today: F1, F2, F3, F4, F5, F6, F7 and F11 (F11 is owned by `SceneRouter`, not `DebugTools`).** The other keys are planned for the epics that need them.
 
 | Key | Tool | Status |
 |---|---|---|
@@ -540,7 +540,7 @@ Debug tools are available **only when `OS.is_debug_build()`** (editor runs and d
 | F6 | Jump to the boss wave in the current level (if any) | Built |
 | F7 | Unlock all levels (in memory, not saved): `DebugTools.unlock_all()` sets `GameState.all_levels_unlocked` and logs `F7: all levels unlocked (in memory, not saved)`; it never calls `SaveManager`, survives `goto_title`, and doesn't change PLAY | Built |
 | F8 | *(Add only if needed)* Save a screenshot of the viewport to `user://screenshots/shot_<timestamp>.png` so AI agents can inspect the running game. This replaces the screenshot feature of an engine MCP | Planned |
-| F11 | Toggle borderless fullscreen / windowed (**available in release too**) | Planned |
+| F11 | Toggle borderless fullscreen / windowed (**available in release too**, not a debug tool): owned by `SceneRouter` (Story 4.5), works in every scene and while paused, not persisted | Built |
 
 **Command-line modes (debug builds only, Story 1.7, DW-9/DW-21):** `DebugArgs.parse(OS.get_cmdline_user_args())` (`ui/debug/debug_args.gd`) returns `{stress: bool, bench_s: float, prewarm: bool}`. The scene root and `DebugTools` both read it. The bench and stress numbers come from `tuning.json` → `debug.bench` / `debug.stress` (see [Data Patterns](#data-patterns)).
 
@@ -562,7 +562,7 @@ Debug tools are available **only when `OS.is_debug_build()`** (editor runs and d
 
 ### Directory Structure
 
-This is the target tree. As of Story 4.4 the built parts are: `project.godot`, `export_presets.cfg` and `default_bus_layout.tres`; the autoloads `Log`, `Events`, `Config`, `GameState`, `SaveManager`, `PauseArbiter`, `Audio`, `Feedback`, `EntityRegistry`, `SceneRouter`; `core/` (with `loot.gd` and `health_component.gd`); `entities/player/` (with the shield, `player_shield`, `shield_bubble` and the barrage); `entities/projectiles/` laser, missile and `micro_missile`; `entities/enemies/wasp/`; `entities/asteroids/`; `entities/pickups/`; `entities/effects/`; `systems/camera/`; `systems/waves/`; `scenes/sandbox/`; `scenes/level/`; `scenes/boot/`; `scenes/title/title.tscn` + `.gd` and `level_select.tscn` + `.gd`; `ui/debug/`; `ui/hud/level_clear_banner.gd`, `wave_bar.gd`, `hearts_display.gd`, `energy_bar.gd` and `hit_vignette.gd` (+ `.gdshader`); `ui/menus/retry_prompt.tscn` + `.gd` and `pause_menu.tscn` + `.gd`; `data/tuning.json`, `data/flags.json` and `data/levels/`; `assets/audio/sfx/`, `assets/sprites/player/` and `assets/CREDITS.md`; `addons/gut/`; `tests/unit/` (plus `tests/fixtures/`); and `tests/data/`. Everything else is planned.
+This is the target tree. As of Story 4.5 the built parts are: `project.godot`, `export_presets.cfg` and `default_bus_layout.tres`; the autoloads `Log`, `Events`, `Config`, `GameState`, `SaveManager`, `PauseArbiter`, `Audio`, `Feedback`, `EntityRegistry`, `SceneRouter`; `core/` (with `loot.gd` and `health_component.gd`); `entities/player/` (with the shield, `player_shield`, `shield_bubble` and the barrage); `entities/projectiles/` laser, missile and `micro_missile`; `entities/enemies/wasp/`; `entities/asteroids/`; `entities/pickups/`; `entities/effects/`; `systems/camera/`; `systems/waves/`; `scenes/sandbox/`; `scenes/level/`; `scenes/boot/`; `scenes/title/title.tscn` + `.gd` and `level_select.tscn` + `.gd`; `ui/debug/`; `ui/hud/level_clear_banner.gd`, `wave_bar.gd`, `hearts_display.gd`, `energy_bar.gd` and `hit_vignette.gd` (+ `.gdshader`); `ui/menus/retry_prompt.tscn` + `.gd` and `pause_menu.tscn` + `.gd`; `data/tuning.json`, `data/flags.json` and `data/levels/`; `assets/audio/sfx/`, `assets/sprites/player/` and `assets/CREDITS.md`; `addons/gut/`; `tests/unit/` (plus `tests/fixtures/`); and `tests/data/`. Everything else is planned.
 
 ```
 <repo root>/
@@ -1640,6 +1640,14 @@ Status update only; no design decision changed (FR57, FR8).
 - **Theme:** `PauseMenu/colors/dim` (black at 0.6), `text` (`#E8F4FF`); `PauseMenu/font_sizes/heading` (48) and `button` (28); `PauseMenu/styles/panel` and `button_normal` reuse `StyleBoxFlat_retry_button`, `button_hover|button_focus` the matching `StyleBoxFlat_retry_button*` boxes. Copied onto the children in code.
 - **Tuning:** `ui.pause_menu` (`panel_w` 520, `panel_padding_px` 40, `heading_px` 48, `heading_gap_px` 40, `button_w` 400, `button_h` 72, `button_gap_px` 24). The padding and heading gap are layout defaults (the UX table gives neither).
 - **Tests:** `tests/unit/test_pause_menu.gd` (new); `test_pause_arbiter.gd` and `test_level.gd` updated.
+
+## As-built 2026-10-08 (Story 4.5)
+
+Status update only; no design decision changed (FR59).
+
+- **SceneRouter:** owns the F11 window toggle (the `PROCESS_MODE_ALWAYS` autoload present under every scene, so it works in boot, title, level select, level and sandbox, while paused, in debug and release). `_unhandled_input` reacts only to `event.is_action_pressed(&"toggle_fullscreen")` (echoes ignored), calls `toggle_window_mode()` and marks the event handled. `toggle_window_mode()` reads the injectable `get_window_mode` (default `DisplayServer.window_get_mode`), sets `toggled_window_mode(current)` through the injectable `set_window_mode` (default `DisplayServer.window_set_mode`) and logs `[INFO][scene] Window mode: fullscreen|windowed`. Static `toggled_window_mode(mode)`: `FULLSCREEN` / `EXCLUSIVE_FULLSCREEN` → `WINDOWED`, anything else → `FULLSCREEN` (borderless; never exclusive). `default_get_window_mode()` / `default_set_window_mode()` return the real callables for tests to restore. Nothing is persisted (no `user://` write, no `SaveManager` call, no `ProjectSettings.save`): a fresh launch is always fullscreen.
+- **project.godot:** `display/window/size/window_width_override=1280`, `window_height_override=720` (the windowed size, a layout default so the window fits a 1080p screen with its title bar; fullscreen ignores it). `mode=3`, the 1920×1080 viewport and the `canvas_items` / `keep` stretch are unchanged, which is what letterboxes a non-16:9 window. The cursor confinement is the existing `Player.step_lock` warp in viewport coordinates (a mouse in a letterbox bar arrives outside the playfield and is clamped and warped back), unchanged.
+- **Tests:** `tests/unit/test_window_mode.gd` (new: the toggle table, recorders, a real F11 key through the viewport, paused, echo, other keys, not persisted, the defaults, and a headless 2560×1600 root keeping the 1920×1080 canvas at a uniform scale); `test_project_settings.gd` and `test_player_movement.gd` (letterbox-bar mouse) updated.
 
 ---
 

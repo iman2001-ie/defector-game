@@ -53,7 +53,7 @@ const EVENTS: Dictionary = {
 	"final_choice_made": [TYPE_STRING_NAME],
 	"story_event_requested": [TYPE_STRING_NAME],
 }
-## Project setting -> expected value (Story 1.1 project.godot task, the clear colour, and the Story 4.1 boot main scene).
+## Project setting -> expected value (Story 1.1 project.godot task, the clear colour, the Story 4.1 boot main scene, and the Story 4.5 windowed size override).
 const SETTINGS: Dictionary = {
 	"application/config/name": "DEFECTOR",
 	"application/config/use_custom_user_dir": true,
@@ -62,6 +62,8 @@ const SETTINGS: Dictionary = {
 	"rendering/viewport/hdr_2d": true,
 	"display/window/size/viewport_width": 1920,
 	"display/window/size/viewport_height": 1080,
+	"display/window/size/window_width_override": 1280,
+	"display/window/size/window_height_override": 720,
 	"display/window/size/mode": 3,
 	"display/window/stretch/mode": "canvas_items",
 	"display/window/stretch/aspect": "keep",

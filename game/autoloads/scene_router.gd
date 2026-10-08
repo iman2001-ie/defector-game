@@ -23,6 +23,12 @@ extends Node
 ##   with the carried energy, or goes to the title after the last level. The
 ##   level scene calls it on Events.level_cleared; the router itself doesn't
 ##   listen to Events (bare WaveDirector tests clear levels too).
+##
+## The router also owns the F11 window toggle (Story 4.5, FR59): it is the
+## PROCESS_MODE_ALWAYS autoload present under every scene, so
+## _unhandled_input flips toggle_fullscreen between borderless fullscreen and
+## windowed in any scene, paused or not, in debug and release. The choice is
+## never persisted: a fresh launch is always fullscreen (project.godot mode 3).
 
 const LEVEL_SCENE_PATH: String = "res://scenes/level/level.tscn"
 const TITLE_SCENE_PATH: String = "res://scenes/title/title.tscn"
@@ -32,17 +38,64 @@ const LEVEL_SELECT_SCENE_PATH: String = "res://scenes/title/level_select.tscn"
 ## in _ready; tests inject a recorder (calling the real one in GUT would replace
 ## the test runner's scene).
 var change_scene: Callable
+## Returns the current DisplayServer.WindowMode. Defaults to
+## DisplayServer.window_get_mode in _ready; tests inject a recorder.
+var get_window_mode: Callable
+## Sets a DisplayServer.WindowMode. Defaults to DisplayServer.window_set_mode in
+## _ready; tests inject a recorder so the real window never changes.
+var set_window_mode: Callable
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	if not change_scene.is_valid():
 		change_scene = default_change_scene()
+	if not get_window_mode.is_valid():
+		get_window_mode = default_get_window_mode()
+	if not set_window_mode.is_valid():
+		set_window_mode = default_set_window_mode()
+
+
+## F11 (the toggle_fullscreen action, never a raw key; echoes ignored) toggles
+## the window mode and marks the event handled.
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed(&"toggle_fullscreen"):
+		toggle_window_mode()
+		get_viewport().set_input_as_handled()
 
 
 ## The real scene change (get_tree().change_scene_to_file); tests restore it.
 func default_change_scene() -> Callable:
 	return get_tree().change_scene_to_file
+
+
+## The real window-mode getter (DisplayServer.window_get_mode); tests restore it.
+func default_get_window_mode() -> Callable:
+	return DisplayServer.window_get_mode
+
+
+## The real window-mode setter (DisplayServer.window_set_mode); tests restore it.
+func default_set_window_mode() -> Callable:
+	return DisplayServer.window_set_mode
+
+
+## The mode F11 switches to: any fullscreen mode (borderless or exclusive) goes
+## windowed; every other mode (windowed, maximized, minimized) goes borderless
+## fullscreen. Never exclusive fullscreen.
+static func toggled_window_mode(mode: DisplayServer.WindowMode) -> DisplayServer.WindowMode:
+	if mode == DisplayServer.WINDOW_MODE_FULLSCREEN or mode == DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN:
+		return DisplayServer.WINDOW_MODE_WINDOWED
+	return DisplayServer.WINDOW_MODE_FULLSCREEN
+
+
+## Flips the window between borderless fullscreen and windowed and logs one INFO
+## scene line. Writes nothing to disk.
+func toggle_window_mode() -> void:
+	var current: DisplayServer.WindowMode = get_window_mode.call() as DisplayServer.WindowMode
+	var next: DisplayServer.WindowMode = toggled_window_mode(current)
+	set_window_mode.call(next)
+	var label: String = "windowed" if next == DisplayServer.WINDOW_MODE_WINDOWED else "fullscreen"
+	Log.info("scene", "Window mode: %s" % label)
 
 
 ## Retry: reloads level.tscn with the same GameState.current_level_id, with 0
