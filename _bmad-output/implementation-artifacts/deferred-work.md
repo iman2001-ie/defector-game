@@ -523,7 +523,9 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-3-retro-2026-10-08.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 3; owner Dev loop; sprint-status status open)
-status: open
+status: done 2026-10-08
+resolution: resolved by sweep bundle dw-decision-dw-54
+resolution-undo: b4f656eb37ef690a0cd62a68a47718957c2f047a25ada1d9142ee8a54aa78557 2026-10-08 7374617475733a206f70656e
 decision: 2026-10-08 First outcome wins; clear makes the ship safe — Make the level end exactly once. After level_failed, WaveDirector stops counting kill progress and never emits level_cleared, so in-flight missiles no longer score. After level_cleared, the player can no longer die (hazards are ignored and level_failed is never emitted). Add a decision-log row and tests that combine a death with a clear in both orders.
 
 ### DW-55: Split player.gd: extract hearts/i-frames (HealthComponent or a recorded replacement) and the shield into components, and fold try_shield/try_barrage into one spend gate (A1, A3)
@@ -696,4 +698,12 @@ location: game/tests/unit/test_feedback.gd:262
 source_spec: `spec-4-2-unlock-the-next-level-and-save-progress.md`
 severity: low
 reason: Pre-existing flake, not caused by Story 4.2 (feedback.gd and test_feedback.gd are untouched). Seen in the first full GUT run of this story's verification; the immediate re-run and the post-patch run were 973/973 and 977/977. The same test also flips to Pending ("second hit_stop came too late").
+status: open
+
+### DW-75: "First outcome wins" is enforced at the only current emitter (Player); RetryPrompt still reacts to any level_failed, so a future emitter (convoy, Epic 6) must not fail a cleared level.
+origin: spec-deferred f1a1e137a1cd
+location: game/ui/menus/retry_prompt.gd:125
+source_spec: `spec-dw-54-level-ends-exactly-once.md`
+severity: low
+reason: ui/menus/retry_prompt.gd opens on the first Events.level_failed with no level_cleared check; events.gd documents a &"convoy" reason with no emitter yet. Today Player is the only emitter and is gated by _safe, so nothing is reachable now.
 status: open

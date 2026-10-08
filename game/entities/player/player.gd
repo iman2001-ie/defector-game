@@ -41,6 +41,15 @@ extends Area2D
 ## physics tick does nothing (no lock, fire or missile). Retry reloads the scene
 ## (ADR-004), so nothing here is ever reset.
 ##
+## Level clear (DW-54, decision #39): the first outcome wins. On
+## Events.level_cleared the ship turns safe for the rest of the scene (is_safe()):
+## apply_damage and hazard contact are ignored (no hearts, no events, a small or
+## medium enemy is not destroyed, nothing is remembered) and the remembered
+## contacts are dropped, so it can never die or emit level_failed. It stays
+## visible and alive, still fires and still collects energy orbs. This is not
+## is_invulnerable() (that destroys small/medium enemies on contact). Never
+## reset: retry and the next level reload the scene (ADR-004).
+##
 ## Contact: the Player watches its own area_entered/area_exited. A small or
 ## medium Enemy costs damage.contact_<tier>_hearts and is destroyed by contact,
 ## even while invulnerable; a large Enemy (Bastion) costs contact_large_hearts
@@ -103,6 +112,8 @@ var _contact_large: int = 0
 ## Surviving hazards (large enemies, asteroids) the hurtbox overlaps right now.
 var _contacts: Array[Area2D] = []
 var _dead: bool = false
+## Set by Events.level_cleared, never reset: no damage or hazard contact (DW-54).
+var _safe: bool = false
 
 var _barrage_cost: int = 0
 
@@ -138,6 +149,7 @@ func _ready() -> void:
 	_health.iframes_ended.connect(_recheck_contacts)
 	_shield.ended.connect(_recheck_contacts)
 	PauseArbiter.resumed.connect(_on_resumed)
+	Events.level_cleared.connect(_on_level_cleared)
 	area_entered.connect(_on_area_entered)
 	area_exited.connect(_on_area_exited)
 	# The HUD's _ready runs after World/Player's, so the first value goes out deferred.
@@ -188,11 +200,25 @@ func is_dead() -> bool:
 	return _dead
 
 
+## True once the level cleared: damage and hazard contact are ignored (DW-54).
+func is_safe() -> bool:
+	return _safe
+
+
+## Events.level_cleared: the ship turns safe for the rest of the scene. A ship
+## that already died stays dead (the first outcome won).
+func _on_level_cleared(_level_id: int) -> void:
+	if _dead:
+		return
+	_safe = true
+	_contacts.clear()
+
+
 ## Costs `amount` hearts (floored at 0) and starts the i-frames; the hit that
 ## reaches 0 kills the ship instead. Ignored when amount <= 0, while
-## invulnerable, at 0 hearts or once dead.
+## invulnerable, at 0 hearts, once dead or once safe (level cleared).
 func apply_damage(amount: int, _source: Node) -> void:
-	if _dead or is_invulnerable():
+	if _dead or _safe or is_invulnerable():
 		return
 	_health.take(amount)
 
@@ -309,13 +335,16 @@ func _deny(ability: StringName) -> void:
 ## Contact with `area`: an energy orb is collected (no heart cost, even while
 ## invulnerable); enemies and asteroids cost hearts by tier or size; small and
 ## medium enemies are then destroyed (even while invulnerable). Other areas and
-## dead enemies are ignored. Surviving hazards are remembered.
+## dead enemies are ignored. Surviving hazards are remembered. Once safe (level
+## cleared) only orbs are collected; hazards cost and destroy nothing.
 func on_contact(area: Area2D) -> void:
 	if _dead:
 		return
 	var orb: EnergyOrb = area as EnergyOrb
 	if orb != null:
 		orb.collect()
+		return
+	if _safe:
 		return
 	var enemy: Enemy = area as Enemy
 	if enemy != null:
@@ -361,7 +390,7 @@ func _remember(area: Area2D) -> void:
 ## Drops freed, dying or dead hazards, then (when vulnerable) lets the newest
 ## remaining one hit again; on_contact restarts the i-frames, so one hit per expiry.
 func _recheck_contacts() -> void:
-	if _dead:
+	if _dead or _safe:
 		_contacts.clear()
 		return
 	var i: int = _contacts.size() - 1

@@ -14,8 +14,12 @@ extends Node
 ## or group spawn is pending; then wave_clear triggers, a waves.gap_s gap, the
 ## running chains finish, and the next wave starts (or the level clears).
 ## A stall net subtracts groups that can never spawn, so no wave soft-locks.
-## Once Events.level_failed fires (the player died) the attempt is dead: no
-## wave or level clears until start_level / debug_skip_to_boss (retro F1).
+## Once Events.level_failed fires (the player died) the attempt is dead until
+## start_level / debug_skip_to_boss (retro F1, DW-54): no wave or level clears
+## and progress is frozen (kills don't resolve, nothing is subtracted, no
+## wave_progress_changed, no progress triggers, no stall net, F3 refuses).
+## Running chains and pending group spawns still run; only counting stops.
+## First outcome wins: a level_failed after level_cleared changes nothing here.
 ##
 ## Formation rows: each entry starts on the next free row, except the
 ## EntityRegistry.ROWLESS_TYPES (the Hunter Wasp), which don't advance the row:
@@ -69,7 +73,8 @@ var _live_counted: int = 0
 var _running_chains: int = 0
 var _clearing: bool = false
 var _level_done: bool = false
-## Set by Events.level_failed: a dead attempt never clears a wave or the level.
+## Set by Events.level_failed: a dead attempt never counts progress or clears a
+## wave or the level (DW-54).
 var _failed: bool = false
 ## True while a step runs triggers: chain ends then leave stall/clear checks to the step.
 var _in_step: bool = false
@@ -86,7 +91,10 @@ func _ready() -> void:
 	Events.level_failed.connect(_on_events_level_failed)
 
 
+## First outcome wins (DW-54): a failure after the level cleared is ignored.
 func _on_events_level_failed(_reason: StringName) -> void:
+	if _level_done:
+		return
 	_failed = true
 
 
@@ -175,9 +183,13 @@ func start_wave(index: int) -> void:
 
 ## F3: skips every unspawned group, kills each live counted enemy through its
 ## death path (progress triggers fire in order), then resolves what is left.
+## Refused once the attempt failed (DW-54).
 func debug_resolve_wave() -> void:
 	if _wave_index < 0 or _level_done:
 		Log.info("debug", "F3: no wave running")
+		return
+	if _failed:
+		Log.info("debug", "F3: attempt failed; nothing to resolve")
 		return
 	Log.info("debug", "F3: resolving level %d wave %d" % [_level_id, _wave_index + 1])
 	var serial: int = _serial
@@ -357,11 +369,15 @@ func _on_enemy_resolved(serial: int) -> void:
 	if serial != _serial:
 		return
 	_live_counted = maxi(_live_counted - 1, 0)
+	if _failed:
+		return  # DW-54: a dead attempt's kills don't count.
 	_progress.resolve()
 	_on_progress_changed()
 
 
 func _subtract(count: int) -> void:
+	if _failed:
+		return  # DW-54: a dead attempt's progress is frozen.
 	_progress.remove_from_total(count)
 	_on_progress_changed()
 
@@ -415,7 +431,7 @@ func _run_chain(trigger: BeatTrigger) -> void:
 ## Stall net: no live counted enemy, no chain, no pending spawn, yet the wave
 ## isn't complete. The missing count can only be groups that never spawned.
 func _check_stall() -> void:
-	if _debug_resolving or _clearing or _level_done or _wave_index < 0:
+	if _failed or _debug_resolving or _clearing or _level_done or _wave_index < 0:
 		return
 	if _live_counted > 0 or _running_chains > 0 or not _pending_groups.is_empty() or _progress.is_complete():
 		return
@@ -449,7 +465,7 @@ func _try_clear() -> void:
 		return
 	while _running_chains > 0:
 		await chains_finished
-		if serial != _serial:
+		if serial != _serial or _failed:
 			return
 	if index + 1 < _waves.size():
 		start_wave(index + 1)

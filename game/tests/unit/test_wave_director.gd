@@ -539,6 +539,96 @@ func test_death_during_the_last_gap_never_clears_the_level() -> void:
 	assert_eq(_events_named("level_cleared"), [] as Array[Array], "no level_cleared")
 
 
+## DW-54: after the death, kills don't resolve, emit no progress, fire no
+## progress trigger and never trip the stall net.
+func test_kill_after_death_freezes_progress() -> void:
+	_start([{
+		"spawns": [_wasps(4)],
+		"groups": {"r": [_wasps(2)]},
+		"triggers": [{"when": "progress", "at": 0.1, "actions": [{"spawn_group": "r"}]}],
+	}], 5)
+	Events.level_failed.emit(&"hearts")
+	_kill(1)
+	assert_eq(_director.resolved_count(), 0, "kill not resolved")
+	assert_eq(_director.total_count(), 6, "nothing subtracted")
+	assert_eq(_events_named("wave_progress_changed"), [] as Array[Array], "no wave_progress_changed")
+	assert_eq(_lines_containing("[INFO][beat]"), [] as Array[String], "progress trigger not fired")
+	assert_eq(_director.running_chains(), 0)
+	_kill(3)
+	await wait_process_frames(2)
+	assert_eq(_counted().size(), 0, "the group was never requested")
+	assert_eq(_director.resolved_count(), 0)
+	assert_eq(_lines_containing("stalled"), [] as Array[String], "no stall net")
+	await wait_seconds(GAP_S + 0.1)
+	assert_eq(_events_named("wave_cleared"), [] as Array[Array], "no wave_cleared")
+	assert_eq(_events_named("level_cleared"), [] as Array[Array], "no level_cleared")
+
+
+## DW-54: a death while the gap waits for wave_clear chains never starts the next wave.
+func test_death_while_waiting_for_chains_never_starts_the_next_wave() -> void:
+	_start([
+		{"spawns": [_wasps(1)], "triggers": [{"when": "wave_clear", "actions": [{"wait": GAP_S + 0.25}]}]},
+		{"spawns": [_wasps(1)]},
+	])
+	_kill(1)
+	assert_eq(_events_named("wave_cleared").size(), 1, "wave 1 cleared")
+	await wait_seconds(GAP_S + 0.1)
+	assert_eq(_director.running_chains(), 1, "gap over, still waiting for the chain")
+	Events.level_failed.emit(&"hearts")
+	await wait_seconds(0.3)
+	assert_eq(_director.running_chains(), 0, "chain finished")
+	assert_eq(_events_named("wave_started").size(), 1, "no second wave_started")
+
+
+## DW-54: after the death, chains and group spawns still run, but a failed
+## group entry is not subtracted and the stall net never fires.
+func test_chains_and_groups_still_run_after_death_without_counting() -> void:
+	_start([{
+		"spawns": [_wasps(2)],
+		"groups": {"r": [{"type": "bogus", "count": 1.0}, _wasps(1)]},
+		"triggers": [{"when": "wave_start", "actions": [{"wait": GAP_S}, {"spawn_group": "r"}, {"wait": GAP_S}]}],
+	}])
+	assert_eq(_director.total_count(), 4)
+	Events.level_failed.emit(&"hearts")
+	_kill(2)
+	await wait_seconds(GAP_S + 0.02)
+	await wait_process_frames(2)
+	assert_eq(_counted().size(), 1, "the group's wasp spawned")
+	assert_push_error("bogus")
+	assert_eq(_lines_containing("[ERROR]").size(), 1, "only the bogus type errors")
+	_kill(1)
+	await wait_seconds(GAP_S + 0.05)
+	assert_eq(_director.running_chains(), 0, "chain finished")
+	assert_eq(_director.total_count(), 4, "nothing subtracted")
+	assert_eq(_director.resolved_count(), 0)
+	assert_eq(_events_named("wave_progress_changed"), [] as Array[Array], "no wave_progress_changed")
+	assert_eq(_lines_containing("stalled"), [] as Array[String], "no stall net")
+
+
+func test_f3_after_death_refuses() -> void:
+	_start([{"spawns": [_wasps(2)]}], 5)
+	Events.level_failed.emit(&"hearts")
+	_director.debug_resolve_wave()
+	assert_eq(_lines_containing("[INFO][debug] F3: attempt failed; nothing to resolve").size(), 1, "INFO refusal")
+	assert_eq(_director.resolved_count(), 0, "progress unchanged")
+	assert_eq(_counted().size(), 2, "no enemy killed")
+	assert_eq(_events_named("wave_progress_changed"), [] as Array[Array])
+	await wait_seconds(GAP_S + 0.1)
+	assert_eq(_events_named("wave_cleared"), [] as Array[Array], "no wave_cleared")
+
+
+## DW-54: first outcome wins; a failure after the clear changes nothing.
+func test_failure_after_clear_keeps_the_clear() -> void:
+	_start([{"spawns": [_wasps(1)]}], 5)
+	_kill(1)
+	await wait_seconds(GAP_S + 0.1)
+	assert_true(_director.is_level_cleared())
+	Events.level_failed.emit(&"hearts")
+	await wait_seconds(GAP_S + 0.1)
+	assert_true(_director.is_level_cleared(), "still cleared")
+	assert_eq(_events_named("level_cleared"), [["level_cleared", 5]] as Array[Array], "level_cleared once")
+
+
 # --- Boss wave ----------------------------------------------------------------
 
 func test_boss_wave_without_a_flagship_is_subtracted_and_clears() -> void:
