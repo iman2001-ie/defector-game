@@ -7,6 +7,8 @@ extends Node
 
 const DEFAULT_TUNING_PATH: String = "res://data/tuning.json"
 const DEFAULT_FLAGS_PATH: String = "res://data/flags.json"
+## Level files are keyed by a string id: level_dev.json, later level_1.json.
+const LEVEL_PATH_FORMAT: String = "res://data/levels/level_%s.json"
 
 var tuning: Dictionary = {}
 var flags: Dictionary = {}
@@ -95,6 +97,41 @@ func section(path: String) -> Dictionary:
 		_report_missing("tuning." + path, "a section")
 		return {}
 	return (v as Dictionary).duplicate(true)
+
+
+## Level data for `id` (res://data/levels/level_<id>.json). See level_at().
+func level(id: String) -> Dictionary:
+	return level_at(LEVEL_PATH_FORMAT % id)
+
+
+## Reads a level file. Returns {} (logged with the path) when the file is
+## missing, does not parse, or has no (or an empty) `waves` array. Otherwise logs every
+## LevelValidator problem and returns the data anyway: the WaveDirector skips
+## the bad items at runtime.
+func level_at(path: String) -> Dictionary:
+	var result: Dictionary = _read_json_dict(path)
+	if not (result.error as String).is_empty():
+		return {}
+	var data: Dictionary = result.data
+	if not (data.get("waves") is Array) or (data.waves as Array).is_empty():
+		Log.error("data", "%s has no waves array; level not loaded" % path)
+		return {}
+	for problem: String in LevelValidator.validate(data, path, _known_enemy_types()):
+		Log.error("data", problem)
+	return data
+
+
+## EntityRegistry's enemy type ids, looked up at runtime: a static reference to
+## EntityRegistry.ENEMIES would make Config -> EntityRegistry -> enemy scenes ->
+## Config a cyclic compile dependency.
+func _known_enemy_types() -> Array[StringName]:
+	var out: Array[StringName] = []
+	var registry: Node = get_node_or_null(^"/root/EntityRegistry")
+	if registry != null:
+		out.assign(registry.call(&"enemy_types"))
+	else:
+		Log.error("data", "EntityRegistry autoload not found; every enemy type is unknown")
+	return out
 
 
 func _lookup(root: Dictionary, path: String) -> Variant:

@@ -66,7 +66,7 @@ const SETTINGS: Dictionary = {
 	"debug/file_logging/enable_file_logging": true,
 	"debug/file_logging/enable_file_logging.pc": true,
 	"debug/gdscript/warnings/untyped_declaration": 1,
-	"application/run/main_scene": "res://scenes/sandbox/sandbox.tscn",
+	"application/run/main_scene": "res://scenes/level/level.tscn",
 	"rendering/environment/defaults/default_clear_color": Color(0.0196, 0.0275, 0.0588, 1),
 }
 

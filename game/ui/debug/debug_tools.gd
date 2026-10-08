@@ -1,7 +1,10 @@
 class_name DebugTools
 extends Node
 ## Debug-build tools (architecture "Debug Tools"): F1 toggles a frame-stats
-## overlay, F5 reloads every JSON file and restarts the scene. With the
+## overlay (plus wave n/N, resolved/total and the pause reasons), F3 resolves
+## the current wave and F6 jumps to the boss wave (both through the scene's
+## WaveDirector, found by group), F5 reloads every JSON file and restarts the
+## scene. With the
 ## `-- --bench=<s>` user arg it also runs the self-timing stress bench; its
 ## numbers (limits, warm-up, first-large timing, quit delay) come from
 ## tuning.debug.bench. Does nothing at all when debug_enabled is false (release builds).
@@ -106,6 +109,38 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed(&"debug_reload_data"):
 		reload_data()
 		_mark_handled()
+	elif event.is_action_pressed(&"debug_resolve_wave"):
+		resolve_wave()
+		_mark_handled()
+	elif event.is_action_pressed(&"debug_skip_to_boss"):
+		skip_to_boss()
+		_mark_handled()
+
+
+## F3: resolves the current wave through the scene's WaveDirector.
+func resolve_wave() -> void:
+	if not debug_enabled:
+		return
+	var director: WaveDirector = _director()
+	if director == null:
+		Log.info("debug", "F3: no wave director in this scene")
+		return
+	director.debug_resolve_wave()
+
+
+## F6: jumps to the boss wave through the scene's WaveDirector.
+func skip_to_boss() -> void:
+	if not debug_enabled:
+		return
+	var director: WaveDirector = _director()
+	if director == null:
+		Log.info("debug", "F6: no wave director in this scene")
+		return
+	director.debug_skip_to_boss()
+
+
+func _director() -> WaveDirector:
+	return get_tree().get_first_node_in_group(&"wave_director") as WaveDirector
 
 
 func toggle_overlay() -> void:
@@ -123,12 +158,14 @@ func refresh_overlay() -> void:
 	if not debug_enabled:
 		return
 	var avg_ms: float = _window_sum_ms / _window_frames if _window_frames > 0 else 0.0
-	_label.text = "FPS %d\nframe ms %.2f avg / %.2f max\nnodes %d\nenemies %d" % [
+	_label.text = "FPS %d\nframe ms %.2f avg / %.2f max\nnodes %d\nenemies %d\n%s\npause %s" % [
 		Engine.get_frames_per_second(),
 		avg_ms,
 		_window_max_ms,
 		int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)),
 		get_tree().get_node_count_in_group(&"enemies"),
+		_wave_lines(),
+		_pause_line(),
 	]
 	_reset_window(Time.get_ticks_usec())
 
@@ -149,6 +186,26 @@ func reload_data() -> bool:
 	Log.info("debug", "F5: data reloaded, restarting scene")
 	restart_scene.call()
 	return true
+
+
+## "wave n/N" and "resolved r/t", or "wave -" without a WaveDirector.
+func _wave_lines() -> String:
+	var director: WaveDirector = _director()
+	if director == null:
+		return "wave -"
+	return "wave %d/%d\nresolved %d/%d" % [
+		director.wave_number(), director.wave_count(), director.resolved_count(), director.total_count(),
+	]
+
+
+func _pause_line() -> String:
+	var reasons: Array[StringName] = PauseArbiter.reasons()
+	if reasons.is_empty():
+		return "none"
+	var names: PackedStringArray = []
+	for reason: StringName in reasons:
+		names.append(String(reason))
+	return ", ".join(names)
 
 
 func _reset_window(now: int) -> void:

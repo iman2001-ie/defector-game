@@ -12,3 +12,10 @@ const PROJECTILES: Dictionary[StringName, PackedScene] = {
 const ASTEROID: PackedScene = preload("res://entities/asteroids/asteroid.tscn")
 ## One explosion scene for every impact tier; scale and extras come through setup().
 const EXPLOSION: PackedScene = preload("res://entities/effects/explosion.tscn")
+
+
+## The known enemy type ids (Config validates level files against them).
+func enemy_types() -> Array[StringName]:
+	var out: Array[StringName] = []
+	out.assign(ENEMIES.keys())
+	return out

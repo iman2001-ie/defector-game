@@ -125,3 +125,14 @@ func test_resumed_after_mouse_mode_written() -> void:
 	PauseArbiter.pop(&"menu")
 	PauseArbiter.resumed.disconnect(probe)
 	assert_eq(seen, [Input.MOUSE_MODE_CONFINED_HIDDEN, false] as Array, "listeners see the gameplay state")
+
+
+func test_reasons_returns_a_copy() -> void:
+	assert_eq(PauseArbiter.reasons(), [] as Array[StringName], "none")
+	PauseArbiter.push(&"menu")
+	PauseArbiter.push(&"story")
+	var reasons: Array[StringName] = PauseArbiter.reasons()
+	assert_eq(reasons.size(), 2)
+	assert_true(reasons.has(&"menu") and reasons.has(&"story"))
+	reasons.clear()
+	assert_eq(PauseArbiter.reasons().size(), 2, "editing the copy changes nothing")

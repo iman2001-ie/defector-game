@@ -33,3 +33,18 @@ func test_no_absolute_paths() -> void:
 	var text: String = FileAccess.get_file_as_string(PRESETS_PATH)
 	var regex: RegEx = RegEx.create_from_string("(?i)(?<![a-z])[a-z]:[\\\\/]|users[\\\\/]")
 	assert_null(regex.search(text), "no drive letters or user folders")
+
+
+func test_level_files_match_the_include_filter() -> void:
+	var filters: PackedStringArray = str(_cfg.get_value("preset.0", "include_filter", "")).split(",", false)
+	var files: PackedStringArray = DirAccess.get_files_at("res://data/levels/")
+	assert_gt(files.size(), 0, "level files exist")
+	for file: String in files:
+		if not file.ends_with(".json"):
+			continue
+		var path: String = "data/levels/" + file
+		var matched: bool = false
+		for filter: String in filters:
+			if path.matchn(filter.strip_edges()):
+				matched = true
+		assert_true(matched, "%s is exported by the include filter" % path)

@@ -423,3 +423,43 @@ func test_reload_logs_load_summary() -> void:
 	Log.sink = _capture
 	assert_true(Config.reload(), "reload accepted")
 	assert_true(_captured_load_summary(), "reload logs an [INFO][data] Loaded ... summary")
+
+
+# --- Level data (Story 2.2) ---------------------------------------------------
+
+const TEMP_LEVEL: String = "user://test_config_level.json"
+
+
+func test_level_dev_loads() -> void:
+	var data: Dictionary = Config.level("dev")
+	assert_false(data.is_empty(), "level_dev.json loads")
+	assert_eq(int(data.get("id", -1)), 0, "id 0")
+	assert_eq((data.get("waves", []) as Array).size(), 3, "three waves")
+
+
+func test_level_missing_id_returns_empty() -> void:
+	assert_eq(Config.level("does_not_exist"), {})
+	assert_push_error("level_does_not_exist.json not found")
+
+
+func test_level_parse_error_returns_empty() -> void:
+	assert_eq(Config.level_at("res://tests/fixtures/level_parse_error.json"), {})
+	assert_push_error("parse error")
+
+
+func test_level_without_waves_returns_empty() -> void:
+	assert_eq(Config.level_at("res://tests/fixtures/level_no_waves.json"), {})
+	assert_push_error("level_no_waves.json has no waves array")
+
+
+func test_level_with_an_empty_waves_array_returns_empty() -> void:
+	assert_eq(Config.level_at("res://tests/fixtures/level_empty_waves.json"), {})
+	assert_push_error("level_empty_waves.json has no waves array")
+
+
+func test_level_problems_are_logged_and_data_returned() -> void:
+	_write(TEMP_LEVEL, JSON.stringify({"id": 4, "waves": [{"spawns": [{"type": "bogus", "count": 1}]}]}))
+	var data: Dictionary = Config.level_at(TEMP_LEVEL)
+	DirAccess.remove_absolute(TEMP_LEVEL)
+	assert_eq(int(data.get("id", -1)), 4, "data still returned")
+	assert_push_error("%s waves[0].spawns[0].type" % TEMP_LEVEL)

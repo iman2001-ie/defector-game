@@ -1,0 +1,75 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://scenes/level/level.gd" id="1_level"]
+[ext_resource type="PackedScene" path="res://entities/player/player.tscn" id="2_player"]
+[ext_resource type="Script" path="res://core/spawner.gd" id="3_spawner"]
+[ext_resource type="Script" path="res://systems/waves/wave_director.gd" id="4_director"]
+[ext_resource type="Script" path="res://systems/camera/shake_camera.gd" id="5_camera"]
+[ext_resource type="Script" path="res://ui/hud/level_clear_banner.gd" id="6_banner"]
+[ext_resource type="PackedScene" path="res://ui/debug/debug_tools.tscn" id="7_debug_tools"]
+
+[sub_resource type="Environment" id="Environment_glow"]
+background_mode = 3
+glow_enabled = true
+
+[node name="Level" type="Node2D"]
+script = ExtResource("1_level")
+
+[node name="Background" type="Node2D" parent="."]
+
+[node name="World" type="Node2D" parent="."]
+
+[node name="Asteroids" type="Node2D" parent="World"]
+
+[node name="Enemies" type="Node2D" parent="World"]
+
+[node name="Allies" type="Node2D" parent="World"]
+
+[node name="Pickups" type="Node2D" parent="World"]
+
+[node name="Projectiles" type="Node2D" parent="World"]
+
+[node name="Effects" type="Node2D" parent="World"]
+
+[node name="Player" parent="World" instance=ExtResource("2_player")]
+position = Vector2(960, 900)
+
+[node name="Spawner" type="Node" parent="." node_paths=PackedStringArray("world")]
+script = ExtResource("3_spawner")
+world = NodePath("../World")
+
+[node name="WaveDirector" type="Node" parent="." node_paths=PackedStringArray("spawner")]
+script = ExtResource("4_director")
+spawner = NodePath("../Spawner")
+
+[node name="ShakeCamera" type="Camera2D" parent="."]
+position = Vector2(960, 540)
+script = ExtResource("5_camera")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_glow")
+
+[node name="HUD" type="CanvasLayer" parent="."]
+layer = 10
+
+[node name="LevelClearBanner" type="Label" parent="HUD"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.133, 0.902, 1, 1)
+theme_override_font_sizes/font_size = 120
+text = "LEVEL CLEAR"
+horizontal_alignment = 1
+vertical_alignment = 1
+script = ExtResource("6_banner")
+
+[node name="Comms" type="CanvasLayer" parent="."]
+layer = 20
+
+[node name="Overlay" type="CanvasLayer" parent="."]
+layer = 30
+
+[node name="DebugTools" parent="Overlay" instance=ExtResource("7_debug_tools")]

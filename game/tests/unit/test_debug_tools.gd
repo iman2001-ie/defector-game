@@ -418,3 +418,78 @@ func test_first_large_logs_prewarm_off() -> void:
 	assert_eq(logged.size(), 1, "one first-large line")
 	if logged.size() == 1:
 		assert_string_contains(logged[0], "prewarm=off")
+
+
+# --- F3 / F6 and the wave overlay lines (Story 2.2) ----------------------------
+
+## A WaveDirector (no spawner) in the tree, running two empty waves.
+func _make_director() -> WaveDirector:
+	var director: WaveDirector = WaveDirector.new()
+	add_child_autofree(director)
+	director.start_level({"id": 1.0, "waves": [{"spawns": []}, {"spawns": []}]}, "test")
+	assert_push_error("no spawner")
+	return director
+
+
+func test_f3_dispatches_to_the_wave_director() -> void:
+	_lines.clear()
+	_make_director()
+	_tools = _make_tools()
+	Log.sink = _capture
+	_tools._unhandled_input(_action_event(&"debug_resolve_wave"))
+	Log.sink = Callable()
+	assert_eq(_lines_containing("[INFO][debug] F3:").size(), 1, "F3 reached the director")
+	assert_eq(_lines_containing("no wave director").size(), 0)
+
+
+func test_f3_without_a_director_logs() -> void:
+	_lines.clear()
+	_tools = _make_tools()
+	Log.sink = _capture
+	_tools._unhandled_input(_action_event(&"debug_resolve_wave"))
+	Log.sink = Callable()
+	assert_eq(_lines_containing("[INFO][debug] F3: no wave director in this scene").size(), 1)
+
+
+func test_f6_dispatches_to_the_wave_director() -> void:
+	_lines.clear()
+	_make_director()
+	_tools = _make_tools()
+	Log.sink = _capture
+	_tools._unhandled_input(_action_event(&"debug_skip_to_boss"))
+	Log.sink = Callable()
+	assert_eq(_lines_containing("[INFO][debug] F6: no boss wave in level 1").size(), 1, "F6 reached the director")
+
+
+func test_f6_without_a_director_logs() -> void:
+	_lines.clear()
+	_tools = _make_tools()
+	Log.sink = _capture
+	_tools._unhandled_input(_action_event(&"debug_skip_to_boss"))
+	Log.sink = Callable()
+	assert_eq(_lines_containing("[INFO][debug] F6: no wave director in this scene").size(), 1)
+
+
+func test_release_ignores_f3_and_f6() -> void:
+	_lines.clear()
+	_tools = _make_tools(false)
+	Log.sink = _capture
+	_tools.resolve_wave()
+	_tools.skip_to_boss()
+	Log.sink = Callable()
+	assert_eq(_lines.size(), 0, "nothing logged")
+
+
+func test_overlay_wave_and_pause_lines() -> void:
+	_tools = _make_tools()
+	_tools.refresh_overlay()
+	var text: String = _overlay_label(_tools).text
+	assert_string_contains(text, "wave -")
+	assert_string_contains(text, "pause none")
+	_make_director()
+	PauseArbiter.push(&"menu")
+	_tools.refresh_overlay()
+	text = _overlay_label(_tools).text
+	assert_string_contains(text, "wave 1/2")
+	assert_string_contains(text, "resolved 0/0")
+	assert_string_contains(text, "pause menu")

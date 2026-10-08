@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="DEFECTOR"
-run/main_scene="res://scenes/sandbox/sandbox.tscn"
+run/main_scene="res://scenes/level/level.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/use_custom_user_dir=true
 config/custom_user_dir_name="DEFECTOR"

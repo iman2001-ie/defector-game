@@ -232,7 +232,7 @@ The game has two independent mechanisms. **No other code** may set `get_tree().p
 
 | Node | `process_mode` |
 |---|---|
-| Gameplay world (`World` node in the scene root: `sandbox.tscn` today, `level.tscn` planned) | `PROCESS_MODE_PAUSABLE` (inherit) |
+| Gameplay world (`World` node in the scene root: `level.tscn`, and the `sandbox.tscn` stress bench) | `PROCESS_MODE_PAUSABLE` (inherit) |
 | `CommsPanel`, `PauseMenu`, `FinalChoice`, retry prompt | `PROCESS_MODE_ALWAYS` |
 | Autoloads `PauseArbiter`, `Audio`, `Feedback` (and `SceneRouter`, planned) | `PROCESS_MODE_ALWAYS` |
 | `ShakeCamera`, `DebugTools` (as built; each sets it in `_ready`) | `PROCESS_MODE_ALWAYS` |
@@ -259,7 +259,7 @@ Title ──Play/Level Select──► Story (opening, only when starting Level 
                            └retry─┘ (reload same level)
 ```
 
-`level.tscn` node tree (fixed: all three levels use this tree). **Planned:** `level.tscn` arrives in Epic 2+. Today the main scene is the Epic 1 debug sandbox `scenes/sandbox/sandbox.tscn`, which uses the same `World/<Group>` containers, `Spawner`, `ShakeCamera`, `WorldEnvironment` and `Overlay/DebugTools`.
+`level.tscn` node tree (fixed: all three levels use this tree). **Built (Story 2.2):** `scenes/level/level.tscn` is the main scene and runs `level_dev.json` until the title flow exists (Epic 4). As built it also has a `Spawner` node (`world = ../World`) next to `WaveDirector`, and `HUD/LevelClearBanner`. The Epic 1 sandbox `scenes/sandbox/sandbox.tscn` stays as the stress-bench scene.
 
 ```
 Level (Node2D, level.gd)                 # reads data/levels/level_<id>.json
@@ -272,6 +272,7 @@ Level (Node2D, level.gd)                 # reads data/levels/level_<id>.json
 │   ├── Projectiles (Node2D)
 │   ├── Effects (Node2D)
 │   └── Player (Area2D, player.tscn)
+├── Spawner (Node, spawner.gd)            # as built: world = ../World
 ├── WaveDirector (Node, wave_director.gd)
 ├── ShakeCamera (Camera2D, shake_camera.gd)   # anchor centre 960,540
 ├── WorldEnvironment                      # glow
@@ -522,16 +523,16 @@ signal story_event_requested(event_name: StringName) # e.g. &"tarek_fall"
 
 Debug tools are available **only when `OS.is_debug_build()`** (editor runs and debug exports). In release builds they do nothing (`DebugTools.debug_enabled` is false: early return, processing off). A single `DebugTools` node in `Overlay` (`ui/debug/debug_tools.tscn` + `debug_tools.gd`) handles the keys.
 
-**Implemented today: F1 and F5.** The other keys are planned for the epics that need them.
+**Implemented today: F1, F3, F5 and F6.** The other keys are planned for the epics that need them.
 
 | Key | Tool | Status |
 |---|---|---|
-| F1 | Toggle debug overlay. Built: FPS, frame ms (avg / max over a 0.25 s window, real time), node count, enemies alive. Planned additions: wave `n/N`, resolved/total, pause reasons, current comms sequence | Built (partial) |
+| F1 | Toggle debug overlay. Built: FPS, frame ms (avg / max over a 0.25 s window, real time), node count, enemies alive, wave `n/N` and resolved/total (`wave -` without a WaveDirector), pause reasons (`PauseArbiter.reasons()`). Planned addition: current comms sequence | Built (comms line planned) |
 | F2 | Toggle player invincibility | Planned |
-| F3 | Resolve the current wave (kill every counted enemy and fire its pending triggers in order) | Planned |
+| F3 | Resolve the current wave (kill every counted enemy and fire its pending triggers in order) | Built |
 | F4 | Energy +100 (capped) | Planned |
 | F5 | Reload `tuning.json` and `flags.json` through `Config.reload()`, then restart the scene (see [Configuration](#configuration)) | Built |
-| F6 | Jump to the boss wave in the current level (if any) | Planned |
+| F6 | Jump to the boss wave in the current level (if any) | Built |
 | F7 | Unlock all levels (in memory, not saved) | Planned |
 | F8 | *(Add only if needed)* Save a screenshot of the viewport to `user://screenshots/shot_<timestamp>.png` so AI agents can inspect the running game. This replaces the screenshot feature of an engine MCP | Planned |
 | F11 | Toggle borderless fullscreen / windowed (**available in release too**) | Planned |
@@ -556,7 +557,7 @@ Debug tools are available **only when `OS.is_debug_build()`** (editor runs and d
 
 ### Directory Structure
 
-This is the target tree. As of Epic 1 the built parts are: `project.godot`, `export_presets.cfg` and `default_bus_layout.tres`; the autoloads `Log`, `Events`, `Config`, `PauseArbiter`, `Audio`, `Feedback`, `EntityRegistry`; `core/` except `health_component.gd`; `entities/player/` (without the shield); `entities/projectiles/` laser and missile; `entities/enemies/wasp/`; `entities/asteroids/`; `entities/effects/`; `systems/camera/`; `scenes/sandbox/`; `ui/debug/`; `data/tuning.json` and `data/flags.json`; `assets/audio/sfx/` and `assets/CREDITS.md`; `addons/gut/`; and `tests/unit/` (plus `tests/fixtures/`). Everything else is planned.
+This is the target tree. As of Story 2.2 the built parts are: `project.godot`, `export_presets.cfg` and `default_bus_layout.tres`; the autoloads `Log`, `Events`, `Config`, `PauseArbiter`, `Audio`, `Feedback`, `EntityRegistry`; `core/` except `health_component.gd`; `entities/player/` (without the shield); `entities/projectiles/` laser and missile; `entities/enemies/wasp/`; `entities/asteroids/`; `entities/effects/`; `systems/camera/`; `systems/waves/`; `scenes/sandbox/`; `scenes/level/`; `ui/debug/`; `ui/hud/level_clear_banner.gd`; `data/tuning.json`, `data/flags.json` and `data/levels/`; `assets/audio/sfx/` and `assets/CREDITS.md`; `addons/gut/`; `tests/unit/` (plus `tests/fixtures/`); and `tests/data/`. Everything else is planned.
 
 ```
 <repo root>/
@@ -579,7 +580,7 @@ This is the target tree. As of Epic 1 the built parts are: `project.godot`, `exp
     │   ├── feedback.gd                      # Feedback (impact tiers, shake, hit-stop)
     │   └── entity_registry.gd               # EntityRegistry (id → PackedScene consts)
     ├── core/                                # shared non-autoload classes
-    │   ├── spawner.gd                       # Spawner (class_name), lives in sandbox.tscn today (level.tscn planned)
+    │   ├── spawner.gd                       # Spawner (class_name), a node in level.tscn and sandbox.tscn
     │   ├── health_component.gd              # HealthComponent
     │   ├── projectile.gd                    # Projectile base (class_name)
     │   ├── enemy.gd                         # Enemy base (class_name)
@@ -606,7 +607,7 @@ This is the target tree. As of Epic 1 the built parts are: `project.godot`, `exp
     │   └── effects/           explosion.tscn, explosion.gd (one scene for every tier),
     │                          shockwave_ring.gd (ShockwaveRing, drawn in code, no .tscn)
     ├── systems/
-    │   ├── waves/             wave_director.gd, beat_trigger.gd, wave_progress.gd
+    │   ├── waves/             wave_director.gd, beat_trigger.gd, wave_progress.gd, formation.gd, level_validator.gd
     │   ├── comms/             comms_channel.gd, comms_panel.tscn, comms_panel.gd,
     │   │                      final_choice.tscn, final_choice.gd
     │   └── camera/            shake_camera.gd
@@ -616,9 +617,9 @@ This is the target tree. As of Epic 1 the built parts are: `project.godot`, `exp
     │   ├── story/             story.tscn, story.gd                # comms-only paused scene
     │   ├── level/             level.tscn, level.gd
     │   ├── end/               end_screen.tscn, end_screen.gd
-    │   └── sandbox/           sandbox.tscn, sandbox.gd            # Epic 1 debug sandbox (current main scene)
+    │   └── sandbox/           sandbox.tscn, sandbox.gd            # Epic 1 debug sandbox (stress bench)
     ├── ui/
-    │   ├── hud/               hud.tscn, hud.gd, hearts_display.gd, energy_bar.gd,
+    │   ├── hud/               hud.tscn, hud.gd, hearts_display.gd, energy_bar.gd, level_clear_banner.gd,
     │   │                      wave_bar.gd, boss_bar.gd, convoy_bar.gd
     │   ├── menus/             pause_menu.tscn, pause_menu.gd, retry_prompt.tscn, retry_prompt.gd
     │   ├── debug/             debug_tools.tscn, debug_tools.gd, debug_args.gd, frame_stats.gd
@@ -1142,7 +1143,7 @@ func _enter_state(s: State) -> void:
 
 ### Data Patterns
 
-**Access:** only through the `Config` autoload's typed getters (see Configuration). The built getters are `num`, `int_`, `flag` and `section`. **Planned (Epics 2 and 5):** level and dialogue data will come through `Config.level(id) -> Dictionary` and `Config.sequence(id) -> Dictionary`, both validated at load.
+**Access:** only through the `Config` autoload's typed getters (see Configuration). The built getters are `num`, `int_`, `flag`, `section` and `level(id) -> Dictionary` (Story 2.2). **Planned (Epic 5):** dialogue data will come through `Config.sequence(id) -> Dictionary`, validated at load.
 
 ```gdscript
 # autoloads/config.gd (excerpt)
@@ -1430,6 +1431,17 @@ Story 1.10 brought this document in line with the Epic 1 code (after Stories 1.1
 - **GDD Coverage:** the movement row names `step_lock` on the viewport mouse and `resumed`; the weapons row names `PlayerWeapons` and `MissileRing`. Source: Story 1.8.
 
 Superseded terms removed: the chase movement and its speed cap (`max_speed`), the reticle, and the cursor-aimed missile ("toward the cursor") no longer appear as current design. GDD decisions #29 and #31 replaced them with the exact cursor lock, the straight-up missile and the ring on the ship. The getter `get_global_mouse_position()`, the `cooldown_ring.gd` file, the `spark_burst.tscn` scene, the `ShakeCamera._ready()` registration and the `const PLAYFIELD` example were also replaced by their as-built equivalents.
+
+## As-built 2026-10-07 (Story 2.2)
+
+Status update only; no design decision changed.
+
+- **Built:** `scenes/level/level.tscn` + `level.gd` (main scene, runs `level_dev.json`), `systems/waves/wave_director.gd`, `formation.gd` (`Formation`), `level_validator.gd` (`LevelValidator`), `Config.level(id)` (plus `Config.level_at(path)`), `ui/hud/level_clear_banner.gd`, F3, F6 and the F1 wave/resolved/pause lines, `tests/data/test_data_files.gd`.
+- **Level tree:** a `Spawner` node (`world = ../World`) sits at the root next to `WaveDirector`, which references it through its exported `spawner`.
+- **Asteroid entries** in a wave are `{ "size": "small" | "medium" | "large", "count": n }`. They spawn at the top edge at a random x and are never counted.
+- **`waves.formation`** in `tuning.json` (`spacing_px.x/y`, `top_y`) drives the `grid_<C>x<R>` slot math; each spawn entry and spawned group starts on the next free formation row.
+- **`--stress` / `--bench` redirect:** in a debug build, `level.gd` switches to the sandbox stress scene (`change_scene_to_file`, deferred) when either arg is given. Like the F5 reload, this is a debug-only exception to "only `SceneRouter` changes scenes".
+- `Config.level()` reads `EntityRegistry`'s enemy ids at runtime (`EntityRegistry.enemy_types()`): a static reference to `EntityRegistry.ENEMIES` from `Config` is a cyclic compile dependency (enemy scripts use `Config`).
 
 ---
 

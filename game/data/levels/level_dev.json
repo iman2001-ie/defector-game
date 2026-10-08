@@ -1,0 +1,46 @@
+{
+	"id": 0,
+	"name": "Development",
+	"background": null,
+	"music": null,
+	"convoy": false,
+	"ally": null,
+	"intro_sequence": null,
+	"outro_sequence": null,
+	"waves": [
+		{
+			"spawns": [
+				{ "type": "wasp", "count": 8, "formation": "grid_4x2", "entry": "top" }
+			],
+			"asteroids": [],
+			"triggers": [
+				{ "when": "wave_start", "actions": [ { "wait": 0.5 } ] }
+			]
+		},
+		{
+			"spawns": [
+				{ "type": "wasp", "count": 6, "formation": "grid_3x2", "entry": "top" }
+			],
+			"asteroids": [
+				{ "size": "small", "count": 2 }
+			],
+			"groups": {
+				"reinforcements": [
+					{ "type": "wasp", "count": 4, "formation": "grid_4x1", "entry": "top" }
+				]
+			},
+			"triggers": [
+				{ "when": "progress", "at": 0.5, "actions": [ { "wait": 1.0 }, { "spawn_group": "reinforcements" } ] }
+			]
+		},
+		{
+			"spawns": [
+				{ "type": "wasp", "count": 10, "formation": "grid_5x2", "entry": "top" }
+			],
+			"asteroids": [],
+			"triggers": [
+				{ "when": "wave_clear", "actions": [ { "wait": 0.5 } ] }
+			]
+		}
+	]
+}

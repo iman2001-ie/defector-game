@@ -36,6 +36,14 @@ func is_paused() -> bool:
 	return not _reasons.is_empty()
 
 
+## A copy of the active pause reasons (for the debug overlay).
+func reasons() -> Array[StringName]:
+	var out: Array[StringName] = []
+	for reason: StringName in _reasons:
+		out.append(reason)
+	return out
+
+
 ## SceneRouter calls this on every scene change (later epics).
 func clear() -> void:
 	_reasons.clear()

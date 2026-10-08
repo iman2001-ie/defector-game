@@ -190,7 +190,11 @@
 		"kill_share": { "min": 0.10, "max": 0.15 }
 	},
 	"waves": {
-		"gap_s": 2.0
+		"gap_s": 2.0,
+		"formation": {
+			"spacing_px": { "x": 160, "y": 120 },
+			"top_y": 160
+		}
 	},
 	"comms": {
 		"chars_per_s": 45,
