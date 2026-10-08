@@ -25,7 +25,8 @@ location: game/data/tuning.json weapons.missile.splash_radius_px; game/entities/
 source_spec: `spec-1-5-fire-aimed-missiles-with-splash-damage.md`
 severity: medium
 reason: The missile centre at contact with the Wasp at (880, 280) from below sits at about y 305-318 (Wasp hitbox radius ~25.6 px plus the 12 px capsule half-height). From there the top-row Wasp at (880, 160) is about 145-158 px away and the bottom-row neighbours about 164 px away, all beyond splash_radius_px 120. Only a top-row hit (the spec's staged Formation row, fired from inside the grid) splashes a neighbour. The numbers are the GDD's tuning (splash_radius_px 120, grid_4x2 spacing 160 x 120), so fixing it means a tuning or design decision for the Story 1.7 core-feel playtest, not a code change in this story.
-status: open
+status: done 2026-10-07
+resolution: already resolved: Settled by human decision in 52a3621: gdd decision-log.md:32 row #28 (Story 1.7 playtest) says 'No tuning change to missile splash vs grid_4x2 (DW-3)'; tuning.json:24 splash_radius_px stays 120 by design.
 
 ### DW-4: The off-screen pre-warm at x = -1000 may be culled by the renderer, so particle and additive-material shaders might not actually compile before the first real explosion.
 origin: spec-deferred 3daa68d1eac9
@@ -213,7 +214,8 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 1; owner Planning (SM); sprint-status status open)
-status: open
+status: done 2026-10-07
+resolution: already resolved: Both decided items landed as sweeps instead of stories: 834d98e (DW-2/DW-10 laser mask 84, equality test, Story 1.3 AC fix) and 2034298 (DW-9 bench at NFR peak); epic-2 retro follow-through table proposes item 11 done.
 
 ### DW-24: Add a human AC to Story 1.8: developer re-checks the core feel under the cursor lock and straight-up missile before Epic 2 tuning
 origin: retro action item epic-1-retro-item-12-add-a-human-ac-to-story-1-8-developer-re
@@ -231,7 +233,8 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 1; owner Developer; sprint-status status open)
-status: open
+status: done 2026-10-07
+resolution: already resolved: deferred-work.md DW-7 already carries 'status: done 2026-10-07' with resolution citing a2386df; epic-2 retro follow-through table confirms item 13 landed.
 
 ### DW-26: Re-run the Epic 1 retrospective once Stories 1.8-1.10 are done
 origin: retro action item epic-1-retro-item-14-re-run-the-epic-1-retrospective-once-sto
