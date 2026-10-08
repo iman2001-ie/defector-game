@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://entities/player/player.gd" id="1_player"]
 [ext_resource type="Script" path="res://entities/player/player_weapons.gd" id="2_weapons"]
@@ -6,21 +6,10 @@
 [ext_resource type="PackedScene" path="res://entities/player/shield_bubble.tscn" id="4_bubble"]
 [ext_resource type="Script" path="res://core/health_component.gd" id="5_health"]
 [ext_resource type="Script" path="res://entities/player/player_shield.gd" id="6_shield"]
+[ext_resource type="Texture2D" path="res://assets/sprites/player/playerShip1_coalition.png" id="7_hull"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_hurtbox"]
 radius = 12.0
-
-[sub_resource type="Gradient" id="Gradient_hull"]
-offsets = PackedFloat32Array(0, 0.55, 0.8, 1)
-colors = PackedColorArray(0.133333, 0.901961, 1, 1, 0.133333, 0.901961, 1, 1, 0.133333, 0.901961, 1, 0.35, 0.133333, 0.901961, 1, 0)
-
-[sub_resource type="GradientTexture2D" id="GradientTexture2D_hull"]
-gradient = SubResource("Gradient_hull")
-width = 96
-height = 96
-fill = 1
-fill_from = Vector2(0.5, 0.5)
-fill_to = Vector2(1, 0.5)
 
 [sub_resource type="Gradient" id="Gradient_flash"]
 offsets = PackedFloat32Array(0, 0.3, 1)
@@ -43,13 +32,13 @@ collision_mask = 52
 script = ExtResource("1_player")
 
 [node name="Sprite" type="Sprite2D" parent="."]
-texture = SubResource("GradientTexture2D_hull")
+texture = ExtResource("7_hull")
 
 [node name="Hurtbox" type="CollisionShape2D" parent="."]
 shape = SubResource("CircleShape2D_hurtbox")
 
 [node name="Muzzle" type="Marker2D" parent="."]
-position = Vector2(0, -40)
+position = Vector2(0, -37.5)
 
 [node name="MuzzleFlash" type="Node2D" parent="Muzzle"]
 visible = false

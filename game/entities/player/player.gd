@@ -2,6 +2,13 @@ class_name Player
 extends Area2D
 ## Player ship: locked to the cursor with zero delay. The ship never rotates.
 ##
+## Hull (Story 4.0): the Sprite is the coalition-recoloured Kenney fighter
+## (assets/sprites/player/playerShip1_coalition.png, nose toward -y, baked by
+## tools/recolor_player_ship.py, modulate left at 1.0). _ready scales it
+## uniformly so its longer side equals player.sprite_px, keeps it centred on the
+## ship and moves the Muzzle onto the nose tip (0, -drawn height / 2). The
+## hurtbox stays the player.hurtbox_diameter_px circle at the centre.
+##
 ## Each physics tick the viewport mouse position is confined to the player zone
 ## (x 0..Playfield width, y player.bounds_y) and the ship is placed exactly on the
 ## confined point. Viewport coordinates are world coordinates here (1920x1080, the
@@ -101,6 +108,7 @@ var _barrage_cost: int = 0
 
 @onready var _hurtbox: CollisionShape2D = $Hurtbox
 @onready var _sprite: Sprite2D = $Sprite
+@onready var _muzzle: Marker2D = $Muzzle
 @onready var _weapons: PlayerWeapons = $Weapons
 @onready var _health: HealthComponent = $Health
 @onready var _shield: PlayerShield = $Shield
@@ -116,11 +124,7 @@ func _ready() -> void:
 	var hurtbox_circle: CircleShape2D = _hurtbox.shape as CircleShape2D
 	if hurtbox_circle != null:
 		hurtbox_circle.radius = Config.num("player.hurtbox_diameter_px") / 2.0
-	var placeholder: GradientTexture2D = _sprite.texture as GradientTexture2D
-	if placeholder != null:
-		var px: int = Config.int_("player.sprite_px")
-		placeholder.width = px
-		placeholder.height = px
+	_fit_hull(Config.num("player.sprite_px"))
 
 	_health.setup(Config.int_("player.hearts"), Config.num("player.iframes_s"),
 			Config.num("player.iframe_flicker_hz"), _sprite)
@@ -153,6 +157,23 @@ func _physics_process(delta: float) -> void:
 	step_barrage(delta)
 	if Input.is_action_just_pressed(&"ability_barrage"):
 		try_barrage()
+
+
+## Scales the hull uniformly so its longer side is `px`, centred on the ship, and
+## puts the Muzzle on the nose tip (top centre of the drawn hull). A missing
+## texture or px <= 0 warns and leaves the scale and the Muzzle as they are.
+func _fit_hull(px: float) -> void:
+	var tex: Texture2D = _sprite.texture
+	if tex == null or px <= 0.0:
+		Log.warn("data", "Player hull not sized: texture %s, player.sprite_px %s"
+				% ["missing" if tex == null else "ok", px])
+		return
+	var longest: float = maxf(tex.get_width(), tex.get_height())
+	if longest <= 0.0:
+		Log.warn("data", "Player hull not sized: empty texture")
+		return
+	_sprite.scale = Vector2.ONE * (px / longest)
+	_muzzle.position = Vector2(0.0, -(tex.get_height() * _sprite.scale.y) / 2.0)
 
 
 # --- Hearts and i-frames ----------------------------------------------------------

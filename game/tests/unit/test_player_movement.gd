@@ -1,6 +1,6 @@
 extends GutTest
 ## Player: zero-delay cursor lock, zone confinement, cursor warps (zone edge and
-## resume), and the hurtbox scene shape.
+## resume), the hurtbox scene shape and the hull sprite (Story 4.0).
 
 const PLAYER_SCENE: PackedScene = preload("res://entities/player/player.tscn")
 const DT: float = 1.0 / 60.0
@@ -8,6 +8,8 @@ const LAYER_PLAYER: int = 1
 const MASK_ENEMIES_ASTEROIDS_PICKUPS: int = (1 << 2) | (1 << 4) | (1 << 5)
 const HIDDEN: Input.MouseMode = Input.MOUSE_MODE_CONFINED_HIDDEN
 const VISIBLE: Input.MouseMode = Input.MOUSE_MODE_VISIBLE
+const HULL_DIR: String = "res://assets/sprites/player/"
+const HULL_PATH: String = HULL_DIR + "playerShip1_coalition.png"
 
 var _player: Player
 ## Every warp_mouse call the Player made (recorder injected in before_each).
@@ -215,21 +217,75 @@ func test_hurtbox_is_centred_circle() -> void:
 	assert_eq(shapes[0].position, Vector2.ZERO)
 
 
-func test_sprite_matches_sprite_px() -> void:
-	var sprite: Sprite2D = null
-	for child: Node in _player.get_children():
-		if child is Sprite2D:
-			sprite = child as Sprite2D
-	assert_not_null(sprite, "has a Sprite2D")
-	if sprite == null:
+# --- Hull sprite (Story 4.0) -------------------------------------------------
+
+## Drawn hull size: the texture size times the Sprite scale.
+func _drawn(sprite: Sprite2D) -> Vector2:
+	return sprite.texture.get_size() * sprite.scale
+
+
+func test_sprite_is_the_real_hull() -> void:
+	var sprite: Sprite2D = _player.get_node("Sprite") as Sprite2D
+	assert_not_null(sprite.texture, "has a texture")
+	if sprite.texture == null:
 		return
-	assert_not_null(sprite.texture)
+	assert_false(sprite.texture is GradientTexture2D, "not the placeholder gradient")
+	assert_eq(sprite.texture.resource_path, HULL_PATH)
+	assert_eq(sprite.position, Vector2.ZERO, "centred on the ship")
+	assert_eq(sprite.rotation, 0.0, "never rotated")
+	assert_true(sprite.modulate.r <= 1.0 and sprite.modulate.g <= 1.0 and sprite.modulate.b <= 1.0,
+			"modulate not HDR")
+	assert_true(sprite.self_modulate.r <= 1.0 and sprite.self_modulate.g <= 1.0
+			and sprite.self_modulate.b <= 1.0, "self_modulate not HDR")
+
+
+func test_hull_asset_is_the_coalition_recolour() -> void:
+	var tex: Texture2D = load(HULL_PATH) as Texture2D
+	assert_not_null(tex, "hull PNG loads (run --import first)")
+	if tex == null:
+		return
+	var image: Image = tex.get_image()
+	assert_eq(Vector2i(image.get_width(), image.get_height()), Vector2i(99, 75))
+	if image.is_compressed():
+		image.decompress()
+	var counts: Dictionary = {}
+	for y: int in image.get_height():
+		for x: int in image.get_width():
+			var c: Color = image.get_pixel(x, y)
+			if c.a8 == 255:
+				var key: int = (c.r8 << 16) | (c.g8 << 8) | c.b8
+				counts[key] = int(counts.get(key, 0)) + 1
+	var best: int = -1
+	var best_count: int = 0
+	for key: int in counts:
+		if int(counts[key]) > best_count:
+			best = key
+			best_count = int(counts[key])
+	var coalition: Color = Color("#22E6FF")
+	assert_almost_eq((best >> 16) & 0xFF, coalition.r8, 1, "body red")
+	assert_almost_eq((best >> 8) & 0xFF, coalition.g8, 1, "body green")
+	assert_almost_eq(best & 0xFF, coalition.b8, 1, "body blue")
+
+
+func test_sprite_longer_side_matches_sprite_px() -> void:
+	var sprite: Sprite2D = _player.get_node("Sprite") as Sprite2D
 	var px: float = Config.num("player.sprite_px")
-	assert_eq(sprite.texture.get_size(), Vector2(px, px))
+	var drawn: Vector2 = _drawn(sprite)
+	assert_almost_eq(maxf(drawn.x, drawn.y), px, 1.0, "longer side = sprite_px")
+	assert_almost_eq(sprite.scale.x, sprite.scale.y, 0.0001, "uniform scale")
+	assert_almost_eq(drawn.x / drawn.y, sprite.texture.get_size().x / sprite.texture.get_size().y,
+			0.0001, "aspect kept")
+
+
+func test_muzzle_on_the_nose() -> void:
+	var sprite: Sprite2D = _player.get_node("Sprite") as Sprite2D
+	var muzzle: Marker2D = _player.get_node("Muzzle") as Marker2D
+	assert_almost_eq(muzzle.position.x, 0.0, 0.01)
+	assert_almost_eq(muzzle.position.y, -_drawn(sprite).y / 2.0, 0.01)
 
 
 func test_hurtbox_and_sprite_sizes_follow_config() -> void:
-	# Values differ from the literals baked into player.tscn, so only _ready() can set them.
+	# Values differ from the defaults, so only _ready() can set them.
 	var player_tuning: Dictionary = Config.tuning["player"]
 	var original_diameter: Variant = player_tuning["hurtbox_diameter_px"]
 	var original_sprite_px: Variant = player_tuning["sprite_px"]
@@ -240,6 +296,38 @@ func test_hurtbox_and_sprite_sizes_follow_config() -> void:
 	player_tuning["hurtbox_diameter_px"] = original_diameter
 	player_tuning["sprite_px"] = original_sprite_px
 	fresh.set_physics_process(false)
-	var circle: CircleShape2D = (fresh.get_node("Hurtbox") as CollisionShape2D).shape as CircleShape2D
+	var hurtbox: CollisionShape2D = fresh.get_node("Hurtbox") as CollisionShape2D
+	var circle: CircleShape2D = hurtbox.shape as CircleShape2D
 	assert_eq(circle.radius, 20.0)
-	assert_eq((fresh.get_node("Sprite") as Sprite2D).texture.get_size(), Vector2(64, 64))
+	assert_eq(hurtbox.position, Vector2.ZERO)
+	var sprite: Sprite2D = fresh.get_node("Sprite") as Sprite2D
+	var drawn: Vector2 = _drawn(sprite)
+	assert_almost_eq(maxf(drawn.x, drawn.y), 64.0, 1.0, "longer side = 64")
+	assert_almost_eq(sprite.scale.x, sprite.scale.y, 0.0001, "uniform scale")
+	var muzzle: Marker2D = fresh.get_node("Muzzle") as Marker2D
+	assert_almost_eq(muzzle.position.y, -drawn.y / 2.0, 0.01, "Muzzle follows the nose")
+	assert_almost_eq(muzzle.position.x, 0.0, 0.01)
+
+
+func test_bad_sprite_px_warns_and_keeps_scale() -> void:
+	var lines: Array[String] = []
+	var capture: Callable = func(level: String, category: String, msg: String) -> void:
+		lines.append(Log.format(level, category, msg))
+	var player_tuning: Dictionary = Config.tuning["player"]
+	var original_sprite_px: Variant = player_tuning["sprite_px"]
+	player_tuning["sprite_px"] = 0
+	Log.sink = capture
+	var fresh: Player = PLAYER_SCENE.instantiate() as Player
+	var scene_muzzle: Vector2 = (fresh.get_node("Muzzle") as Marker2D).position
+	add_child_autofree(fresh)
+	Log.sink = Callable()
+	player_tuning["sprite_px"] = original_sprite_px
+	fresh.set_physics_process(false)
+	assert_eq((fresh.get_node("Sprite") as Sprite2D).scale, Vector2.ONE, "scale unchanged")
+	assert_eq((fresh.get_node("Muzzle") as Marker2D).position, scene_muzzle, "Muzzle unchanged")
+	var warns: Array[String] = []
+	for line: String in lines:
+		# The MissileRing also warns about its radius clamp here (sprite_px / 2 = 0).
+		if line.begins_with("[WARN][data] Player hull"):
+			warns.append(line)
+	assert_eq(warns.size(), 1, "one hull data WARN")
