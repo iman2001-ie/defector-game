@@ -273,7 +273,8 @@
 	},
 	"ui": {
 		"retry_prompt": { "headline_y": 440, "headline_px": 48, "button_w": 320, "button_h": 80, "button_gap_px": 48, "buttons_top_y": 560 },
-		"title": { "logo_y": 300, "logo_px": 120, "button_w": 400, "button_h": 72, "button_gap_px": 24, "buttons_top_y": 560 }
+		"title": { "logo_y": 300, "logo_px": 120, "button_w": 400, "button_h": 72, "button_gap_px": 24, "buttons_top_y": 560 },
+		"level_select": { "card_w": 480, "card_h": 280, "card_gap_px": 48, "cards_top_y": 360, "back_x": 32, "back_y": 984, "back_w": 240, "back_h": 64, "locked_alpha": 0.4 }
 	},
 	"render": {
 		"glow": { "intensity": 1.0, "bloom": 0.08, "hdr_threshold": 0.55 }

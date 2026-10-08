@@ -1,8 +1,8 @@
 class_name TitleScreen
 extends Control
 ## The title screen (Story 4.1, FR56; UX "Title screen"): the DEFECTOR logo and
-## PLAY · QUIT. PLAY continues at the highest unlocked level (Story 4.2);
-## Story 4.3 adds LEVEL SELECT.
+## PLAY · LEVEL SELECT · QUIT. PLAY continues at the highest unlocked level
+## (Story 4.2); LEVEL SELECT (Story 4.3) opens Level Select.
 ##
 ## Healthy config: the layout comes from `ui.title` (logo centre y and size,
 ## button size, gap and first top; the button stack is centred horizontally).
@@ -13,7 +13,8 @@ extends Control
 ##
 ## PLAY -> SceneRouter.start_level(GameState.highest_unlocked_level) with the
 ## energy goto_title() restored from the save (the debug F7 unlock doesn't change
-## it); QUIT -> quit_game (logged).
+## it); LEVEL SELECT -> SceneRouter.goto_level_select() (GameState untouched);
+## QUIT -> quit_game (logged).
 ## A second press does nothing. Colours, sizes and button styles come from the
 ## shared Theme (type `Title`), copied onto the children in code. Mouse-only:
 ## no button takes focus.
@@ -31,6 +32,7 @@ const STYLE_BUTTON_HOVER: StringName = &"button_hover"
 const STYLE_BUTTON_FOCUS: StringName = &"button_focus"
 const TEXT_LOGO: String = "DEFECTOR"
 const TEXT_PLAY: String = "PLAY"
+const TEXT_LEVEL_SELECT: String = "LEVEL SELECT"
 const TEXT_QUIT: String = "QUIT"
 const TEXT_ERROR_HEADER: String = "CONFIG ERROR"
 ## The Logo label is this many times logo_px tall, so the glyphs fit inside it.
@@ -46,6 +48,7 @@ var _config_failed: bool = false
 @onready var _logo: Label = $Logo
 @onready var _buttons: VBoxContainer = $Buttons
 @onready var _play: Button = $Buttons/Play
+@onready var _level_select: Button = $Buttons/LevelSelect
 @onready var _quit: Button = $Buttons/Quit
 @onready var _error: Label = $Error
 
@@ -57,6 +60,7 @@ func _ready() -> void:
 	_config_failed = not Config.load_error.is_empty()
 	_logo.text = TEXT_LOGO
 	_play.text = TEXT_PLAY
+	_level_select.text = TEXT_LEVEL_SELECT
 	_quit.text = TEXT_QUIT
 	_apply_theme()
 	if _config_failed:
@@ -65,6 +69,7 @@ func _ready() -> void:
 		_error.visible = false
 		_layout()
 	_play.pressed.connect(_on_play_pressed)
+	_level_select.pressed.connect(_on_level_select_pressed)
 	_quit.pressed.connect(_on_quit_pressed)
 	Log.info("scene", "Title ready %d ms after launch" % Time.get_ticks_msec())
 
@@ -90,6 +95,7 @@ static func buttons_rect(canvas_w: float, button: Vector2, gap: float, top_y: fl
 func _show_config_error(message: String) -> void:
 	_buttons.visible = false
 	_play.disabled = true
+	_level_select.disabled = true
 	_quit.disabled = true
 	_error.text = TEXT_ERROR_HEADER + "\n" + message
 	_error.visible = true
@@ -100,6 +106,13 @@ func _on_play_pressed() -> void:
 		return
 	_leaving = true
 	SceneRouter.start_level(str(GameState.highest_unlocked_level))
+
+
+func _on_level_select_pressed() -> void:
+	if _leaving or _config_failed:
+		return
+	_leaving = true
+	SceneRouter.goto_level_select()
 
 
 func _on_quit_pressed() -> void:
@@ -147,7 +160,7 @@ func _apply_theme() -> void:
 	var focus: StyleBox = get_theme_stylebox(STYLE_BUTTON_FOCUS, THEME_TYPE)
 	var text_color: Color = get_theme_color(COLOR_TEXT, THEME_TYPE)
 	var font_px: int = get_theme_font_size(FONT_SIZE_BUTTON, THEME_TYPE)
-	for button: Button in [_play, _quit]:
+	for button: Button in [_play, _level_select, _quit]:
 		button.focus_mode = Control.FOCUS_NONE
 		button.add_theme_stylebox_override(&"normal", normal)
 		button.add_theme_stylebox_override(&"hover", hover)

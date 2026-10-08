@@ -9,6 +9,9 @@ extends Node
 ## - goto_title(): the title screen (scenes/title/title.tscn). Restores energy
 ##   and highest_unlocked_level from the save (F13: in-memory mid-level energy
 ##   never leaks across menus), clears the retry flag and the level id.
+## - goto_level_select(): the Level Select screen
+##   (scenes/title/level_select.tscn, Story 4.3). Leaves GameState alone (the
+##   title's goto_title() already restored energy and unlocks) and writes no save.
 ## - start_level(id): a fresh (non-retry) attempt of level `id` in level.tscn,
 ##   carrying the current energy. Refused (logged) while Config.load_error is set.
 ## - restart_level(): retry is a scene reload (ADR-004). It wipes energy, marks
@@ -23,6 +26,7 @@ extends Node
 
 const LEVEL_SCENE_PATH: String = "res://scenes/level/level.tscn"
 const TITLE_SCENE_PATH: String = "res://scenes/title/title.tscn"
+const LEVEL_SELECT_SCENE_PATH: String = "res://scenes/title/level_select.tscn"
 
 ## Changes the scene to a file path. Defaults to get_tree().change_scene_to_file
 ## in _ready; tests inject a recorder (calling the real one in GUT would replace
@@ -77,6 +81,12 @@ func goto_title() -> void:
 	GameState.is_retry = false
 	GameState.current_level_id = ""
 	_change_to(TITLE_SCENE_PATH, "Going to the title screen")
+
+
+## The Level Select screen. Touches no GameState field (energy and unlocks are
+## the values goto_title() restored from the save) and writes no save.
+func goto_level_select() -> void:
+	_change_to(LEVEL_SELECT_SCENE_PATH, "Going to level select")
 
 
 ## Level `n` was cleared. A campaign level (1..progression.level_count) raises

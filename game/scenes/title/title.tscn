@@ -28,7 +28,7 @@ layout_mode = 0
 offset_left = 760.0
 offset_top = 560.0
 offset_right = 1160.0
-offset_bottom = 728.0
+offset_bottom = 824.0
 theme_override_constants/separation = 24
 
 [node name="Play" type="Button" parent="Buttons"]
@@ -36,6 +36,12 @@ custom_minimum_size = Vector2(400, 72)
 layout_mode = 2
 focus_mode = 0
 text = "PLAY"
+
+[node name="LevelSelect" type="Button" parent="Buttons"]
+custom_minimum_size = Vector2(400, 72)
+layout_mode = 2
+focus_mode = 0
+text = "LEVEL SELECT"
 
 [node name="Quit" type="Button" parent="Buttons"]
 custom_minimum_size = Vector2(400, 72)

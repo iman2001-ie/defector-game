@@ -5,7 +5,9 @@ extends GutTest
 ## real one would replace the test runner's scene). start_level refuses while
 ## Config.load_error is set. Story 4.2: goto_title() restores energy and the
 ## unlock from the save (clamped), complete_level(n) unlocks, saves and moves
-## on, and nothing else writes the save. The save is a test file here.
+## on, and nothing else writes the save. Story 4.3: goto_level_select() changes
+## to the Level Select screen and leaves GameState and the save alone. The save
+## is a test file here.
 
 const TEST_SAVE: String = "user://test_scene_router_save.cfg"
 
@@ -155,6 +157,36 @@ func test_goto_title_resets_state_and_goes_to_the_title() -> void:
 	assert_eq(Engine.time_scale, 1.0, "hit-stop ended")
 	assert_eq(_calls, [SceneRouter.TITLE_SCENE_PATH] as Array[String], "one change to the title")
 	assert_eq(_scene_lines().size(), 1, "one INFO scene line")
+
+
+func test_level_select_scene_path() -> void:
+	assert_eq(SceneRouter.LEVEL_SELECT_SCENE_PATH, "res://scenes/title/level_select.tscn")
+	assert_true(ResourceLoader.exists(SceneRouter.LEVEL_SELECT_SCENE_PATH))
+
+
+func test_goto_level_select_leaves_game_state_alone() -> void:
+	_write_save(1, 5)
+	GameState.energy = 45
+	GameState.highest_unlocked_level = 2
+	GameState.current_level_id = "3"
+	GameState.is_retry = true
+	PauseArbiter.push(&"menu")
+	Feedback.hit_stop(500.0)
+	SceneRouter.goto_level_select()
+	assert_eq(GameState.energy, 45, "energy unchanged")
+	assert_eq(GameState.highest_unlocked_level, 2, "unlock unchanged")
+	assert_eq(GameState.current_level_id, "3", "level id unchanged")
+	assert_true(GameState.is_retry, "retry flag unchanged")
+	assert_false(PauseArbiter.is_paused(), "pause reasons cleared")
+	assert_eq(Engine.time_scale, 1.0, "hit-stop ended")
+	assert_eq(_calls, [SceneRouter.LEVEL_SELECT_SCENE_PATH] as Array[String], "one change to level select")
+	assert_eq(_scene_lines().size(), 1, "one INFO scene line")
+	assert_eq(_read_save(), [1, 1, 5], "save untouched")
+
+
+func test_goto_level_select_writes_no_save() -> void:
+	SceneRouter.goto_level_select()
+	assert_false(FileAccess.file_exists(TEST_SAVE), "no save written")
 
 
 func test_start_level_sets_the_id_and_keeps_the_energy() -> void:
