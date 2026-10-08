@@ -518,6 +518,7 @@ source_spec: `_bmad-output/implementation-artifacts/epic-3-retro-2026-10-08.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 3; owner Dev loop; sprint-status status open)
 status: open
+decision: 2026-10-08 First outcome wins; clear makes the ship safe — Make the level end exactly once. After level_failed, WaveDirector stops counting kill progress and never emits level_cleared, so in-flight missiles no longer score. After level_cleared, the player can no longer die (hazards are ignored and level_failed is never emitted). Add a decision-log row and tests that combine a death with a clear in both orders.
 
 ### DW-55: Split player.gd: extract hearts/i-frames (HealthComponent or a recorded replacement) and the shield into components, and fold try_shield/try_barrage into one spend gate (A1, A3)
 origin: retro action item epic-3-retro-item-25-split-player-gd-extract-hearts-i-frames
