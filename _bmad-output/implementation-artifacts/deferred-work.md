@@ -443,7 +443,9 @@ location: game/scenes/level/level.gd:22
 source_spec: `spec-dw-27-dw-19-debug-tools-injectable-user-args.md`
 severity: medium
 reason: game/scenes/level/level.gd:22 calls DebugArgs.parse(OS.get_cmdline_user_args()); test_level.gd only exercises the static helpers should_redirect_to_stress and should_prewarm with hand-built dictionaries, so breaking the args wiring in _ready leaves the suite green. Pre-existing and outside the bundle intent (which names DebugTools and Sandbox); the redirect also needs an injectable change_scene seam.
-status: open
+status: done 2026-10-08
+resolution: resolved by sweep bundle dw-level-injectable-user-args
+resolution-undo: 63c64131cd7f41d972692919f517ce578316d44cec367634bd036a1fff34c86a 2026-10-08 7374617475733a206f70656e
 
 ### DW-47: The asset cause says new or changed assets have "no up-to-date `.import` artefact", but the `.import` sidecars are tracked in git; after a pull or branch switch, what is actually missing is the
 origin: spec-deferred a10711430ba6

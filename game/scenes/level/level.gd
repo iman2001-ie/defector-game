@@ -10,7 +10,8 @@ extends Node2D
 ##
 ## Debug builds given `-- --stress` or `-- --bench=<s>` switch to the sandbox
 ## stress scene instead (the stress bench lives there). `-- --no-prewarm`
-## (debug builds) skips Feedback.prewarm(), as in the sandbox.
+## (debug builds) skips Feedback.prewarm(), as in the sandbox. The args come
+## from user_args and the redirect goes through change_scene (DW-46 seams).
 
 const SANDBOX_SCENE_PATH: String = "res://scenes/sandbox/sandbox.tscn"
 
@@ -18,16 +19,27 @@ const SANDBOX_SCENE_PATH: String = "res://scenes/sandbox/sandbox.tscn"
 ## GameState.current_level_id is empty; replaced by the resolved id in _ready.
 @export var level_id: String = "dev"
 
+## The user args _ready parses (`--stress`, `--bench=<s>`, `--no-prewarm`).
+## Tests override this before add_child.
+var user_args: PackedStringArray = OS.get_cmdline_user_args()
+## Changes the scene to a file path (the debug `--stress` redirect, deferred).
+## Defaults to get_tree().change_scene_to_file in _ready; tests inject a
+## recorder before add_child (calling the real one in GUT would replace the
+## test runner's scene).
+var change_scene: Callable
+
 @onready var _player: Player = $World/Player
 @onready var _spawner: Spawner = $Spawner
 @onready var _director: WaveDirector = $WaveDirector
 
 
 func _ready() -> void:
-	var args: Dictionary = DebugArgs.parse(OS.get_cmdline_user_args())
+	if not change_scene.is_valid():
+		change_scene = get_tree().change_scene_to_file
+	var args: Dictionary = DebugArgs.parse(user_args)
 	if should_redirect_to_stress(OS.is_debug_build(), args):
 		Log.info("scene", "Stress/bench args: switching to the sandbox stress scene")
-		get_tree().change_scene_to_file.call_deferred(SANDBOX_SCENE_PATH)
+		change_scene.call_deferred(SANDBOX_SCENE_PATH)
 		return
 	level_id = resolve_level_id(level_id, GameState.current_level_id)
 	GameState.current_level_id = level_id

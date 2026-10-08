@@ -630,3 +630,84 @@ func test_prewarm_skipped_only_by_no_prewarm_in_debug_builds() -> void:
 	assert_true(LEVEL_SCRIPT.should_prewarm(true, on), "debug build, no flag: pre-warm")
 	assert_false(LEVEL_SCRIPT.should_prewarm(true, off), "debug build, --no-prewarm: skip")
 	assert_true(LEVEL_SCRIPT.should_prewarm(false, off), "release build ignores --no-prewarm")
+
+
+# --- Injected user args and change_scene (DW-46) -------------------------------
+
+## A level whose _ready parses `args`; `record` injects _record_scene as its
+## change_scene. Logs are captured during _ready.
+func _level_with_args(args: PackedStringArray, record: bool = true) -> Node2D:
+	_lines.clear()
+	_level = LEVEL_SCENE.instantiate() as Node2D
+	_level.user_args = args
+	if record:
+		_level.change_scene = _record_scene
+	Log.sink = _capture
+	add_child_autofree(_level)
+	Log.sink = Callable()
+	return _level
+
+
+## Explosions in this level's World/Effects at the off-screen pre-warm spot.
+func _prewarm_explosions() -> Array[Explosion]:
+	var out: Array[Explosion] = []
+	for child: Node in _level.get_node("World/Effects").get_children():
+		if child is Explosion and (child as Explosion).global_position == Feedback.PREWARM_POSITION:
+			out.append(child as Explosion)
+	return out
+
+
+func _lines_containing(text: String) -> Array[String]:
+	var out: Array[String] = []
+	for line: String in _lines:
+		if line.contains(text):
+			out.append(line)
+	return out
+
+
+func test_stress_arg_redirects_to_the_sandbox() -> void:
+	_level_with_args(PackedStringArray(["--stress"]))
+	assert_eq(_lines_containing("switching to the sandbox stress scene").size(), 1, "redirect logged")
+	assert_eq(_started.size(), 0, "no level_started")
+	assert_eq(GameState.current_level_id, "", "returns before the level setup")
+	assert_eq(_prewarm_explosions().size(), 0, "no pre-warm explosion")
+	assert_eq(_scene_calls.size(), 0, "redirect is deferred")
+	await wait_process_frames(1)
+	assert_eq(_scene_calls, [LEVEL_SCRIPT.SANDBOX_SCENE_PATH] as Array[String], "deferred redirect to the sandbox once")
+
+
+func test_bench_arg_redirects_to_the_sandbox() -> void:
+	_level_with_args(PackedStringArray(["--bench=1"]))
+	assert_eq(_lines_containing("switching to the sandbox stress scene").size(), 1, "redirect logged")
+	assert_eq(_started.size(), 0, "no level_started")
+	assert_eq(GameState.current_level_id, "", "returns before the level setup")
+	assert_eq(_prewarm_explosions().size(), 0, "no pre-warm explosion")
+	assert_eq(_scene_calls.size(), 0, "redirect is deferred")
+	await wait_process_frames(1)
+	assert_eq(_scene_calls, [LEVEL_SCRIPT.SANDBOX_SCENE_PATH] as Array[String], "deferred redirect to the sandbox once")
+
+
+func test_no_args_start_the_level_and_prewarm() -> void:
+	_level_with_args(PackedStringArray())
+	assert_eq(_started, [0] as Array[int], "level_started once")
+	assert_eq(_prewarm_explosions().size(), ImpactTier.NAMES.size(), "one pre-warm explosion per tier")
+	assert_eq(_lines_containing("Feedback pre-warm skipped").size(), 0, "no skip line")
+	await wait_process_frames(1)
+	assert_eq(_scene_calls.size(), 0, "no scene change")
+
+
+func test_no_prewarm_arg_skips_the_prewarm() -> void:
+	_level_with_args(PackedStringArray(["--no-prewarm"]))
+	assert_eq(_started, [0] as Array[int], "level_started once")
+	assert_eq(_prewarm_explosions().size(), 0, "no pre-warm explosion")
+	assert_eq(_lines_containing("Feedback pre-warm skipped").size(), 1, "skip logged")
+	await wait_process_frames(1)
+	assert_eq(_scene_calls.size(), 0, "no scene change")
+
+
+func test_ready_wires_the_real_change_scene() -> void:
+	_level_with_args(PackedStringArray(), false)
+	var wired: Callable = _level.get("change_scene")
+	assert_true(wired.is_valid(), "change_scene wired")
+	assert_eq(wired.get_method(), &"change_scene_to_file", "the tree's change_scene_to_file")
+	assert_eq(wired.get_object(), get_tree(), "bound to the scene tree")
