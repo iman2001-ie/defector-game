@@ -1339,11 +1339,14 @@ CLI export (optional, for repeatability). Run the import step first; on a fresh 
 AI agents use the **headless CLI loop** instead, which covers editing, error checking, tests, running and logs:
 
 ```bash
-# Import the project (builds the class_name cache and imports the WAVs Audio preloads).
-# Run on a fresh clone. Re-run after adding, renaming, moving or deleting class_name scripts, after adding or changing
-# imported assets, after pulling or switching to a branch that does either, or when game/.godot/ is stale:
-# headless -s runs don't rescan the class cache, and new or changed assets have no up-to-date .import artefact
-# until --import runs. Typical symptom: a parse error naming a class_name that exists.
+# Import the project (builds the class_name cache and imports the project's assets).
+# Copy of the note in AGENTS.md section 3 (Project facts), Tests bullet, which is the source; change both together.
+# Run on a fresh clone with no game/.godot/. Re-run after adding, changing or removing a class_name declaration
+# (including adding, renaming, moving or deleting a script that has one), after adding, changing, renaming, moving
+# or deleting an imported asset, after any pull or branch switch, or when game/.godot/ is stale: headless -s runs
+# don't rescan the class cache, and an asset has no imported copy in the gitignored game/.godot/imported/ until
+# --import runs (only the .import sidecars are tracked). Typical symptoms: a parse error naming a class_name that
+# exists, or a preload or resource-load failure for an asset that exists.
 "<GODOT_DIR>/Godot_v4.7.2-stable_win64_console.exe" --headless --path game --import
 
 # Run all GUT tests headless
