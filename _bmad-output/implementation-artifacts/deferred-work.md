@@ -543,6 +543,7 @@ source_spec: `_bmad-output/implementation-artifacts/epic-3-retro-2026-10-08.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 3; owner Developer; sprint-status status open)
 status: open
+decision: 2026-10-08 Review each deviation first
 
 ### DW-58: Playtest the Epic 3 manual checks listed in specs 3-1 to 3-5
 origin: retro action item epic-3-retro-item-28-playtest-the-epic-3-manual-checks-listed
