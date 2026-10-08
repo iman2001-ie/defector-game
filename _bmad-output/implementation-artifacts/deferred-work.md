@@ -381,7 +381,9 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-2-retro-2026-10-07.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 2; owner Developer (decision) then Dev loop; sprint-status status open)
-status: open
+status: done 2026-10-08
+resolution: resolved by sweep bundle dw-enemy-fire-cadence-full-period
+resolution-undo: 92a4a16a62129ebfbf76e49c515b96c482778fa3bd128f3421032b1e4eca1b7a 2026-10-08 7374617475733a206f70656e
 decision: 2026-10-07 Full period: interval includes the telegraph — Change Lancer and Bastion so the shot period equals fire_interval_s (timer runs interval minus telegraph), matching the Needle's start-to-start semantics; update tests, the as-built notes in game-architecture.md and add a decision-log row.
 
 ### DW-41: Extract shared enemy behaviour (setup/entry, aim, fire guard, tuning prefix) into core/enemy.gd or a ShooterEnemy base before Epic 6
@@ -635,4 +637,20 @@ location: game/systems/waves/wave_director.gd:264
 source_spec: `spec-dw-37-wave-data-validation-hardening.md`
 severity: low
 reason: needle.gd anchors at enemies.needle.anchor_y_px (160 = waves.formation.top_y) whatever its slot y, but WaveDirector._spawn_entry gives it the next free row. Only a first-in-wave Needle (as in level_dev.json wave 4) lines up. Pre-existing: before DW-37 every type advanced the row. Neither LevelValidator nor test_zoned_formations_fit_their_top_zone detects it, and no shipped wave hits it.
+status: open
+
+### DW-69: Decision #38 covers only Lancer and Bastion; the boss timers (boss.turrets fire_interval_s/telegraph_s, desperate aimed/radial interval plus glow) still have unstated cadence semantics, and the Wasp
+origin: spec-deferred c9bb03f74898
+location: game/data/tuning.json (boss.turrets, boss.desperate)
+source_spec: `spec-dw-40-enemy-fire-cadence-full-period.md`
+severity: low
+reason: tuning.json boss.turrets pairs fire_interval_s 3.0 with telegraph_s 0.5, and GDD FR51 says "every 1.5 s after a 0.4 s glow". The boss isn't built yet (Epic 7), so the DW-40 question will come back unless #38 is extended or the boss story states its semantics. Pre-existing ambiguity; the intent scopes DW-40 to Lancer and Bastion.
+status: open
+
+### DW-70: The Story 2.5 AC in epics.md ("Given a Lancer's fire timer reaches 2.0 s ... glows for 0.3 s, then it fires") now describes the old timer literally; as built the timer is 1.7 s and the shot lands at
+origin: spec-deferred 09902fcc9688
+location: _bmad-output/planning-artifacts/epics.md:785
+source_spec: `spec-dw-40-enemy-fire-cadence-full-period.md`
+severity: low
+reason: epics.md:785-787. FR20 ("every 2.0 s") and decision #38 match the new behaviour, and the architecture note explains it. The DW-40 decision lists only tests, the architecture notes and a decision-log row as the docs to update, and AGENTS.md says to ask the user before changing planning docs, so amending a done story's AC (as #34/#35 did) is left for the user to decide.
 status: open

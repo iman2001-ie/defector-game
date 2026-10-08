@@ -5,10 +5,11 @@ extends Enemy
 ## Wave Lancers (spawned with a `slot`) fly in from their `entry` side at
 ## enemies.lancer.strafe_speed_px_s to a slot in the top zone_height_ratio of
 ## the playfield, then strafe horizontally at that speed between the screen
-## edges, never changing y. Every fire_interval_s of strafing the muzzle glows
-## for telegraph_s (still strafing), then one enemy_bullet is fired at
-## bullet_speed_px_s toward where the player is at that moment (straight down
-## with no player), and the cycle restarts.
+## edges, never changing y. Shots are fire_interval_s apart, start to start
+## (DW-40, decision #38): the Lancer strafes for fire_interval_s - telegraph_s
+## (at least 0), then the muzzle glows for telegraph_s (still strafing), then
+## one enemy_bullet is fired at bullet_speed_px_s toward where the player is at
+## that moment (straight down with no player), and the cycle restarts.
 ##
 ## Bullets are requested through `spawner` (injected by Spawner). Without one
 ## the Lancer runs its cycle but never fires.
@@ -30,7 +31,8 @@ var _max_x: float = 0.0
 
 var _strafe_speed: float = 0.0
 var _zone_height_ratio: float = 0.0
-var _fire_interval_s: float = 0.0
+## STRAFE time per cycle: max(fire_interval_s - telegraph_s, 0).
+var _strafe_s: float = 0.0
 var _telegraph_s: float = 0.0
 var _bullet_speed: float = 0.0
 var _glow_energy: float = 1.0
@@ -48,8 +50,8 @@ func _ready() -> void:
 	super()
 	_strafe_speed = Config.num(_tuning_key("strafe_speed_px_s"))
 	_zone_height_ratio = Config.num(_tuning_key("zone_height_ratio"))
-	_fire_interval_s = Config.num(_tuning_key("fire_interval_s"))
 	_telegraph_s = Config.num(_tuning_key("telegraph_s"))
+	_strafe_s = maxf(Config.num(_tuning_key("fire_interval_s")) - _telegraph_s, 0.0)
 	_bullet_speed = Config.num(_tuning_key("bullet_speed_px_s"))
 	_glow_energy = Config.num(_tuning_key("muzzle_glow_energy"))
 	_bullet_damage = Config.int_("damage.bullet_hearts")
@@ -88,7 +90,7 @@ func step(delta: float) -> void:
 				_enter_state(State.STRAFE)
 		State.STRAFE:
 			_strafe(delta)
-			if _t >= _fire_interval_s:
+			if _t >= _strafe_s:
 				_enter_state(State.TELEGRAPH)
 		State.TELEGRAPH:
 			_strafe(delta)

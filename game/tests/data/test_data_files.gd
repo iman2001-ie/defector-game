@@ -230,7 +230,10 @@ func test_wasp_tuning_ranges() -> void:
 func test_lancer_tuning_ranges() -> void:
 	assert_gt(Config.num("enemies.lancer.strafe_speed_px_s"), 0.0, "strafe_speed_px_s > 0")
 	assert_gt(Config.num("enemies.lancer.bullet_speed_px_s"), 0.0, "bullet_speed_px_s > 0")
-	assert_gt(Config.num("enemies.lancer.fire_interval_s"), 0.0, "fire_interval_s > 0")
+	var fire: float = Config.num("enemies.lancer.fire_interval_s")
+	assert_gt(fire, 0.0, "fire_interval_s > 0")
+	# DW-40: fire_interval_s is the full shot period and includes the telegraph.
+	assert_lte(Config.num("enemies.lancer.telegraph_s"), fire, "telegraph_s <= fire_interval_s")
 	assert_gt(Config.num("enemies.lancer.muzzle_glow_energy"), 1.0, "muzzle_glow_energy > 1")
 	var zone: float = Config.num("enemies.lancer.zone_height_ratio")
 	assert_gt(zone, 0.0, "zone_height_ratio > 0")
@@ -265,7 +268,10 @@ func test_needle_tuning_ranges() -> void:
 func test_bastion_tuning_ranges() -> void:
 	assert_gt(Config.num("enemies.bastion.drift_speed_px_s"), 0.0, "drift_speed_px_s > 0")
 	assert_gt(Config.num("enemies.bastion.bullet_speed_px_s"), 0.0, "bullet_speed_px_s > 0")
-	assert_gt(Config.num("enemies.bastion.fire_interval_s"), 0.0, "fire_interval_s > 0")
+	var fire: float = Config.num("enemies.bastion.fire_interval_s")
+	assert_gt(fire, 0.0, "fire_interval_s > 0")
+	# DW-40: fire_interval_s is the full volley period and includes the telegraph.
+	assert_lte(Config.num("enemies.bastion.telegraph_s"), fire, "telegraph_s <= fire_interval_s")
 	assert_gte(Config.int_("enemies.bastion.turrets"), 1, "turrets >= 1")
 	assert_gte(Config.int_("enemies.bastion.spread_bullets"), 1, "spread_bullets >= 1")
 	var spread: float = Config.num("enemies.bastion.spread_deg")

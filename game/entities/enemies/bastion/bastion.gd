@@ -5,11 +5,13 @@ extends Enemy
 ## Wave Bastions (spawned with a `slot`) fly in from their `entry` side at
 ## enemies.bastion.drift_speed_px_s to their slot, then drift at that speed
 ## toward random targets inside the drift box: the whole hull stays inside
-## band_y (y 80-400), fully on screen. Every fire_interval_s of drifting each
-## turret's Glow shows for telegraph_s (still drifting), then every turret fires
-## a spread of spread_bullets enemy_bullets, evenly spaced from -spread_deg to
-## +spread_deg around straight down, at bullet_speed_px_s. The spread is never
-## aimed at the player or the convoy.
+## band_y (y 80-400), fully on screen. Volleys are fire_interval_s apart,
+## start to start (DW-40, decision #38): the Bastion drifts for
+## fire_interval_s - telegraph_s (at least 0), then each turret's Glow shows for
+## telegraph_s (still drifting), then every turret fires a spread of
+## spread_bullets enemy_bullets, evenly spaced from -spread_deg to +spread_deg
+## around straight down, at bullet_speed_px_s. The spread is never aimed at the
+## player or the convoy.
 ##
 ## Bullets are requested through `spawner` (injected by Spawner). Without one
 ## the Bastion runs its cycle but never fires. Contact never destroys it (large
@@ -34,7 +36,8 @@ var _target: Vector2 = Vector2.ZERO
 var _has_target: bool = false
 
 var _drift_speed: float = 0.0
-var _fire_interval_s: float = 0.0
+## DRIFT time per cycle: max(fire_interval_s - telegraph_s, 0).
+var _drift_s: float = 0.0
 var _telegraph_s: float = 0.0
 var _bullet_damage: int = 1
 ## One velocity per spread bullet, computed once in _ready.
@@ -52,8 +55,8 @@ func _init() -> void:
 func _ready() -> void:
 	super()
 	_drift_speed = Config.num(_tuning_key("drift_speed_px_s"))
-	_fire_interval_s = Config.num(_tuning_key("fire_interval_s"))
 	_telegraph_s = Config.num(_tuning_key("telegraph_s"))
+	_drift_s = maxf(Config.num(_tuning_key("fire_interval_s")) - _telegraph_s, 0.0)
 	_bullet_damage = Config.int_("damage.bullet_hearts")
 	var band_min: float = Config.num(_tuning_key("band_y.min"))
 	var band_max: float = Config.num(_tuning_key("band_y.max"))
@@ -96,7 +99,7 @@ func step(delta: float) -> void:
 				_enter_state(State.DRIFT)
 		State.DRIFT:
 			_drift(delta)
-			if _t >= _fire_interval_s:
+			if _t >= _drift_s:
 				_enter_state(State.TELEGRAPH)
 		State.TELEGRAPH:
 			_drift(delta)

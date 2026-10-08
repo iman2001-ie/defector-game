@@ -253,7 +253,7 @@ func test_fire_cycle_through_a_real_spawner() -> void:
 	assert_eq(lancer.spawner, _spawner, "Spawner injected itself")
 	assert_eq(lancer.state(), Lancer.State.STRAFE)
 	var t: float = _step_until(lancer, Lancer.State.TELEGRAPH, 3.0)
-	assert_almost_eq(t, 2.0, DT * 1.5, "fire_interval_s of strafing")
+	assert_almost_eq(t, 1.7, DT * 1.5, "fire_interval_s - telegraph_s of strafing")
 	assert_true(lancer.is_glowing(), "muzzle glows")
 	var glow: CanvasItem = lancer.get_node("Muzzle/MuzzleGlow") as CanvasItem
 	var e: float = Config.num("enemies.lancer.muzzle_glow_energy")
@@ -343,17 +343,66 @@ func test_player_on_the_muzzle_shoots_straight_down() -> void:
 		assert_almost_eq(bullets[0].velocity, Vector2(0, 450), Vector2(0.0001, 0.0001))
 
 
-func test_cycle_repeats_every_interval_plus_telegraph() -> void:
+## DW-40 (decision #38): fire_interval_s is the full shot period and includes
+## the telegraph, so shots are fire_interval_s apart, the muzzle glowing for the
+## last telegraph_s of each period.
+func test_cycle_repeats_every_full_period() -> void:
 	_make_world()
 	var lancer: Lancer = _spawn({"position": Vector2(700, 160)})
 	if lancer == null:
 		return
 	var t: float = 0.0
-	# 3 shots by ~6.9 s; the 4th lands at ~9.2 s.
-	while t < 3.0 * 2.3 + 0.5:
+	var shots: Array[float] = []
+	var glow_starts: Array[float] = []
+	var was_glowing: bool = false
+	# 3 shots by ~6.5 s (at ~2.0, ~4.0, ~6.0 s); the 4th lands at ~8.0 s.
+	while t < 3.0 * 2.0 + 0.5:
+		var before: int = _bullets().size()
 		lancer.step(DT)
 		t += DT
-	assert_eq(_bullets().size(), 3, "one shot per 2.3 s")
+		if lancer.is_glowing() and not was_glowing:
+			glow_starts.append(t)
+		was_glowing = lancer.is_glowing()
+		if _bullets().size() > before:
+			shots.append(t)
+	assert_eq(_bullets().size(), 3, "one shot per 2.0 s")
+	assert_eq(shots.size(), 3, "three separate shots")
+	if shots.size() != 3:
+		return
+	assert_almost_eq(shots[0], 2.0, DT * 2.5, "first shot fire_interval_s after STRAFE begins")
+	assert_almost_eq(shots[1] - shots[0], 2.0, DT * 2.5, "shot to shot = fire_interval_s")
+	assert_almost_eq(shots[2] - shots[1], 2.0, DT * 2.5, "shot to shot = fire_interval_s")
+	assert_eq(glow_starts.size(), 3, "one telegraph per shot")
+	if glow_starts.size() == 3:
+		for i: int in 3:
+			assert_almost_eq(shots[i] - glow_starts[i], 0.3, DT * 1.5, "glows for the last telegraph_s")
+
+
+## A telegraph at least as long as the interval clamps the strafe time to 0:
+## the Lancer leaves STRAFE on the next tick and the period is ~telegraph_s.
+func test_telegraph_longer_than_interval_clamps_strafe_to_zero() -> void:
+	var lancer_tuning: Dictionary = (Config.tuning["enemies"] as Dictionary)["lancer"] as Dictionary
+	lancer_tuning["fire_interval_s"] = 0.2
+	lancer_tuning["telegraph_s"] = 0.5
+	_make_world()
+	var lancer: Lancer = _spawn({"position": Vector2(700, 160)})
+	if lancer == null:
+		return
+	assert_eq(lancer.state(), Lancer.State.STRAFE)
+	lancer.step(DT)
+	assert_eq(lancer.state(), Lancer.State.TELEGRAPH, "leaves STRAFE on the next tick")
+	var t: float = 0.0
+	var shots: Array[float] = []
+	while t < 2.0:
+		var before: int = _bullets().size()
+		lancer.step(DT)
+		t += DT
+		if _bullets().size() > before:
+			shots.append(t)
+	assert_gte(shots.size(), 3, "keeps firing")
+	if shots.size() >= 2:
+		assert_almost_eq(shots[1] - shots[0], 0.5, DT * 2.5, "period ~telegraph_s")
+	assert_eq(_warns().size(), 0, "no warning")
 
 
 func test_no_fire_while_entering() -> void:
@@ -369,7 +418,7 @@ func test_no_fire_while_entering() -> void:
 	assert_gt(t, 2.0, "the entry takes longer than fire_interval_s")
 	assert_eq(_projectiles.get_child_count(), 0, "never fires while entering")
 	var strafe: float = _step_until(lancer, Lancer.State.TELEGRAPH, 3.0)
-	assert_almost_eq(strafe, 2.0, DT * 1.5, "timer starts when STRAFE begins")
+	assert_almost_eq(strafe, 1.7, DT * 1.5, "timer starts when STRAFE begins")
 
 
 func test_no_spawner_runs_the_cycle_without_firing() -> void:
@@ -410,7 +459,7 @@ func test_numbers_come_from_tuning() -> void:
 	lancer.step(0.1)
 	assert_almost_eq(lancer.global_position.x, 710.0, 0.001, "strafe_speed_px_s")
 	var t: float = 0.1 + _step_until(lancer, Lancer.State.TELEGRAPH, 3.0)
-	assert_almost_eq(t, 1.0, DT * 1.5, "fire_interval_s")
+	assert_almost_eq(t, 0.5, DT * 1.5, "fire_interval_s - telegraph_s")
 	var glow: CanvasItem = lancer.get_node("Muzzle/MuzzleGlow") as CanvasItem
 	assert_eq(glow.self_modulate, Color(3.0, 3.0, 3.0), "muzzle_glow_energy")
 	var tele: float = _step_until(lancer, Lancer.State.STRAFE, 2.0)

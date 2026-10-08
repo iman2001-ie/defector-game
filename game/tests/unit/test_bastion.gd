@@ -286,7 +286,7 @@ func test_telegraph_then_spread_through_a_real_spawner() -> void:
 	assert_eq(bastion.spawner, _spawner, "Spawner injected itself")
 	assert_eq(bastion.state(), Bastion.State.DRIFT)
 	var t: float = _step_until(bastion, Bastion.State.TELEGRAPH, 4.0)
-	assert_almost_eq(t, 2.5, DT * 1.5, "fire_interval_s of drifting")
+	assert_almost_eq(t, 2.0, DT * 1.5, "fire_interval_s - telegraph_s of drifting")
 	assert_true(bastion.is_glowing(), "every turret glows")
 	var e: float = Config.num("enemies.bastion.turret_glow_energy")
 	for turret: Node in bastion.get_node("Turrets").get_children():
@@ -349,24 +349,73 @@ func test_spread_is_not_aimed_at_the_player() -> void:
 	assert_eq(centre, 2, "each spread is centred straight down")
 
 
-func test_cycle_repeats_every_interval_plus_telegraph() -> void:
+## DW-40 (decision #38): fire_interval_s is the full volley period and includes
+## the telegraph, so volleys are fire_interval_s apart, the turrets glowing for
+## the last telegraph_s of each period.
+func test_cycle_repeats_every_full_period() -> void:
 	_make_world()
 	var bastion: Bastion = _spawn({"position": Vector2(960, 240)})
 	if bastion == null:
 		return
 	var t: float = 0.0
-	# 3 volleys by ~9.0 s; the 4th lands at ~12.0 s.
-	while t < 3.0 * 3.0 + 0.5:
+	var volleys: Array[float] = []
+	var glow_starts: Array[float] = []
+	var was_glowing: bool = false
+	# 3 volleys by ~8.0 s (at ~2.5, ~5.0, ~7.5 s); the 4th lands at ~10.0 s.
+	while t < 3.0 * 2.5 + 0.5:
+		var before: int = _bullets().size()
 		bastion.step(DT)
 		t += DT
-	assert_eq(_bullets().size(), 18, "one 6-bullet volley per 3.0 s")
-	# The fire timer restarts after each volley: DRIFT -> TELEGRAPH takes the full
-	# fire_interval_s again, so volleys are fire_interval_s + telegraph_s apart.
+		if bastion.is_glowing() and not was_glowing:
+			glow_starts.append(t)
+		was_glowing = bastion.is_glowing()
+		if _bullets().size() > before:
+			volleys.append(t)
+	assert_eq(_bullets().size(), 18, "one 6-bullet volley per 2.5 s, none extra")
+	assert_eq(volleys.size(), 3, "three separate volleys")
+	if volleys.size() != 3:
+		return
+	assert_almost_eq(volleys[0], 2.5, DT * 2.5, "first volley fire_interval_s after DRIFT begins")
+	assert_almost_eq(volleys[1] - volleys[0], 2.5, DT * 2.5, "volley to volley = fire_interval_s")
+	assert_almost_eq(volleys[2] - volleys[1], 2.5, DT * 2.5, "volley to volley = fire_interval_s")
+	assert_eq(glow_starts.size(), 3, "one telegraph per volley")
+	if glow_starts.size() == 3:
+		for i: int in 3:
+			assert_almost_eq(volleys[i] - glow_starts[i], 0.5, DT * 1.5, "glows for the last telegraph_s")
+	# The drift timer restarts after each volley: DRIFT -> TELEGRAPH takes
+	# fire_interval_s - telegraph_s again.
 	_step_until(bastion, Bastion.State.TELEGRAPH, 4.0)
 	_step_until(bastion, Bastion.State.DRIFT, 2.0)
 	assert_eq(bastion.state(), Bastion.State.DRIFT, "back in DRIFT after a volley")
-	assert_almost_eq(_step_until(bastion, Bastion.State.TELEGRAPH, 4.0), 2.5, DT * 1.5,
-		"fire_interval_s after the volley")
+	assert_almost_eq(_step_until(bastion, Bastion.State.TELEGRAPH, 4.0), 2.0, DT * 1.5,
+		"fire_interval_s - telegraph_s after the volley")
+
+
+## A telegraph at least as long as the interval clamps the drift time to 0:
+## the Bastion leaves DRIFT on the next tick and the period is ~telegraph_s.
+func test_telegraph_longer_than_interval_clamps_drift_to_zero() -> void:
+	var tuning: Dictionary = _bastion_tuning()
+	tuning["fire_interval_s"] = 0.2
+	tuning["telegraph_s"] = 0.5
+	_make_world()
+	var bastion: Bastion = _spawn({"position": Vector2(960, 240)})
+	if bastion == null:
+		return
+	assert_eq(bastion.state(), Bastion.State.DRIFT)
+	bastion.step(DT)
+	assert_eq(bastion.state(), Bastion.State.TELEGRAPH, "leaves DRIFT on the next tick")
+	var t: float = 0.0
+	var volleys: Array[float] = []
+	while t < 2.0:
+		var before: int = _bullets().size()
+		bastion.step(DT)
+		t += DT
+		if _bullets().size() > before:
+			volleys.append(t)
+	assert_gte(volleys.size(), 3, "keeps firing")
+	if volleys.size() >= 2:
+		assert_almost_eq(volleys[1] - volleys[0], 0.5, DT * 2.5, "period ~telegraph_s")
+	assert_eq(_warns().size(), 0, "no warning")
 
 
 func test_no_fire_while_entering() -> void:
@@ -382,7 +431,7 @@ func test_no_fire_while_entering() -> void:
 	assert_gt(t, 2.5, "the entry takes longer than fire_interval_s")
 	assert_eq(_projectiles.get_child_count(), 0, "never fires while entering")
 	var drift: float = _step_until(bastion, Bastion.State.TELEGRAPH, 4.0)
-	assert_almost_eq(drift, 2.5, DT * 1.5, "timer starts when DRIFT begins")
+	assert_almost_eq(drift, 2.0, DT * 1.5, "timer starts when DRIFT begins")
 
 
 func test_no_spawner_runs_the_cycle_without_firing() -> void:
@@ -475,7 +524,7 @@ func test_numbers_come_from_tuning() -> void:
 	if bastion == null:
 		return
 	var t: float = _step_until(bastion, Bastion.State.TELEGRAPH, 3.0)
-	assert_almost_eq(t, 1.0, DT * 1.5, "fire_interval_s")
+	assert_almost_eq(t, 0.6, DT * 1.5, "fire_interval_s - telegraph_s")
 	var glow: CanvasItem = bastion.get_node("Turrets/Turret0/Glow") as CanvasItem
 	assert_eq(glow.self_modulate, Color(3.0, 3.0, 3.0), "turret_glow_energy")
 	var tele: float = _step_until(bastion, Bastion.State.DRIFT, 2.0)
