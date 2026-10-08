@@ -25,14 +25,5 @@
     "key": "1",
     "label": "Full period: interval includes the telegraph",
     "resolution": ""
-  },
-  "DW-42": {
-    "answered_at": "2026-10-07",
-    "bundle_name": "",
-    "effect": "keep-open",
-    "intent": "",
-    "key": "1",
-    "label": "Keep open for the operator playtest",
-    "resolution": ""
   }
 }
