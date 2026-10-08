@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: "2026-10-07 09:00"
-last_updated: 2026-10-07
+last_updated: 10-07-2026 21:09
 project: defector-game
 project_key: NOKEY
 tracking_system: file-system
@@ -63,7 +63,7 @@ development_status:
   2-6-take-cover-from-the-needles-sniper-shot: done
   2-7-bring-down-a-bastion-gunship: done
   2-8-outrun-the-hunter-wasp: done
-  epic-2-retrospective: optional
+  epic-2-retrospective: done
   epic-3: backlog
   3-1-take-hits-with-hearts-and-mercy-invulnerability: backlog
   3-2-die-and-retry-instantly: backlog
@@ -214,3 +214,69 @@ action_items:
     owner: "Developer"
     status: open
     ref: "_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md"
+  - id: "epic-2-retro-item-15-harden-wave-data-validation-and-counting"
+    epic: 2
+    action: "Harden wave-data validation and counting: group counting vs trigger reachability,
+      progress at reachability, type-check trigger/entry fields, Bastion in zoned
+      types, grid width bound, _next_row for slotless types (R1-R7, R9)"
+    owner: "Dev loop"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-10-07.md"
+  - id: "epic-2-retro-item-16-add-an-integration-test-that-plays-level"
+    epic: 2
+    action: "Add an integration test that plays level_dev.json to LEVEL CLEAR with
+      real kills (no F3) and asserts no stall ERROR (R3)"
+    owner: "Dev loop"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-10-07.md"
+  - id: "epic-2-retro-item-17-fix-the-isolation-only-failing-f3-test-i"
+    epic: 2
+    action: "Fix the isolation-only failing F3 test in test_wave_director.gd (DW-35)
+      and close DW-36 as its duplicate"
+    owner: "Dev loop"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-10-07.md"
+  - id: "epic-2-retro-item-18-decide-enemy-fire-cadence-semantics-gdd"
+    epic: 2
+    action: "Decide enemy fire cadence semantics (GDD 2.0/2.5 s vs as-built 2.3/3.0
+      s period; Needle start-to-start), align Lancer/Bastion/Needle, record in decision
+      log"
+    owner: "Developer (decision) then Dev loop"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-10-07.md"
+  - id: "epic-2-retro-item-19-extract-shared-enemy-behaviour-setup-ent"
+    epic: 2
+    action: "Extract shared enemy behaviour (setup/entry, aim, fire guard, tuning
+      prefix) into core/enemy.gd or a ShooterEnemy base before Epic 6"
+    owner: "Dev loop"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-10-07.md"
+  - id: "epic-2-retro-item-20-playtest-epic-2-human-acs-telegraph-read"
+    epic: 2
+    action: "Playtest Epic 2 human ACs: telegraph readability, wave bar on screen,
+      Bastion vs HUD band (DW-34), Hunter Wasp with flag on"
+    owner: "Developer (operator)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-10-07.md"
+  - id: "epic-2-retro-item-21-set-epic-1-and-epic-2-to-done-in-sprint"
+    epic: 2
+    action: "Set epic-1 and epic-2 to done in sprint-status once their retros are
+      settled"
+    owner: "Developer"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-10-07.md"
+  - id: "epic-2-retro-item-22-make-the-verify-gate-catch-isolation-onl"
+    epic: 2
+    action: "Make the verify gate catch isolation-only failures (run changed test
+      scripts alone or randomise order), ban unscheduled known allowed failures in
+      specs, dedupe harvested deferrals by test name"
+    owner: "Planning (SM) / loop config"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-10-07.md"
+  - id: "epic-2-retro-item-23-size-stories-by-systems-built-split-stor"
+    epic: 2
+    action: "Size stories by systems built: split stories building 5+ systems (2-2
+      and 2-5 overran the 2M token cap)"
+    owner: "Planning (SM)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-10-07.md"
