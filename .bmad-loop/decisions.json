@@ -34,5 +34,14 @@
     "key": "1",
     "label": "First outcome wins; clear makes the ship safe",
     "resolution": ""
+  },
+  "DW-57": {
+    "answered_at": "2026-10-08",
+    "bundle_name": "",
+    "effect": "keep-open",
+    "intent": "",
+    "key": "2",
+    "label": "Review each deviation first",
+    "resolution": ""
   }
 }
