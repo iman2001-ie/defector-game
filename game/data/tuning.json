@@ -95,7 +95,10 @@
 			"fire_interval_s": 4.0,
 			"bolt_speed_px_s": 1600,
 			"track_s": 1.2,
-			"lock_s": 0.3
+			"lock_s": 0.3,
+			"anchor_y_px": 160,
+			"reposition_speed_px_s": 400,
+			"reposition_min_distance_px": 320
 		},
 		"bastion": {
 			"tier": "large",

@@ -2,7 +2,8 @@ extends GutTest
 ## Data files: every level_*.json in res://data/levels/ passes LevelValidator;
 ## every telegraph in tuning.enemies / tuning.boss is >= the 0.3 s minimum;
 ## every enemy bullet speed is <= the readable maximum; Wasp and Lancer waves
-## fit their formation rows inside each type's top zone.
+## fit their formation rows inside each type's top zone; Needle tuning is sane
+## and every Needle wave brings cover.
 
 const LEVELS_DIR: String = "res://data/levels/"
 
@@ -212,3 +213,62 @@ func test_lancer_tuning_ranges() -> void:
 	var zone: float = Config.num("enemies.lancer.zone_height_ratio")
 	assert_gt(zone, 0.0, "zone_height_ratio > 0")
 	assert_lte(zone, 1.0, "zone_height_ratio <= 1")
+
+
+## UX DESIGN.md: the enemy zone ends at y 432. Needle anchors must be fully on
+## screen (y >= the needle half-height) and at or above this bottom edge.
+const ENEMY_ZONE_BOTTOM_Y: float = 432.0
+
+
+func test_needle_tuning_ranges() -> void:
+	assert_gt(Config.num("enemies.needle.bolt_speed_px_s"), 0.0, "bolt_speed_px_s > 0")
+	assert_gt(Config.num("enemies.needle.reposition_speed_px_s"), 0.0, "reposition_speed_px_s > 0")
+	var fire: float = Config.num("enemies.needle.fire_interval_s")
+	var track: float = Config.num("enemies.needle.track_s")
+	var lock: float = Config.num("enemies.needle.lock_s")
+	assert_gt(fire, 0.0, "fire_interval_s > 0")
+	assert_gt(track, 0.0, "track_s > 0")
+	assert_lte(track + lock, fire, "track_s + lock_s <= fire_interval_s")
+	assert_gte(Config.num("enemies.needle.reposition_interval_s"), fire, "reposition_interval_s >= fire_interval_s")
+	var probe: Enemy = (EntityRegistry.ENEMIES[&"needle"] as PackedScene).instantiate() as Enemy
+	var half: float = probe.sprite_px / 2.0
+	probe.free()
+	assert_between(Config.num("enemies.needle.anchor_y_px"), half, ENEMY_ZONE_BOTTOM_Y,
+		"anchor_y_px fully on screen and inside the enemy zone")
+	assert_gte(Config.num("enemies.needle.reposition_min_distance_px"), 0.0, "reposition_min_distance_px >= 0")
+
+
+## GDD (Arena and Level Design): every Needle wave has >= 2 medium or large asteroids.
+func test_every_needle_wave_has_cover() -> void:
+	var needle_waves: int = 0
+	for path: String in _level_files():
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+		if not (parsed is Dictionary) or not ((parsed as Dictionary).get("waves") is Array):
+			continue
+		var waves: Array = (parsed as Dictionary)["waves"]
+		for i: int in waves.size():
+			if not (waves[i] is Dictionary):
+				continue
+			var wave: Dictionary = waves[i]
+			var entries: Array = []
+			if wave.get("spawns") is Array:
+				entries.append_array(wave["spawns"] as Array)
+			if wave.get("groups") is Dictionary:
+				for group: Variant in (wave["groups"] as Dictionary).values():
+					if group is Array:
+						entries.append_array(group as Array)
+			var has_needle: bool = false
+			for raw: Variant in entries:
+				if raw is Dictionary and str((raw as Dictionary).get("type", "")) == "needle" \
+						and _entry_count(raw as Dictionary) > 0:
+					has_needle = true
+			if not has_needle:
+				continue
+			needle_waves += 1
+			var cover: int = 0
+			if wave.get("asteroids") is Array:
+				for raw: Variant in wave["asteroids"] as Array:
+					if raw is Dictionary and ["medium", "large"].has(str((raw as Dictionary).get("size", ""))):
+						cover += _entry_count(raw as Dictionary)
+			assert_gte(cover, 2, "%s waves[%d] has a Needle and >= 2 medium/large asteroids" % [path, i])
+	assert_gt(needle_waves, 0, "at least one Needle wave checked")

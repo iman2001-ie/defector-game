@@ -1,0 +1,51 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://entities/projectiles/needle_bolt.gd" id="1_bolt"]
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_bolt"]
+radius = 9.0
+height = 48.0
+
+[sub_resource type="Gradient" id="Gradient_core"]
+offsets = PackedFloat32Array(0, 0.3, 0.55, 0.85, 1)
+colors = PackedColorArray(1, 1, 1, 1, 1, 0.168627, 0.839216, 1, 1, 0.168627, 0.839216, 1, 1, 0.168627, 0.839216, 0.6, 1, 0.168627, 0.839216, 0)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_core"]
+gradient = SubResource("Gradient_core")
+width = 20
+height = 64
+fill = 1
+fill_from = Vector2(0.5, 0.5)
+fill_to = Vector2(1, 0.5)
+
+[sub_resource type="Gradient" id="Gradient_halo"]
+offsets = PackedFloat32Array(0, 0.5, 1)
+colors = PackedColorArray(1, 0.168627, 0.839216, 0.45, 1, 0.168627, 0.839216, 0.15, 1, 0.168627, 0.839216, 0)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_halo"]
+gradient = SubResource("Gradient_halo")
+width = 40
+height = 96
+fill = 1
+fill_from = Vector2(0.5, 0.5)
+fill_to = Vector2(1, 0.5)
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_add"]
+blend_mode = 1
+
+[node name="NeedleBolt" type="Area2D"]
+collision_layer = 8
+collision_mask = 81
+monitorable = false
+script = ExtResource("1_bolt")
+
+[node name="Hitbox" type="CollisionShape2D" parent="."]
+shape = SubResource("CapsuleShape2D_bolt")
+
+[node name="Streak" type="Sprite2D" parent="."]
+texture = SubResource("GradientTexture2D_core")
+
+[node name="Halo" type="Sprite2D" parent="Streak"]
+show_behind_parent = true
+material = SubResource("CanvasItemMaterial_add")
+texture = SubResource("GradientTexture2D_halo")

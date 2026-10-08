@@ -136,7 +136,7 @@ func test_level_started_with_the_json_id_and_wave_1() -> void:
 	assert_eq(_started, [0] as Array[int], "level_started(0) from level_dev.json")
 	var director: WaveDirector = _level.get_node("WaveDirector") as WaveDirector
 	assert_eq(director.wave_number(), 1, "wave 1 started")
-	assert_eq(director.wave_count(), 3)
+	assert_eq(director.wave_count(), 4)
 	assert_eq(director.level_id(), 0)
 	assert_eq(_counted(), 8, "8 Wasps")
 	var info: Array[String] = []
@@ -204,14 +204,14 @@ func test_missing_level_file_starts_nothing() -> void:
 	assert_eq(_counted(), 0, "nothing spawned")
 
 
-## Acceptance: clearing all three waves of level_dev (via F3) clears the level.
+## Acceptance: clearing all four waves of level_dev (via F3) clears the level.
 func test_clearing_every_dev_wave_clears_the_level() -> void:
 	(Config.tuning["waves"] as Dictionary)["gap_s"] = 0.05
 	Log.sink = _capture
 	_make_level()
 	var director: WaveDirector = _level.get_node("WaveDirector") as WaveDirector
 	var banner: Label = _level.get_node("HUD/LevelClearBanner") as Label
-	for wave: int in 3:
+	for wave: int in 4:
 		assert_eq(director.wave_number(), wave + 1, "on wave %d" % (wave + 1))
 		director.debug_resolve_wave()
 		# Longest chain in level_dev is 1.0 s, plus the gap.
@@ -256,6 +256,36 @@ func test_dev_wave_3_has_lancers() -> void:
 			"side entry: level with its slot at y %.1f" % lancer.global_position.y)
 		assert_eq(lancer.spawner, spawner, "the level Spawner is injected")
 	assert_eq(lancers, 2, "two Lancers in wave 3")
+
+
+## Story 2.6: level_dev wave 4 brings two counted Needles and two medium asteroids.
+func test_dev_wave_4_has_needles_and_cover() -> void:
+	(Config.tuning["waves"] as Dictionary)["gap_s"] = 0.05
+	_make_level()
+	var director: WaveDirector = _level.get_node("WaveDirector") as WaveDirector
+	for wave: int in 3:
+		director.debug_resolve_wave()
+		var waited: float = 0.0
+		while director.wave_number() == wave + 1 and waited < 3.0:
+			await wait_seconds(0.1)
+			waited += 0.1
+	assert_eq(director.wave_number(), 4, "on wave 4")
+	var needles: int = 0
+	var spawner: Spawner = _level.get_node("Spawner") as Spawner
+	for child: Node in _level.get_node("World/Enemies").get_children():
+		var needle: Needle = child as Needle
+		if needle == null or needle.is_queued_for_deletion() or not needle.is_in_group(&"counted"):
+			continue
+		needles += 1
+		assert_eq(needle.anchor().y, Config.num("enemies.needle.anchor_y_px"), "anchors on the top edge")
+		assert_eq(needle.spawner, spawner, "the level Spawner is injected")
+	assert_eq(needles, 2, "two Needles in wave 4")
+	var medium: int = 0
+	for child: Node in _level.get_node("World/Asteroids").get_children():
+		var rock: Asteroid = child as Asteroid
+		if rock != null and not rock.is_queued_for_deletion() and rock.size == &"medium":
+			medium += 1
+	assert_eq(medium, 2, "two medium asteroids for cover")
 
 
 # --- Debug-arg gates ----------------------------------------------------------

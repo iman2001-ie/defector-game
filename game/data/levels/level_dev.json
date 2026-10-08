@@ -42,6 +42,18 @@
 			"triggers": [
 				{ "when": "wave_clear", "actions": [ { "wait": 0.5 } ] }
 			]
+		},
+		{
+			"spawns": [
+				{ "type": "needle", "count": 2, "formation": "grid_2x1", "entry": "top" },
+				{ "type": "wasp", "count": 4, "formation": "grid_4x1", "entry": "top" }
+			],
+			"asteroids": [
+				{ "size": "medium", "count": 2 }
+			],
+			"triggers": [
+				{ "when": "wave_clear", "actions": [ { "wait": 0.5 } ] }
+			]
 		}
 	]
 }
