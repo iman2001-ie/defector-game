@@ -15,6 +15,11 @@ extends Node
 ## running chains finish, and the next wave starts (or the level clears).
 ## A stall net subtracts groups that can never spawn, so no wave soft-locks.
 ##
+## Formation rows: each entry starts on the next free row, except the
+## EntityRegistry.ROWLESS_TYPES, which don't advance the row: the Needle anchors
+## at its own y, and the Hunter Wasp never holds its slot (a sides entry only
+## starts at the slot's y, so it may share a row with the next entry).
+##
 ## Feature-flag gate: a type listed in EntityRegistry.ENEMY_FLAGS whose flag is
 ## false at wave start is disabled for that wave. Its spawn and group entries
 ## count 0 toward the total, take no formation rows and spawn nothing. One DEBUG
@@ -255,7 +260,8 @@ func _spawn_entry(entry: Variant, path: String, serial: int) -> int:
 	var formation: String = str(dict.get("formation", "")) if dict.get("formation") is String else ""
 	var entry_kind: StringName = StringName(str(dict.get("entry", DEFAULT_ENTRY)))
 	var slots: Array[Vector2] = Formation.slots(formation, count, _next_row, _spacing, _top_y, _width)
-	_next_row += Formation.rows_used(formation, count, _spacing, _width)
+	if not EntityRegistry.ROWLESS_TYPES.has(type_id):
+		_next_row += Formation.rows_used(formation, count, _spacing, _width)
 	var failures: int = 0
 	for slot: Vector2 in slots:
 		var enemy: Enemy = null

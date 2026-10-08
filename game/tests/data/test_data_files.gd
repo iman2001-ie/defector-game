@@ -1,11 +1,12 @@
 extends GutTest
 ## Data files: every level_*.json in res://data/levels/ passes LevelValidator;
 ## every telegraph in tuning.enemies / tuning.boss is >= the 0.3 s minimum;
-## every enemy bullet speed is <= the readable maximum; Wasp and Lancer waves
-## fit their formation rows inside each type's top zone; Needle, Bastion and
-## Hunter Wasp tuning is sane; every Needle wave brings cover; every flag-gated
-## enemy type has its flag; the energy and drop tuning matches the GDD; the
-## Shield cost and duration match the GDD and its UX tuning exists.
+## every enemy bullet speed is <= the readable maximum; Wasp, Lancer and
+## Bastion waves fit their formation rows inside each type's zone (a Bastion's
+## is its drift box); Needle, Bastion and Hunter Wasp tuning is sane; every
+## Needle wave brings cover; every flag-gated enemy type has its flag; the
+## energy and drop tuning matches the GDD; the Shield cost and duration match
+## the GDD and its UX tuning exists.
 
 const LEVELS_DIR: String = "res://data/levels/"
 
@@ -24,12 +25,14 @@ func test_level_files_exist() -> void:
 
 func test_every_level_file_is_valid() -> void:
 	var known: Array[StringName] = EntityRegistry.enemy_types()
+	var spacing: Vector2 = Vector2(Config.num("waves.formation.spacing_px.x"), Config.num("waves.formation.spacing_px.y"))
+	var max_columns: int = Formation.max_columns(spacing, Playfield.SIZE.x)
 	for path: String in _level_files():
 		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
 		assert_true(parsed is Dictionary, "%s parses to an object" % path)
 		if not (parsed is Dictionary):
 			continue
-		var problems: Array[String] = LevelValidator.validate(parsed as Dictionary, path, known)
+		var problems: Array[String] = LevelValidator.validate(parsed as Dictionary, path, known, Config.flags, EntityRegistry.enemy_flags(), max_columns)
 		assert_eq(problems, [] as Array[String], "%s has no problems" % path)
 
 
@@ -134,15 +137,30 @@ func _entry_count(entry: Dictionary) -> int:
 	return int(raw) if (raw is float or raw is int) else 0
 
 
-## Enemy types whose formation slots must sit in their own top zone.
-const ZONED_TYPES: Array[StringName] = [&"wasp", &"lancer"]
+## Enemy types whose formation slots must sit in their own zone.
+const ZONED_TYPES: Array[StringName] = [&"wasp", &"lancer", &"bastion"]
+
+
+## The slot y range [min, max] a zoned type accepts without clamping: the Wasp
+## and Lancer top zone (zone_height_ratio of the height, fully on screen), the
+## Bastion's drift box (bastion.gd: band_y shrunk by half the sprite, the band
+## centre when the band is shorter than the sprite).
+func _zone_y(type_id: StringName, half: float) -> Vector2:
+	if type_id == &"bastion":
+		var band_min: float = Config.num("enemies.bastion.band_y.min")
+		var band_max: float = Config.num("enemies.bastion.band_y.max")
+		if band_min + half > band_max - half:
+			var centre: float = (band_min + band_max) / 2.0
+			return Vector2(centre, centre)
+		return Vector2(band_min + half, band_max - half)
+	return Vector2(half, Config.num("enemies.%s.zone_height_ratio" % type_id) * Playfield.SIZE.y)
 
 
 ## Mirrors WaveDirector._spawn_entry: spawns then groups, in order, on a running
-## first row; non-objects, unknown types and empty entries take no rows.
-## Flag-gated types always take their rows here (the worst case, flag on). Every
-## Wasp and Lancer slot must be inside its type's enemies.<type>.zone_height_ratio
-## zone and fully on screen horizontally.
+## first row; non-objects, unknown types and empty entries take no rows, and
+## nor do EntityRegistry.ROWLESS_TYPES (Needle, Hunter Wasp).
+## Every Wasp, Lancer and Bastion slot must be inside its type's zone (see _zone_y)
+## and fully on screen horizontally.
 func test_zoned_formations_fit_their_top_zone() -> void:
 	var spacing: Vector2 = Vector2(Config.num("waves.formation.spacing_px.x"), Config.num("waves.formation.spacing_px.y"))
 	var top_y: float = Config.num("waves.formation.top_y")
@@ -150,10 +168,10 @@ func test_zoned_formations_fit_their_top_zone() -> void:
 	var half: Dictionary = {}
 	var checked: Dictionary = {}
 	for type_id: StringName in ZONED_TYPES:
-		zone_y[type_id] = Config.num("enemies.%s.zone_height_ratio" % type_id) * Playfield.SIZE.y
 		var probe: Enemy = (EntityRegistry.ENEMIES[type_id] as PackedScene).instantiate() as Enemy
 		half[type_id] = probe.sprite_px / 2.0
 		probe.free()
+		zone_y[type_id] = _zone_y(type_id, half[type_id])
 		checked[type_id] = 0
 	for path: String in _level_files():
 		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
@@ -183,13 +201,14 @@ func test_zoned_formations_fit_their_top_zone() -> void:
 				var formation: String = str(entry["formation"]) if entry.get("formation") is String else ""
 				if ZONED_TYPES.has(type_id):
 					checked[type_id] = int(checked[type_id]) + 1
-					var limit: float = zone_y[type_id]
+					var range_y: Vector2 = zone_y[type_id]
 					var h: float = half[type_id]
 					for slot: Vector2 in Formation.slots(formation, count, first_row, spacing, top_y, Playfield.SIZE.x):
 						var where: String = "%s waves[%d] %s slot %s" % [path, i, type_id, slot]
-						assert_between(slot.y, h, limit, where + " inside the top zone, fully on screen")
+						assert_between(slot.y, range_y.x, range_y.y, where + " inside its zone")
 						assert_between(slot.x, h, Playfield.SIZE.x - h, where + " fully on screen")
-				first_row += Formation.rows_used(formation, count, spacing, Playfield.SIZE.x)
+				if not EntityRegistry.ROWLESS_TYPES.has(type_id):
+					first_row += Formation.rows_used(formation, count, spacing, Playfield.SIZE.x)
 	for type_id: StringName in ZONED_TYPES:
 		assert_gt(int(checked[type_id]), 0, "at least one %s entry checked" % type_id)
 

@@ -116,7 +116,9 @@ func level_at(path: String) -> Dictionary:
 	if not (data.get("waves") is Array) or (data.waves as Array).is_empty():
 		Log.error("data", "%s has no waves array; level not loaded" % path)
 		return {}
-	for problem: String in LevelValidator.validate(data, path, _known_enemy_types()):
+	var spacing: Vector2 = Vector2(num("waves.formation.spacing_px.x"), 0.0)
+	var max_columns: int = Formation.max_columns(spacing, Playfield.SIZE.x)
+	for problem: String in LevelValidator.validate(data, path, _known_enemy_types(), flags, _enemy_flags(), max_columns):
 		Log.error("data", problem)
 	return data
 
@@ -132,6 +134,17 @@ func _known_enemy_types() -> Array[StringName]:
 	else:
 		Log.error("data", "EntityRegistry autoload not found; every enemy type is unknown")
 	return out
+
+
+## EntityRegistry's type -> gating flag map, looked up at runtime for the same
+## reason as _known_enemy_types().
+func _enemy_flags() -> Dictionary:
+	var registry: Node = get_node_or_null(^"/root/EntityRegistry")
+	if registry == null:
+		Log.error("data", "EntityRegistry autoload not found; no enemy type is flag-gated")
+		return {}
+	var out: Variant = registry.call(&"enemy_flags")
+	return out if out is Dictionary else {}
 
 
 func _lookup(root: Dictionary, path: String) -> Variant:

@@ -151,6 +151,31 @@ func test_entries_stack_on_the_next_free_rows() -> void:
 	assert_true(ys.has(160.0) and ys.has(280.0), "second entry starts on row 1")
 
 
+## DW-37 (R5): Needles and Hunter Wasps use only a slot's x, so they don't
+## advance the formation row; the next entry starts on the same row.
+func _assert_rowless(rowless: String) -> void:
+	_start([{"spawns": [{"type": rowless, "count": 2.0, "formation": "grid_2x2"}, _wasps(2, "grid_2x1")]}])
+	var wasps: int = 0
+	var rowless_count: int = 0
+	for enemy: Enemy in _counted():
+		if enemy is Wasp:
+			wasps += 1
+			assert_eq((enemy as Wasp).formation_slot().y, 160.0, "after %s, Wasps start on row 0 (top_y)" % rowless)
+		else:
+			rowless_count += 1
+	assert_eq(wasps, 2, "two Wasps after %s" % rowless)
+	assert_eq(rowless_count, 2, "two %s spawned" % rowless)
+
+
+func test_needles_do_not_advance_the_row() -> void:
+	_assert_rowless("needle")
+
+
+func test_hunter_wasps_do_not_advance_the_row() -> void:
+	Config.flags["hunter_wasp"] = true
+	_assert_rowless("hunter_wasp")
+
+
 func test_sides_entry_reaches_the_wasp() -> void:
 	_start([{"spawns": [{"type": "wasp", "count": 2.0, "formation": "grid_2x1", "entry": "sides"}]}])
 	var counted: Array[Enemy] = _counted()
@@ -265,7 +290,7 @@ func test_flag_on_spawns_counted_hunters() -> void:
 			hunters += 1
 		elif enemy is Wasp:
 			wasps += 1
-			assert_eq((enemy as Wasp).formation_slot().y, 280.0, "hunters took row 0")
+			assert_eq((enemy as Wasp).formation_slot().y, 160.0, "hunters are rowless: Wasps on row 0")
 	assert_eq(hunters, 4, "4 counted Hunter Wasps")
 	assert_eq(wasps, 2, "2 counted Wasps")
 	assert_eq(_skip_lines().size(), 0, "nothing skipped")
@@ -332,7 +357,8 @@ func test_cut_story_level_3_wave_2_shape_validates_and_clears() -> void:
 		],
 		"asteroids": [{"size": "medium", "count": 3.0}],
 	}]}
-	assert_eq(LevelValidator.validate(data, SRC, EntityRegistry.enemy_types()), [] as Array[String], "validates")
+	var max_columns: int = Formation.max_columns(Vector2(Config.num("waves.formation.spacing_px.x"), 0.0), Playfield.SIZE.x)
+	assert_eq(LevelValidator.validate(data, SRC, EntityRegistry.enemy_types(), Config.flags, EntityRegistry.enemy_flags(), max_columns), [] as Array[String], "validates")
 	_director.start_level(data, SRC)
 	assert_eq(_director.total_count(), 4, "2 Bastions + 2 Needles")
 	assert_eq(_counted().size(), 4)

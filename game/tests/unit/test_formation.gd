@@ -69,3 +69,20 @@ func test_is_valid() -> void:
 		assert_true(Formation.is_valid(good), good)
 	for bad: String in ["", "grid_", "grid_4", "grid_0x2", "grid_4x0", "grid_ax2", "grid_4x2x1", "line_4x2", "grid_-1x2", "grid_+4x2", "grid_4x+2"]:
 		assert_false(Formation.is_valid(bad), bad)
+
+
+func test_max_columns_is_what_fits_the_width() -> void:
+	assert_eq(Formation.max_columns(SPACING, WIDTH), 12, "1920 / 160")
+	assert_eq(Formation.max_columns(Vector2(0, 120), WIDTH), 0, "no spacing: unbounded")
+	assert_eq(Formation.max_columns(Vector2(WIDTH * 2.0, 120), WIDTH), 1, "spacing wider than the width: one column")
+
+
+func test_wide_grid_wraps_to_the_width() -> void:
+	var cap: int = Formation.max_columns(SPACING, WIDTH)
+	var slots: Array[Vector2] = Formation.slots("grid_13x1", 13, 0, SPACING, TOP_Y, WIDTH)
+	assert_eq(slots.size(), 13)
+	assert_eq(Formation.rows_used("grid_13x1", 13, SPACING, WIDTH), 2, "rows of %d" % cap)
+	assert_eq(slots[cap - 1].y, TOP_Y, "first row holds %d" % cap)
+	assert_eq(slots[cap].y, TOP_Y + SPACING.y, "the 13th wraps")
+	for slot: Vector2 in slots:
+		assert_between(slot.x, SPACING.x / 2.0, WIDTH - SPACING.x / 2.0, "on screen: %s" % slot)

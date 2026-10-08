@@ -14,6 +14,11 @@ const ENEMIES: Dictionary[StringName, PackedScene] = {
 const ENEMY_FLAGS: Dictionary[StringName, String] = {
 	&"hunter_wasp": "hunter_wasp",
 }
+## Enemy types that don't hold a formation row: the Needle anchors at its own y,
+## and the Hunter Wasp never holds its slot (a sides entry only starts at the
+## slot's y, so it may share a row with the next entry). The WaveDirector
+## doesn't advance its formation row for them.
+const ROWLESS_TYPES: Array[StringName] = [&"needle", &"hunter_wasp"]
 const PROJECTILES: Dictionary[StringName, PackedScene] = {
 	&"laser_bolt": preload("res://entities/projectiles/laser_bolt.tscn"),
 	&"missile": preload("res://entities/projectiles/missile.tscn"),
@@ -34,3 +39,9 @@ func enemy_types() -> Array[StringName]:
 	var out: Array[StringName] = []
 	out.assign(ENEMIES.keys())
 	return out
+
+
+## The ENEMY_FLAGS gate map (type id -> flags.json flag), for Config's runtime
+## lookup (LevelValidator counts a gated type 0 while its flag is off).
+func enemy_flags() -> Dictionary:
+	return ENEMY_FLAGS

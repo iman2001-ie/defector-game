@@ -463,3 +463,15 @@ func test_level_problems_are_logged_and_data_returned() -> void:
 	DirAccess.remove_absolute(TEMP_LEVEL)
 	assert_eq(int(data.get("id", -1)), 4, "data still returned")
 	assert_push_error("%s waves[0].spawns[0].type" % TEMP_LEVEL)
+
+
+## DW-37: level_at passes the flags, type gates and column bound to the validator.
+func test_level_at_passes_flags_and_column_bound() -> void:
+	_write(TEMP_LEVEL, JSON.stringify({"id": 4, "waves": [{
+		"spawns": [{"type": "wasp", "count": 13, "formation": "grid_13x1"}],
+		"triggers": [{"when": "wave_start", "flag": "nope", "actions": []}],
+	}]}))
+	Config.level_at(TEMP_LEVEL)
+	DirAccess.remove_absolute(TEMP_LEVEL)
+	assert_push_error("%s waves[0].spawns[0].formation" % TEMP_LEVEL)
+	assert_push_error("%s waves[0].triggers[0].flag" % TEMP_LEVEL)
