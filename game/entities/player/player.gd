@@ -42,6 +42,17 @@ extends Area2D
 ## (or debug_invincible turns off) one still-overlapping hazard hits again.
 ## An EnergyOrb (Story 3.3) is collected on contact (EnergyOrb.collect), even
 ## while invulnerable, at no heart cost, and is never remembered.
+##
+## Shield (Story 3.4): the `ability_shield` action (E) calls try_shield(). With
+## at least abilities.shield.cost energy and no active shield it spends the cost
+## through GameState.add_energy and makes the ship invulnerable for
+## abilities.shield.duration_s, shown by the ShieldBubble child. An active
+## shield is never stacked or refreshed. Without enough energy it only emits
+## Events.ability_denied(&"shield") and plays the `ability_denied` SFX. The
+## shield is part of is_invulnerable(), so it blocks every damage source and
+## contact cost while small and medium enemies are still destroyed by contact.
+## Its time counts down from physics delta in step_shield (frozen under pause and
+## hit-stop); when it ends a still-overlapping hazard hits again, as with i-frames.
 
 ## A mouse within this distance of its confined point is not warped: warp_mouse
 ## rounds to whole OS pixels, so under stretch the read-back can land a fraction of
@@ -79,9 +90,15 @@ var _contact_large: int = 0
 var _contacts: Array[Area2D] = []
 var _dead: bool = false
 
+var _shield_cost: int = 0
+var _shield_duration_s: float = 0.0
+var _shield_active: bool = false
+var _shield_remaining: float = 0.0
+
 @onready var _hurtbox: CollisionShape2D = $Hurtbox
 @onready var _sprite: Sprite2D = $Sprite
 @onready var _weapons: PlayerWeapons = $Weapons
+@onready var _shield_bubble: ShieldBubble = $ShieldBubble
 
 
 func _ready() -> void:
@@ -107,6 +124,8 @@ func _ready() -> void:
 	_contact_small = Config.int_("damage.contact_small_hearts")
 	_contact_medium = Config.int_("damage.contact_medium_hearts")
 	_contact_large = Config.int_("damage.contact_large_hearts")
+	_shield_cost = maxi(Config.int_("abilities.shield.cost"), 0)
+	_shield_duration_s = maxf(Config.num("abilities.shield.duration_s"), 0.0)
 
 	PauseArbiter.resumed.connect(_on_resumed)
 	area_entered.connect(_on_area_entered)
@@ -122,13 +141,16 @@ func _physics_process(delta: float) -> void:
 	step_fire(Input.is_action_pressed(&"fire_laser"), delta)
 	step_missile(Input.is_action_just_pressed(&"fire_missile"), delta)
 	step_iframes(delta)
+	step_shield(delta)
+	if Input.is_action_just_pressed(&"ability_shield"):
+		try_shield()
 
 
 # --- Hearts and i-frames ----------------------------------------------------------
 
-## True during i-frames or while debug_invincible is on.
+## True during i-frames, while the shield is up or while debug_invincible is on.
 func is_invulnerable() -> bool:
-	return _iframe_active or debug_invincible
+	return _iframe_active or _shield_active or debug_invincible
 
 
 ## True once hearts reached 0 in this attempt.
@@ -157,6 +179,9 @@ func apply_damage(amount: int, _source: Node) -> void:
 func _die() -> void:
 	_dead = true
 	_iframe_active = false
+	_shield_active = false
+	_shield_remaining = 0.0
+	_shield_bubble.hide_bubble()
 	_sprite.visible = true
 	visible = false
 	set_deferred(&"monitoring", false)
@@ -190,6 +215,57 @@ func _start_iframes() -> void:
 
 func _emit_hearts() -> void:
 	Events.hearts_changed.emit(hearts, max_hearts)
+
+
+# --- Shield -----------------------------------------------------------------------
+
+## True while the shield is up.
+func is_shielded() -> bool:
+	return _shield_active
+
+
+## Seconds of shield left (0 when down).
+func shield_remaining() -> float:
+	return _shield_remaining if _shield_active else 0.0
+
+
+## Raises the shield if the ship is alive, unshielded and can pay
+## abilities.shield.cost; returns true when it went up. An active shield is left
+## untouched (no spend, no denial). Too little energy is denied (see _deny).
+func try_shield() -> bool:
+	if _dead or _shield_active:
+		return false
+	if GameState.energy < _shield_cost:
+		_deny(&"shield")
+		return false
+	GameState.add_energy(-_shield_cost)
+	_shield_active = _shield_duration_s > 0.0
+	_shield_remaining = _shield_duration_s
+	_shield_bubble.show_remaining(shield_remaining())
+	Log.info("combat", "Shield up: -%d energy, %.1f s" % [_shield_cost, _shield_duration_s])
+	return true
+
+
+## One shield tick: counts the shield down by `delta`, updates the bubble and,
+## on the tick it runs out, drops the shield and re-applies a hazard that still
+## overlaps.
+func step_shield(delta: float) -> void:
+	if not _shield_active:
+		return
+	_shield_remaining -= delta
+	if _shield_remaining <= 0.0:
+		_shield_active = false
+		_shield_remaining = 0.0
+		_shield_bubble.hide_bubble()
+		_recheck_contacts()
+		return
+	_shield_bubble.show_remaining(_shield_remaining)
+
+
+## An ability pressed without enough energy: only the event and the denied SFX.
+func _deny(ability: StringName) -> void:
+	Events.ability_denied.emit(ability)
+	Audio.play_sfx(&"ability_denied")
 
 
 # --- Contact ----------------------------------------------------------------------

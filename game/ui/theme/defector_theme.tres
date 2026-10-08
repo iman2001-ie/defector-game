@@ -84,6 +84,7 @@ corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
 
 [resource]
+EnergyBar/colors/denied = Color(1, 0.121569, 0.294118, 1)
 EnergyBar/colors/tick = Color(0.909804, 0.956863, 1, 1)
 EnergyBar/styles/fill = SubResource("StyleBoxFlat_energy_fill")
 EnergyBar/styles/track = SubResource("StyleBoxFlat_energy_track")

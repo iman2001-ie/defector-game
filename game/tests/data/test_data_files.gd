@@ -4,7 +4,8 @@ extends GutTest
 ## every enemy bullet speed is <= the readable maximum; Wasp and Lancer waves
 ## fit their formation rows inside each type's top zone; Needle, Bastion and
 ## Hunter Wasp tuning is sane; every Needle wave brings cover; every flag-gated
-## enemy type has its flag; the energy and drop tuning matches the GDD.
+## enemy type has its flag; the energy and drop tuning matches the GDD; the
+## Shield cost and duration match the GDD and its UX tuning exists.
 
 const LEVELS_DIR: String = "res://data/levels/"
 
@@ -355,3 +356,18 @@ func test_energy_feel_tuning_ranges() -> void:
 	assert_lte(Config.num("hud.energy_bar.y") + Config.num("hud.energy_bar.height"), 120.0, "inside the top HUD band")
 	assert_gt(Config.num("hud.energy_bar.tick_px"), 0.0, "tick_px > 0")
 	assert_gt(Config.int_("debug.energy_add"), 0, "debug.energy_add > 0")
+
+
+## Story 3.4: GDD Shield (50 energy, 4.0 s) and the UX bubble / denied-flash keys.
+func test_shield_matches_the_gdd_and_ux_keys_exist() -> void:
+	assert_eq(Config.int_("abilities.shield.cost"), 50)
+	assert_eq(Config.num("abilities.shield.duration_s"), 4.0)
+	assert_eq(Config.num("player.shield_bubble.diameter_px"), 120.0)
+	assert_gt(Config.num("player.shield_bubble.stroke_px"), 0.0, "stroke_px > 0")
+	assert_almost_eq(Config.num("player.shield_bubble.alpha"), 0.4, 0.0001)
+	assert_eq(Config.num("player.shield_bubble.blink_hz"), 4.0)
+	assert_eq(Config.num("player.shield_bubble.blink_last_s"), 0.75)
+	assert_lt(Config.num("player.shield_bubble.blink_last_s"), Config.num("abilities.shield.duration_s"),
+		"the blink window fits inside the shield")
+	assert_almost_eq(Config.num("hud.energy_bar.denied_flash_s"), 0.3, 0.0001)
+	assert_eq(Config.int_("hud.energy_bar.denied_flashes"), 2)

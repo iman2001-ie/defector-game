@@ -21,6 +21,7 @@ SEED = 1606
 PLAYER_HIT_SEED = 3101
 PLAYER_DEATH_SEED = 3201
 ENERGY_PICKUP_SEED = 3301
+ABILITY_DENIED_SEED = 3401
 OUT_DIR = Path(__file__).resolve().parent.parent / "game" / "assets" / "audio" / "sfx"
 
 
@@ -134,6 +135,27 @@ def energy_pickup(rng: random.Random) -> list[float]:
     return out
 
 
+def ability_denied(rng: random.Random) -> list[float]:
+    """Short 0.15 s refusal: a low double buzz (two clipped 110 Hz pulses with a little grit)."""
+    n = int(0.15 * RATE)
+    pulse = n // 2
+    gap = int(0.015 * RATE)
+    out: list[float] = []
+    phase_a = 0.0
+    phase_b = 0.0
+    for i in range(n):
+        phase_a += 2.0 * math.pi * 110.0 / RATE
+        phase_b += 2.0 * math.pi * 110.0 * 1.06 / RATE
+        k = i % pulse
+        if i >= 2 * pulse or k >= pulse - gap:
+            out.append(0.0)
+            continue
+        buzz = math.tanh(4.0 * (math.sin(phase_a) + math.sin(phase_b)))
+        grit = rng.uniform(-1.0, 1.0) * 0.15
+        out.append((0.8 * buzz + grit) * _envelope(k, pulse - gap, 0.003, 1.2))
+    return out
+
+
 def _normalise(samples: list[float], peak: float = 0.9) -> list[float]:
     top = max(abs(s) for s in samples) or 1.0
     return [s * peak / top for s in samples]
@@ -165,6 +187,7 @@ def main() -> None:
     sounds["player_hit"] = player_hit(random.Random(PLAYER_HIT_SEED))
     sounds["player_death"] = player_death(random.Random(PLAYER_DEATH_SEED))
     sounds["energy_pickup"] = energy_pickup(random.Random(ENERGY_PICKUP_SEED))
+    sounds["ability_denied"] = ability_denied(random.Random(ABILITY_DENIED_SEED))
     for name, samples in sounds.items():
         path = _write(name, samples)
         print(f"wrote {path.name} ({len(samples) / RATE:.2f} s)")
