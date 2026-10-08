@@ -221,7 +221,9 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 1; owner Planning (SM); sprint-status status open)
-status: open
+status: done 2026-10-07
+resolution: closed by human decision: Story 1.8 operator confirmation (2026-10-07) included a live sandbox run firing lasers and missiles under the new lock; no separate AC needed.
+decision: 2026-10-07 Close: 1.8 operator run covered it — Story 1.8 operator confirmation (2026-10-07) included a live sandbox run firing lasers and missiles under the new lock; no separate AC needed.
 
 ### DW-25: Mark DW-7 done in deferred-work.md (resolved by a2386df)
 origin: retro action item epic-1-retro-item-13-mark-dw-7-done-in-deferred-work-md-resol
