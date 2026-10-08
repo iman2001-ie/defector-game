@@ -55,9 +55,12 @@ func apply_damage(amount: int, source: Node) -> void:
 		_die()
 
 
-## Contact with the player destroys the enemy outright (GDD contact table).
+## Contact with the player destroys a small or medium enemy outright (GDD
+## contact table). Large enemies (Bastion, Flagship parts) ignore contact.
 func destroy_by_contact() -> void:
 	if _dead:
+		return
+	if tier != ImpactTier.SMALL and tier != ImpactTier.MEDIUM:
 		return
 	_last_hit_by_ally = false
 	_die()

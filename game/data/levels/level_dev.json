@@ -54,6 +54,16 @@
 			"triggers": [
 				{ "when": "wave_clear", "actions": [ { "wait": 0.5 } ] }
 			]
+		},
+		{
+			"spawns": [
+				{ "type": "bastion", "count": 1, "formation": "grid_1x1", "entry": "top" },
+				{ "type": "wasp", "count": 6, "formation": "grid_3x2", "entry": "top" }
+			],
+			"asteroids": [],
+			"triggers": [
+				{ "when": "wave_clear", "actions": [ { "wait": 0.5 } ] }
+			]
 		}
 	]
 }

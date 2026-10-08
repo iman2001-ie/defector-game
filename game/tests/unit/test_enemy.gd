@@ -106,6 +106,19 @@ func test_destroy_by_contact() -> void:
 	assert_true(wasp.is_queued_for_deletion())
 
 
+func test_medium_enemy_is_destroyed_by_contact() -> void:
+	var lancer: Enemy = (preload("res://entities/enemies/lancer/lancer.tscn") as PackedScene).instantiate() as Enemy
+	lancer.setup({"position": Vector2(700, 200)})
+	add_child_autofree(lancer)
+	lancer.set_physics_process(false)
+	watch_signals(lancer)
+	assert_eq(lancer.tier, ImpactTier.MEDIUM)
+	lancer.destroy_by_contact()
+	assert_true(lancer.is_dead(), "a medium enemy dies by contact")
+	assert_signal_emit_count(lancer, "resolved", 1)
+	assert_signal_emitted_with_parameters(Events, "enemy_killed", [&"lancer", Vector2(700, 200), false])
+
+
 func test_contact_after_ally_hit_is_not_ally() -> void:
 	var wasp: Enemy = _make_wasp()
 	wasp.apply_damage(1, _source(true))

@@ -1,0 +1,67 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://entities/enemies/bastion/bastion.gd" id="1_bastion"]
+
+[sub_resource type="Gradient" id="Gradient_glow"]
+offsets = PackedFloat32Array(0, 0.35, 1)
+colors = PackedColorArray(1, 1, 1, 1, 1, 0.168627, 0.839216, 0.8, 1, 0.168627, 0.839216, 0)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_glow"]
+gradient = SubResource("Gradient_glow")
+width = 32
+height = 32
+fill = 1
+fill_from = Vector2(0.5, 0.5)
+fill_to = Vector2(1, 0.5)
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_add"]
+blend_mode = 1
+
+[node name="Bastion" type="Area2D"]
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("1_bastion")
+sprite_px = 160.0
+
+[node name="Hitbox" type="CollisionShape2D" parent="."]
+
+[node name="Hull" type="Polygon2D" parent="."]
+color = Color(1, 0.168627, 0.839216, 1)
+polygon = PackedVector2Array(-24, -55, 24, -55, 64, -44, 80, -20, 80, 20, 66, 34, 56, 52, 32, 52, 20, 36, -20, 36, -32, 52, -56, 52, -66, 34, -80, 20, -80, -20, -64, -44)
+
+[node name="Plating" type="Polygon2D" parent="."]
+color = Color(0.45, 0.07, 0.38, 1)
+polygon = PackedVector2Array(-52, -32, 52, -32, 62, -12, 52, 14, -52, 14, -62, -12)
+
+[node name="Bridge" type="Polygon2D" parent="."]
+color = Color(1, 0.168627, 0.839216, 1)
+polygon = PackedVector2Array(-14, -26, 14, -26, 20, -10, 14, 6, -14, 6, -20, -10)
+
+[node name="Turrets" type="Node2D" parent="."]
+
+[node name="Turret0" type="Marker2D" parent="Turrets"]
+position = Vector2(-44, 40)
+
+[node name="Barrel" type="Polygon2D" parent="Turrets/Turret0"]
+color = Color(0.45, 0.07, 0.38, 1)
+polygon = PackedVector2Array(-9, -8, 9, -8, 9, 4, 4, 4, 4, 14, -4, 14, -4, 4, -9, 4)
+
+[node name="Glow" type="Sprite2D" parent="Turrets/Turret0"]
+visible = false
+material = SubResource("CanvasItemMaterial_add")
+scale = Vector2(1.5, 1.5)
+texture = SubResource("GradientTexture2D_glow")
+
+[node name="Turret1" type="Marker2D" parent="Turrets"]
+position = Vector2(44, 40)
+
+[node name="Barrel" type="Polygon2D" parent="Turrets/Turret1"]
+color = Color(0.45, 0.07, 0.38, 1)
+polygon = PackedVector2Array(-9, -8, 9, -8, 9, 4, 4, 4, 4, 14, -4, 14, -4, 4, -9, 4)
+
+[node name="Glow" type="Sprite2D" parent="Turrets/Turret1"]
+visible = false
+material = SubResource("CanvasItemMaterial_add")
+scale = Vector2(1.5, 1.5)
+texture = SubResource("GradientTexture2D_glow")

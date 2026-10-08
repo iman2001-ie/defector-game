@@ -5,6 +5,7 @@ const ENEMIES: Dictionary[StringName, PackedScene] = {
 	&"wasp": preload("res://entities/enemies/wasp/wasp.tscn"),
 	&"lancer": preload("res://entities/enemies/lancer/lancer.tscn"),
 	&"needle": preload("res://entities/enemies/needle/needle.tscn"),
+	&"bastion": preload("res://entities/enemies/bastion/bastion.tscn"),
 }
 const PROJECTILES: Dictionary[StringName, PackedScene] = {
 	&"laser_bolt": preload("res://entities/projectiles/laser_bolt.tscn"),

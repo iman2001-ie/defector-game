@@ -238,6 +238,29 @@ func test_needle_tuning_ranges() -> void:
 	assert_gte(Config.num("enemies.needle.reposition_min_distance_px"), 0.0, "reposition_min_distance_px >= 0")
 
 
+## GDD Bastion: drifts within band_y with its whole hull (probe sprite_px)
+## inside it, and the band sits inside the enemy zone.
+func test_bastion_tuning_ranges() -> void:
+	assert_gt(Config.num("enemies.bastion.drift_speed_px_s"), 0.0, "drift_speed_px_s > 0")
+	assert_gt(Config.num("enemies.bastion.bullet_speed_px_s"), 0.0, "bullet_speed_px_s > 0")
+	assert_gt(Config.num("enemies.bastion.fire_interval_s"), 0.0, "fire_interval_s > 0")
+	assert_gte(Config.int_("enemies.bastion.turrets"), 1, "turrets >= 1")
+	assert_gte(Config.int_("enemies.bastion.spread_bullets"), 1, "spread_bullets >= 1")
+	var spread: float = Config.num("enemies.bastion.spread_deg")
+	assert_gte(spread, 0.0, "spread_deg >= 0")
+	assert_lt(spread, 90.0, "spread_deg < 90")
+	assert_gt(Config.num("enemies.bastion.turret_glow_energy"), 1.0, "turret_glow_energy > 1")
+	var band_min: float = Config.num("enemies.bastion.band_y.min")
+	var band_max: float = Config.num("enemies.bastion.band_y.max")
+	assert_lt(band_min, band_max, "band_y.min < band_y.max")
+	assert_gte(band_min, 0.0, "band_y.min >= 0")
+	assert_lte(band_max, ENEMY_ZONE_BOTTOM_Y, "band_y.max inside the enemy zone")
+	var probe: Enemy = (EntityRegistry.ENEMIES[&"bastion"] as PackedScene).instantiate() as Enemy
+	var sprite: float = probe.sprite_px
+	probe.free()
+	assert_gte(band_max - band_min, sprite, "the hull fits inside band_y")
+
+
 ## GDD (Arena and Level Design): every Needle wave has >= 2 medium or large asteroids.
 func test_every_needle_wave_has_cover() -> void:
 	var needle_waves: int = 0

@@ -136,7 +136,7 @@ func test_level_started_with_the_json_id_and_wave_1() -> void:
 	assert_eq(_started, [0] as Array[int], "level_started(0) from level_dev.json")
 	var director: WaveDirector = _level.get_node("WaveDirector") as WaveDirector
 	assert_eq(director.wave_number(), 1, "wave 1 started")
-	assert_eq(director.wave_count(), 4)
+	assert_eq(director.wave_count(), 5)
 	assert_eq(director.level_id(), 0)
 	assert_eq(_counted(), 8, "8 Wasps")
 	var info: Array[String] = []
@@ -204,14 +204,14 @@ func test_missing_level_file_starts_nothing() -> void:
 	assert_eq(_counted(), 0, "nothing spawned")
 
 
-## Acceptance: clearing all four waves of level_dev (via F3) clears the level.
+## Acceptance: clearing all five waves of level_dev (via F3) clears the level.
 func test_clearing_every_dev_wave_clears_the_level() -> void:
 	(Config.tuning["waves"] as Dictionary)["gap_s"] = 0.05
 	Log.sink = _capture
 	_make_level()
 	var director: WaveDirector = _level.get_node("WaveDirector") as WaveDirector
 	var banner: Label = _level.get_node("HUD/LevelClearBanner") as Label
-	for wave: int in 4:
+	for wave: int in 5:
 		assert_eq(director.wave_number(), wave + 1, "on wave %d" % (wave + 1))
 		director.debug_resolve_wave()
 		# Longest chain in level_dev is 1.0 s, plus the gap.
@@ -286,6 +286,34 @@ func test_dev_wave_4_has_needles_and_cover() -> void:
 		if rock != null and not rock.is_queued_for_deletion() and rock.size == &"medium":
 			medium += 1
 	assert_eq(medium, 2, "two medium asteroids for cover")
+
+
+## Story 2.7: level_dev wave 5 brings one counted Bastion, on formation row 0.
+func test_dev_wave_5_has_a_bastion() -> void:
+	(Config.tuning["waves"] as Dictionary)["gap_s"] = 0.05
+	Log.sink = _capture
+	_make_level()
+	var director: WaveDirector = _level.get_node("WaveDirector") as WaveDirector
+	for wave: int in 4:
+		director.debug_resolve_wave()
+		var waited: float = 0.0
+		while director.wave_number() == wave + 1 and waited < 3.0:
+			await wait_seconds(0.1)
+			waited += 0.1
+	Log.sink = Callable()
+	assert_eq(director.wave_number(), 5, "on wave 5")
+	var bastions: int = 0
+	var spawner: Spawner = _level.get_node("Spawner") as Spawner
+	for child: Node in _level.get_node("World/Enemies").get_children():
+		var bastion: Bastion = child as Bastion
+		if bastion == null or bastion.is_queued_for_deletion() or not bastion.is_in_group(&"counted"):
+			continue
+		bastions += 1
+		assert_eq(bastion.formation_slot(), Vector2(960, 160), "row 0, the drift box top")
+		assert_eq(bastion.spawner, spawner, "the level Spawner is injected")
+	assert_eq(bastions, 1, "one Bastion in wave 5")
+	for line: String in _lines:
+		assert_false(line.begins_with("[WARN][spawn] bastion"), "no clamp WARN: " + line)
 
 
 # --- Debug-arg gates ----------------------------------------------------------

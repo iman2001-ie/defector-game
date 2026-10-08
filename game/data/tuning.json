@@ -111,7 +111,8 @@
 			"spread_deg": 15,
 			"fire_interval_s": 2.5,
 			"bullet_speed_px_s": 350,
-			"telegraph_s": 0.5
+			"telegraph_s": 0.5,
+			"turret_glow_energy": 2.5
 		},
 		"maul": {
 			"tier": "medium",
