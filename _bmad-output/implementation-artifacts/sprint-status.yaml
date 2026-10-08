@@ -42,7 +42,7 @@ tracking_system: file-system
 story_location: _bmad-output/implementation-artifacts
 
 development_status:
-  epic-1: in-progress
+  epic-1: done
   1-1-set-up-the-godot-project-and-data-driven-foundation: done
   1-2-fly-the-ship-with-the-mouse: done
   1-3-fire-the-laser: done
@@ -54,7 +54,7 @@ development_status:
   1-9-make-laser-bolts-and-the-neon-glow-brighter: done
   1-10-reconcile-the-architecture-with-the-as-built: done
   epic-1-retrospective: done
-  epic-2: backlog
+  epic-2: done
   2-1-count-wave-progress-and-evaluate-beat-triggers: done
   2-2-play-a-level-driven-by-wave-data: done
   2-3-watch-the-wave-progress-bar-fill: done
@@ -64,7 +64,7 @@ development_status:
   2-7-bring-down-a-bastion-gunship: done
   2-8-outrun-the-hunter-wasp: done
   epic-2-retrospective: done
-  epic-3: backlog
+  epic-3: done
   3-1-take-hits-with-hearts-and-mercy-invulnerability: done
   3-2-die-and-retry-instantly: done
   3-3-collect-energy-from-wreckage: done
