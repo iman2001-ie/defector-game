@@ -14,16 +14,9 @@ extends Enemy
 
 enum State { ENTER, HOLD, TELEGRAPH, DIVE }
 
-const ENTRY_TOP: StringName = &"top"
-const ENTRY_SIDES: StringName = &"sides"
-const PLAYER_GROUP: StringName = &"player"
-
 var _state: State = State.HOLD
 ## Seconds spent in the current state.
 var _t: float = 0.0
-var _slot: Vector2 = Vector2.ZERO
-var _has_slot: bool = false
-var _entry: StringName = ENTRY_TOP
 ## Where the next ENTER starts.
 var _entry_start: Vector2 = Vector2.ZERO
 var _dive_dir: Vector2 = Vector2.DOWN
@@ -44,25 +37,14 @@ func _init() -> void:
 	type_id = &"wasp"
 
 
-## Stores params; nothing is applied until _ready(). Keys: position (global),
-## slot (formation slot, global), entry (&"top" | &"sides").
-func setup(params: Dictionary) -> void:
-	super(params)
-	if params.has("slot"):
-		_slot = params["slot"] as Vector2
-		_has_slot = true
-	if params.has("entry"):
-		_entry = StringName(str(params["entry"]))
-
-
 func _ready() -> void:
 	super()
-	_entry_speed = Config.num("enemies.wasp.entry_speed_px_s")
-	_dive_speed = Config.num("enemies.wasp.dive_speed_px_s")
-	_telegraph_s = Config.num("enemies.wasp.telegraph_s")
-	_zone_height_ratio = Config.num("enemies.wasp.zone_height_ratio")
-	_wing_flash_hz = Config.num("enemies.wasp.wing_flash_hz")
-	_wing_flash_energy = Config.num("enemies.wasp.wing_flash_energy")
+	_entry_speed = Config.num(_tuning_key("entry_speed_px_s"))
+	_dive_speed = Config.num(_tuning_key("dive_speed_px_s"))
+	_telegraph_s = Config.num(_tuning_key("telegraph_s"))
+	_zone_height_ratio = Config.num(_tuning_key("zone_height_ratio"))
+	_wing_flash_hz = Config.num(_tuning_key("wing_flash_hz"))
+	_wing_flash_energy = Config.num(_tuning_key("wing_flash_energy"))
 	_hull = get_node_or_null(^"Hull") as CanvasItem
 	_exit_rect = Playfield.RECT.grow(sprite_px / 2.0)
 	if not _has_slot:
@@ -74,14 +56,7 @@ func _ready() -> void:
 	if _slot.y > zone_y:
 		Log.warn("spawn", "wasp slot y %.0f is below the formation zone (y <= %.0f); clamped" % [_slot.y, zone_y])
 		_slot.y = zone_y
-	if _entry == ENTRY_SIDES:
-		var half: float = sprite_px / 2.0
-		var x: float = -half if _slot.x <= Playfield.SIZE.x / 2.0 else Playfield.SIZE.x + half
-		_entry_start = Vector2(x, _slot.y)
-	else:
-		if _entry != ENTRY_TOP:
-			Log.warn("spawn", "wasp entry '%s' is unknown; using top" % _entry)
-		_entry_start = _top_entry_start()
+	_entry_start = _entry_start_for(_slot)
 	_enter_state(State.ENTER)
 
 
@@ -143,22 +118,13 @@ func _enter_state(new_state: State) -> void:
 		State.ENTER:
 			global_position = _entry_start
 		State.DIVE:
-			_dive_dir = _aim()
+			_dive_dir = _aim_from(global_position)
 
 
+## Top start above the slot, without the unknown-entry WARN (the post-dive
+## re-entry and the slotless sandbox Wasp).
 func _top_entry_start() -> Vector2:
 	return Vector2(_slot.x, -sprite_px / 2.0)
-
-
-## Direction toward the player's current position; straight down with no player.
-func _aim() -> Vector2:
-	var player: Node2D = get_tree().get_first_node_in_group(PLAYER_GROUP) as Node2D
-	if player == null:
-		return Vector2.DOWN
-	var to_player: Vector2 = player.global_position - global_position
-	if to_player.is_zero_approx():
-		return Vector2.DOWN
-	return to_player.normalized()
 
 
 func _set_flash(on: bool) -> void:

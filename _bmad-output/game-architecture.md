@@ -1103,6 +1103,7 @@ if wasp:
 - `func apply_damage(amount: int, source: Node) -> void` (it records `source.from_ally`).
 - `func destroy_by_contact() -> void` (small and medium enemies only).
 - HP comes from `Config.int_("enemies.<type_id>.hp")`. Drops come from `tuning.drops.<type_id>`.
+- Shared subclass helpers (DW-41): `setup()` also stores `slot`/`entry` (`_slot`, `_has_slot`, `_entry`; constants `ENTRY_TOP`, `ENTRY_SIDES`, `PLAYER_GROUP`), `_entry_start_for(target)` (off-screen entry start, WARNs on an unknown entry and uses top), `_aim_from(origin)` (unit vector to the player, `Vector2.DOWN` without one), `_can_fire()` (missing-spawner guard, one DEBUG per enemy) and `_tuning_key(field)` (`"enemies.<type_id>.<field>"`). Enemy projectiles share `EnemyBullet._align_to_velocity(node)`.
 
 ### State Patterns
 

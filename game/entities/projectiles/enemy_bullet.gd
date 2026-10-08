@@ -12,11 +12,17 @@ extends Projectile
 
 
 func _ready() -> void:
-	var hitbox: CollisionShape2D = get_node_or_null(^"Hitbox") as CollisionShape2D
-	if hitbox != null and not velocity.is_zero_approx():
-		# The capsule's long axis is local +y; turn it onto the travel direction.
-		hitbox.rotation = velocity.angle() - PI / 2.0
+	# The capsule's long axis is local +y; turn it onto the travel direction.
+	_align_to_velocity(get_node_or_null(^"Hitbox") as Node2D)
 	super._ready()
+
+
+## Turns `node` so its local +y axis points along `velocity`. Skips a null node
+## or a zero velocity.
+func _align_to_velocity(node: Node2D) -> void:
+	if node == null or velocity.is_zero_approx():
+		return
+	node.rotation = velocity.angle() - PI / 2.0
 
 
 func _can_damage(area: Area2D) -> bool:

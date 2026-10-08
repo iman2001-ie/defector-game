@@ -17,23 +17,16 @@ extends Enemy
 
 enum State { ENTER, STRAFE, TELEGRAPH }
 
-const ENTRY_TOP: StringName = &"top"
-const ENTRY_SIDES: StringName = &"sides"
-const PLAYER_GROUP: StringName = &"player"
 const BULLET_ID: StringName = &"enemy_bullet"
 
 var _state: State = State.STRAFE
 ## Seconds spent in the current state (the fire timer while strafing).
 var _t: float = 0.0
-var _slot: Vector2 = Vector2.ZERO
-var _has_slot: bool = false
-var _entry: StringName = ENTRY_TOP
 var _entry_start: Vector2 = Vector2.ZERO
 ## +1 or -1: the current horizontal strafe direction.
 var _dir: float = 1.0
 var _min_x: float = 0.0
 var _max_x: float = 0.0
-var _warned_no_spawner: bool = false
 
 var _strafe_speed: float = 0.0
 var _zone_height_ratio: float = 0.0
@@ -51,25 +44,14 @@ func _init() -> void:
 	type_id = &"lancer"
 
 
-## Stores params; nothing is applied until _ready(). Keys: position (global),
-## slot (formation slot, global), entry (&"top" | &"sides").
-func setup(params: Dictionary) -> void:
-	super(params)
-	if params.has("slot"):
-		_slot = params["slot"] as Vector2
-		_has_slot = true
-	if params.has("entry"):
-		_entry = StringName(str(params["entry"]))
-
-
 func _ready() -> void:
 	super()
-	_strafe_speed = Config.num("enemies.lancer.strafe_speed_px_s")
-	_zone_height_ratio = Config.num("enemies.lancer.zone_height_ratio")
-	_fire_interval_s = Config.num("enemies.lancer.fire_interval_s")
-	_telegraph_s = Config.num("enemies.lancer.telegraph_s")
-	_bullet_speed = Config.num("enemies.lancer.bullet_speed_px_s")
-	_glow_energy = Config.num("enemies.lancer.muzzle_glow_energy")
+	_strafe_speed = Config.num(_tuning_key("strafe_speed_px_s"))
+	_zone_height_ratio = Config.num(_tuning_key("zone_height_ratio"))
+	_fire_interval_s = Config.num(_tuning_key("fire_interval_s"))
+	_telegraph_s = Config.num(_tuning_key("telegraph_s"))
+	_bullet_speed = Config.num(_tuning_key("bullet_speed_px_s"))
+	_glow_energy = Config.num(_tuning_key("muzzle_glow_energy"))
 	_bullet_damage = Config.int_("damage.bullet_hearts")
 	_muzzle = get_node_or_null(^"Muzzle") as Node2D
 	_glow = get_node_or_null(^"Muzzle/MuzzleGlow") as CanvasItem
@@ -88,13 +70,7 @@ func _ready() -> void:
 		Log.warn("spawn", "lancer slot y %.0f is below the strafe zone (y <= %.0f); clamped" % [_slot.y, zone_y])
 		_slot.y = zone_y
 	_dir = _initial_dir()
-	if _entry == ENTRY_SIDES:
-		var x: float = -half if _slot.x <= Playfield.SIZE.x / 2.0 else Playfield.SIZE.x + half
-		_entry_start = Vector2(x, _slot.y)
-	else:
-		if _entry != ENTRY_TOP:
-			Log.warn("spawn", "lancer entry '%s' is unknown; using top" % _entry)
-		_entry_start = Vector2(_slot.x, -half)
+	_entry_start = _entry_start_for(_slot)
 	_enter_state(State.ENTER)
 
 
@@ -166,26 +142,11 @@ func _strafe(delta: float) -> void:
 
 
 func _fire() -> void:
-	if spawner == null or not is_instance_valid(spawner):
-		if not _warned_no_spawner:
-			_warned_no_spawner = true
-			Log.debug("spawn", "lancer has no spawner; shot skipped")
+	if not _can_fire():
 		return
 	var origin: Vector2 = _muzzle.global_position if _muzzle != null else global_position
 	spawner.spawn_projectile(BULLET_ID, {
 		"position": origin,
-		"velocity": _aim(origin) * _bullet_speed,
+		"velocity": _aim_from(origin) * _bullet_speed,
 		"damage": _bullet_damage,
 	})
-
-
-## Direction from `origin` toward the player's current position; straight down
-## with no player or a zero vector.
-func _aim(origin: Vector2) -> Vector2:
-	var player: Node2D = get_tree().get_first_node_in_group(PLAYER_GROUP) as Node2D
-	if player == null:
-		return Vector2.DOWN
-	var to_player: Vector2 = player.global_position - origin
-	if to_player.is_zero_approx():
-		return Vector2.DOWN
-	return to_player.normalized()

@@ -19,8 +19,6 @@ extends Enemy
 
 enum State { ENTER, DRIFT, TELEGRAPH }
 
-const ENTRY_TOP: StringName = &"top"
-const ENTRY_SIDES: StringName = &"sides"
 const BULLET_ID: StringName = &"enemy_bullet"
 
 ## Picks drift targets; tests seed it.
@@ -29,15 +27,11 @@ var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var _state: State = State.DRIFT
 ## Seconds spent in the current state (the fire timer while drifting).
 var _t: float = 0.0
-var _slot: Vector2 = Vector2.ZERO
-var _has_slot: bool = false
-var _entry: StringName = ENTRY_TOP
 var _entry_start: Vector2 = Vector2.ZERO
 ## Where the hull centre may drift: band_y shrunk by half the hull, x on screen.
 var _box: Rect2 = Rect2()
 var _target: Vector2 = Vector2.ZERO
 var _has_target: bool = false
-var _warned_no_spawner: bool = false
 
 var _drift_speed: float = 0.0
 var _fire_interval_s: float = 0.0
@@ -55,31 +49,20 @@ func _init() -> void:
 	rng.randomize()
 
 
-## Stores params; nothing is applied until _ready(). Keys: position (global),
-## slot (formation slot, global), entry (&"top" | &"sides").
-func setup(params: Dictionary) -> void:
-	super(params)
-	if params.has("slot"):
-		_slot = params["slot"] as Vector2
-		_has_slot = true
-	if params.has("entry"):
-		_entry = StringName(str(params["entry"]))
-
-
 func _ready() -> void:
 	super()
-	_drift_speed = Config.num("enemies.bastion.drift_speed_px_s")
-	_fire_interval_s = Config.num("enemies.bastion.fire_interval_s")
-	_telegraph_s = Config.num("enemies.bastion.telegraph_s")
+	_drift_speed = Config.num(_tuning_key("drift_speed_px_s"))
+	_fire_interval_s = Config.num(_tuning_key("fire_interval_s"))
+	_telegraph_s = Config.num(_tuning_key("telegraph_s"))
 	_bullet_damage = Config.int_("damage.bullet_hearts")
-	var band_min: float = Config.num("enemies.bastion.band_y.min")
-	var band_max: float = Config.num("enemies.bastion.band_y.max")
-	var glow_energy: float = Config.num("enemies.bastion.turret_glow_energy")
+	var band_min: float = Config.num(_tuning_key("band_y.min"))
+	var band_max: float = Config.num(_tuning_key("band_y.max"))
+	var glow_energy: float = Config.num(_tuning_key("turret_glow_energy"))
 	_build_spread(
-		Config.int_("enemies.bastion.spread_bullets"),
-		Config.num("enemies.bastion.spread_deg"),
-		Config.num("enemies.bastion.bullet_speed_px_s"))
-	_collect_turrets(Config.int_("enemies.bastion.turrets"), glow_energy)
+		Config.int_(_tuning_key("spread_bullets")),
+		Config.num(_tuning_key("spread_deg")),
+		Config.num(_tuning_key("bullet_speed_px_s")))
+	_collect_turrets(Config.int_(_tuning_key("turrets")), glow_energy)
 	var half: float = sprite_px / 2.0
 	var y_min: float = band_min + half
 	var y_max: float = band_max - half
@@ -95,13 +78,7 @@ func _ready() -> void:
 	if clamped != _slot:
 		Log.warn("spawn", "bastion slot %s is outside its drift box; clamped to %s" % [_slot, clamped])
 		_slot = clamped
-	if _entry == ENTRY_SIDES:
-		var x: float = -half if _slot.x <= Playfield.SIZE.x / 2.0 else Playfield.SIZE.x + half
-		_entry_start = Vector2(x, _slot.y)
-	else:
-		if _entry != ENTRY_TOP:
-			Log.warn("spawn", "bastion entry '%s' is unknown; using top" % _entry)
-		_entry_start = Vector2(_slot.x, -half)
+	_entry_start = _entry_start_for(_slot)
 	_enter_state(State.ENTER)
 
 
@@ -221,10 +198,7 @@ func _drift(delta: float) -> void:
 
 
 func _fire() -> void:
-	if spawner == null or not is_instance_valid(spawner):
-		if not _warned_no_spawner:
-			_warned_no_spawner = true
-			Log.debug("spawn", "bastion has no spawner; shot skipped")
+	if not _can_fire():
 		return
 	for turret: Node2D in _turrets:
 		var origin: Vector2 = turret.global_position

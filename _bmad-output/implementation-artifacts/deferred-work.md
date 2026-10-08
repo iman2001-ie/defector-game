@@ -384,7 +384,9 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-2-retro-2026-10-07.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 2; owner Dev loop; sprint-status status open)
-status: open
+status: done 2026-10-07
+resolution: resolved by sweep bundle dw-enemy-shared-behaviour-extract
+resolution-undo: 181c7063bf721a5d73635320d792fadc10b49d1116d9ab7e28f08749346df334 2026-10-07 7374617475733a206f70656e
 
 ### DW-42: Playtest Epic 2 human ACs: telegraph readability, wave bar on screen, Bastion vs HUD band (DW-34), Hunter Wasp with flag on
 origin: retro action item epic-2-retro-item-20-playtest-epic-2-human-acs-telegraph-read

@@ -18,9 +18,6 @@ extends Enemy
 
 enum State { ANCHORING, TRACKING, LOCKED, COOLDOWN }
 
-const ENTRY_TOP: StringName = &"top"
-const ENTRY_SIDES: StringName = &"sides"
-const PLAYER_GROUP: StringName = &"player"
 const BOLT_ID: StringName = &"needle_bolt"
 ## Slack on the reposition check, so float step accumulation can't push the
 ## move one full cycle later.
@@ -41,15 +38,11 @@ var _state: State = State.ANCHORING
 var _t: float = 0.0
 ## Seconds since the Needle last arrived on an anchor.
 var _anchored_t: float = 0.0
-var _slot: Vector2 = Vector2.ZERO
-var _has_slot: bool = false
-var _entry: StringName = ENTRY_TOP
 var _anchor: Vector2 = Vector2.ZERO
 var _line_dir: Vector2 = Vector2.DOWN
 var _line_length: float = 0.0
 var _min_x: float = 0.0
 var _max_x: float = 0.0
-var _warned_no_spawner: bool = false
 
 var _reposition_interval_s: float = 0.0
 var _track_s: float = 0.0
@@ -70,28 +63,18 @@ func _init() -> void:
 	rng.randomize()
 
 
-## Stores params; nothing is applied until _ready(). Keys: position (global),
-## slot (formation slot, global; only its x is used), entry (&"top" | &"sides").
-func setup(params: Dictionary) -> void:
-	super(params)
-	if params.has("slot"):
-		_slot = params["slot"] as Vector2
-		_has_slot = true
-	if params.has("entry"):
-		_entry = StringName(str(params["entry"]))
-
-
+## Setup params are Enemy's (position, slot, entry); only the slot's x is used.
 func _ready() -> void:
 	super()
-	_reposition_interval_s = Config.num("enemies.needle.reposition_interval_s")
-	var fire_interval_s: float = Config.num("enemies.needle.fire_interval_s")
-	_track_s = Config.num("enemies.needle.track_s")
-	_lock_s = Config.num("enemies.needle.lock_s")
+	_reposition_interval_s = Config.num(_tuning_key("reposition_interval_s"))
+	var fire_interval_s: float = Config.num(_tuning_key("fire_interval_s"))
+	_track_s = Config.num(_tuning_key("track_s"))
+	_lock_s = Config.num(_tuning_key("lock_s"))
 	_cooldown_s = maxf(fire_interval_s - _track_s - _lock_s, 0.0)
-	_bolt_speed = Config.num("enemies.needle.bolt_speed_px_s")
-	_anchor_y = Config.num("enemies.needle.anchor_y_px")
-	_reposition_speed = Config.num("enemies.needle.reposition_speed_px_s")
-	_min_distance = Config.num("enemies.needle.reposition_min_distance_px")
+	_bolt_speed = Config.num(_tuning_key("bolt_speed_px_s"))
+	_anchor_y = Config.num(_tuning_key("anchor_y_px"))
+	_reposition_speed = Config.num(_tuning_key("reposition_speed_px_s"))
+	_min_distance = Config.num(_tuning_key("reposition_min_distance_px"))
 	_bolt_damage = Config.int_("damage.bullet_hearts")
 	_line_length = Playfield.SIZE.length()
 	_muzzle = get_node_or_null(^"Muzzle") as Node2D
@@ -107,13 +90,7 @@ func _ready() -> void:
 	if x != _slot.x:
 		Log.warn("spawn", "needle slot x %.0f is off screen (%.0f..%.0f); clamped" % [_slot.x, _min_x, _max_x])
 	_anchor = Vector2(x, _anchor_y)
-	if _entry == ENTRY_SIDES:
-		var side_x: float = -half if _anchor.x <= Playfield.SIZE.x / 2.0 else Playfield.SIZE.x + half
-		global_position = Vector2(side_x, _anchor.y)
-	else:
-		if _entry != ENTRY_TOP:
-			Log.warn("spawn", "needle entry '%s' is unknown; using top" % _entry)
-		global_position = Vector2(_anchor.x, -half)
+	global_position = _entry_start_for(_anchor)
 	_enter_state(State.ANCHORING)
 
 
@@ -193,13 +170,7 @@ func _muzzle_position() -> Vector2:
 ## Points the line from the muzzle toward the player (straight down with no
 ## player or a zero vector), reaching across the whole playfield.
 func _aim_line() -> void:
-	var origin: Vector2 = _muzzle_position()
-	_line_dir = Vector2.DOWN
-	var player: Node2D = get_tree().get_first_node_in_group(PLAYER_GROUP) as Node2D
-	if player != null:
-		var to_player: Vector2 = player.global_position - origin
-		if not to_player.is_zero_approx():
-			_line_dir = to_player.normalized()
+	_line_dir = _aim_from(_muzzle_position())
 	if _line != null:
 		var start: Vector2 = _muzzle.position if _muzzle != null else Vector2.ZERO
 		_line.set_point_position(0, start)
@@ -207,10 +178,7 @@ func _aim_line() -> void:
 
 
 func _fire() -> void:
-	if spawner == null or not is_instance_valid(spawner):
-		if not _warned_no_spawner:
-			_warned_no_spawner = true
-			Log.debug("spawn", "needle has no spawner; shot skipped")
+	if not _can_fire():
 		return
 	spawner.spawn_projectile(BOLT_ID, {
 		"position": _muzzle_position(),

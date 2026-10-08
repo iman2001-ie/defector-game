@@ -12,8 +12,6 @@ extends EnemyBullet
 
 
 func _ready() -> void:
-	var streak: Node2D = get_node_or_null(^"Streak") as Node2D
-	if streak != null and not velocity.is_zero_approx():
-		# The streak's long axis is local +y, like the capsule's.
-		streak.rotation = velocity.angle() - PI / 2.0
+	# The streak's long axis is local +y, like the capsule's.
+	_align_to_velocity(get_node_or_null(^"Streak") as Node2D)
 	super._ready()

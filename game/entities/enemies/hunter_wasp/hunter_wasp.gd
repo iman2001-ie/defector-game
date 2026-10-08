@@ -11,15 +11,9 @@ extends Enemy
 ## side and chases from there. Without a player it steers toward the playfield
 ## centre. Without a `slot` (sandbox, tests) it starts at its spawn position.
 
-const ENTRY_TOP: StringName = &"top"
-const ENTRY_SIDES: StringName = &"sides"
-const PLAYER_GROUP: StringName = &"player"
 ## Seconds between player look-ups while no valid player is cached.
 const PLAYER_RELOOKUP_S: float = 0.5
 
-var _slot: Vector2 = Vector2.ZERO
-var _has_slot: bool = false
-var _entry: StringName = ENTRY_TOP
 ## Unit vector the hull flies along.
 var _heading: Vector2 = Vector2.DOWN
 var _chase_speed: float = 0.0
@@ -35,35 +29,18 @@ func _init() -> void:
 	type_id = &"hunter_wasp"
 
 
-## Stores params; nothing is applied until _ready(). Keys: position (global),
-## slot (global; picks the off-screen start), entry (&"top" | &"sides").
-func setup(params: Dictionary) -> void:
-	super(params)
-	if params.has("slot"):
-		_slot = params["slot"] as Vector2
-		_has_slot = true
-	if params.has("entry"):
-		_entry = StringName(str(params["entry"]))
-
-
+## Setup params are Enemy's (position, slot, entry); the slot only picks the
+## off-screen start.
 func _ready() -> void:
 	super()
-	_chase_speed = Config.num("enemies.hunter_wasp.chase_speed_px_s")
-	_turn_rate = deg_to_rad(Config.num("enemies.hunter_wasp.turn_rate_deg_s"))
+	_chase_speed = Config.num(_tuning_key("chase_speed_px_s"))
+	_turn_rate = deg_to_rad(Config.num(_tuning_key("turn_rate_deg_s")))
 	_heading = Vector2.DOWN
 	if _has_slot:
-		var half: float = sprite_px / 2.0
+		global_position = _entry_start_for(_slot)
 		if _entry == ENTRY_SIDES:
-			if _slot.x <= Playfield.SIZE.x / 2.0:
-				global_position = Vector2(-half, _slot.y)
-				_heading = Vector2.RIGHT
-			else:
-				global_position = Vector2(Playfield.SIZE.x + half, _slot.y)
-				_heading = Vector2.LEFT
-		else:
-			if _entry != ENTRY_TOP:
-				Log.warn("spawn", "hunter_wasp entry '%s' is unknown; using top" % _entry)
-			global_position = Vector2(_slot.x, -half)
+			# Head into the playfield from the side it starts on.
+			_heading = Vector2.RIGHT if global_position.x <= Playfield.SIZE.x / 2.0 else Vector2.LEFT
 	rotation = _heading.angle() - PI / 2.0
 	_find_player()
 
