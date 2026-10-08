@@ -168,7 +168,9 @@ location: .claude/skills/gds-agent-game-dev/gametest/knowledge/godot-testing.md
 source_spec: `spec-dw-6-dw-12-gut-import-step-docs.md`
 severity: low
 reason: .claude/skills/gds-agent-game-dev/gametest/knowledge/godot-testing.md (and its .agents/skills copy) are untouched by this change; pre-existing agent-context files outside the intent's two named locations.
-status: open
+status: done 2026-10-07
+resolution: closed by human decision: Vendored generic GDS knowledge; AGENTS.md section 3 holds the correct project-specific GUT procedure and takes precedence.
+decision: 2026-10-07 Close: AGENTS.md is authoritative — Vendored generic GDS knowledge; AGENTS.md section 3 holds the correct project-specific GUT procedure and takes precedence.
 
 ### DW-19: The real F5 path (input event, then get_tree().reload_current_scene and consumers re-reading Config) is still untested; tests inject restart_scene and call reload_data() directly.
 origin: spec-deferred 8ed8e1eb8e32
