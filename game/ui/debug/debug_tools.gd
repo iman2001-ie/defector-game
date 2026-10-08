@@ -1,7 +1,8 @@
 class_name DebugTools
 extends Node
 ## Debug-build tools (architecture "Debug Tools"): F1 toggles a frame-stats
-## overlay (plus wave n/N, resolved/total and the pause reasons), F3 resolves
+## overlay (plus wave n/N, resolved/total, the pause reasons and the player's
+## invincibility), F2 toggles the player's debug_invincible, F3 resolves
 ## the current wave and F6 jumps to the boss wave (both through the scene's
 ## WaveDirector, found by group), F5 reloads every JSON file and restarts the
 ## scene. With the
@@ -109,6 +110,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed(&"debug_overlay"):
 		toggle_overlay()
 		_mark_handled()
+	elif event.is_action_pressed(&"debug_invincible"):
+		toggle_invincible()
+		_mark_handled()
 	elif event.is_action_pressed(&"debug_reload_data"):
 		reload_data()
 		_mark_handled()
@@ -118,6 +122,24 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed(&"debug_skip_to_boss"):
 		skip_to_boss()
 		_mark_handled()
+
+
+## F2: flips debug_invincible on the scene's Player (found by group).
+func toggle_invincible() -> void:
+	if not debug_enabled:
+		return
+	var player: Player = _player()
+	if player == null:
+		Log.info("debug", "F2: no player in this scene")
+		return
+	player.debug_invincible = not player.debug_invincible
+	Log.info("debug", "F2: invincible %s" % _on_off(player.debug_invincible))
+	if _label.visible:
+		refresh_overlay()
+
+
+func _player() -> Player:
+	return get_tree().get_first_node_in_group(&"player") as Player
 
 
 ## F3: resolves the current wave through the scene's WaveDirector.
@@ -161,7 +183,7 @@ func refresh_overlay() -> void:
 	if not debug_enabled:
 		return
 	var avg_ms: float = _window_sum_ms / _window_frames if _window_frames > 0 else 0.0
-	_label.text = "FPS %d\nframe ms %.2f avg / %.2f max\nnodes %d\nenemies %d\n%s\npause %s" % [
+	_label.text = "FPS %d\nframe ms %.2f avg / %.2f max\nnodes %d\nenemies %d\n%s\npause %s\n%s" % [
 		Engine.get_frames_per_second(),
 		avg_ms,
 		_window_max_ms,
@@ -169,6 +191,7 @@ func refresh_overlay() -> void:
 		get_tree().get_node_count_in_group(&"enemies"),
 		_wave_lines(),
 		_pause_line(),
+		_invincible_line(),
 	]
 	_reset_window(Time.get_ticks_usec())
 
@@ -199,6 +222,18 @@ func _wave_lines() -> String:
 	return "wave %d/%d\nresolved %d/%d" % [
 		director.wave_number(), director.wave_count(), director.resolved_count(), director.total_count(),
 	]
+
+
+## "invincible on|off", or "invincible -" without a Player.
+func _invincible_line() -> String:
+	var player: Player = _player()
+	if player == null:
+		return "invincible -"
+	return "invincible %s" % _on_off(player.debug_invincible)
+
+
+func _on_off(value: bool) -> String:
+	return "on" if value else "off"
 
 
 func _pause_line() -> String:

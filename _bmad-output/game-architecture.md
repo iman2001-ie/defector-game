@@ -341,6 +341,7 @@ The visual sprite may be shorter. No ray/shape casts are needed.
   - As built: `entities/player/missile_ring.gd` (`class_name MissileRing`), the `MissileRing` child of the Player with `z_index = 1`.
   - Data: `player.missile_ring.radius_px` / `stroke_px`. The radius is clamped to `player.sprite_px / 2` (with a `Log.warn`), so the ring is never bigger than the ship.
   - Colours: a `text` (#E8F4FF) stroke over a `background` (#05070F) outline. It sweeps clockwise from 12 o'clock and draws nothing when the ratio is 0 (ready).
+- The hearts display and hit vignette are built (Story 3.1): `ui/hud/hearts_display.gd` (`class_name HeartsDisplay`, `HUD/HeartsDisplay`) draws the heart icons in code, right-aligned to `hud.hearts.right_x`, and pops a lost heart; `ui/hud/hit_vignette.gd` (`class_name HitVignette`, `HUD/HitVignette`, the first HUD child so it draws under the meters) is a full-rect `ColorRect` with the `hit_vignette.gdshader` edge gradient, driven by `Events.player_hit`. Both are `PROCESS_MODE_PAUSABLE` and `MOUSE_FILTER_IGNORE`; colours are the theme's `HeartsDisplay` (`heart`, `empty`, `outline`) and `HitVignette` (`color`) items; layout and timing are `hud.hearts` / `hud.hit_vignette`.
 - The wave bar is built: `ui/hud/wave_bar.gd` (`class_name WaveBar`), the `HUD/WaveBar` child of `level.tscn` (before `LevelClearBanner`, `PROCESS_MODE_PAUSABLE`). `defector_theme.tres` exists and holds the `WaveBar` type items (`track`, `fill`, `highlight` styleboxes, `separation` constant); rect and tween time are `tuning.json` → `hud.wave_bar`.
 
 ### Architecture Decision Records
@@ -524,12 +525,12 @@ signal story_event_requested(event_name: StringName) # e.g. &"tarek_fall"
 
 Debug tools are available **only when `OS.is_debug_build()`** (editor runs and debug exports). In release builds they do nothing (`DebugTools.debug_enabled` is false: early return, processing off). A single `DebugTools` node in `Overlay` (`ui/debug/debug_tools.tscn` + `debug_tools.gd`) handles the keys.
 
-**Implemented today: F1, F3, F5 and F6.** The other keys are planned for the epics that need them.
+**Implemented today: F1, F2, F3, F5 and F6.** The other keys are planned for the epics that need them.
 
 | Key | Tool | Status |
 |---|---|---|
-| F1 | Toggle debug overlay. Built: FPS, frame ms (avg / max over a 0.25 s window, real time), node count, enemies alive, wave `n/N` and resolved/total (`wave -` without a WaveDirector), pause reasons (`PauseArbiter.reasons()`). Planned addition: current comms sequence | Built (comms line planned) |
-| F2 | Toggle player invincibility | Planned |
+| F1 | Toggle debug overlay. Built: FPS, frame ms (avg / max over a 0.25 s window, real time), node count, enemies alive, wave `n/N` and resolved/total (`wave -` without a WaveDirector), pause reasons (`PauseArbiter.reasons()`), `invincible on|off` (`-` without a Player). Planned addition: current comms sequence | Built (comms line planned) |
+| F2 | Toggle player invincibility (`Player.debug_invincible` on the `player` group node; damage is ignored, small and medium enemies still die on contact, no flicker) | Built |
 | F3 | Resolve the current wave (kill every counted enemy and fire its pending triggers in order) | Built |
 | F4 | Energy +100 (capped) | Planned |
 | F5 | Reload `tuning.json` and `flags.json` through `Config.reload()`, then restart the scene (see [Configuration](#configuration)) | Built |
@@ -558,7 +559,7 @@ Debug tools are available **only when `OS.is_debug_build()`** (editor runs and d
 
 ### Directory Structure
 
-This is the target tree. As of Story 2.2 the built parts are: `project.godot`, `export_presets.cfg` and `default_bus_layout.tres`; the autoloads `Log`, `Events`, `Config`, `PauseArbiter`, `Audio`, `Feedback`, `EntityRegistry`; `core/` except `health_component.gd`; `entities/player/` (without the shield); `entities/projectiles/` laser and missile; `entities/enemies/wasp/`; `entities/asteroids/`; `entities/effects/`; `systems/camera/`; `systems/waves/`; `scenes/sandbox/`; `scenes/level/`; `ui/debug/`; `ui/hud/level_clear_banner.gd`; `data/tuning.json`, `data/flags.json` and `data/levels/`; `assets/audio/sfx/` and `assets/CREDITS.md`; `addons/gut/`; `tests/unit/` (plus `tests/fixtures/`); and `tests/data/`. Everything else is planned.
+This is the target tree. As of Story 2.2 the built parts are: `project.godot`, `export_presets.cfg` and `default_bus_layout.tres`; the autoloads `Log`, `Events`, `Config`, `PauseArbiter`, `Audio`, `Feedback`, `EntityRegistry`; `core/` except `health_component.gd`; `entities/player/` (without the shield); `entities/projectiles/` laser and missile; `entities/enemies/wasp/`; `entities/asteroids/`; `entities/effects/`; `systems/camera/`; `systems/waves/`; `scenes/sandbox/`; `scenes/level/`; `ui/debug/`; `ui/hud/level_clear_banner.gd`, `wave_bar.gd`, `hearts_display.gd` and `hit_vignette.gd` (+ `.gdshader`); `data/tuning.json`, `data/flags.json` and `data/levels/`; `assets/audio/sfx/` and `assets/CREDITS.md`; `addons/gut/`; `tests/unit/` (plus `tests/fixtures/`); and `tests/data/`. Everything else is planned.
 
 ```
 <repo root>/
@@ -662,7 +663,7 @@ This is the target tree. As of Story 2.2 the built parts are: `project.godot`, `
 | Impact feedback | `autoloads/feedback.gd` + `systems/camera/shake_camera.gd` | Tier → explosion, shake, hit-stop, SFX |
 | Entity scenes registry | `autoloads/entity_registry.gd` | `const` dicts of `preload`ed scenes |
 | Spawning | `core/spawner.gd` (node in the scene root: today `sandbox.tscn`; `level.tscn` planned) | The only place that instantiates gameplay entities |
-| Player ship, weapons, abilities | `entities/player/` | `player.gd` (`Player`): cursor lock, bounds, hurtbox and sizing; delegates firing to its `Weapons` child. `player_weapons.gd` (`class_name PlayerWeapons extends Node`, the `Weapons` child): laser and missile timing, spawning, sfx and `missile_cooldown_changed`; API `set_spawner(spawner)`, `step_fire(held, delta)`, `step_missile(pressed, delta)`, which `Player` keeps as one-line delegators. `missile_ring.gd` (`MissileRing`): cooldown ring. Planned: hearts, shield, barrage |
+| Player ship, weapons, abilities | `entities/player/` | `player.gd` (`Player`): cursor lock, bounds, hurtbox and sizing; delegates firing to its `Weapons` child. `player_weapons.gd` (`class_name PlayerWeapons extends Node`, the `Weapons` child): laser and missile timing, spawning, sfx and `missile_cooldown_changed`; API `set_spawner(spawner)`, `step_fire(held, delta)`, `step_missile(pressed, delta)`, which `Player` keeps as one-line delegators. `missile_ring.gd` (`MissileRing`): cooldown ring. Built (Story 3.1): hearts, i-frames with the sprite flicker, contact damage and `debug_invincible` on `Player` (API `apply_damage(amount, source)`, `step_iframes(delta)`, `on_contact(area)`, `is_invulnerable()`, `hearts`, `max_hearts`). Planned: shield, barrage |
 | Enemies | `entities/enemies/<type>/` | Behaviour per type, extends `Enemy` |
 | Flagship | `entities/boss/` | Phases, turrets, core, final-choice hook |
 | Asteroids | `entities/asteroids/` | Drift, rotate, block, damage, drop |
@@ -963,7 +964,7 @@ The real rows are in `data/tuning.json` → `feedback.tiers`, one per `ImpactTie
 - `unregister_*` clears the slot only if the argument is the registered node, so a freed old scene can't clear a newer one. The last registration wins.
 - With no spawner registered, `impact` skips the explosion. With no camera, it skips the shake.
 
-**Known gaps (registered when their epic lands):** the `boss_part`, `boss_death`, `player_hit` and `player_death` rows name sfx ids that `Audio.SFX` doesn't register yet (they warn once and play nothing). The extras `white_flash` and `red_vignette` aren't handled by `Explosion` yet (ignored).
+**Known gaps (registered when their epic lands):** the `boss_part`, `boss_death` and `player_death` rows name sfx ids that `Audio.SFX` doesn't register yet (they warn once and play nothing); `player_hit` is registered (Story 3.1). The extras `white_flash` and `red_vignette` aren't handled by `Explosion` (ignored); the red vignette is the HUD `HitVignette` instead.
 
 ```gdscript
 # Every entity death looks like this — nothing else:
@@ -977,7 +978,7 @@ func _die() -> void:
 
 - Shake: `ShakeCamera` keeps the **strongest** active shake. It decays its amplitude linearly over the duration and applies a random offset every frame. It uses `process_mode = ALWAYS` so the shake survives hit-stop but not the pause menu (it reads `PauseArbiter.is_paused()`).
 - **Planned:** the `BOSS_DEATH` chain explosions (4× over 2 s) are sequenced by `Feedback.boss_death(pos)`, not by the Flagship.
-- **Planned:** `PLAYER_HIT` adds the red edge vignette (a `ColorRect` shader in the HUD, triggered by `Events.player_hit`).
+- **Built (Story 3.1):** `PLAYER_HIT` has its red edge vignette: `HUD/HitVignette`, a `ColorRect` shader in the HUD triggered by `Events.player_hit` (alpha `hud.hit_vignette.max_alpha` fading over `duration_s`).
 
 #### 4. Pause Arbiter
 
@@ -1505,6 +1506,17 @@ Status update only; no design decision changed.
 - **Flag gate:** `EntityRegistry.ENEMY_FLAGS` maps a type id to the `flags.json` flag that gates it (`hunter_wasp` → `hunter_wasp`); the type stays in `ENEMIES`, so levels always validate (F14). `WaveDirector.start_wave` reads each gate once per wave; an entry (spawn or group) whose type is disabled counts 0, takes no formation rows and spawns nothing. One DEBUG `spawn` line is logged when the entry would spawn (a group entry only if its group is requested; a never-requested group logs nothing). It is never subtracted.
 - **Flag default:** `flags.hunter_wasp` stays `false`. `level_dev.json` wave 6 lists four Hunter Wasps (`grid_4x1`) and six Wasps; with the default flag only the Wasps spawn.
 - **Data tests:** Hunter Wasp tuning ranges (`chase_speed_px_s` > 0, `turn_rate_deg_s` in (0, 360], `hp` ≥ 1) and every `ENEMY_FLAGS` entry is a registered enemy with a bool flag in `flags.json`.
+
+## As-built 2026-10-07 (Story 3.1)
+
+Status update only; no design decision changed.
+
+- **Hearts and i-frames:** `Player` holds `hearts` / `max_hearts` (`player.hearts`). `apply_damage(amount, source)` with amount > 0, not invulnerable and hearts > 0 floors hearts at 0, emits `Events.hearts_changed(hearts, max_hearts)` and `Events.player_hit(global_position)`, calls `Feedback.impact(ImpactTier.PLAYER_HIT, global_position)` and starts `player.iframes_s` of i-frames; anything else is ignored with no event. I-frame time accumulates in `step_iframes(delta)` from physics delta (no timers), so it freezes under pause and hit-stop. During i-frames only the `Sprite` child flickers (`fmod(elapsed × iframe_flicker_hz, 1) < 0.5` is visible) and is restored when they end. At 0 hearts one `Log.info("combat", …)` line runs and no more damage is taken (death is Story 3.2). The first `hearts_changed(max, max)` is emitted deferred from `_ready`, after the HUD's `_ready`.
+- **Contact:** the Player connects its own `area_entered` / `area_exited`. `on_contact(area)`: a small or medium `Enemy` costs `damage.contact_small_hearts` / `contact_medium_hearts`, then `destroy_by_contact()` runs, even while invulnerable (F15); any other enemy tier (Bastion) costs `contact_large_hearts` and survives; an `Asteroid` costs by `size` and is never destroyed by contact; dead enemies and other areas (pickups) are ignored. Surviving hazards are kept in a typed `_contacts` array while they overlap (freed, dying or dead entries pruned); when the i-frames end, or `debug_invincible` turns off, the newest one still overlapping hits again, so sitting in a large asteroid keeps costing hearts.
+- **HUD:** `HeartsDisplay` and `HitVignette` (see UI Framework). Theme items added: `HeartsDisplay/colors/heart|empty|outline`, `HitVignette/colors/color`.
+- **Audio:** `player_hit` is registered in `Audio.SFX` (`sfx_player_hit.wav`, generated by `tools/gen_placeholder_sfx.py` with its own seed so the older WAVs are unchanged).
+- **Debug:** F2 `DebugTools.toggle_invincible()` and the overlay `invincible` line.
+- **Tuning:** `hud.hearts` (`right_x`, `y`, `icon_px`, `gap_px`, `pop_scale`, `pop_s`) and `hud.hit_vignette` (`duration_s`, `max_alpha`).
 
 ---
 

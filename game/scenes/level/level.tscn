@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="Script" path="res://scenes/level/level.gd" id="1_level"]
 [ext_resource type="PackedScene" path="res://entities/player/player.tscn" id="2_player"]
@@ -10,6 +10,8 @@
 [ext_resource type="Script" path="res://ui/hud/wave_bar.gd" id="8_wave_bar"]
 [ext_resource type="Theme" path="res://ui/theme/defector_theme.tres" id="9_theme"]
 [ext_resource type="Script" path="res://entities/enemies/wasp/wasp_dive_clock.gd" id="10_dive_clock"]
+[ext_resource type="Script" path="res://ui/hud/hearts_display.gd" id="11_hearts"]
+[ext_resource type="Script" path="res://ui/hud/hit_vignette.gd" id="12_vignette"]
 
 [sub_resource type="Environment" id="Environment_glow"]
 background_mode = 3
@@ -58,6 +60,19 @@ environment = SubResource("Environment_glow")
 [node name="HUD" type="CanvasLayer" parent="."]
 layer = 10
 
+[node name="HitVignette" type="ColorRect" parent="HUD"]
+process_mode = 1
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme = ExtResource("9_theme")
+color = Color(1, 0.121569, 0.294118, 0)
+script = ExtResource("12_vignette")
+
 [node name="WaveBar" type="Control" parent="HUD"]
 process_mode = 1
 layout_mode = 3
@@ -69,6 +84,18 @@ offset_bottom = 60.0
 mouse_filter = 2
 theme = ExtResource("9_theme")
 script = ExtResource("8_wave_bar")
+
+[node name="HeartsDisplay" type="Control" parent="HUD"]
+process_mode = 1
+layout_mode = 3
+anchors_preset = 0
+offset_left = 1648.0
+offset_top = 24.0
+offset_right = 1888.0
+offset_bottom = 64.0
+mouse_filter = 2
+theme = ExtResource("9_theme")
+script = ExtResource("11_hearts")
 
 [node name="LevelClearBanner" type="Label" parent="HUD"]
 anchors_preset = 15

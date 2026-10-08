@@ -1,7 +1,7 @@
 extends GutTest
 ## level.tscn: the architecture tree, process modes, level_started with the
 ## JSON id, the gameplay mouse mode, wave 1 from level_dev.json and the
-## LEVEL CLEAR banner.
+## LEVEL CLEAR banner, and the hearts display and hit vignette in the HUD.
 
 const LEVEL_SCENE: PackedScene = preload("res://scenes/level/level.tscn")
 const CONTAINERS: Array[String] = ["Asteroids", "Enemies", "Allies", "Pickups", "Projectiles", "Effects"]
@@ -180,6 +180,49 @@ func test_wave_bar_in_the_hud() -> void:
 	assert_gt(waves.size(), 1, "level_dev has several waves")
 	assert_eq(bar.segment_count(), waves.size(), "one segment per level_dev wave")
 	assert_eq(bar.current_index(), 0)
+
+
+func test_hearts_and_vignette_in_the_hud() -> void:
+	_make_level()
+	var hud: Node = _level.get_node("HUD")
+	var hearts: HeartsDisplay = hud.get_node_or_null("HeartsDisplay") as HeartsDisplay
+	var vignette: HitVignette = hud.get_node_or_null("HitVignette") as HitVignette
+	assert_not_null(hearts, "HUD/HeartsDisplay is a HeartsDisplay")
+	assert_not_null(vignette, "HUD/HitVignette is a HitVignette")
+	if hearts == null or vignette == null:
+		return
+	for node: Control in [hearts, vignette]:
+		assert_eq(node.process_mode, Node.PROCESS_MODE_PAUSABLE, "%s freezes with the game" % node.name)
+		assert_eq(node.mouse_filter, Control.MOUSE_FILTER_IGNORE, "%s ignores the mouse" % node.name)
+		assert_not_null(node.theme, "%s has the shared theme" % node.name)
+		if node.theme != null:
+			assert_eq(node.theme.resource_path, "res://ui/theme/defector_theme.tres")
+	assert_lt(vignette.get_index(), hearts.get_index(), "the vignette draws under the meters")
+	assert_false(vignette.visible, "vignette hidden at start")
+
+
+func test_hearts_display_shows_five_after_one_frame() -> void:
+	_make_level()
+	var hearts: HeartsDisplay = _level.get_node("HUD/HeartsDisplay") as HeartsDisplay
+	await wait_process_frames(1)
+	assert_eq(hearts.max_hearts(), 5)
+	assert_eq(hearts.current(), 5, "5 filled hearts")
+	assert_almost_eq(hearts.get_rect().end.x, Config.num("hud.hearts.right_x"), 0.001, "right-aligned")
+	assert_true(hearts.get_rect().end.y <= 120.0, "inside the top 120 px HUD band")
+
+
+func test_player_hit_reaches_the_hud() -> void:
+	_make_level()
+	await wait_process_frames(1)
+	var player: Player = _level.get_node("World/Player") as Player
+	player.apply_damage(1, null)
+	Feedback.reset()
+	var hearts: HeartsDisplay = _level.get_node("HUD/HeartsDisplay") as HeartsDisplay
+	var vignette: HitVignette = _level.get_node("HUD/HitVignette") as HitVignette
+	assert_eq(hearts.current(), 4)
+	assert_eq(hearts.popping_index(), 4)
+	assert_almost_eq(vignette.current_alpha(), 0.5, 0.0001)
+	assert_true(vignette.visible)
 
 
 func test_wave_bar_follows_the_director() -> void:

@@ -1,11 +1,13 @@
 extends GutTest
-## DebugTools: F1 overlay toggle, F5 data reload + restart, release no-op.
+## DebugTools: F1 overlay toggle, F2 invincibility, F5 data reload + restart,
+## release no-op.
 
 const DEBUG_TOOLS_SCENE: PackedScene = preload("res://ui/debug/debug_tools.tscn")
 const TEMP_TUNING: String = "user://test_debug_tools_tuning.json"
 const TEMP_FLAGS: String = "user://test_debug_tools_flags.json"
 
 const SANDBOX_SCENE: PackedScene = preload("res://scenes/sandbox/sandbox.tscn")
+const PLAYER_SCENE: PackedScene = preload("res://entities/player/player.tscn")
 
 var _tools: DebugTools
 var _restarts: int = 0
@@ -123,6 +125,58 @@ func test_refresh_overlay_text() -> void:
 	assert_string_contains(text, "frame ms")
 	assert_string_contains(text, "nodes")
 	assert_string_contains(text, "enemies")
+
+
+# --- F2 -----------------------------------------------------------------------
+
+func _ignore_warp(_p: Vector2) -> void:
+	pass
+
+
+## A Player in group `player` with physics off (the real mouse must not move it).
+func _make_player() -> Player:
+	var player: Player = PLAYER_SCENE.instantiate() as Player
+	player.warp_mouse = _ignore_warp
+	add_child_autofree(player)
+	player.set_physics_process(false)
+	return player
+
+
+func test_f2_toggles_player_invincibility() -> void:
+	var player: Player = _make_player()
+	_tools = _make_tools()
+	_tools._unhandled_input(_action_event(&"debug_invincible"))
+	assert_true(player.debug_invincible, "first press: on")
+	assert_true(player.is_invulnerable())
+	_tools._unhandled_input(_action_event(&"debug_invincible"))
+	assert_false(player.debug_invincible, "second press: off")
+
+
+func test_overlay_shows_invincible_state() -> void:
+	var player: Player = _make_player()
+	_tools = _make_tools()
+	_tools.toggle_overlay()
+	var label: Label = _overlay_label(_tools)
+	assert_string_contains(label.text, "invincible off")
+	_tools.toggle_invincible()
+	assert_string_contains(label.text, "invincible on", "F2 refreshes the visible overlay")
+	assert_true(player.debug_invincible)
+
+
+func test_overlay_without_player_shows_dash() -> void:
+	_tools = _make_tools()
+	_tools.toggle_overlay()
+	assert_string_contains(_overlay_label(_tools).text, "invincible -")
+	_tools.toggle_invincible()
+	assert_string_contains(_overlay_label(_tools).text, "invincible -", "no player: nothing to toggle")
+
+
+func test_f2_does_nothing_in_release() -> void:
+	var player: Player = _make_player()
+	_tools = _make_tools(false)
+	_tools._unhandled_input(_action_event(&"debug_invincible"))
+	_tools.toggle_invincible()
+	assert_false(player.debug_invincible, "release build: F2 ignored")
 
 
 # --- Release ------------------------------------------------------------------

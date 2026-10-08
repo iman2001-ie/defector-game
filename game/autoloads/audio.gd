@@ -12,6 +12,7 @@ const SFX: Dictionary[StringName, AudioStream] = {
 	&"explosion_small": preload("res://assets/audio/sfx/sfx_explosion_small.wav"),
 	&"explosion_medium": preload("res://assets/audio/sfx/sfx_explosion_medium.wav"),
 	&"explosion_large": preload("res://assets/audio/sfx/sfx_explosion_large.wav"),
+	&"player_hit": preload("res://assets/audio/sfx/sfx_player_hit.wav"),
 }
 
 var _players: Array[AudioStreamPlayer] = []

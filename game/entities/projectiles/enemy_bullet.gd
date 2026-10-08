@@ -8,7 +8,8 @@ extends Projectile
 ## (anti-tunnelling: height >= max speed / 60). Velocity is fixed at spawn;
 ## changing it later leaves the capsule misaligned. It damages only targets with
 ## apply_damage that are not asteroids (only player shots chip asteroids), then
-## frees itself. No impact feedback yet (player-hit feedback is Epic 3).
+## frees itself. It plays no impact feedback of its own; the player-hit
+## feedback comes from Player.apply_damage.
 
 
 func _ready() -> void:

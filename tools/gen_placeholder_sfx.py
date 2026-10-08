@@ -17,6 +17,8 @@ from pathlib import Path
 
 RATE = 44100
 SEED = 1606
+# Sounds added after Story 1.6 use their own RNG, so the original WAVs stay byte-identical.
+PLAYER_HIT_SEED = 3101
 OUT_DIR = Path(__file__).resolve().parent.parent / "game" / "assets" / "audio" / "sfx"
 
 
@@ -79,6 +81,23 @@ def explosion(rng: random.Random, length_s: float, cutoff: float, rumble_hz: flo
     return out
 
 
+def player_hit(rng: random.Random) -> list[float]:
+    """Harsh 0.3 s hull hit: clipped buzz (two detuned squares 220 -> 90 Hz) plus a noise crack."""
+    n = int(0.30 * RATE)
+    out: list[float] = []
+    phase_a = 0.0
+    phase_b = 0.0
+    for i in range(n):
+        t = i / n
+        freq = 220.0 * (90.0 / 220.0) ** t
+        phase_a += 2.0 * math.pi * freq / RATE
+        phase_b += 2.0 * math.pi * freq * 1.07 / RATE
+        buzz = math.tanh(4.0 * (math.sin(phase_a) + math.sin(phase_b)))
+        crack = rng.uniform(-1.0, 1.0) * max(0.0, 1.0 - t * 6.0)
+        out.append((0.6 * buzz + 0.8 * crack) * _envelope(i, n, 0.002, 1.8))
+    return out
+
+
 def _normalise(samples: list[float], peak: float = 0.9) -> list[float]:
     top = max(abs(s) for s in samples) or 1.0
     return [s * peak / top for s in samples]
@@ -107,6 +126,7 @@ def main() -> None:
         "explosion_medium": explosion(rng, 0.55, 0.20, 70.0),
         "explosion_large": explosion(rng, 0.90, 0.10, 50.0),
     }
+    sounds["player_hit"] = player_hit(random.Random(PLAYER_HIT_SEED))
     for name, samples in sounds.items():
         path = _write(name, samples)
         print(f"wrote {path.name} ({len(samples) / RATE:.2f} s)")
