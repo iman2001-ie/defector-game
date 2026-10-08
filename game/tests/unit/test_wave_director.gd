@@ -504,6 +504,41 @@ func test_last_wave_clears_the_level() -> void:
 	assert_true(_director.is_level_cleared())
 
 
+## Retro F1: once the player died, the last kill clears nothing; a new
+## start_level resets the guard.
+func test_dead_attempt_never_clears() -> void:
+	_start([{"spawns": [_wasps(1)]}], 5)
+	Events.level_failed.emit(&"hearts")
+	_kill(1)
+	await wait_seconds(GAP_S + 0.1)
+	assert_eq(_events_named("wave_cleared"), [] as Array[Array], "no wave_cleared")
+	assert_eq(_events_named("level_cleared"), [] as Array[Array], "no level_cleared")
+	assert_false(_director.is_level_cleared())
+	_start([{"spawns": [_wasps(1)]}], 5)
+	_kill(1)
+	await wait_seconds(GAP_S + 0.1)
+	assert_eq(_events_named("wave_cleared"), [["wave_cleared", 0]] as Array[Array], "a new attempt clears")
+	assert_eq(_events_named("level_cleared"), [["level_cleared", 5]] as Array[Array])
+
+
+func test_death_during_a_gap_never_starts_the_next_wave() -> void:
+	_start([{"spawns": [_wasps(1)]}, {"spawns": [_wasps(1)]}])
+	_kill(1)
+	assert_eq(_events_named("wave_cleared").size(), 1, "wave 1 cleared before the death")
+	Events.level_failed.emit(&"hearts")
+	await wait_seconds(GAP_S + 0.1)
+	assert_eq(_events_named("wave_started").size(), 1, "no second wave_started")
+
+
+func test_death_during_the_last_gap_never_clears_the_level() -> void:
+	_start([{"spawns": [_wasps(1)]}], 5)
+	_kill(1)
+	assert_eq(_events_named("wave_cleared").size(), 1, "wave cleared before the death")
+	Events.level_failed.emit(&"hearts")
+	await wait_seconds(GAP_S + 0.1)
+	assert_eq(_events_named("level_cleared"), [] as Array[Array], "no level_cleared")
+
+
 # --- Boss wave ----------------------------------------------------------------
 
 func test_boss_wave_without_a_flagship_is_subtracted_and_clears() -> void:
@@ -590,6 +625,15 @@ func test_f6_jumps_to_the_boss_wave_and_abandons_chains() -> void:
 	await wait_seconds(0.2)
 	assert_eq(_counted().size(), 0, "the abandoned chain spawned nothing")
 	assert_eq(_director.running_chains(), 0, "the abandoned chain left the counters alone")
+	await wait_seconds(GAP_S + 0.1)
+	assert_eq(_events_named("level_cleared").size(), 1, "boss wave subtracted, level cleared")
+
+
+func test_f6_resets_the_dead_attempt_guard() -> void:
+	_start([{"spawns": [_wasps(1)]}, {"boss": "flagship"}])
+	Events.level_failed.emit(&"hearts")
+	_director.debug_skip_to_boss()
+	assert_push_error("boss 'flagship'")
 	await wait_seconds(GAP_S + 0.1)
 	assert_eq(_events_named("level_cleared").size(), 1, "boss wave subtracted, level cleared")
 

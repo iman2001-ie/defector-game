@@ -3,7 +3,11 @@ extends GutTest
 ## start_level(id) set GameState, clear every pause reason, end hit-stop and
 ## change the scene through the injectable change_scene (a recorder here: the
 ## real one would replace the test runner's scene). start_level refuses while
-## Config.load_error is set.
+## Config.load_error is set. Story 4.2: goto_title() restores energy and the
+## unlock from the save (clamped), complete_level(n) unlocks, saves and moves
+## on, and nothing else writes the save. The save is a test file here.
+
+const TEST_SAVE: String = "user://test_scene_router_save.cfg"
 
 var _calls: Array[String] = []
 var _lines: Array[String] = []
@@ -12,6 +16,10 @@ var _lines: Array[String] = []
 func before_each() -> void:
 	_calls.clear()
 	_lines.clear()
+	SaveManager.save_path = TEST_SAVE
+	_delete_save()
+	GameState.highest_unlocked_level = 1
+	GameState.all_levels_unlocked = false
 	SceneRouter.change_scene = _record
 	Log.sink = _capture
 
@@ -19,12 +27,41 @@ func before_each() -> void:
 func after_each() -> void:
 	Log.sink = Callable()
 	SceneRouter.change_scene = SceneRouter.default_change_scene()
+	_delete_save()
+	SaveManager.save_path = SaveManager.DEFAULT_SAVE_PATH
 	GameState.energy = 0
 	GameState.current_level_id = ""
 	GameState.is_retry = false
+	GameState.highest_unlocked_level = 1
+	GameState.all_levels_unlocked = false
 	Feedback.reset()
 	PauseArbiter.clear()
 	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+
+
+func _delete_save() -> void:
+	if FileAccess.file_exists(TEST_SAVE):
+		DirAccess.remove_absolute(TEST_SAVE)
+
+
+func _write_save(highest: int, energy: int) -> void:
+	var file: ConfigFile = ConfigFile.new()
+	file.set_value("progress", "save_version", 1)
+	file.set_value("progress", "highest_unlocked_level", highest)
+	file.set_value("progress", "energy", energy)
+	assert_eq(file.save(TEST_SAVE), OK, "fixture save written")
+
+
+## [save_version, highest_unlocked_level, energy] read straight from the test file.
+func _read_save() -> Array:
+	var file: ConfigFile = ConfigFile.new()
+	if file.load(TEST_SAVE) != OK:
+		return []
+	return [
+		file.get_value("progress", "save_version"),
+		file.get_value("progress", "highest_unlocked_level"),
+		file.get_value("progress", "energy"),
+	]
 
 
 func _record(path: String) -> Error:
@@ -104,13 +141,14 @@ func test_title_scene_path() -> void:
 
 
 func test_goto_title_resets_state_and_goes_to_the_title() -> void:
+	_write_save(1, 20)
 	GameState.energy = 30
 	GameState.is_retry = true
 	GameState.current_level_id = "dev"
 	PauseArbiter.push(&"death")
 	Feedback.hit_stop(500.0)
 	SceneRouter.goto_title()
-	assert_eq(GameState.energy, 0)
+	assert_eq(GameState.energy, 20, "the saved energy")
 	assert_false(GameState.is_retry, "not a retry")
 	assert_eq(GameState.current_level_id, "", "level id cleared")
 	assert_false(PauseArbiter.is_paused(), "pause reasons cleared")
@@ -158,3 +196,130 @@ func test_start_level_with_a_config_error_changes_nothing() -> void:
 	assert_eq(errors, 1, "one ERROR scene line")
 	assert_push_error("Cannot start level '1'")
 	assert_eq(_scene_lines().size(), 0, "no INFO scene line")
+
+
+# --- Story 4.2: save restore and progression ---------------------------------------
+
+func test_goto_title_restores_the_saved_energy_and_unlock() -> void:
+	_write_save(2, 20)
+	GameState.energy = 70
+	GameState.highest_unlocked_level = 3
+	GameState.all_levels_unlocked = true
+	SceneRouter.goto_title()
+	assert_eq(GameState.energy, 20, "saved energy, not the in-memory 70 (F13)")
+	assert_eq(GameState.highest_unlocked_level, 2, "saved unlock")
+	assert_true(GameState.all_levels_unlocked, "the F7 flag survives goto_title")
+	assert_eq(_calls, [SceneRouter.TITLE_SCENE_PATH] as Array[String])
+	assert_eq(_read_save(), [1, 2, 20], "the save is unchanged")
+
+
+func test_goto_title_clamps_the_saved_values() -> void:
+	_write_save(9, 500)
+	SceneRouter.goto_title()
+	assert_eq(GameState.highest_unlocked_level, 3, "clamped to progression.level_count")
+	assert_eq(GameState.energy, 100, "clamped to energy.max")
+
+
+func test_goto_title_without_a_save_gives_the_defaults() -> void:
+	GameState.energy = 70
+	GameState.highest_unlocked_level = 3
+	SceneRouter.goto_title()
+	assert_eq(GameState.energy, 0)
+	assert_eq(GameState.highest_unlocked_level, 1)
+	assert_false(FileAccess.file_exists(TEST_SAVE), "no save written")
+
+
+func test_goto_title_with_a_config_error_still_restores() -> void:
+	var saved_error: String = Config.load_error
+	Config.load_error = "res://data/tuning.json parse error at line 1: test"
+	_write_save(2, 20)
+	SceneRouter.goto_title()
+	Config.load_error = saved_error
+	assert_eq(GameState.highest_unlocked_level, 2)
+	assert_eq(GameState.energy, 20)
+	assert_eq(_calls, [SceneRouter.TITLE_SCENE_PATH] as Array[String])
+
+
+func test_complete_level_1_unlocks_saves_and_starts_level_2() -> void:
+	GameState.highest_unlocked_level = 1
+	GameState.energy = 35
+	GameState.current_level_id = "1"
+	SceneRouter.complete_level(1)
+	assert_eq(GameState.highest_unlocked_level, 2, "level 2 unlocked")
+	assert_eq(_read_save(), [1, 2, 35], "save written with the unlock and the energy")
+	assert_eq(_calls, [SceneRouter.LEVEL_SCENE_PATH] as Array[String], "one change to the level")
+	assert_eq(GameState.current_level_id, "2", "level 2 starts")
+	assert_eq(GameState.energy, 35, "energy carried")
+	assert_false(GameState.is_retry)
+
+
+func test_complete_level_1_again_keeps_the_higher_unlock() -> void:
+	GameState.highest_unlocked_level = 3
+	GameState.energy = 50
+	SceneRouter.complete_level(1)
+	assert_eq(GameState.highest_unlocked_level, 3, "never lowered")
+	assert_eq(_read_save(), [1, 3, 50])
+	assert_eq(_calls, [SceneRouter.LEVEL_SCENE_PATH] as Array[String])
+	assert_eq(GameState.current_level_id, "2")
+
+
+func test_complete_last_level_saves_and_goes_to_the_title() -> void:
+	GameState.highest_unlocked_level = 3
+	GameState.energy = 80
+	GameState.current_level_id = "3"
+	SceneRouter.complete_level(3)
+	assert_eq(_read_save(), [1, 3, 80], "save written")
+	assert_eq(_calls, [SceneRouter.TITLE_SCENE_PATH] as Array[String], "the title opens")
+	assert_eq(GameState.highest_unlocked_level, 3, "restored from the save")
+	assert_eq(GameState.energy, 80, "restored from the save")
+	assert_eq(GameState.current_level_id, "", "no level id")
+
+
+func test_f7_flag_never_leaks_into_the_save() -> void:
+	GameState.all_levels_unlocked = true
+	GameState.highest_unlocked_level = 1
+	GameState.energy = 10
+	SceneRouter.complete_level(1)
+	assert_eq(_read_save(), [1, 2, 10], "the save holds the real unlock (2), not the debug one")
+	assert_true(GameState.all_levels_unlocked, "the flag is still on")
+
+
+func test_complete_level_unlock_never_passes_the_level_count() -> void:
+	GameState.highest_unlocked_level = 2
+	SceneRouter.complete_level(3)
+	assert_eq(GameState.highest_unlocked_level, 3, "min(n + 1, level_count)")
+
+
+func test_complete_non_campaign_level_does_nothing() -> void:
+	for id: int in [0, 5, -1]:
+		_lines.clear()
+		GameState.highest_unlocked_level = 1
+		GameState.energy = 30
+		GameState.current_level_id = "dev"
+		SceneRouter.complete_level(id)
+		assert_eq(_calls, [] as Array[String], "id %d: no scene change" % id)
+		assert_false(FileAccess.file_exists(TEST_SAVE), "id %d: no save" % id)
+		assert_eq(GameState.highest_unlocked_level, 1, "id %d: no unlock" % id)
+		assert_eq(GameState.current_level_id, "dev", "id %d: level id untouched" % id)
+		assert_eq(GameState.energy, 30, "id %d: energy untouched" % id)
+		assert_has(_lines, "[INFO][scene] Level %d cleared: not a campaign level; no save, no scene change" % id)
+
+
+func test_complete_level_moves_on_even_if_the_save_fails() -> void:
+	SaveManager.save_path = "user://test_scene_router_missing_dir/save.cfg"
+	GameState.energy = 10
+	SceneRouter.complete_level(1)
+	assert_push_error("[ERROR][save]")
+	assert_eq(GameState.highest_unlocked_level, 2)
+	assert_eq(_calls, [SceneRouter.LEVEL_SCENE_PATH] as Array[String], "level 2 still starts")
+	assert_eq(GameState.current_level_id, "2")
+
+
+func test_title_start_and_restart_write_no_save() -> void:
+	GameState.highest_unlocked_level = 2
+	GameState.energy = 40
+	SceneRouter.start_level("2")
+	SceneRouter.restart_level()
+	SceneRouter.goto_title()
+	assert_eq(_calls.size(), 3, "three scene changes")
+	assert_false(FileAccess.file_exists(TEST_SAVE), "no save file written")

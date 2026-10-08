@@ -687,3 +687,11 @@ location: game/tests/unit/test_player_barrage.gd:201
 source_spec: `spec-dw-55-player-split-health-shield.md`
 reason: Reported by the implementation subagent: the six existing player scripts run together fail it at line 201 (0 launches, expected 1) on baseline 4cb60cd too; it passes alone and in the full-suite run (913/913). Suspected leaked simulated Q press; unconfirmed.
 status: open
+
+### DW-74: test_feedback.test_hit_stop_overlap_keeps_longest is wall-clock sensitive and failed once in a full run ("resumed promptly": 356 ms, expected < 250 ms), then passed on re-run.
+origin: spec-deferred 6bef7359b27c
+location: game/tests/unit/test_feedback.gd:262
+source_spec: `spec-4-2-unlock-the-next-level-and-save-progress.md`
+severity: low
+reason: Pre-existing flake, not caused by Story 4.2 (feedback.gd and test_feedback.gd are untouched). Seen in the first full GUT run of this story's verification; the immediate re-run and the post-patch run were 973/973 and 977/977. The same test also flips to Pending ("second hit_stop came too late").
+status: open

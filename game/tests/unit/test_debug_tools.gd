@@ -1,10 +1,12 @@
 extends GutTest
 ## DebugTools: F1 overlay toggle, F2 invincibility, F4 energy, F5 data reload +
-## restart, release no-op.
+## restart, F7 unlock all (in memory, never saved), release no-op.
 
 const DEBUG_TOOLS_SCENE: PackedScene = preload("res://ui/debug/debug_tools.tscn")
 const TEMP_TUNING: String = "user://test_debug_tools_tuning.json"
 const TEMP_FLAGS: String = "user://test_debug_tools_flags.json"
+## F7 must never write the save; SaveManager points here during the tests.
+const TEST_SAVE: String = "user://test_debug_tools_save.cfg"
 
 const SANDBOX_SCENE: PackedScene = preload("res://scenes/sandbox/sandbox.tscn")
 const PLAYER_SCENE: PackedScene = preload("res://entities/player/player.tscn")
@@ -24,6 +26,11 @@ func before_each() -> void:
 	_restarts = 0
 	_restarted_sandbox = null
 	Config.assert_on_missing = false
+	SaveManager.save_path = TEST_SAVE
+	if FileAccess.file_exists(TEST_SAVE):
+		DirAccess.remove_absolute(TEST_SAVE)
+	GameState.highest_unlocked_level = 1
+	GameState.all_levels_unlocked = false
 
 
 func after_each() -> void:
@@ -41,7 +48,10 @@ func after_each() -> void:
 	PauseArbiter.clear()
 	Input.action_release(&"fire_laser")
 	Log.sink = Callable()
-	for path: String in [TEMP_TUNING, TEMP_FLAGS]:
+	SaveManager.save_path = SaveManager.DEFAULT_SAVE_PATH
+	GameState.highest_unlocked_level = 1
+	GameState.all_levels_unlocked = false
+	for path: String in [TEMP_TUNING, TEMP_FLAGS, TEST_SAVE]:
 		if FileAccess.file_exists(path):
 			DirAccess.remove_absolute(path)
 
@@ -182,25 +192,25 @@ func test_f2_does_nothing_in_release() -> void:
 
 # --- F4 -----------------------------------------------------------------------
 
-var _f4_lines: Array[String] = []
+var _debug_lines: Array[String] = []
 
 
-func _capture_f4(level: String, category: String, msg: String) -> void:
-	_f4_lines.append(Log.format(level, category, msg))
+func _capture_debug(level: String, category: String, msg: String) -> void:
+	_debug_lines.append(Log.format(level, category, msg))
 
 
 func test_f4_adds_energy_capped() -> void:
 	GameState.energy = 30
 	watch_signals(Events)
-	_f4_lines.clear()
-	Log.sink = _capture_f4
+	_debug_lines.clear()
+	Log.sink = _capture_debug
 	_tools = _make_tools()
 	_tools._unhandled_input(_action_event(&"debug_add_energy"))
 	Log.sink = Callable()
 	assert_eq(GameState.energy, 100, "30 + 100, capped at 100")
 	assert_signal_emit_count(Events, "energy_changed", 1)
 	assert_signal_emitted_with_parameters(Events, "energy_changed", [100, 100])
-	assert_has(_f4_lines, "[INFO][debug] F4: energy 100/100")
+	assert_has(_debug_lines, "[INFO][debug] F4: energy 100/100")
 
 
 func test_f4_from_empty_adds_debug_energy_add() -> void:
@@ -218,6 +228,32 @@ func test_f4_does_nothing_in_release() -> void:
 	_tools.add_energy()
 	assert_eq(GameState.energy, 30, "release build: F4 ignored")
 	assert_signal_not_emitted(Events, "energy_changed")
+
+
+# --- F7 -----------------------------------------------------------------------
+
+func test_f7_unlocks_every_level_in_memory_only() -> void:
+	_debug_lines.clear()
+	Log.sink = _capture_debug
+	_tools = _make_tools()
+	_tools._unhandled_input(_action_event(&"debug_unlock_all"))
+	Log.sink = Callable()
+	assert_true(GameState.all_levels_unlocked, "flag set")
+	assert_true(GameState.is_level_unlocked(3), "level 3 reports unlocked")
+	assert_eq(GameState.highest_unlocked_level, 1, "real progress untouched")
+	assert_has(_debug_lines, "[INFO][debug] F7: all levels unlocked (in memory, not saved)")
+	assert_false(FileAccess.file_exists(TEST_SAVE), "no save written")
+	for line: String in _debug_lines:
+		assert_false(line.contains("[save]"), "SaveManager not used: " + line)
+
+
+func test_f7_does_nothing_in_release() -> void:
+	_tools = _make_tools(false)
+	_tools._unhandled_input(_action_event(&"debug_unlock_all"))
+	_tools.unlock_all()
+	assert_false(GameState.all_levels_unlocked, "release build: F7 ignored")
+	assert_false(GameState.is_level_unlocked(3))
+	assert_false(FileAccess.file_exists(TEST_SAVE))
 
 
 # --- Release ------------------------------------------------------------------

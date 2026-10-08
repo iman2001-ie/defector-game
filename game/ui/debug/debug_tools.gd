@@ -6,7 +6,8 @@ extends Node
 ## the current wave and F6 jumps to the boss wave (both through the scene's
 ## WaveDirector, found by group), F4 adds debug.energy_add energy through
 ## GameState (capped), F5 reloads every JSON file and restarts the
-## scene. With the
+## scene, F7 unlocks every level in memory (GameState.all_levels_unlocked; never
+## saved). With the
 ## `-- --bench=<s>` user arg it also runs the self-timing stress bench; its
 ## numbers (limits, warm-up, first-large timing, quit delay) come from
 ## tuning.debug.bench. Does nothing at all when debug_enabled is false (release builds).
@@ -126,6 +127,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed(&"debug_skip_to_boss"):
 		skip_to_boss()
 		_mark_handled()
+	elif event.is_action_pressed(&"debug_unlock_all"):
+		unlock_all()
+		_mark_handled()
 
 
 ## F2: flips debug_invincible on the scene's Player (found by group).
@@ -148,6 +152,15 @@ func add_energy() -> void:
 		return
 	var energy: int = GameState.add_energy(Config.int_("debug.energy_add"))
 	Log.info("debug", "F4: energy %d/%d" % [energy, GameState.max_energy()])
+
+
+## F7: every level counts as unlocked (GameState.all_levels_unlocked), in
+## memory only: SaveManager is never called.
+func unlock_all() -> void:
+	if not debug_enabled:
+		return
+	GameState.all_levels_unlocked = true
+	Log.info("debug", "F7: all levels unlocked (in memory, not saved)")
 
 
 func _player() -> Player:

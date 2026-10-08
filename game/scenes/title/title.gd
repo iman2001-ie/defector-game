@@ -1,8 +1,8 @@
 class_name TitleScreen
 extends Control
 ## The title screen (Story 4.1, FR56; UX "Title screen"): the DEFECTOR logo and
-## PLAY · QUIT. Story 4.3 adds LEVEL SELECT, Story 4.2 makes PLAY continue at
-## the highest unlocked level.
+## PLAY · QUIT. PLAY continues at the highest unlocked level (Story 4.2);
+## Story 4.3 adds LEVEL SELECT.
 ##
 ## Healthy config: the layout comes from `ui.title` (logo centre y and size,
 ## button size, gap and first top; the button stack is centred horizontally).
@@ -11,7 +11,9 @@ extends Control
 ## That branch never calls a Config getter (each would assert on the empty
 ## data); it keeps the positions authored in title.tscn, which match the UX.
 ##
-## PLAY -> SceneRouter.start_level(FIRST_LEVEL_ID); QUIT -> quit_game (logged).
+## PLAY -> SceneRouter.start_level(GameState.highest_unlocked_level) with the
+## energy goto_title() restored from the save (the debug F7 unlock doesn't change
+## it); QUIT -> quit_game (logged).
 ## A second press does nothing. Colours, sizes and button styles come from the
 ## shared Theme (type `Title`), copied onto the children in code. Mouse-only:
 ## no button takes focus.
@@ -27,8 +29,6 @@ const FONT_SIZE_ERROR: StringName = &"error"
 const STYLE_BUTTON_NORMAL: StringName = &"button_normal"
 const STYLE_BUTTON_HOVER: StringName = &"button_hover"
 const STYLE_BUTTON_FOCUS: StringName = &"button_focus"
-## The level PLAY starts. Story 4.2 switches PLAY to the highest unlocked level.
-const FIRST_LEVEL_ID: String = "1"
 const TEXT_LOGO: String = "DEFECTOR"
 const TEXT_PLAY: String = "PLAY"
 const TEXT_QUIT: String = "QUIT"
@@ -99,7 +99,7 @@ func _on_play_pressed() -> void:
 	if _leaving or _config_failed:
 		return
 	_leaving = true
-	SceneRouter.start_level(FIRST_LEVEL_ID)
+	SceneRouter.start_level(str(GameState.highest_unlocked_level))
 
 
 func _on_quit_pressed() -> void:

@@ -25,6 +25,17 @@ func test_level_files_exist() -> void:
 		assert_true(_level_files().has(LEVELS_DIR + "level_%d.json" % i), "level_%d.json present" % i)
 
 
+## Story 4.2: every campaign level 1..progression.level_count has its file,
+## with the matching id, so raising level_count without a new file fails here.
+func test_every_campaign_level_has_a_file() -> void:
+	var count: int = Config.int_("progression.level_count")
+	assert_gt(count, 0, "progression.level_count")
+	for i: int in range(1, count + 1):
+		var data: Dictionary = Config.level(str(i))
+		assert_false(data.is_empty(), "level_%d.json loads" % i)
+		assert_eq(data.get("id"), float(i), "level_%d.json id" % i)
+
+
 ## The placeholder levels (Story 4.1, replaced in Epic 7, decision F12): GDD
 ## names, ids 1..3, the level_dev key set, and 1-2 Wasp-only waves.
 const LEVEL_NAMES: Dictionary = {

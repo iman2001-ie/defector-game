@@ -129,7 +129,7 @@ mkdir game
 | Physics tick | 60 Hz (default) | Collision-relevant movement goes in `_physics_process` |
 | Audio | `AudioServer` buses + `AudioStreamPlayer` | Buses: `Master` → `Music`, `SFX`, `UI` |
 | Input | InputMap actions | Defined in `project.godot` (see Input Actions) |
-| Scene management | `SceneTree.change_scene_to_file` behind the `SceneRouter` autoload | Built (Story 3.2, Story 4.1): `restart_level()`, `goto_title()` (the title scene) and `start_level(id)`, through an injectable `change_scene` callable. The debug F5 reload (`DebugTools`, see Reload) and the `--stress` redirect (in `boot.gd` and `level.gd`) are the debug-only exceptions |
+| Scene management | `SceneTree.change_scene_to_file` behind the `SceneRouter` autoload | Built (Story 3.2, Story 4.1, Story 4.2): `restart_level()`, `goto_title()` (the title scene, restoring energy and unlocks from the save), `start_level(id)` and `complete_level(n)`, through an injectable `change_scene` callable. The debug F5 reload (`DebugTools`, see Reload) and the `--stress` redirect (in `boot.gd` and `level.gd`) are the debug-only exceptions |
 | Tweening / animation | `Tween` (code) for UI, flicker, shake decay | `AnimationPlayer` is optional, for sprite anims only |
 | Particles | `GPUParticles2D` one-shot | Pre-warmed by `Feedback.prewarm()` when the scene starts (see Asset Management) |
 | Display scaling | Stretch mode `canvas_items`, aspect `keep`, base 1920×1080 | This gives the letterboxing |
@@ -156,7 +156,7 @@ The sections below resolve: state management, data format and access, save, the 
 | D6 | Game state | Autoload `GameState` (run state), with level-local state on nodes | n/a | E3, E4 | One global source for energy and unlocks. Everything else dies with the level scene |
 | D7 | Pause / time | `PauseArbiter` autoload (reason set → `tree.paused`). `HitStop` via `Engine.time_scale` | n/a | E1, E4, E5, E7 | Several pause sources must not clobber each other |
 | D8 | Data format | JSON files in `res://data/`, loaded and validated by the `Config` autoload | n/a | All | Easy for humans and AI agents to write and diff. Hot-reloadable |
-| D9 | Save system | `ConfigFile` at `user://save.cfg`. Custom user dir → `%APPDATA%\DEFECTOR\` | built-in | E4 | Tiny save (unlocks + energy). Built-in format with no parsing code |
+| D9 | Save system | `ConfigFile` at `user://save.cfg`. Custom user dir → `%APPDATA%\DEFECTOR\`. Built (Story 4.2): the `SaveManager` autoload | built-in | E4 | Tiny save (unlocks + energy). Built-in format with no parsing code |
 | D10 | Scene structure | One generic `level.tscn` parameterised by level id. Story scene, title, level select, end screen | n/a | E4, E5, E7 | One code path for all 3 levels. Content is data |
 | D11 | Retry model | Retry = reload the level scene (`SceneRouter.restart_level()`) | n/a | E3, E4 | Guarantees clean state with no reset code |
 | D12 | Event system | `Events` autoload with typed signals for cross-system events. Direct calls parent→child | n/a | All | Idiomatic Godot. Decouples HUD, audio and comms |
@@ -178,7 +178,7 @@ The sections below resolve: state management, data format and access, save, the 
 
 | State | Owner | Lifetime |
 |---|---|---|
-| `energy` (0–100), `current_level_id`, `highest_unlocked_level`, `is_retry` | `GameState` autoload | Whole session. Unlocks and energy are persisted by `SaveManager`. Built (Story 3.2): `energy`, `current_level_id` (the level file key, e.g. `"dev"`) and `is_retry`; Story 3.3 adds the energy API (`max_energy()`, `add_energy(amount)`, `emit_energy()`); `highest_unlocked_level` is Epic 4 |
+| `energy` (0–100), `current_level_id`, `highest_unlocked_level`, `is_retry` | `GameState` autoload | Whole session. Unlocks and energy are persisted by `SaveManager`. Built (Story 3.2): `energy`, `current_level_id` (the level file key, e.g. `"dev"`) and `is_retry`; Story 3.3 adds the energy API (`max_energy()`, `add_energy(amount)`, `emit_energy()`); Story 4.2 adds `highest_unlocked_level` (1..`progression.level_count`), the debug-only `all_levels_unlocked` (F7, memory only, never saved) and `is_level_unlocked(n)` |
 | Hearts, i-frames, shield, missile cooldown | `Player` node, held by its children: `Health` (`HealthComponent`: hearts, i-frames), `Shield` (`PlayerShield`) and `Weapons` (`PlayerWeapons`: missile cooldown) | One level attempt |
 | Wave index, alive and resolved counts, triggers fired | `WaveDirector` node | One level attempt |
 | Convoy HP | `Convoy` node | One level attempt |
@@ -191,6 +191,7 @@ The sections below resolve: state management, data format and access, save, the 
 - On death, retry or restart: `GameState.energy = 0`, then reload the level.
 - On level clear: `SaveManager.save()` writes the current energy and the new unlock.
 - From the title screen, "Play" and "Level Select" load the saved energy.
+- Built (Story 4.2): `SceneRouter.goto_title()` restores `energy` and `highest_unlocked_level` from the save (F13), so in-memory mid-level energy never leaks across menus. `SceneRouter.complete_level(n)` does the clear: unlock, save, then the next level with the carried energy.
 
 ### Data Persistence
 
@@ -209,6 +210,7 @@ energy=40
 - A missing file means defaults (`highest_unlocked_level=1`, `energy=0`).
 - A corrupt file or unknown `save_version` gives `Log.warn` and defaults. The game never crashes on a bad save.
 - Writes go through `SaveManager.save()` only. No other script touches `user://save.cfg`.
+- Built (Story 4.2): `autoloads/save_manager.gd` (autoload `SaveManager`, no `class_name`). `load_progress() -> Dictionary` (`highest_unlocked_level`, `energy`; never calls a `Config` getter), `save() -> bool`, `save_path` (default `DEFAULT_SAVE_PATH`; tests inject `user://test_*.cfg`). No file I/O in `_ready`. The only caller of `save()` is `SceneRouter.complete_level`; the only caller of `load_progress()` is `SceneRouter.goto_title`.
 
 ### Asset Management
 
@@ -526,7 +528,7 @@ signal story_event_requested(event_name: StringName) # e.g. &"tarek_fall"
 
 Debug tools are available **only when `OS.is_debug_build()`** (editor runs and debug exports). In release builds they do nothing (`DebugTools.debug_enabled` is false: early return, processing off). A single `DebugTools` node in `Overlay` (`ui/debug/debug_tools.tscn` + `debug_tools.gd`) handles the keys.
 
-**Implemented today: F1, F2, F3, F4, F5 and F6.** The other keys are planned for the epics that need them.
+**Implemented today: F1, F2, F3, F4, F5, F6 and F7.** The other keys are planned for the epics that need them.
 
 | Key | Tool | Status |
 |---|---|---|
@@ -536,7 +538,7 @@ Debug tools are available **only when `OS.is_debug_build()`** (editor runs and d
 | F4 | Energy +`debug.energy_add` (100), capped: `DebugTools.add_energy()` → `GameState.add_energy(...)` and one `F4: energy n/max` INFO line | Built |
 | F5 | Reload `tuning.json` and `flags.json` through `Config.reload()`, then restart the scene (see [Configuration](#configuration)) | Built |
 | F6 | Jump to the boss wave in the current level (if any) | Built |
-| F7 | Unlock all levels (in memory, not saved) | Planned |
+| F7 | Unlock all levels (in memory, not saved): `DebugTools.unlock_all()` sets `GameState.all_levels_unlocked` and logs `F7: all levels unlocked (in memory, not saved)`; it never calls `SaveManager`, survives `goto_title`, and doesn't change PLAY | Built |
 | F8 | *(Add only if needed)* Save a screenshot of the viewport to `user://screenshots/shot_<timestamp>.png` so AI agents can inspect the running game. This replaces the screenshot feature of an engine MCP | Planned |
 | F11 | Toggle borderless fullscreen / windowed (**available in release too**) | Planned |
 
@@ -560,7 +562,7 @@ Debug tools are available **only when `OS.is_debug_build()`** (editor runs and d
 
 ### Directory Structure
 
-This is the target tree. As of Story 4.1 the built parts are: `project.godot`, `export_presets.cfg` and `default_bus_layout.tres`; the autoloads `Log`, `Events`, `Config`, `GameState`, `PauseArbiter`, `Audio`, `Feedback`, `EntityRegistry`, `SceneRouter`; `core/` (with `loot.gd` and `health_component.gd`); `entities/player/` (with the shield, `player_shield`, `shield_bubble` and the barrage); `entities/projectiles/` laser, missile and `micro_missile`; `entities/enemies/wasp/`; `entities/asteroids/`; `entities/pickups/`; `entities/effects/`; `systems/camera/`; `systems/waves/`; `scenes/sandbox/`; `scenes/level/`; `scenes/boot/`; `scenes/title/title.tscn` + `.gd`; `ui/debug/`; `ui/hud/level_clear_banner.gd`, `wave_bar.gd`, `hearts_display.gd`, `energy_bar.gd` and `hit_vignette.gd` (+ `.gdshader`); `ui/menus/retry_prompt.tscn` + `.gd`; `data/tuning.json`, `data/flags.json` and `data/levels/`; `assets/audio/sfx/`, `assets/sprites/player/` and `assets/CREDITS.md`; `addons/gut/`; `tests/unit/` (plus `tests/fixtures/`); and `tests/data/`. Everything else is planned.
+This is the target tree. As of Story 4.2 the built parts are: `project.godot`, `export_presets.cfg` and `default_bus_layout.tres`; the autoloads `Log`, `Events`, `Config`, `GameState`, `SaveManager`, `PauseArbiter`, `Audio`, `Feedback`, `EntityRegistry`, `SceneRouter`; `core/` (with `loot.gd` and `health_component.gd`); `entities/player/` (with the shield, `player_shield`, `shield_bubble` and the barrage); `entities/projectiles/` laser, missile and `micro_missile`; `entities/enemies/wasp/`; `entities/asteroids/`; `entities/pickups/`; `entities/effects/`; `systems/camera/`; `systems/waves/`; `scenes/sandbox/`; `scenes/level/`; `scenes/boot/`; `scenes/title/title.tscn` + `.gd`; `ui/debug/`; `ui/hud/level_clear_banner.gd`, `wave_bar.gd`, `hearts_display.gd`, `energy_bar.gd` and `hit_vignette.gd` (+ `.gdshader`); `ui/menus/retry_prompt.tscn` + `.gd`; `data/tuning.json`, `data/flags.json` and `data/levels/`; `assets/audio/sfx/`, `assets/sprites/player/` and `assets/CREDITS.md`; `addons/gut/`; `tests/unit/` (plus `tests/fixtures/`); and `tests/data/`. Everything else is planned.
 
 ```
 <repo root>/
@@ -657,10 +659,10 @@ This is the target tree. As of Story 4.1 the built parts are: `project.godot`, `
 | Global events | `autoloads/events.gd` | Signal catalogue only, no logic |
 | Logging | `autoloads/log.gd` | Levelled, categorised logging |
 | Tuning, flags, level and dialogue data | `autoloads/config.gd` + `data/` | Load, validate, typed getters, hot reload |
-| Run state (energy, unlocks, current level) | `autoloads/game_state.gd` | Single source of truth for cross-scene state. Built (Story 3.2): `energy`, `current_level_id`, `is_retry`. Built (Story 3.3): `max_energy()`, `add_energy(amount)` (clamp + `energy_changed`), `emit_energy()` |
-| Save / load | `autoloads/save_manager.gd` | Only writer and reader of `user://save.cfg` |
+| Run state (energy, unlocks, current level) | `autoloads/game_state.gd` | Single source of truth for cross-scene state. Built (Story 3.2): `energy`, `current_level_id`, `is_retry`. Built (Story 3.3): `max_energy()`, `add_energy(amount)` (clamp + `energy_changed`), `emit_energy()`. Built (Story 4.2): `highest_unlocked_level`, `all_levels_unlocked` (F7), `is_level_unlocked(n)` |
+| Save / load | `autoloads/save_manager.gd` | Only writer and reader of `user://save.cfg`. Built (Story 4.2): `load_progress()`, `save()`, injectable `save_path` |
 | Pause | `autoloads/pause_arbiter.gd` | Pause reasons → `tree.paused` + mouse mode |
-| Scene flow | `autoloads/scene_router.gd` | `goto_title()`, `start_level(id)`, `restart_level()`, `goto_story(id, next)`, `goto_end()`. Built (Story 3.2): `restart_level()`. Built (Story 4.1): `goto_title()` (the title scene; Story 4.2 adds the save restore) and `start_level(id)`; the others are planned |
+| Scene flow | `autoloads/scene_router.gd` | `goto_title()`, `start_level(id)`, `restart_level()`, `goto_story(id, next)`, `goto_end()`. Built (Story 3.2): `restart_level()`. Built (Story 4.1): `goto_title()` (the title scene) and `start_level(id)`. Built (Story 4.2): the save restore in `goto_title()` and `complete_level(n)`; the others are planned |
 | Audio | `autoloads/audio.gd` | SFX pool, music, registry |
 | Impact feedback | `autoloads/feedback.gd` + `systems/camera/shake_camera.gd` | Tier → explosion, shake, hit-stop, SFX |
 | Entity scenes registry | `autoloads/entity_registry.gd` | `const` dicts of `preload`ed scenes |
@@ -795,7 +797,7 @@ These patterns keep the implementation consistent across all AI agents.
 - Actions run **sequentially**: `comms` with a story-mode sequence `await`s `Events.comms_sequence_finished`, and combat-mode sequences don't block. A trigger whose actions are still running doesn't block other triggers.
 - **Wave clear** = `resolved == total_counted` **and** all of the wave's action chains have finished. Then `wave_clear` triggers fire, then a 2.0 s gap (`tuning.waves.gap_s`), then the next wave.
 - **Boss wave:** `{ "boss": "flagship", "triggers": [...] }`. The total is 1 (the Flagship). It resolves on `boss_defeated`. Boss-launched Wasps are **not** counted.
-- After the last wave: `outro_sequence` (if any) → `Events.level_cleared` → `GameState` and `SaveManager` update → `SceneRouter` goes to the next story or level.
+- After the last wave: `outro_sequence` (if any) → `Events.level_cleared` → `GameState` and `SaveManager` update → `SceneRouter` goes to the next story or level. As built (Story 4.2): `level.gd` listens to `Events.level_cleared` and calls `SceneRouter.complete_level(id)` (the router itself doesn't listen, so bare WaveDirector tests never change scenes or save). Once `Events.level_failed` fires, the WaveDirector clears nothing until the next `start_level` / `debug_skip_to_boss` (retro F1).
 - A spawn entry that fails (unknown type) is logged and **subtracted** from `total_counted`, so the wave can never soft-lock.
 
 **Data flow:**
@@ -1164,7 +1166,9 @@ func int_(path: String) -> int:
 	return int(num(path))
 ```
 
-**`tuning.json` top-level sections (fixed):** `player`, `weapons`, `abilities`, `energy`, `drops`, `enemies`, `boss`, `asteroids`, `convoy`, `allies`, `waves`, `comms`, `feedback`, `damage`, `hud`, `ui`, `render`, `debug`.
+**`tuning.json` top-level sections (fixed):** `player`, `weapons`, `abilities`, `energy`, `drops`, `enemies`, `boss`, `asteroids`, `convoy`, `allies`, `waves`, `progression`, `comms`, `feedback`, `damage`, `hud`, `ui`, `render`, `debug`.
+
+- `progression.level_count` (3, Story 4.2) is the number of campaign levels (ids 1..level_count). Nothing hard-codes 3.
 
 - `debug.bench` (`avg_ms_max`, `p99_ms_max`, `max_ms_max`, `warmup_s`, `first_large_at_s`, `first_large_frames`, `quit_delay_s`) and `debug.stress` (`projectiles`, `projectile_spawn_per_tick`) hold the debug-build stress bench numbers (GDD decision log #33). Only `DebugTools` and the sandbox's stress mode read them; the stress-grid layout and `BENCH_MAX_FPS` / `BENCH_AIM` / `OVERLAY_REFRESH_S` stay code consts.
 - `render.glow` holds `intensity`, `bloom` and `hdr_threshold`. The scene root's `_ready` passes its `WorldEnvironment`'s environment to `RenderGlow.apply(env)` (`core/render_glow.gd`), so the F5 scene restart re-applies it. `glow_enabled` and the background mode stay in the `.tscn`.
@@ -1600,6 +1604,20 @@ Status update only; no design decision changed.
 - **Levels:** placeholder `data/levels/level_1.json` ("Cargo Ambush"), `level_2.json` ("The Blockade") and `level_3.json` ("Siege of the Throne World"), with the `level_dev.json` key set, `convoy` false, and two short Wasp-only waves each (`grid_3x2` / `grid_4x2` / `grid_5x2`, `wave_start` / `wave_clear` waits). Epic 7 replaces them (decision F12).
 - **Tuning:** `ui.title` (`logo_y` 300, `logo_px` 120, `button_w` 400, `button_h` 72, `button_gap_px` 24, `buttons_top_y` 560).
 - **Tests:** `tests/unit/test_boot.gd` and `test_title.gd` (new); `test_scene_router.gd`, `test_retry_prompt.gd`, `test_project_settings.gd` and `tests/data/test_data_files.gd` updated.
+
+## As-built 2026-10-08 (Story 4.2)
+
+Status update only; no design decision changed (FR58, FR14, FR56, decision F13, retro F1).
+
+- **SaveManager:** `autoloads/save_manager.gd`, autoloaded between `GameState` and `PauseArbiter`, no `class_name`. `SAVE_VERSION = 1`, `DEFAULT_SAVE_PATH = "user://save.cfg"`, `var save_path`. `load_progress()` returns `{"highest_unlocked_level", "energy"}`: a missing file gives (1, 0) with an INFO `save` line; a corrupt file (any `ConfigFile.load` error other than file-not-found), a missing, non-int or unknown `save_version`, or a missing, non-int, `highest < 1` or `energy < 0` value gives (1, 0) with a WARN `save` line. It never calls a `Config` getter. `save()` writes `[progress] save_version, highest_unlocked_level, energy` from `GameState`, logs INFO, or logs ERROR and returns false on a failed write. No file I/O in `_ready`.
+- **GameState:** `highest_unlocked_level` (1), `all_levels_unlocked` (false; F7, memory only, never saved and not reset by `goto_title`), `is_level_unlocked(n)` (`all_levels_unlocked or n <= highest_unlocked_level`, for Story 4.3).
+- **SceneRouter:** `goto_title()` restores `energy` and `highest_unlocked_level` from `SaveManager.load_progress()`; while `Config.load_error` is empty it clamps them into 1..`progression.level_count` and 0..`GameState.max_energy()`. `complete_level(n)`: ids outside 1..`level_count` (the dev level is 0) only log `[INFO][scene] Level n cleared: not a campaign level; no save, no scene change`; a campaign level sets `highest_unlocked_level = max(current, min(n + 1, level_count))`, calls `SaveManager.save()`, then `start_level(str(n + 1))` (energy carried) or, after the last level, `goto_title()` (Epic 7 replaces this with the end screen). A failed write doesn't stop the transition. Nothing else saves (not `goto_title`, `start_level`, `restart_level`, quit or F7).
+- **Level:** `level.gd` connects `Events.level_cleared` → `SceneRouter.complete_level(id)` in `_ready` after the stress redirect. The LEVEL CLEAR banner still shows, for at most a frame on campaign levels.
+- **WaveDirector (retro F1):** `_failed`, set by `Events.level_failed` and reset by `start_level` / `debug_skip_to_boss`; `_try_clear` and `_finish_level` return early while it is set, so a dead attempt never emits `wave_cleared` / `level_cleared`.
+- **Title:** PLAY → `SceneRouter.start_level(str(GameState.highest_unlocked_level))`; `FIRST_LEVEL_ID` is gone. F7 doesn't change PLAY.
+- **DebugTools:** F7 (`debug_unlock_all`, debug builds only) → `unlock_all()`.
+- **Tuning:** top-level `progression.level_count` (3).
+- **Tests:** `tests/unit/test_save_manager.gd` (new); `test_scene_router.gd`, `test_level.gd`, `test_wave_director.gd`, `test_title.gd`, `test_debug_tools.gd`, `test_game_state.gd`, `test_boot.gd`, `test_retry_prompt.gd`, `test_project_settings.gd` and `test_config.gd` updated. Every test that can reach `goto_title`, `complete_level` or `SaveManager` points `SaveManager.save_path` at its own `user://test_*.cfg` and deletes it afterwards, so the suite never reads or writes the real save.
 
 ---
 

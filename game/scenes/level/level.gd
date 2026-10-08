@@ -8,6 +8,9 @@ extends Node2D
 ## scene with the same id, ADR-004), else the exported level_id; the resolved
 ## id is written back to GameState. A retry adds " (retry)" to the start line.
 ##
+## Events.level_cleared(id) -> SceneRouter.complete_level(id) (Story 4.2): a
+## campaign level unlocks and saves, then the next level or the title loads.
+##
 ## Debug builds given `-- --stress` or `-- --bench=<s>` switch to the sandbox
 ## stress scene instead (the stress bench lives there). `-- --no-prewarm`
 ## (debug builds) skips Feedback.prewarm(), as in the sandbox. The args come
@@ -41,6 +44,9 @@ func _ready() -> void:
 		Log.info("scene", "Stress/bench args: switching to the sandbox stress scene")
 		change_scene.call_deferred(SANDBOX_SCENE_PATH)
 		return
+	# Progression (Story 4.2): a cleared level goes through the router, which
+	# saves and moves on for campaign levels only (the dev level is a no-op).
+	Events.level_cleared.connect(_on_events_level_cleared)
 	level_id = resolve_level_id(level_id, GameState.current_level_id)
 	GameState.current_level_id = level_id
 	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_CONFINED_HIDDEN)
@@ -62,6 +68,10 @@ func _ready() -> void:
 		Feedback.prewarm()
 	else:
 		Log.info("scene", "Feedback pre-warm skipped (--no-prewarm)")
+
+
+func _on_events_level_cleared(cleared_id: int) -> void:
+	SceneRouter.complete_level(cleared_id)
 
 
 ## The level file key to run: the GameState id when non-empty, else the exported one.

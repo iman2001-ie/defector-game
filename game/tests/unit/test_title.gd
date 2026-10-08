@@ -1,12 +1,14 @@
 extends GutTest
 ## Title screen (Story 4.1, FR56): the DEFECTOR logo and PLAY · QUIT at the
 ## ui.title layout; with Config.load_error set, the Error label replaces the
-## buttons and no Config getter is called. PLAY -> SceneRouter.start_level("1")
-## (a recorder here), QUIT -> the injected quit_game; a second press does
+## buttons and no Config getter is called. PLAY ->
+## SceneRouter.start_level(GameState.highest_unlocked_level) (Story 4.2; a
+## recorder here), QUIT -> the injected quit_game; a second press does
 ## nothing. The title declares the VISIBLE mouse mode and logs its ready time.
 
 const TITLE_SCENE: PackedScene = preload("res://scenes/title/title.tscn")
 const BAD_CONFIG: String = "res://data/tuning.json parse error at line 3: Expected '}'"
+const TEST_SAVE: String = "user://test_title_save.cfg"
 
 var _calls: Array[String] = []
 var _quits: int = 0
@@ -17,6 +19,10 @@ func before_each() -> void:
 	_calls.clear()
 	_quits = 0
 	_lines.clear()
+	SaveManager.save_path = TEST_SAVE
+	_delete_save()
+	GameState.highest_unlocked_level = 1
+	GameState.all_levels_unlocked = false
 	SceneRouter.change_scene = _record
 	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_CONFINED_HIDDEN)
 
@@ -26,12 +32,21 @@ func after_each() -> void:
 	Config.assert_on_missing = true
 	Config.load_data()
 	SceneRouter.change_scene = SceneRouter.default_change_scene()
+	_delete_save()
+	SaveManager.save_path = SaveManager.DEFAULT_SAVE_PATH
+	GameState.highest_unlocked_level = 1
+	GameState.all_levels_unlocked = false
 	GameState.energy = 0
 	GameState.current_level_id = ""
 	GameState.is_retry = false
 	Feedback.reset()
 	PauseArbiter.clear()
 	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+
+
+func _delete_save() -> void:
+	if FileAccess.file_exists(TEST_SAVE):
+		DirAccess.remove_absolute(TEST_SAVE)
 
 
 func _record(path: String) -> Error:
@@ -196,6 +211,25 @@ func test_play_starts_level_1() -> void:
 	assert_eq(GameState.current_level_id, "1")
 	assert_false(GameState.is_retry)
 	assert_eq(GameState.energy, 25, "energy unchanged")
+
+
+func test_play_continues_at_the_highest_unlocked_level() -> void:
+	GameState.highest_unlocked_level = 3
+	GameState.energy = 60
+	var title: TitleScreen = _make()
+	_play(title).pressed.emit()
+	assert_eq(_calls, [SceneRouter.LEVEL_SCENE_PATH] as Array[String], "one change to the level")
+	assert_eq(GameState.current_level_id, "3", "the highest unlocked level")
+	assert_eq(GameState.energy, 60, "the restored energy")
+	assert_false(FileAccess.file_exists(TEST_SAVE), "PLAY writes no save")
+
+
+func test_f7_flag_does_not_change_play() -> void:
+	GameState.highest_unlocked_level = 2
+	GameState.all_levels_unlocked = true
+	var title: TitleScreen = _make()
+	_play(title).pressed.emit()
+	assert_eq(GameState.current_level_id, "2", "real progress, not the debug unlock")
 
 
 func test_second_press_is_ignored() -> void:

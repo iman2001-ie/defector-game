@@ -7,6 +7,8 @@ extends GutTest
 
 const BOOT_SCENE: PackedScene = preload("res://scenes/boot/boot.tscn")
 const BOOT_SCRIPT: GDScript = preload("res://scenes/boot/boot.gd")
+## goto_title() reads the save: a test file, never the real one.
+const TEST_SAVE: String = "user://test_boot_save.cfg"
 
 var _router_calls: Array[String] = []
 var _boot_calls: Array[String] = []
@@ -19,6 +21,10 @@ func before_each() -> void:
 	_boot_calls.clear()
 	_lines.clear()
 	_saved_error = Config.load_error
+	SaveManager.save_path = TEST_SAVE
+	_delete_save()
+	GameState.highest_unlocked_level = 1
+	GameState.all_levels_unlocked = false
 	SceneRouter.change_scene = _record_router
 	# Start from the gameplay mode, so the boot's VISIBLE declaration is observable.
 	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_CONFINED_HIDDEN)
@@ -28,12 +34,21 @@ func after_each() -> void:
 	Log.sink = Callable()
 	Config.load_error = _saved_error
 	SceneRouter.change_scene = SceneRouter.default_change_scene()
+	_delete_save()
+	SaveManager.save_path = SaveManager.DEFAULT_SAVE_PATH
+	GameState.highest_unlocked_level = 1
+	GameState.all_levels_unlocked = false
 	GameState.energy = 0
 	GameState.current_level_id = ""
 	GameState.is_retry = false
 	Feedback.reset()
 	PauseArbiter.clear()
 	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+
+
+func _delete_save() -> void:
+	if FileAccess.file_exists(TEST_SAVE):
+		DirAccess.remove_absolute(TEST_SAVE)
 
 
 func _record_router(path: String) -> Error:
@@ -131,3 +146,29 @@ func test_bench_arg_redirects_to_the_sandbox() -> void:
 	await wait_process_frames(1)
 	assert_eq(_boot_calls, [BOOT_SCRIPT.SANDBOX_SCENE_PATH] as Array[String], "deferred redirect once")
 	assert_eq(_router_calls, [] as Array[String], "no goto_title")
+
+
+## Story 4.2 acceptance: no save -> level 1 unlocked, 0 energy, INFO save line.
+func test_boot_without_a_save_uses_the_defaults() -> void:
+	GameState.energy = 50
+	GameState.highest_unlocked_level = 3
+	_boot(PackedStringArray())
+	await wait_process_frames(1)
+	assert_eq(GameState.highest_unlocked_level, 1)
+	assert_eq(GameState.energy, 0)
+	assert_eq(_lines_starting("[INFO][save]").size(), 1, "INFO save line")
+	assert_eq(_lines_starting("[WARN][save]").size(), 0, "no WARN")
+	assert_false(FileAccess.file_exists(TEST_SAVE), "boot writes no save")
+
+
+## Story 4.2 acceptance: a corrupt or unknown-version save -> WARN + defaults.
+func test_boot_with_a_bad_save_warns_and_uses_the_defaults() -> void:
+	var file: FileAccess = FileAccess.open(TEST_SAVE, FileAccess.WRITE)
+	file.store_string("[progress]\nsave_version=7\nhighest_unlocked_level=3\nenergy=50\n")
+	file.close()
+	_boot(PackedStringArray())
+	await wait_process_frames(1)
+	assert_eq(GameState.highest_unlocked_level, 1)
+	assert_eq(GameState.energy, 0)
+	assert_eq(_lines_starting("[WARN][save]").size(), 1, "WARN save line")
+	assert_eq(_router_calls, [SceneRouter.TITLE_SCENE_PATH] as Array[String], "still goes to the title")

@@ -9,6 +9,8 @@ const PROMPT_SCENE: PackedScene = preload("res://ui/menus/retry_prompt.tscn")
 const THEME_PATH: String = "res://ui/theme/defector_theme.tres"
 ## Short beat for the tests (the shipped value is 1.5 s).
 const BEAT_S: float = 0.2
+## QUIT reaches goto_title(), which reads the save: a test file, never the real one.
+const TEST_SAVE: String = "user://test_retry_prompt_save.cfg"
 
 var _calls: Array[String] = []
 var _lines: Array[String] = []
@@ -17,6 +19,10 @@ var _lines: Array[String] = []
 func before_each() -> void:
 	_calls.clear()
 	_lines.clear()
+	SaveManager.save_path = TEST_SAVE
+	_delete_save()
+	GameState.highest_unlocked_level = 1
+	GameState.all_levels_unlocked = false
 	SceneRouter.change_scene = _record
 	Log.sink = _capture
 
@@ -24,6 +30,10 @@ func before_each() -> void:
 func after_each() -> void:
 	Log.sink = Callable()
 	SceneRouter.change_scene = SceneRouter.default_change_scene()
+	_delete_save()
+	SaveManager.save_path = SaveManager.DEFAULT_SAVE_PATH
+	GameState.highest_unlocked_level = 1
+	GameState.all_levels_unlocked = false
 	GameState.energy = 0
 	GameState.current_level_id = ""
 	GameState.is_retry = false
@@ -31,6 +41,11 @@ func after_each() -> void:
 	Feedback.reset()
 	PauseArbiter.clear()
 	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+
+
+func _delete_save() -> void:
+	if FileAccess.file_exists(TEST_SAVE):
+		DirAccess.remove_absolute(TEST_SAVE)
 
 
 func _record(path: String) -> Error:

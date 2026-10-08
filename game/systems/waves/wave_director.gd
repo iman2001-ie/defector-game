@@ -14,6 +14,8 @@ extends Node
 ## or group spawn is pending; then wave_clear triggers, a waves.gap_s gap, the
 ## running chains finish, and the next wave starts (or the level clears).
 ## A stall net subtracts groups that can never spawn, so no wave soft-locks.
+## Once Events.level_failed fires (the player died) the attempt is dead: no
+## wave or level clears until start_level / debug_skip_to_boss (retro F1).
 ##
 ## Formation rows: each entry starts on the next free row, except the
 ## EntityRegistry.ROWLESS_TYPES (the Hunter Wasp), which don't advance the row:
@@ -68,6 +70,8 @@ var _live_counted: int = 0
 var _running_chains: int = 0
 var _clearing: bool = false
 var _level_done: bool = false
+## Set by Events.level_failed: a dead attempt never clears a wave or the level.
+var _failed: bool = false
 ## True while a step runs triggers: chain ends then leave stall/clear checks to the step.
 var _in_step: bool = false
 var _debug_resolving: bool = false
@@ -80,6 +84,11 @@ var _width: float = 0.0
 
 func _ready() -> void:
 	add_to_group(&"wave_director")
+	Events.level_failed.connect(_on_events_level_failed)
+
+
+func _on_events_level_failed(_reason: StringName) -> void:
+	_failed = true
 
 
 ## Starts the level at wave 1. `source` (the file path) prefixes every data error.
@@ -92,6 +101,7 @@ func start_level(data: Dictionary, source: String) -> void:
 	_level_id = int(data.get("id", 0)) if (data.get("id") is float or data.get("id") is int) else 0
 	_outro_sequence = str(data.get("outro_sequence", "")) if data.get("outro_sequence") is String else ""
 	_level_done = false
+	_failed = false
 	var waves: Variant = data.get("waves")
 	if not (waves is Array) or (waves as Array).is_empty():
 		Log.error("wave", "%s has no waves; nothing to run" % source)
@@ -207,6 +217,7 @@ func debug_skip_to_boss() -> void:
 		node.remove_from_group(COUNTED_GROUP)
 		node.queue_free()
 	_level_done = false
+	_failed = false
 	start_wave(boss_index)
 
 
@@ -424,7 +435,7 @@ func _check_stall() -> void:
 
 
 func _try_clear() -> void:
-	if _clearing or _level_done or _wave_index < 0:
+	if _failed or _clearing or _level_done or _wave_index < 0:
 		return
 	if not _progress.is_complete() or _running_chains > 0 or not _pending_groups.is_empty():
 		return
@@ -435,7 +446,7 @@ func _try_clear() -> void:
 	Log.info("wave", "Level %d wave %d cleared (%d resolved)" % [_level_id, index + 1, _progress.resolved])
 	_fire_triggers(WHEN_WAVE_CLEAR, 0.0)
 	await get_tree().create_timer(_gap_s, false).timeout
-	if serial != _serial:
+	if serial != _serial or _failed:
 		return
 	while _running_chains > 0:
 		await chains_finished
@@ -448,6 +459,8 @@ func _try_clear() -> void:
 
 
 func _finish_level() -> void:
+	if _failed:
+		return
 	_level_done = true
 	if not _outro_sequence.is_empty():
 		Log.debug("beat", "outro_sequence '%s' skipped: arrives in Epic 5" % _outro_sequence)

@@ -1,7 +1,8 @@
 extends GutTest
 ## GameState (Story 3.2): the run-state autoload holds energy, current_level_id
 ## and is_retry. Story 3.3: the energy API (max_energy, add_energy clamp and
-## energy_changed, emit_energy).
+## energy_changed, emit_energy). Story 4.2: highest_unlocked_level,
+## all_levels_unlocked (debug F7) and is_level_unlocked.
 
 const GAME_STATE_SCRIPT: GDScript = preload("res://autoloads/game_state.gd")
 
@@ -15,6 +16,8 @@ func after_each() -> void:
 	GameState.energy = 0
 	GameState.current_level_id = ""
 	GameState.is_retry = false
+	GameState.highest_unlocked_level = 1
+	GameState.all_levels_unlocked = false
 
 
 func test_defaults() -> void:
@@ -22,7 +25,24 @@ func test_defaults() -> void:
 	assert_eq(state.get("energy"), 0)
 	assert_eq(state.get("current_level_id"), "")
 	assert_eq(state.get("is_retry"), false)
+	assert_eq(state.get("highest_unlocked_level"), 1)
+	assert_eq(state.get("all_levels_unlocked"), false)
 	state.free()
+
+
+func test_is_level_unlocked_follows_the_highest_level() -> void:
+	GameState.highest_unlocked_level = 2
+	assert_true(GameState.is_level_unlocked(1))
+	assert_true(GameState.is_level_unlocked(2))
+	assert_false(GameState.is_level_unlocked(3))
+
+
+func test_is_level_unlocked_with_the_f7_flag() -> void:
+	GameState.highest_unlocked_level = 1
+	GameState.all_levels_unlocked = true
+	assert_true(GameState.is_level_unlocked(2))
+	assert_true(GameState.is_level_unlocked(3))
+	assert_eq(GameState.highest_unlocked_level, 1, "the flag doesn't raise the real unlock")
 
 
 func test_field_types() -> void:

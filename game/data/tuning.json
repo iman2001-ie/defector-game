@@ -211,6 +211,9 @@
 			"top_y": 160
 		}
 	},
+	"progression": {
+		"level_count": 3
+	},
 	"comms": {
 		"chars_per_s": 45,
 		"combat_line_min_s": 2.0,

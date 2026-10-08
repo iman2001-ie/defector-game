@@ -73,8 +73,8 @@ development_status:
   epic-3-retrospective: done
   epic-4: backlog
   4-0-fly-a-real-ship: done
-  4-1-launch-into-the-title-screen: awaiting-operator
-  4-2-unlock-the-next-level-and-save-progress: backlog
+  4-1-launch-into-the-title-screen: done
+  4-2-unlock-the-next-level-and-save-progress: done
   4-3-choose-a-level-from-level-select: backlog
   4-4-pause-the-game-with-esc: backlog
   4-5-play-fullscreen-or-windowed: backlog

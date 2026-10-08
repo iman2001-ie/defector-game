@@ -11,7 +11,7 @@ const TEMP_FLAGS: String = "user://test_config_flags.json"
 
 const SECTIONS: Array[String] = [
 	"player", "weapons", "abilities", "energy", "drops", "enemies", "boss",
-	"asteroids", "convoy", "allies", "waves", "comms", "feedback", "damage",
+	"asteroids", "convoy", "allies", "waves", "progression", "comms", "feedback", "damage",
 	"hud", "ui", "render", "debug",
 ]
 const FLAG_DEFAULTS: Dictionary = {

@@ -3,14 +3,16 @@ extends GutTest
 ## JSON id, the gameplay mouse mode, wave 1 from level_dev.json and the
 ## LEVEL CLEAR banner, the hearts display, energy bar and hit vignette in the HUD, the
 ## retry prompt in the Overlay, the level id resolution and the death -> retry
-## reload (Story 3.2). Long wave runs make the player debug_invincible so a
-## death can't pause the tree mid-test.
+## reload (Story 3.2), and the level_cleared -> SceneRouter.complete_level
+## wiring (Story 4.2; the save is a test file). Long wave runs make the player
+## debug_invincible so a death can't pause the tree mid-test.
 
 const LEVEL_SCENE: PackedScene = preload("res://scenes/level/level.tscn")
 const CONTAINERS: Array[String] = ["Asteroids", "Enemies", "Allies", "Pickups", "Projectiles", "Effects"]
 const ROOT_CHILDREN: Array[String] = [
 	"Background", "World", "Spawner", "WaveDirector", "ShakeCamera", "WorldEnvironment", "HUD", "Comms", "Overlay",
 ]
+const TEST_SAVE: String = "user://test_level_save.cfg"
 
 var _level: Node2D
 var _started: Array[int] = []
@@ -36,6 +38,8 @@ func before_each() -> void:
 	_cleared.clear()
 	_lines.clear()
 	_scene_calls.clear()
+	SaveManager.save_path = TEST_SAVE
+	_delete_save()
 	_reset_game_state()
 	Events.level_started.connect(_on_level_started)
 	Events.level_cleared.connect(_on_level_cleared)
@@ -47,6 +51,8 @@ func after_each() -> void:
 	Log.sink = Callable()
 	_level = null
 	SceneRouter.change_scene = SceneRouter.default_change_scene()
+	_delete_save()
+	SaveManager.save_path = SaveManager.DEFAULT_SAVE_PATH
 	_reset_game_state()
 	Config.load_data()
 	Feedback.reset()
@@ -58,6 +64,13 @@ func _reset_game_state() -> void:
 	GameState.energy = 0
 	GameState.current_level_id = ""
 	GameState.is_retry = false
+	GameState.highest_unlocked_level = 1
+	GameState.all_levels_unlocked = false
+
+
+func _delete_save() -> void:
+	if FileAccess.file_exists(TEST_SAVE):
+		DirAccess.remove_absolute(TEST_SAVE)
 
 
 func _record_scene(path: String) -> Error:
@@ -189,6 +202,30 @@ func test_banner_shows_on_level_cleared() -> void:
 	assert_eq(banner.text, "LEVEL CLEAR")
 	Events.level_cleared.emit(0)
 	assert_true(banner.visible, "shown on level_cleared")
+
+
+## Story 4.2: a cleared campaign level reaches SceneRouter.complete_level from
+## the level scene: unlock, save, then level 2 starts.
+func test_level_cleared_reaches_the_router() -> void:
+	SceneRouter.change_scene = _record_scene
+	_make_level()
+	GameState.energy = 35
+	Events.level_cleared.emit(1)
+	assert_eq(_scene_calls, [SceneRouter.LEVEL_SCENE_PATH] as Array[String], "level scene loaded")
+	assert_eq(GameState.current_level_id, "2", "level 2 starts")
+	assert_eq(GameState.highest_unlocked_level, 2, "level 2 unlocked")
+	assert_eq(GameState.energy, 35, "energy carried")
+	assert_true(FileAccess.file_exists(TEST_SAVE), "save written")
+
+
+func test_dev_level_cleared_changes_nothing() -> void:
+	SceneRouter.change_scene = _record_scene
+	_make_level()
+	Events.level_cleared.emit(0)
+	assert_eq(_scene_calls, [] as Array[String], "no scene change")
+	assert_eq(GameState.current_level_id, "dev", "same level")
+	assert_eq(GameState.highest_unlocked_level, 1, "no unlock")
+	assert_false(FileAccess.file_exists(TEST_SAVE), "no save")
 
 
 func test_wave_bar_in_the_hud() -> void:

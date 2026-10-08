@@ -3,7 +3,7 @@ title: 'Story 4.1: Launch into the Title Screen'
 type: 'feature'
 created: '2026-10-08'
 baseline_revision: 'c5dfc83738283b9cf2c210390918da98396c5507'
-status: 'awaiting-operator'
+status: done
 operator_actions:
   - 'Launch the game from the CLI (or the editor) and confirm the title screen looks right: the DEFECTOR logo centred near the top with a cyan glow, and PLAY above QUIT, centred, with a cyan border on hover.'
   - 'Click PLAY and confirm Level 1 ("Cargo Ambush") starts with Wasp waves; then return to the title through the death screen QUIT TO TITLE and click QUIT to confirm the game closes.'
@@ -187,3 +187,12 @@ Status: awaiting-operator
 **Operator actions owed:**
 - Launch the game and confirm the title screen looks right (logo, glow, button layout and hover).
 - Click PLAY → Level 1 starts; return through QUIT TO TITLE on the death screen; click QUIT → the game closes.
+
+## Operator Confirmation
+
+Confirmed 2026-10-08: the external actions this story owed were carried out.
+
+- Launch the game from the CLI (or the editor) and confirm the title screen looks right: the DEFECTOR logo centred near the top with a cyan glow, and PLAY above QUIT, centred, with a cyan border on hover.
+- Click PLAY and confirm Level 1 ("Cargo Ambush") starts with Wasp waves; then return to the title through the death screen QUIT TO TITLE and click QUIT to confirm the game closes.
+
+_Appended by the bmad-loop orchestrator (`bmad-loop confirm`, #335): a human confirmed these external actions out of band, and the story was advanced from `awaiting-operator` to `done`._
