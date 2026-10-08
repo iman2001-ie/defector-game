@@ -17,6 +17,7 @@ const ENEMY_FLAGS: Dictionary[StringName, String] = {
 const PROJECTILES: Dictionary[StringName, PackedScene] = {
 	&"laser_bolt": preload("res://entities/projectiles/laser_bolt.tscn"),
 	&"missile": preload("res://entities/projectiles/missile.tscn"),
+	&"micro_missile": preload("res://entities/projectiles/micro_missile.tscn"),
 	&"enemy_bullet": preload("res://entities/projectiles/enemy_bullet.tscn"),
 	&"needle_bolt": preload("res://entities/projectiles/needle_bolt.tscn"),
 }

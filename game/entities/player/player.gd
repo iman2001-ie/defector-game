@@ -53,6 +53,14 @@ extends Area2D
 ## contact cost while small and medium enemies are still destroyed by contact.
 ## Its time counts down from physics delta in step_shield (frozen under pause and
 ## hit-stop); when it ends a still-overlapping hazard hits again, as with i-frames.
+##
+## Barrage (Story 3.5): the `ability_barrage` action (Q) calls try_barrage().
+## With at least abilities.barrage.cost energy and no volley running it spends the
+## cost through GameState.add_energy and starts the volley in PlayerWeapons
+## (start_barrage / step_barrage): homing MicroMissiles launched over duration_s
+## with a LARGE finish at the muzzle. A running volley is never restarted or
+## extended. Without enough energy it is denied like the shield (_deny). Death
+## stops the volley (no more launches, no finish).
 
 ## A mouse within this distance of its confined point is not warped: warp_mouse
 ## rounds to whole OS pixels, so under stretch the read-back can land a fraction of
@@ -95,6 +103,8 @@ var _shield_duration_s: float = 0.0
 var _shield_active: bool = false
 var _shield_remaining: float = 0.0
 
+var _barrage_cost: int = 0
+
 @onready var _hurtbox: CollisionShape2D = $Hurtbox
 @onready var _sprite: Sprite2D = $Sprite
 @onready var _weapons: PlayerWeapons = $Weapons
@@ -126,6 +136,7 @@ func _ready() -> void:
 	_contact_large = Config.int_("damage.contact_large_hearts")
 	_shield_cost = maxi(Config.int_("abilities.shield.cost"), 0)
 	_shield_duration_s = maxf(Config.num("abilities.shield.duration_s"), 0.0)
+	_barrage_cost = maxi(Config.int_("abilities.barrage.cost"), 0)
 
 	PauseArbiter.resumed.connect(_on_resumed)
 	area_entered.connect(_on_area_entered)
@@ -144,6 +155,9 @@ func _physics_process(delta: float) -> void:
 	step_shield(delta)
 	if Input.is_action_just_pressed(&"ability_shield"):
 		try_shield()
+	step_barrage(delta)
+	if Input.is_action_just_pressed(&"ability_barrage"):
+		try_barrage()
 
 
 # --- Hearts and i-frames ----------------------------------------------------------
@@ -182,6 +196,7 @@ func _die() -> void:
 	_shield_active = false
 	_shield_remaining = 0.0
 	_shield_bubble.hide_bubble()
+	_weapons.stop_barrage()
 	_sprite.visible = true
 	visible = false
 	set_deferred(&"monitoring", false)
@@ -260,6 +275,33 @@ func step_shield(delta: float) -> void:
 		_recheck_contacts()
 		return
 	_shield_bubble.show_remaining(_shield_remaining)
+
+
+# --- Barrage ----------------------------------------------------------------------
+
+## True while a barrage volley is still launching.
+func is_barraging() -> bool:
+	return _weapons.is_barraging()
+
+
+## Starts a barrage if the ship is alive, no volley is running and it can pay
+## abilities.barrage.cost; returns true when it started. A running volley is
+## left untouched (no spend, no denial). Too little energy is denied (see _deny).
+func try_barrage() -> bool:
+	if _dead or _weapons.is_barraging():
+		return false
+	if GameState.energy < _barrage_cost:
+		_deny(&"barrage")
+		return false
+	GameState.add_energy(-_barrage_cost)
+	_weapons.start_barrage()
+	Log.info("combat", "Barrage: -%d energy" % _barrage_cost)
+	return true
+
+
+## One barrage tick (see PlayerWeapons.step_barrage).
+func step_barrage(delta: float) -> void:
+	_weapons.step_barrage(delta)
 
 
 ## An ability pressed without enough energy: only the event and the denied SFX.

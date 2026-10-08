@@ -41,7 +41,10 @@
 			"cost": 100,
 			"missiles": 12,
 			"duration_s": 2.0,
-			"damage": 6
+			"damage": 6,
+			"speed_px_s": 800,
+			"turn_rate_deg_s": 540,
+			"lifetime_s": 3.0
 		}
 	},
 	"energy": {

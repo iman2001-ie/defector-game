@@ -22,6 +22,7 @@ PLAYER_HIT_SEED = 3101
 PLAYER_DEATH_SEED = 3201
 ENERGY_PICKUP_SEED = 3301
 ABILITY_DENIED_SEED = 3401
+BARRAGE_WHOOSH_SEED = 3501
 OUT_DIR = Path(__file__).resolve().parent.parent / "game" / "assets" / "audio" / "sfx"
 
 
@@ -156,6 +157,24 @@ def ability_denied(rng: random.Random) -> list[float]:
     return out
 
 
+def barrage_whoosh(rng: random.Random) -> list[float]:
+    """Short 0.18 s rising whoosh: noise through a band-pass whose centre sweeps 600 -> 3000 Hz."""
+    n = int(0.18 * RATE)
+    out: list[float] = []
+    lp = 0.0
+    bp = 0.0
+    for i in range(n):
+        t = i / n
+        centre = 600.0 * 5.0 ** t
+        a = min(0.95, 2.0 * math.pi * centre / RATE)
+        lp += a * (rng.uniform(-1.0, 1.0) - lp)
+        bp += a * (lp - bp)
+        # Swells up to a peak at 70%, then a quick linear fade to 0.
+        swell = (t / 0.7) ** 1.5 if t < 0.7 else (1.0 - t) / 0.3
+        out.append((lp - bp) * swell)
+    return out
+
+
 def _normalise(samples: list[float], peak: float = 0.9) -> list[float]:
     top = max(abs(s) for s in samples) or 1.0
     return [s * peak / top for s in samples]
@@ -188,6 +207,7 @@ def main() -> None:
     sounds["player_death"] = player_death(random.Random(PLAYER_DEATH_SEED))
     sounds["energy_pickup"] = energy_pickup(random.Random(ENERGY_PICKUP_SEED))
     sounds["ability_denied"] = ability_denied(random.Random(ABILITY_DENIED_SEED))
+    sounds["barrage_whoosh"] = barrage_whoosh(random.Random(BARRAGE_WHOOSH_SEED))
     for name, samples in sounds.items():
         path = _write(name, samples)
         print(f"wrote {path.name} ({len(samples) / RATE:.2f} s)")

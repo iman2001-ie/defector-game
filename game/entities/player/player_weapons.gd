@@ -9,6 +9,14 @@ extends Node
 ## Missile: a press launches one missile at the muzzle, always straight up
 ## (Vector2.UP * weapons.missile.speed_px_s), then a cooldown_s cooldown broadcast
 ## as a ratio through Events.missile_cooldown_changed (1 = just fired, 0 = ready).
+##
+## Barrage volley (Story 3.5): start_barrage() launches abilities.barrage.missiles
+## micro-missiles, the first at once and then one every duration_s / missiles,
+## counted down from physics delta in step_barrage (frozen under pause and
+## hit-stop). Each launch spawns a MicroMissile at the muzzle flying straight up
+## (it homes by itself), plays the whoosh and flashes the muzzle. The tick of the
+## last launch also plays the LARGE impact feedback at the muzzle, once. The
+## Player owns the energy, denial and death rules; it calls stop_barrage on death.
 
 ## Absorbs float drift so whole multiples of the physics delta add up to one interval.
 const FIRE_EPS: float = 1e-6
@@ -18,6 +26,8 @@ const MISSILE_TYPE: StringName = &"missile"
 const MISSILE_FLASH_S: float = 0.05
 const LASER_SFX: StringName = &"laser_zap"
 const MISSILE_SFX: StringName = &"missile_launch"
+const MICRO_TYPE: StringName = &"micro_missile"
+const WHOOSH_SFX: StringName = &"barrage_whoosh"
 
 ## Where projectiles spawn (resolved once in _ready).
 @export var muzzle: NodePath
@@ -38,6 +48,16 @@ var _missile_cooldown_s: float
 ## Seconds until the missile is ready; 0 when ready.
 var _missile_cooldown: float = 0.0
 var _spawner: Spawner
+
+var _barrage_missiles: int = 0
+var _barrage_interval: float = 0.0
+var _barrage_damage: int = 0
+var _barrage_speed: float = 0.0
+var _barrage_valid: bool = false
+## Micro-missiles still to launch in the running volley; 0 when idle.
+var _barrage_left: int = 0
+## Seconds until the next launch; carried (no drift) like the laser cooldown.
+var _barrage_cooldown: float = 0.0
 
 var _muzzle: Node2D
 var _muzzle_flash: Node2D
@@ -65,6 +85,16 @@ func _ready() -> void:
 	_missile_cooldown_s = Config.num("weapons.missile.cooldown_s")
 	if _missile_cooldown_s <= 0.0:
 		Log.warn("data", "weapons.missile.cooldown_s %.3f is not positive; missile has no cooldown" % _missile_cooldown_s)
+
+	_barrage_missiles = Config.int_("abilities.barrage.missiles")
+	var barrage_duration: float = Config.num("abilities.barrage.duration_s")
+	_barrage_damage = Config.int_("abilities.barrage.damage")
+	_barrage_speed = Config.num("abilities.barrage.speed_px_s")
+	_barrage_valid = _barrage_missiles > 0 and barrage_duration > 0.0
+	if _barrage_valid:
+		_barrage_interval = barrage_duration / float(_barrage_missiles)
+	else:
+		Log.warn("data", "abilities.barrage missiles %d / duration_s %.3f must be positive; barrage fires nothing" % [_barrage_missiles, barrage_duration])
 
 
 ## Without a spawner (or without a muzzle) the weapons do not fire.
@@ -135,3 +165,66 @@ func step_missile(pressed: bool, delta: float) -> void:
 	_missile_cooldown = _missile_cooldown_s
 	Events.missile_cooldown_changed.emit(1.0)
 
+
+# --- Barrage volley ---------------------------------------------------------------
+
+## True while a volley still has micro-missiles to launch.
+func is_barraging() -> bool:
+	return _barrage_left > 0
+
+
+## Micro-missiles still to launch in the running volley (0 when idle).
+func barrage_left() -> int:
+	return _barrage_left
+
+
+## Starts a volley and launches the first micro-missile at once. Does nothing
+## while a volley runs or when the barrage data is mistuned.
+func start_barrage() -> void:
+	if not _barrage_valid or _barrage_left > 0:
+		return
+	_barrage_left = _barrage_missiles
+	_barrage_cooldown = 0.0
+	_step_launch()
+
+
+## One volley tick: counts the launch timer down by `delta` and launches when it
+## reaches 0, so at 2.0 s / 12 and 1/60 s the launches land on ticks 0, 10, ... 110.
+func step_barrage(delta: float) -> void:
+	if _barrage_left <= 0:
+		return
+	_barrage_cooldown -= delta
+	_step_launch()
+
+
+## Ends a running volley at once: no more launches and no finish.
+func stop_barrage() -> void:
+	_barrage_left = 0
+	_barrage_cooldown = 0.0
+
+
+func _step_launch() -> void:
+	if _barrage_left <= 0 or _barrage_cooldown > FIRE_EPS:
+		return
+	_barrage_cooldown += _barrage_interval
+	_barrage_left -= 1
+	_launch_micro()
+	if _barrage_left == 0 and _muzzle != null:
+		Feedback.impact(ImpactTier.LARGE, _muzzle.global_position)
+
+
+## One launch. Without a spawner (or on a failed spawn) it still counts but
+## plays nothing.
+func _launch_micro() -> void:
+	if not _can_spawn():
+		return
+	var micro: Projectile = _spawner.spawn_projectile(MICRO_TYPE, {
+		"position": _muzzle.global_position,
+		"velocity": Vector2.UP * _barrage_speed,
+		"damage": _barrage_damage,
+	})
+	if micro == null:
+		return
+	Audio.play_sfx(WHOOSH_SFX)
+	_muzzle_flash.visible = true
+	_flash_left = maxf(_flash_left, MISSILE_FLASH_S)

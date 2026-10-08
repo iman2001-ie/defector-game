@@ -371,3 +371,15 @@ func test_shield_matches_the_gdd_and_ux_keys_exist() -> void:
 		"the blink window fits inside the shield")
 	assert_almost_eq(Config.num("hud.energy_bar.denied_flash_s"), 0.3, 0.0001)
 	assert_eq(Config.int_("hud.energy_bar.denied_flashes"), 2)
+
+
+## Story 3.5: GDD Barrage (100 energy, 12 missiles over 2.0 s, 6 damage) and
+## positive micro-missile feel keys.
+func test_barrage_matches_the_gdd_and_feel_keys_are_positive() -> void:
+	assert_eq(Config.int_("abilities.barrage.cost"), 100)
+	assert_eq(Config.int_("abilities.barrage.missiles"), 12)
+	assert_eq(Config.num("abilities.barrage.duration_s"), 2.0)
+	assert_eq(Config.int_("abilities.barrage.damage"), 6)
+	assert_gt(Config.num("abilities.barrage.speed_px_s"), 0.0, "speed_px_s > 0")
+	assert_gt(Config.num("abilities.barrage.turn_rate_deg_s"), 0.0, "turn_rate_deg_s > 0")
+	assert_gt(Config.num("abilities.barrage.lifetime_s"), 0.0, "lifetime_s > 0")
