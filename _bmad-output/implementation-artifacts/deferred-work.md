@@ -551,7 +551,9 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-3-retro-2026-10-08.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 3; owner Developer (operator); sprint-status status open)
-status: open
+status: done 2026-10-08
+resolution: closed by human decision: operator playtested Epic 3 manual checks
+decision: 2026-10-08 Close: playtest done — operator playtested Epic 3 manual checks
 
 ### DW-59: Apply the decision-closed items that did not take effect: epic-1/2/3 to done in sprint-status (DW-43), raise max_tokens_per_story (DW-45), add a per-script or randomised verify command (DW-44); confirm in the next run journal
 origin: retro action item epic-3-retro-item-29-apply-the-decision-closed-items-that-did
