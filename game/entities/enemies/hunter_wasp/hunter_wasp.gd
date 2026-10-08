@@ -78,5 +78,5 @@ func chase_target() -> Vector2:
 
 ## One group look-up; a miss waits PLAYER_RELOOKUP_S before the next one.
 func _find_player() -> void:
-	_player = get_tree().get_first_node_in_group(PLAYER_GROUP) as Node2D
+	_player = get_tree().get_first_node_in_group(Groups.PLAYER) as Node2D
 	_relookup_t = 0.0 if _player != null else PLAYER_RELOOKUP_S

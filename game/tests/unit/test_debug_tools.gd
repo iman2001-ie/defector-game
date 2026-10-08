@@ -13,6 +13,9 @@ const PLAYER_SCENE: PackedScene = preload("res://entities/player/player.tscn")
 
 var _tools: DebugTools
 var _restarts: int = 0
+## DW-61 ordering: "restart paused=<bool>" at the restart call and "resumed"
+## for each PauseArbiter.resumed, in the order they happened.
+var _order: Array[String] = []
 var _overlay_initialised_before: bool = false
 var _vsync_before: DisplayServer.VSyncMode = DisplayServer.VSYNC_ENABLED
 ## The sandbox instantiated by _restart_sandbox (the F5 consumer re-read test).
@@ -24,6 +27,7 @@ func before_each() -> void:
 	_overlay_initialised_before = DebugTools._overlay_initialised
 	_vsync_before = DisplayServer.window_get_vsync_mode()
 	_restarts = 0
+	_order.clear()
 	_restarted_sandbox = null
 	Config.assert_on_missing = false
 	SaveManager.save_path = TEST_SAVE
@@ -34,7 +38,10 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	if PauseArbiter.resumed.is_connected(_on_resumed):
+		PauseArbiter.resumed.disconnect(_on_resumed)
 	GameState.energy = 0
+	GameState.is_retry = false
 	_tools = null
 	_restarted_sandbox = null
 	DebugTools.overlay_visible = false
@@ -58,6 +65,24 @@ func after_each() -> void:
 
 func _count_restart() -> void:
 	_restarts += 1
+
+
+## A restart recorder that also logs whether the tree was paused at the call.
+func _order_restart() -> void:
+	_restarts += 1
+	_order.append("restart paused=%s" % PauseArbiter.is_paused())
+
+
+func _on_resumed() -> void:
+	_order.append("resumed")
+
+
+func _write_save(highest: int, energy: int) -> void:
+	var file: ConfigFile = ConfigFile.new()
+	file.set_value("progress", "save_version", 1)
+	file.set_value("progress", "highest_unlocked_level", highest)
+	file.set_value("progress", "energy", energy)
+	assert_eq(file.save(TEST_SAVE), OK, "fixture save written")
 
 
 ## A DebugTools with an injected restart callable and user args (none by
@@ -297,6 +322,58 @@ func test_reload_data_returns_true_and_clears_pause() -> void:
 	assert_true(_tools.reload_data(), "reload succeeded")
 	assert_false(PauseArbiter.is_paused(), "pause reasons cleared")
 	assert_eq(_restarts, 1)
+
+
+## DW-61: a playtest restart after a retry gets the saved progress back, and the
+## pauses are still held at the restart call and dropped after it.
+func test_f5_after_a_retry_restores_the_save_and_clears_after_restart() -> void:
+	_write_save(2, 40)
+	GameState.energy = 0
+	GameState.highest_unlocked_level = 1
+	GameState.is_retry = true
+	PauseArbiter.push(&"death")
+	_tools = _make_tools()
+	_tools.restart_scene = _order_restart
+	PauseArbiter.resumed.connect(_on_resumed)
+	assert_true(_tools.reload_data(), "reload succeeded")
+	assert_eq(GameState.energy, 40, "saved energy restored")
+	assert_eq(GameState.highest_unlocked_level, 2, "saved unlock restored")
+	assert_false(GameState.is_retry, "retry flag cleared")
+	assert_eq(_order, ["restart paused=true", "resumed"] as Array[String], "paused at the restart call, resumed once after it")
+	assert_false(PauseArbiter.is_paused(), "unpaused afterwards")
+
+
+func test_f5_without_a_save_gives_the_defaults() -> void:
+	GameState.energy = 70
+	GameState.highest_unlocked_level = 3
+	GameState.is_retry = true
+	_tools = _make_tools()
+	assert_true(_tools.reload_data(), "reload succeeded")
+	assert_eq(GameState.energy, 0)
+	assert_eq(GameState.highest_unlocked_level, 1)
+	assert_false(GameState.is_retry)
+	assert_false(FileAccess.file_exists(TEST_SAVE), "F5 writes no save")
+
+
+func test_f5_failed_reload_leaves_game_state_and_pauses_alone() -> void:
+	_write_tuning(8.0)
+	Config.load_data(TEMP_TUNING, Config.DEFAULT_FLAGS_PATH)
+	_write_save(2, 40)
+	GameState.energy = 0
+	GameState.highest_unlocked_level = 1
+	GameState.is_retry = true
+	PauseArbiter.push(&"death")
+	_tools = _make_tools()
+	_write_tuning(0.0, "{ not json")
+	assert_false(_tools.reload_data(), "reload refused")
+	assert_eq(_restarts, 0, "restart not called")
+	assert_eq(GameState.energy, 0, "energy unchanged")
+	assert_eq(GameState.highest_unlocked_level, 1, "unlock unchanged")
+	assert_true(GameState.is_retry, "retry flag unchanged")
+	assert_eq(PauseArbiter.reasons(), [&"death"] as Array[StringName], "pauses unchanged")
+	assert_push_error("Reload rejected")
+	assert_push_error("parse error")
+	assert_push_error("[ERROR][debug]")
 
 
 func test_f5_bad_json_refuses_restart() -> void:

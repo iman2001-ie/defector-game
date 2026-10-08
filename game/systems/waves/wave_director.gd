@@ -36,7 +36,6 @@ signal chains_finished
 const WHEN_WAVE_START: StringName = &"wave_start"
 const WHEN_PROGRESS: StringName = &"progress"
 const WHEN_WAVE_CLEAR: StringName = &"wave_clear"
-const COUNTED_GROUP: StringName = &"counted"
 const DEFAULT_ENTRY: String = "top"
 
 @export var spawner: Spawner
@@ -83,7 +82,7 @@ var _width: float = 0.0
 
 
 func _ready() -> void:
-	add_to_group(&"wave_director")
+	add_to_group(Groups.WAVE_DIRECTOR)
 	Events.level_failed.connect(_on_events_level_failed)
 
 
@@ -189,7 +188,7 @@ func debug_resolve_wave() -> void:
 			_skipped_groups[group_name] = true
 	_pending_groups.clear()
 	_debug_resolving = true
-	for node: Node in get_tree().get_nodes_in_group(COUNTED_GROUP):
+	for node: Node in get_tree().get_nodes_in_group(Groups.COUNTED):
 		var enemy: Enemy = node as Enemy
 		if enemy != null and not enemy.is_dead() and not enemy.is_queued_for_deletion():
 			enemy.apply_damage(maxi(enemy.hp, 1), null)
@@ -213,8 +212,8 @@ func debug_skip_to_boss() -> void:
 		Log.info("debug", "F6: no boss wave in level %d" % _level_id)
 		return
 	Log.info("debug", "F6: jumping to boss wave %d" % (boss_index + 1))
-	for node: Node in get_tree().get_nodes_in_group(COUNTED_GROUP):
-		node.remove_from_group(COUNTED_GROUP)
+	for node: Node in get_tree().get_nodes_in_group(Groups.COUNTED):
+		node.remove_from_group(Groups.COUNTED)
 		node.queue_free()
 	_level_done = false
 	_failed = false
@@ -287,7 +286,7 @@ func _spawn_entry(entry: Variant, path: String, serial: int) -> int:
 		if enemy == null:
 			failures += 1
 			continue
-		enemy.add_to_group(COUNTED_GROUP)
+		enemy.add_to_group(Groups.COUNTED)
 		enemy.resolved.connect(_on_enemy_resolved.bind(serial))
 		_live_counted += 1
 	Log.debug("spawn", "%s %s: %d x %s (%s)" % [_source, path, count - failures, type_id, formation])

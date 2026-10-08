@@ -13,11 +13,16 @@ const TEST_SAVE: String = "user://test_scene_router_save.cfg"
 
 var _calls: Array[String] = []
 var _lines: Array[String] = []
+## DW-61 ordering: "change paused=<bool>" at each change_scene call and
+## "resumed" for each PauseArbiter.resumed, in the order they happened.
+var _order: Array[String] = []
 
 
 func before_each() -> void:
 	_calls.clear()
 	_lines.clear()
+	_order.clear()
+	PauseArbiter.resumed.connect(_on_resumed)
 	SaveManager.save_path = TEST_SAVE
 	_delete_save()
 	GameState.highest_unlocked_level = 1
@@ -27,6 +32,8 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	if PauseArbiter.resumed.is_connected(_on_resumed):
+		PauseArbiter.resumed.disconnect(_on_resumed)
 	Log.sink = Callable()
 	SceneRouter.change_scene = SceneRouter.default_change_scene()
 	_delete_save()
@@ -68,7 +75,12 @@ func _read_save() -> Array:
 
 func _record(path: String) -> Error:
 	_calls.append(path)
+	_order.append("change paused=%s" % PauseArbiter.is_paused())
 	return OK
+
+
+func _on_resumed() -> void:
+	_order.append("resumed")
 
 
 func _capture(level: String, category: String, msg: String) -> void:
@@ -135,6 +147,25 @@ func test_many_restarts_have_no_limit() -> void:
 	for path: String in _calls:
 		assert_eq(path, SceneRouter.LEVEL_SCENE_PATH)
 	assert_true(GameState.is_retry)
+
+
+## DW-61: the pauses are still held at the swap call and dropped right after it,
+## so `resumed` fires once, after the outgoing scene left the tree.
+func test_restart_level_clears_the_pauses_after_the_swap() -> void:
+	GameState.current_level_id = "dev"
+	PauseArbiter.push(&"death")
+	SceneRouter.restart_level()
+	assert_eq(_order, ["change paused=true", "resumed"] as Array[String], "paused at the call, resumed once after it")
+	assert_false(PauseArbiter.is_paused(), "unpaused afterwards")
+	assert_false(get_tree().paused)
+
+
+func test_goto_title_clears_the_pauses_after_the_swap() -> void:
+	PauseArbiter.push(&"menu")
+	PauseArbiter.push(&"story")
+	SceneRouter.goto_title()
+	assert_eq(_order, ["change paused=true", "resumed"] as Array[String], "paused at the call, resumed once after it")
+	assert_false(PauseArbiter.is_paused(), "unpaused afterwards")
 
 
 func test_title_scene_path() -> void:
@@ -270,6 +301,41 @@ func test_goto_title_with_a_config_error_still_restores() -> void:
 	assert_eq(GameState.highest_unlocked_level, 2)
 	assert_eq(GameState.energy, 20)
 	assert_eq(_calls, [SceneRouter.TITLE_SCENE_PATH] as Array[String])
+
+
+## DW-61: the restore goto_title() does, on its own (F5 calls it): no scene
+## change, no level-id change, no save written.
+func test_restore_saved_progress_restores_and_clears_the_retry() -> void:
+	_write_save(2, 40)
+	GameState.energy = 0
+	GameState.highest_unlocked_level = 1
+	GameState.is_retry = true
+	GameState.current_level_id = "2"
+	SceneRouter.restore_saved_progress()
+	assert_eq(GameState.energy, 40, "saved energy")
+	assert_eq(GameState.highest_unlocked_level, 2, "saved unlock")
+	assert_false(GameState.is_retry, "retry flag cleared")
+	assert_eq(GameState.current_level_id, "2", "level id untouched")
+	assert_eq(_calls, [] as Array[String], "no scene change")
+	assert_eq(_read_save(), [1, 2, 40], "the save is unchanged")
+
+
+func test_restore_saved_progress_clamps() -> void:
+	_write_save(9, 500)
+	SceneRouter.restore_saved_progress()
+	assert_eq(GameState.highest_unlocked_level, 3, "clamped to progression.level_count")
+	assert_eq(GameState.energy, 100, "clamped to energy.max")
+
+
+func test_restore_saved_progress_without_a_save_gives_the_defaults() -> void:
+	GameState.energy = 70
+	GameState.highest_unlocked_level = 3
+	GameState.is_retry = true
+	SceneRouter.restore_saved_progress()
+	assert_eq(GameState.energy, 0)
+	assert_eq(GameState.highest_unlocked_level, 1)
+	assert_false(GameState.is_retry)
+	assert_false(FileAccess.file_exists(TEST_SAVE), "no save written")
 
 
 func test_complete_level_1_unlocks_saves_and_starts_level_2() -> void:

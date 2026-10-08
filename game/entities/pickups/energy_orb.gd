@@ -12,8 +12,6 @@ extends Area2D
 ## Created only by Spawner: setup(params) stores values before add_child, and
 ## _ready() applies them.
 
-const PLAYER_GROUP: StringName = &"player"
-
 var value: int = 0
 var drift_speed: float = 0.0
 var magnet_radius: float = 0.0
@@ -58,8 +56,8 @@ func _ready() -> void:
 		if texture != null and diameter >= 1.0 and (texture.width != int(diameter) or texture.height != int(diameter)):
 			texture.width = int(diameter)
 			texture.height = int(diameter)
-	add_to_group(&"pickups")
-	_player = get_tree().get_first_node_in_group(PLAYER_GROUP) as Player
+	add_to_group(Groups.PICKUPS)
+	_player = get_tree().get_first_node_in_group(Groups.PLAYER) as Player
 
 
 func _physics_process(delta: float) -> void:

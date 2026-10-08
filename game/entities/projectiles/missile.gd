@@ -5,7 +5,7 @@ extends Projectile
 ## splash_damage once. Splash distance is centre to centre, found through the
 ## `enemies`/`asteroids` groups (no physics query: the space is locked in area_entered).
 
-const SPLASH_GROUPS: Array[StringName] = [&"enemies", &"asteroids"]
+const SPLASH_GROUPS: Array[StringName] = [Groups.ENEMIES, Groups.ASTEROIDS]
 
 var splash_damage: int = 0
 var splash_radius: float = 0.0

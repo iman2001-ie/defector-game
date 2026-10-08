@@ -289,7 +289,7 @@ Spawned nodes are always parented to the matching `World/<Group>` container, whi
 
 Configure these in `project.godot` → `layer_names/2d_physics`. Use these names and numbers exactly.
 
-As built, `core/collision_layers.gd` (`CollisionLayers`) holds the bit values (`PLAYER` = 1 … `ALLIES` = 128) and the shot masks `MASK_PLAYER_SHOTS` / `MASK_ENEMY_SHOTS`. Code and tests use these constants; `.tscn` files store the numbers, and tests check them against the constants.
+As built, `core/collision_layers.gd` (`CollisionLayers`) holds the bit values (`PLAYER` = 1 … `ALLIES` = 128) and the shot masks `MASK_PLAYER_SHOTS` / `MASK_ENEMY_SHOTS`. Code and tests use these constants; `.tscn` files store the numbers, and tests check them against the constants. Likewise `core/groups.gd` (`Groups`, DW-61) holds the scene-tree group names as `StringName` constants (`PLAYER`, `ENEMIES`, `ASTEROIDS`, `PROJECTILES`, `PICKUPS`, `COUNTED`, `WAVE_DIRECTOR`). Production code joins and queries groups only through them (no `&"..."` group literal, no per-file `*_GROUP` const); `.tscn` files store no groups, and tests may spell the literals as independent checks.
 
 | # | Name | Who is on it | Mask (what it detects) |
 |---|---|---|---|
@@ -471,7 +471,7 @@ func _ready() -> void:
 - It re-reads the files last passed to `load_data()` into temporaries and validates their shape against the data loaded now. Every current key path must still exist with the same kind (int and float both count as a number). Extra keys are allowed. Array elements aren't checked. If the boot load failed, so the current data is empty, there is nothing to compare against and any shape is accepted.
 - On any failure it logs `Log.error("data", "Reload rejected (...); previous data kept")`, returns `false`, and leaves `tuning`, `flags` and `load_error` untouched.
 - On success it commits both files, clears `load_error`, logs the load summary and returns `true`.
-- F5 runs `DebugTools.reload_data()`: `Config.reload()`. If that returns `false`, it logs and stops (the scene isn't restarted). If `true`, it runs `Feedback.reset()`, `Feedback.load_tiers()`, `PauseArbiter.clear()`, then restarts the current scene (`get_tree().reload_current_scene`) so every `_ready` cache re-reads the data and the scene root re-applies `render.glow`.
+- F5 runs `DebugTools.reload_data()`: `Config.reload()`. If that returns `false`, it logs and stops (the scene isn't restarted). If `true`, it runs `Feedback.reset()`, `Feedback.load_tiers()` and `SceneRouter.restore_saved_progress()` (energy and `highest_unlocked_level` from the save, clamped with the new data, and `is_retry = false`, exactly as `goto_title()` does; DW-61), then restarts the current scene (`get_tree().reload_current_scene`) so every `_ready` cache re-reads the data and the scene root re-applies `render.glow`, and only then calls `PauseArbiter.clear()`. The restart removes the outgoing scene from the tree synchronously, so `resumed` never reaches its Player while it is still in the tree (`Player._on_resumed` also ignores the signal outside the tree). On a failed reload GameState and the pauses are untouched.
 
 ### Event System
 
@@ -593,6 +593,7 @@ This is the target tree. As of Story 4.5 the built parts are: `project.godot`, `
     │   ├── playfield.gd                     # Playfield: SIZE, RECT (1920×1080)
     │   ├── render_glow.gd                   # RenderGlow.apply(env): render.glow → Environment
     │   ├── collision_layers.gd              # CollisionLayers: layer bits + shot masks
+    │   ├── groups.gd                        # Groups: scene-tree group names (StringName consts)
     │   └── loot.gd                          # Loot: drop rolls → Spawner.spawn_orb (deferred)
     ├── entities/
     │   ├── player/            player.tscn, player.gd, player_weapons.gd, player_shield.gd, missile_ring.gd, shield_bubble.tscn + .gd
@@ -1010,7 +1011,7 @@ func pop(reason: StringName) -> void:
 func is_paused() -> bool:
 	return not _reasons.is_empty()
 
-func clear() -> void:                  # SceneRouter calls this on every scene change; so does F5. Keeps _gameplay_mode
+func clear() -> void:                  # SceneRouter calls this at every scene swap, right after the change call (DW-61); F5 right after its restart. Keeps _gameplay_mode
 	_reasons.clear()
 	_apply()
 
@@ -1098,7 +1099,7 @@ const PROJECTILES: Dictionary[StringName, PackedScene] = { ... }
 var wasp := _spawner.spawn_enemy(&"wasp", {"slot": Vector2(640, 160), "entry": &"top"})
 if wasp:
 	wasp.resolved.connect(_on_enemy_resolved)
-	wasp.add_to_group(&"counted")
+	wasp.add_to_group(Groups.COUNTED)
 ```
 
 **The `Enemy` base class contract** (`core/enemy.gd`, `class_name Enemy extends Area2D`):
@@ -1109,7 +1110,7 @@ if wasp:
 - `func apply_damage(amount: int, source: Node) -> void` (it records `source.from_ally`).
 - `func destroy_by_contact() -> void` (small and medium enemies only).
 - HP comes from `Config.int_("enemies.<type_id>.hp")`. Drops come from `tuning.drops.<type_id>`.
-- Shared subclass helpers (DW-41): `setup()` also stores `slot`/`entry` (`_slot`, `_has_slot`, `_entry`; constants `ENTRY_TOP`, `ENTRY_SIDES`, `PLAYER_GROUP`), `_entry_start_for(target)` (off-screen entry start, WARNs on an unknown entry and uses top), `_aim_from(origin)` (unit vector to the player, `Vector2.DOWN` without one), `_can_fire()` (missing-spawner guard, one DEBUG per enemy) and `_tuning_key(field)` (`"enemies.<type_id>.<field>"`). Enemy projectiles share `EnemyBullet._align_to_velocity(node)`.
+- Shared subclass helpers (DW-41): `setup()` also stores `slot`/`entry` (`_slot`, `_has_slot`, `_entry`; constants `ENTRY_TOP`, `ENTRY_SIDES`; the player is found through `Groups.PLAYER`, DW-61), `_entry_start_for(target)` (off-screen entry start, WARNs on an unknown entry and uses top), `_aim_from(origin)` (unit vector to the player, `Vector2.DOWN` without one), `_can_fire()` (missing-spawner guard, one DEBUG per enemy) and `_tuning_key(field)` (`"enemies.<type_id>.<field>"`). Enemy projectiles share `EnemyBullet._align_to_velocity(node)`.
 
 ### State Patterns
 

@@ -13,7 +13,6 @@ signal resolved
 
 const ENTRY_TOP: StringName = &"top"
 const ENTRY_SIDES: StringName = &"sides"
-const PLAYER_GROUP: StringName = &"player"
 
 ## Size of the enemy's sprite in px; the hitbox circle is hitbox_ratio of it.
 @export var sprite_px: float = 64.0
@@ -65,7 +64,7 @@ func _ready() -> void:
 		hitbox.shape = circle
 	else:
 		Log.error("combat", "enemy '%s' has no Hitbox" % type_id)
-	add_to_group(&"enemies")
+	add_to_group(Groups.ENEMIES)
 
 
 func apply_damage(amount: int, source: Node) -> void:
@@ -128,7 +127,7 @@ func _entry_start_for(target: Vector2) -> Vector2:
 ## Unit direction from `origin` toward the player's current position; straight
 ## down with no player or a zero vector.
 func _aim_from(origin: Vector2) -> Vector2:
-	var player: Node2D = get_tree().get_first_node_in_group(PLAYER_GROUP) as Node2D
+	var player: Node2D = get_tree().get_first_node_in_group(Groups.PLAYER) as Node2D
 	if player == null:
 		return Vector2.DOWN
 	var to_player: Vector2 = player.global_position - origin

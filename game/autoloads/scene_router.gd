@@ -3,12 +3,17 @@ extends Node
 ## reload and the --stress redirect in boot.gd / level.gd are the debug-only
 ## exceptions).
 ##
-## Every change goes through _change_to(), which drops every pause reason
-## (PauseArbiter.clear()), ends any hit-stop and logs one INFO scene line first.
+## Every change goes through _change_to(), which ends any hit-stop and logs one
+## INFO scene line before the swap, then drops every pause reason
+## (PauseArbiter.clear()) right after it. change_scene_to_file removes the
+## outgoing scene from the tree synchronously (the incoming one is added at the
+## end of the frame), so `resumed` never reaches the dead level's Player while it
+## is still in the tree, and the new scene's _ready pushes are not wiped (DW-61).
 ##
 ## - goto_title(): the title screen (scenes/title/title.tscn). Restores energy
 ##   and highest_unlocked_level from the save (F13: in-memory mid-level energy
-##   never leaks across menus), clears the retry flag and the level id.
+##   never leaks across menus) and clears the retry flag through
+##   restore_saved_progress() (which F5 also calls), then clears the level id.
 ## - goto_level_select(): the Level Select screen
 ##   (scenes/title/level_select.tscn, Story 4.3). Leaves GameState alone (the
 ##   title's goto_title() already restored energy and unlocks) and writes no save.
@@ -119,10 +124,19 @@ func start_level(id: String) -> void:
 	_change_to(LEVEL_SCENE_PATH, "Starting level '%s'" % id)
 
 
-## The title screen: energy and highest_unlocked_level restored from the save
-## (clamped into 1..progression.level_count and 0..max energy while the config
-## is healthy), not a retry, no level id. Writes no save.
+## The title screen: progress restored from the save (restore_saved_progress()),
+## no level id. Writes no save.
 func goto_title() -> void:
+	restore_saved_progress()
+	GameState.current_level_id = ""
+	_change_to(TITLE_SCENE_PATH, "Going to the title screen")
+
+
+## Restores GameState.energy and highest_unlocked_level from the save (clamped
+## into 0..max energy and 1..progression.level_count while the config is
+## healthy) and clears is_retry. Touches no other field, changes no scene and
+## writes no save. goto_title() and the debug F5 reload call it.
+func restore_saved_progress() -> void:
 	var progress: Dictionary = SaveManager.load_progress()
 	var highest: int = int(progress.get(SaveManager.KEY_HIGHEST, SaveManager.DEFAULT_HIGHEST))
 	var energy: int = int(progress.get(SaveManager.KEY_ENERGY, SaveManager.DEFAULT_ENERGY))
@@ -132,8 +146,6 @@ func goto_title() -> void:
 	GameState.highest_unlocked_level = highest
 	GameState.energy = energy
 	GameState.is_retry = false
-	GameState.current_level_id = ""
-	_change_to(TITLE_SCENE_PATH, "Going to the title screen")
 
 
 ## The Level Select screen. Touches no GameState field (energy and unlocks are
@@ -161,7 +173,8 @@ func complete_level(n: int) -> void:
 
 
 func _change_to(path: String, message: String) -> void:
-	PauseArbiter.clear()
 	Feedback.reset()
 	Log.info("scene", message)
 	change_scene.call(path)
+	# After the swap: the outgoing scene is already out of the tree (DW-61).
+	PauseArbiter.clear()

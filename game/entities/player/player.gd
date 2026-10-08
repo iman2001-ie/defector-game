@@ -115,7 +115,7 @@ var _barrage_cost: int = 0
 
 
 func _ready() -> void:
-	add_to_group(&"player")
+	add_to_group(Groups.PLAYER)
 	if not warp_mouse.is_valid():
 		warp_mouse = get_viewport().warp_mouse
 	_bounds_min = Vector2(0.0, Config.num("player.bounds_y.min"))
@@ -430,7 +430,12 @@ static func confine(mouse: Vector2, bounds_min: Vector2, bounds_max: Vector2) ->
 
 
 ## Resume from any pause: put the cursor back on the ship so the next lock tick
-## reads the ship's own position and the ship does not jump.
+## reads the ship's own position and the ship does not jump. Ignored outside the
+## tree: the outgoing Player of a scene change (or F5 restart) is still connected
+## until it is freed at the end of the frame, and SceneRouter clears the pauses
+## after the swap removed it (DW-61).
 func _on_resumed() -> void:
+	if not is_inside_tree():
+		return
 	if PauseArbiter.current_mouse_mode() == Input.MOUSE_MODE_CONFINED_HIDDEN:
 		warp_mouse.call(global_position)

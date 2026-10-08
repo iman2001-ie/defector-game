@@ -59,7 +59,7 @@ func _ready() -> void:
 		var rim: Line2D = visual.get_node_or_null(^"Rim") as Line2D
 		if rim != null:
 			rim.width = RIM_WIDTH_PX / radius
-	add_to_group(&"asteroids")
+	add_to_group(Groups.ASTEROIDS)
 
 
 func _physics_process(delta: float) -> void:

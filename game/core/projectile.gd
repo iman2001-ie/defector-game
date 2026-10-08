@@ -36,7 +36,7 @@ func _ready() -> void:
 	if _has_spawn_position:
 		global_position = _spawn_position
 	_bounds = Playfield.RECT.grow(OFFSCREEN_MARGIN_PX)
-	add_to_group(&"projectiles")
+	add_to_group(Groups.PROJECTILES)
 	area_entered.connect(_on_area_entered)
 
 

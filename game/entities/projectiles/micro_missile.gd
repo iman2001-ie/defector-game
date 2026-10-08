@@ -58,7 +58,7 @@ func _target_alive() -> bool:
 
 
 func _pick_target() -> void:
-	_target = MicroMissile.nearest_enemy(global_position, get_tree().get_nodes_in_group(&"enemies"))
+	_target = MicroMissile.nearest_enemy(global_position, get_tree().get_nodes_in_group(Groups.ENEMIES))
 	if _target != null:
 		_had_target = true
 

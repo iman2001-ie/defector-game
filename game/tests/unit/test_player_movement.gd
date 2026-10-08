@@ -206,6 +206,18 @@ func test_resume_in_visible_mode_no_warp() -> void:
 	assert_eq(_warps, [] as Array[Vector2])
 
 
+## DW-61: the outgoing Player of a scene change is out of the tree (not yet
+## freed, still connected) when SceneRouter clears the pauses after the swap.
+func test_out_of_tree_player_does_not_warp_on_resume() -> void:
+	PauseArbiter.set_gameplay_mouse_mode(HIDDEN)
+	_player.global_position = Vector2(800, 900)
+	PauseArbiter.push(&"death")
+	remove_child(_player)
+	assert_false(_player.is_inside_tree(), "fixture: removed from the tree")
+	PauseArbiter.clear()
+	assert_eq(_warps, [] as Array[Vector2], "no warp from a Player outside the tree")
+
+
 # --- Scene shape --------------------------------------------------------------
 
 func test_root_is_area2d_on_player_layer() -> void:

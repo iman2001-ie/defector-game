@@ -50,7 +50,9 @@ func reasons() -> Array[StringName]:
 	return out
 
 
-## SceneRouter calls this on every scene change.
+## SceneRouter calls this at every scene swap, right after the change call
+## (the outgoing scene is already out of the tree); F5 does the same after its
+## scene restart. Keeps the gameplay mouse mode.
 func clear() -> void:
 	_reasons.clear()
 	_apply()

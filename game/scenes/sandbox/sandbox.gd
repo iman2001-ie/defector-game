@@ -85,7 +85,7 @@ func _physics_process(delta: float) -> void:
 ## Stress mode: spawns min(target - live, per-tick cap) projectiles below the grid,
 ## flying down. Live projectiles (the player's bolts too) are counted by group.
 func step_stress_projectiles() -> void:
-	var missing: int = _stress_projectile_target - get_tree().get_node_count_in_group(&"projectiles")
+	var missing: int = _stress_projectile_target - get_tree().get_node_count_in_group(Groups.PROJECTILES)
 	for i: int in mini(missing, _stress_projectile_per_tick):
 		var x: float = rng.randf_range(0.0, _playfield_width)
 		_spawner.spawn_projectile(&"laser_bolt", {

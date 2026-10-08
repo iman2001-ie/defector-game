@@ -591,7 +591,9 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-3-retro-2026-10-08.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 3; owner Dev loop; sprint-status status open)
-status: open
+status: done 2026-10-08
+resolution: resolved by sweep bundle dw-debug-retry-edge-tidy
+resolution-undo: b3057c011ca05ebd846e5de38253b6962d6c520b4c5e62f19df148dc5a8f57d7 2026-10-08 7374617475733a206f70656e
 
 ### DW-62: Retro commits now fit two forms, `chore(retro): ...` and a clear summary such as `Epic 1 retro: revision 2`. AGENTS.md section 5 doesn't say which to use when, for example only bmad-loop or
 origin: spec-deferred f957477ee131

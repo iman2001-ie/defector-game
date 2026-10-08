@@ -7,8 +7,6 @@ extends Node
 ## Wasp it just draws the next interval. A child of WaveDirector in level.tscn;
 ## process_mode inherits, so it freezes with the game. The sandbox has none.
 
-const ENEMIES_GROUP: StringName = &"enemies"
-
 ## Interval draws and Wasp picks; tests seed it.
 var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
@@ -51,7 +49,7 @@ func _draw() -> float:
 
 func _pick() -> Wasp:
 	_candidates.clear()
-	for node: Node in get_tree().get_nodes_in_group(ENEMIES_GROUP):
+	for node: Node in get_tree().get_nodes_in_group(Groups.ENEMIES):
 		var wasp: Wasp = node as Wasp
 		if wasp != null and wasp.is_holding() and not wasp.is_dead() and not wasp.is_queued_for_deletion():
 			_candidates.append(wasp)

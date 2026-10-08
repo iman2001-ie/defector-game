@@ -5,10 +5,10 @@ extends Node
 ## invincibility), F2 toggles the player's debug_invincible, F3 resolves
 ## the current wave and F6 jumps to the boss wave (both through the scene's
 ## WaveDirector, found by group), F4 adds debug.energy_add energy through
-## GameState (capped), F5 reloads every JSON file and restarts the
-## scene, F7 unlocks every level in memory (GameState.all_levels_unlocked; never
-## saved). With the
-## `-- --bench=<s>` user arg it also runs the self-timing stress bench; its
+## GameState (capped), F5 reloads every JSON file, restores GameState's
+## saved progress (as goto_title does) and restarts the scene, F7 unlocks
+## every level in memory (GameState.all_levels_unlocked; never saved). With
+## the `-- --bench=<s>` user arg it also runs the self-timing stress bench; its
 ## numbers (limits, warm-up, first-large timing, quit delay) come from
 ## tuning.debug.bench. Does nothing at all when debug_enabled is false (release builds).
 
@@ -164,7 +164,7 @@ func unlock_all() -> void:
 
 
 func _player() -> Player:
-	return get_tree().get_first_node_in_group(&"player") as Player
+	return get_tree().get_first_node_in_group(Groups.PLAYER) as Player
 
 
 ## F3: resolves the current wave through the scene's WaveDirector.
@@ -190,7 +190,7 @@ func skip_to_boss() -> void:
 
 
 func _director() -> WaveDirector:
-	return get_tree().get_first_node_in_group(&"wave_director") as WaveDirector
+	return get_tree().get_first_node_in_group(Groups.WAVE_DIRECTOR) as WaveDirector
 
 
 func toggle_overlay() -> void:
@@ -213,7 +213,7 @@ func refresh_overlay() -> void:
 		avg_ms,
 		_window_max_ms,
 		int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)),
-		get_tree().get_node_count_in_group(&"enemies"),
+		get_tree().get_node_count_in_group(Groups.ENEMIES),
 		_wave_lines(),
 		_pause_line(),
 		_invincible_line(),
@@ -223,7 +223,12 @@ func refresh_overlay() -> void:
 
 ## F5: asks Config to reload tuning and flags. Config validates the new files
 ## and keeps its previous data if either fails to load or drops or retypes a
-## key; then nothing restarts. Returns true when the scene restarted.
+## key; then nothing restarts and GameState and the pauses stay as they are.
+## On success it restores the saved energy and unlocks and clears is_retry
+## (SceneRouter.restore_saved_progress(), with the new clamps), restarts the
+## scene, and only then drops the pauses, so `resumed` never reaches the
+## outgoing scene's Player in the tree (DW-61). Returns true when the scene
+## restarted.
 func reload_data() -> bool:
 	if not debug_enabled:
 		return false
@@ -233,9 +238,10 @@ func reload_data() -> bool:
 	# Feedback is an autoload: a scene restart does not re-read its tier cache.
 	Feedback.reset()
 	Feedback.load_tiers()
-	PauseArbiter.clear()
+	SceneRouter.restore_saved_progress()
 	Log.info("debug", "F5: data reloaded, restarting scene")
 	restart_scene.call()
+	PauseArbiter.clear()
 	return true
 
 
@@ -365,8 +371,8 @@ func _finish_bench() -> void:
 		_bench_stats.average_ms(),
 		_bench_stats.percentile_ms(99.0),
 		_bench_stats.max_ms(),
-		get_tree().get_node_count_in_group(&"enemies"),
-		get_tree().get_node_count_in_group(&"projectiles"),
+		get_tree().get_node_count_in_group(Groups.ENEMIES),
+		get_tree().get_node_count_in_group(Groups.PROJECTILES),
 		RenderingServer.get_current_rendering_method(),
 		DisplayServer.window_get_size(),
 		DisplayServer.window_get_vsync_mode(),
