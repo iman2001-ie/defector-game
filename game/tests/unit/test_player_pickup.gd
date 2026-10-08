@@ -1,33 +1,14 @@
-extends GutTest
+extends "res://tests/fixtures/player_test_base.gd"
 ## Player orb pickup (Story 3.3): on_contact collects an EnergyOrb at no heart
 ## cost, even while invulnerable, and never remembers it; a dead ship collects
 ## nothing. One real-physics test lets the hurtbox overlap the orb.
 
-const PLAYER_SCENE: PackedScene = preload("res://entities/player/player.tscn")
 const ORB_SCENE: PackedScene = preload("res://entities/pickups/energy_orb.tscn")
-
-var _player: Player
 
 
 func before_each() -> void:
-	GameState.energy = 0
-	watch_signals(Events)
-	_player = PLAYER_SCENE.instantiate() as Player
-	_player.warp_mouse = _ignore_warp
-	add_child_autofree(_player)
-	_player.set_physics_process(false)
-	_player.global_position = Vector2(400, 900)
-
-
-func after_each() -> void:
-	GameState.energy = 0
-	Feedback.reset()
-	PauseArbiter.clear()
-	_player = null
-
-
-func _ignore_warp(_p: Vector2) -> void:
-	pass
+	_begin()
+	_player = _make_player(Vector2(400, 900))
 
 
 ## An orb far from the player (no real overlap) with physics off.

@@ -542,7 +542,9 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-3-retro-2026-10-08.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 3; owner Dev loop; sprint-status status open)
-status: open
+status: done 2026-10-08
+resolution: resolved by sweep bundle dw-player-test-fixture
+resolution-undo: 1ade8387c17ecb6aa80a7b0ab6934c6008e8d89cb59725eb9bc1e1dba52b33b9 2026-10-08 7374617475733a206f70656e
 
 ### DW-57: Record Epic 3 deviations in the decision log: asteroids survive contact (S1), new tuning values and the ui section (S3); clarify the retry-headline anchor in DESIGN.md:100 (S2)
 origin: retro action item epic-3-retro-item-27-record-epic-3-deviations-in-the-decision

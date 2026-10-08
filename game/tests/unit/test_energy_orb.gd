@@ -1,35 +1,19 @@
-extends GutTest
+extends "res://tests/fixtures/player_test_base.gd"
 ## EnergyOrb (Story 3.3): scene layers and group, sizes from tuning, drift,
 ## magnet pull (inclusive radius, no overshoot, ignores a dead ship), despawn,
 ## bottom exit and the one-shot collect. Driven through step() with physics off.
 
 const ORB_SCENE: PackedScene = preload("res://entities/pickups/energy_orb.tscn")
-const PLAYER_SCENE: PackedScene = preload("res://entities/player/player.tscn")
 
 
+## No default player: tests that need one call the base _make_player(pos).
 func before_each() -> void:
-	GameState.energy = 0
-	watch_signals(Events)
+	_begin()
 
 
 func after_each() -> void:
 	Config.load_data()
-	GameState.energy = 0
-	Feedback.reset()
-	PauseArbiter.clear()
-
-
-func _ignore_warp(_p: Vector2) -> void:
-	pass
-
-
-func _make_player(pos: Vector2) -> Player:
-	var player: Player = PLAYER_SCENE.instantiate() as Player
-	player.warp_mouse = _ignore_warp
-	add_child_autofree(player)
-	player.set_physics_process(false)
-	player.global_position = pos
-	return player
+	super()
 
 
 func _make_orb(pos: Vector2 = Vector2(100, 100)) -> EnergyOrb:

@@ -1,4 +1,4 @@
-extends GutTest
+extends "res://tests/fixtures/player_test_base.gd"
 ## Player shield (Story 3.4): try_shield spends abilities.shield.cost through
 ## GameState and makes the ship invulnerable for abilities.shield.duration_s
 ## (no stacking or refresh); too little energy is denied (ability_denied event
@@ -7,57 +7,15 @@ extends GutTest
 ## Driven through try_shield / step_shield with physics off, plus one test that
 ## goes through the real `ability_shield` input action.
 
-const PLAYER_SCENE: PackedScene = preload("res://entities/player/player.tscn")
-const WASP_SCENE: PackedScene = preload("res://entities/enemies/wasp/wasp.tscn")
 const LANCER_SCENE: PackedScene = preload("res://entities/enemies/lancer/lancer.tscn")
-const BASTION_SCENE: PackedScene = preload("res://entities/enemies/bastion/bastion.tscn")
-const ASTEROID_SCENE: PackedScene = preload("res://entities/asteroids/asteroid.tscn")
 const ENEMY_BULLET_SCENE: PackedScene = preload("res://entities/projectiles/enemy_bullet.tscn")
 const NEEDLE_BOLT_SCENE: PackedScene = preload("res://entities/projectiles/needle_bolt.tscn")
 const ORB_SCENE: PackedScene = preload("res://entities/pickups/energy_orb.tscn")
-const DT: float = 1.0 / 60.0
-## Far from the player, so no real overlap fires (hazards share it; their mask is 0).
-const HAZARD_POS: Vector2 = Vector2(1500, 150)
-
-var _player: Player
-var _lines: Array[String] = []
-
-
-func before_each() -> void:
-	_lines.clear()
-	Log.sink = _capture
-	GameState.energy = 0
-	watch_signals(Events)
-	_player = PLAYER_SCENE.instantiate() as Player
-	_player.warp_mouse = _ignore_warp
-	add_child_autofree(_player)
-	_player.set_physics_process(false)
-	_player.global_position = Vector2(200, 900)
 
 
 func after_each() -> void:
 	Input.action_release(&"ability_shield")
-	Log.sink = Callable()
-	GameState.energy = 0
-	Feedback.reset()
-	PauseArbiter.clear()
-	_player = null
-
-
-func _ignore_warp(_p: Vector2) -> void:
-	pass
-
-
-func _capture(level: String, category: String, msg: String) -> void:
-	_lines.append(Log.format(level, category, msg))
-
-
-func _logged(prefix: String) -> Array[String]:
-	var out: Array[String] = []
-	for line: String in _lines:
-		if line.begins_with(prefix):
-			out.append(line)
-	return out
+	super()
 
 
 func _bubble() -> ShieldBubble:
@@ -80,38 +38,6 @@ func _step(seconds: float) -> void:
 func _raise(energy: int = 100) -> void:
 	GameState.energy = energy
 	assert_true(_player.try_shield(), "shield raised")
-
-
-func _wasp() -> Wasp:
-	var wasp: Wasp = WASP_SCENE.instantiate() as Wasp
-	wasp.setup({"position": HAZARD_POS})
-	add_child_autofree(wasp)
-	wasp.set_physics_process(false)
-	return wasp
-
-
-func _bastion() -> Bastion:
-	var bastion: Bastion = BASTION_SCENE.instantiate() as Bastion
-	bastion.setup({"position": HAZARD_POS})
-	add_child_autofree(bastion)
-	bastion.set_physics_process(false)
-	return bastion
-
-
-func _asteroid(size: StringName) -> Asteroid:
-	var rock: Asteroid = ASTEROID_SCENE.instantiate() as Asteroid
-	rock.setup({"size": size, "position": HAZARD_POS})
-	add_child_autofree(rock)
-	rock.set_physics_process(false)
-	return rock
-
-
-func _shoot(scene: PackedScene) -> void:
-	var shot: Projectile = scene.instantiate() as Projectile
-	shot.setup({"position": HAZARD_POS, "velocity": Vector2(0, 100), "damage": Config.int_("damage.bullet_hearts")})
-	add_child_autofree(shot)
-	shot.set_physics_process(false)
-	shot._on_area_entered(_player)
 
 
 # --- Start state ------------------------------------------------------------------

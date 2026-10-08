@@ -1,20 +1,10 @@
-extends GutTest
+extends "res://tests/fixtures/player_test_base.gd"
 ## Player death (Story 3.2): the lethal hit plays the PLAYER_DEATH tier (not
 ## PLAYER_HIT), emits player_died then level_failed(&"hearts") once, logs once,
 ## and leaves the ship hidden and inert: no more damage, contact, collision,
 ## i-frames, lock or fire. Driven with physics processing off.
 
-const PLAYER_SCENE: PackedScene = preload("res://entities/player/player.tscn")
-const WASP_SCENE: PackedScene = preload("res://entities/enemies/wasp/wasp.tscn")
-const BASTION_SCENE: PackedScene = preload("res://entities/enemies/bastion/bastion.tscn")
-const ASTEROID_SCENE: PackedScene = preload("res://entities/asteroids/asteroid.tscn")
-const DT: float = 1.0 / 60.0
-## Far from the player, so no real overlap fires.
-const HAZARD_POS: Vector2 = Vector2(1500, 150)
-
-var _player: Player
 var _camera: ShakeCamera
-var _lines: Array[String] = []
 ## Events in the order they fired.
 var _order: Array[String] = []
 var _failed_reasons: Array[StringName] = []
@@ -22,39 +12,26 @@ var _warps: Array[Vector2] = []
 
 
 func before_each() -> void:
-	_lines.clear()
 	_order.clear()
 	_failed_reasons.clear()
 	_warps.clear()
-	Log.sink = _capture
-	watch_signals(Events)
+	_begin()
 	Events.player_hit.connect(_on_player_hit)
 	Events.player_died.connect(_on_player_died)
 	Events.level_failed.connect(_on_level_failed)
 	_camera = ShakeCamera.new()
 	add_child_autofree(_camera)
 	_camera.set_process(false)
-	_player = PLAYER_SCENE.instantiate() as Player
-	_player.warp_mouse = _record_warp
-	add_child_autofree(_player)
-	_player.set_physics_process(false)
-	_player.global_position = Vector2(200, 900)
+	_player = _make_player(PLAYER_POS, _record_warp)
 
 
 func after_each() -> void:
 	Events.player_hit.disconnect(_on_player_hit)
 	Events.player_died.disconnect(_on_player_died)
 	Events.level_failed.disconnect(_on_level_failed)
-	Log.sink = Callable()
-	Feedback.reset()
-	PauseArbiter.clear()
+	super()
 	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-	_player = null
 	_camera = null
-
-
-func _capture(level: String, category: String, msg: String) -> void:
-	_lines.append(Log.format(level, category, msg))
 
 
 func _record_warp(p: Vector2) -> void:
@@ -72,30 +49,6 @@ func _on_player_died() -> void:
 func _on_level_failed(reason: StringName) -> void:
 	_order.append("level_failed")
 	_failed_reasons.append(reason)
-
-
-func _logged(prefix: String) -> Array[String]:
-	var out: Array[String] = []
-	for line: String in _lines:
-		if line.begins_with(prefix):
-			out.append(line)
-	return out
-
-
-func _wasp() -> Wasp:
-	var wasp: Wasp = WASP_SCENE.instantiate() as Wasp
-	wasp.setup({"position": HAZARD_POS})
-	add_child_autofree(wasp)
-	wasp.set_physics_process(false)
-	return wasp
-
-
-func _bastion() -> Bastion:
-	var bastion: Bastion = BASTION_SCENE.instantiate() as Bastion
-	bastion.setup({"position": HAZARD_POS})
-	add_child_autofree(bastion)
-	bastion.set_physics_process(false)
-	return bastion
 
 
 func _kill() -> void:
@@ -207,10 +160,7 @@ func test_contact_after_death_does_nothing() -> void:
 func test_debug_invincible_off_after_death_does_nothing() -> void:
 	_player.hearts = 1
 	_player.debug_invincible = true
-	var rock: Asteroid = ASTEROID_SCENE.instantiate() as Asteroid
-	rock.setup({"size": &"large", "position": HAZARD_POS})
-	add_child_autofree(rock)
-	rock.set_physics_process(false)
+	var rock: Asteroid = _asteroid(&"large")
 	_player.on_contact(rock)
 	assert_false(_player.is_dead(), "invincible: no damage")
 	_player.debug_invincible = false

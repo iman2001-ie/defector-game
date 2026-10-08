@@ -1,4 +1,4 @@
-extends GutTest
+extends "res://tests/fixtures/player_test_base.gd"
 ## Player barrage (Story 3.5): try_barrage spends abilities.barrage.cost through
 ## GameState and starts the PlayerWeapons volley (12 micro-missiles over 2.0 s,
 ## one every duration_s / missiles, whoosh each, LARGE finish at the muzzle on
@@ -7,25 +7,19 @@ extends GutTest
 ## step_barrage with physics off, plus one test through the real
 ## `ability_barrage` input action.
 
-const PLAYER_SCENE: PackedScene = preload("res://entities/player/player.tscn")
-const DT: float = 1.0 / 60.0
 const SHIP: Vector2 = Vector2(960, 900)
 
-var _player: Player
 var _spawner: Spawner
 var _world: Node2D
 var _projectiles: Node2D
 var _effects: Node2D
-var _lines: Array[String] = []
 ## Micro-missiles added to Projectiles (they may leave or be freed later).
 var _launched: int = 0
 
 
 func before_each() -> void:
-	_lines.clear()
 	_launched = 0
-	Log.sink = _capture
-	GameState.energy = 0
+	_begin()
 	_world = Node2D.new()
 	for container: String in ["Projectiles", "Enemies", "Asteroids", "Effects"]:
 		var node: Node2D = Node2D.new()
@@ -38,42 +32,17 @@ func before_each() -> void:
 	_spawner = Spawner.new()
 	_spawner.world = _world
 	add_child_autofree(_spawner)
-	_player = PLAYER_SCENE.instantiate() as Player
-	_player.warp_mouse = _ignore_warp
-	add_child_autofree(_player)
-	_player.set_physics_process(false)
-	_player.global_position = SHIP
+	_player = _make_player(SHIP)
 	_player.set_spawner(_spawner)
-	watch_signals(Events)
 
 
 func after_each() -> void:
 	Input.action_release(&"ability_barrage")
-	Log.sink = Callable()
-	GameState.energy = 0
-	Feedback.reset()
-	PauseArbiter.clear()
-	_player = null
 	_spawner = null
 	_world = null
 	_projectiles = null
 	_effects = null
-
-
-func _ignore_warp(_p: Vector2) -> void:
-	pass
-
-
-func _capture(level: String, category: String, msg: String) -> void:
-	_lines.append(Log.format(level, category, msg))
-
-
-func _logged(prefix: String) -> Array[String]:
-	var out: Array[String] = []
-	for line: String in _lines:
-		if line.begins_with(prefix):
-			out.append(line)
-	return out
+	super()
 
 
 func _on_projectile_added(node: Node) -> void:
