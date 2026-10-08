@@ -318,3 +318,75 @@ source_spec: `spec-2-5-face-lancers-aimed-shots.md`
 severity: medium
 reason: Fails 5/5 runs and also fails at HEAD dfa8063 and at baseline 6cad11a922c2edd30ccb48ff631445a4b329a74e, so it predates Story 2.5. The test waits wait_process_frames(2) after F3 with gap_s 0.05; if those two frames take longer than 0.05 s the next wave's single Wasp has already spawned and is counted. Likely fix: count only enemies from the skipped group, or assert before the gap can elapse.
 status: open
+
+### DW-37: Harden wave-data validation and counting: group counting vs trigger reachability, progress at reachability, type-check trigger/entry fields, Bastion in zoned types, grid width bound, _next_row for slotless types (R1-R7, R9)
+origin: retro action item epic-2-retro-item-15-harden-wave-data-validation-and-counting
+location: n/a
+source_spec: `_bmad-output/implementation-artifacts/epic-2-retro-2026-10-07.md`
+severity: low
+reason: retrospective action item from sprint-status.yaml (epic 2; owner Dev loop; sprint-status status open)
+status: open
+
+### DW-38: Add an integration test that plays level_dev.json to LEVEL CLEAR with real kills (no F3) and asserts no stall ERROR (R3)
+origin: retro action item epic-2-retro-item-16-add-an-integration-test-that-plays-level
+location: n/a
+source_spec: `_bmad-output/implementation-artifacts/epic-2-retro-2026-10-07.md`
+severity: low
+reason: retrospective action item from sprint-status.yaml (epic 2; owner Dev loop; sprint-status status open)
+status: open
+
+### DW-39: Fix the isolation-only failing F3 test in test_wave_director.gd (DW-35) and close DW-36 as its duplicate
+origin: retro action item epic-2-retro-item-17-fix-the-isolation-only-failing-f3-test-i
+location: n/a
+source_spec: `_bmad-output/implementation-artifacts/epic-2-retro-2026-10-07.md`
+severity: low
+reason: retrospective action item from sprint-status.yaml (epic 2; owner Dev loop; sprint-status status open)
+status: open
+
+### DW-40: Decide enemy fire cadence semantics (GDD 2.0/2.5 s vs as-built 2.3/3.0 s period; Needle start-to-start), align Lancer/Bastion/Needle, record in decision log
+origin: retro action item epic-2-retro-item-18-decide-enemy-fire-cadence-semantics-gdd
+location: n/a
+source_spec: `_bmad-output/implementation-artifacts/epic-2-retro-2026-10-07.md`
+severity: low
+reason: retrospective action item from sprint-status.yaml (epic 2; owner Developer (decision) then Dev loop; sprint-status status open)
+status: open
+
+### DW-41: Extract shared enemy behaviour (setup/entry, aim, fire guard, tuning prefix) into core/enemy.gd or a ShooterEnemy base before Epic 6
+origin: retro action item epic-2-retro-item-19-extract-shared-enemy-behaviour-setup-ent
+location: n/a
+source_spec: `_bmad-output/implementation-artifacts/epic-2-retro-2026-10-07.md`
+severity: low
+reason: retrospective action item from sprint-status.yaml (epic 2; owner Dev loop; sprint-status status open)
+status: open
+
+### DW-42: Playtest Epic 2 human ACs: telegraph readability, wave bar on screen, Bastion vs HUD band (DW-34), Hunter Wasp with flag on
+origin: retro action item epic-2-retro-item-20-playtest-epic-2-human-acs-telegraph-read
+location: n/a
+source_spec: `_bmad-output/implementation-artifacts/epic-2-retro-2026-10-07.md`
+severity: low
+reason: retrospective action item from sprint-status.yaml (epic 2; owner Developer (operator); sprint-status status open)
+status: open
+
+### DW-43: Set epic-1 and epic-2 to done in sprint-status once their retros are settled
+origin: retro action item epic-2-retro-item-21-set-epic-1-and-epic-2-to-done-in-sprint
+location: n/a
+source_spec: `_bmad-output/implementation-artifacts/epic-2-retro-2026-10-07.md`
+severity: low
+reason: retrospective action item from sprint-status.yaml (epic 2; owner Developer; sprint-status status open)
+status: open
+
+### DW-44: Make the verify gate catch isolation-only failures (run changed test scripts alone or randomise order), ban unscheduled known allowed failures in specs, dedupe harvested deferrals by test name
+origin: retro action item epic-2-retro-item-22-make-the-verify-gate-catch-isolation-onl
+location: n/a
+source_spec: `_bmad-output/implementation-artifacts/epic-2-retro-2026-10-07.md`
+severity: low
+reason: retrospective action item from sprint-status.yaml (epic 2; owner Planning (SM) / loop config; sprint-status status open)
+status: open
+
+### DW-45: Size stories by systems built: split stories building 5+ systems (2-2 and 2-5 overran the 2M token cap)
+origin: retro action item epic-2-retro-item-23-size-stories-by-systems-built-split-stor
+location: n/a
+source_spec: `_bmad-output/implementation-artifacts/epic-2-retro-2026-10-07.md`
+severity: low
+reason: retrospective action item from sprint-status.yaml (epic 2; owner Planning (SM); sprint-status status open)
+status: open
