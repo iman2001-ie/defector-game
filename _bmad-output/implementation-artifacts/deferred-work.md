@@ -398,7 +398,9 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-2-retro-2026-10-07.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 2; owner Developer (operator); sprint-status status open)
-status: open
+status: done 2026-10-08
+resolution: closed by human decision: operator playtested Epic 2 human ACs
+decision: 2026-10-08 Close: playtest done — operator playtested Epic 2 human ACs
 decision: 2026-10-07 Keep open for the operator playtest
 
 ### DW-43: Set epic-1 and epic-2 to done in sprint-status once their retros are settled
