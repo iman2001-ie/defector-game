@@ -76,16 +76,16 @@ Planning is part of the 20 h total. The must-haves are budgeted to about 13 h; t
 3. *(SHOULD)* **Energy drops:** energy orbs per the drop table, with drift, a 160 px magnet, and a 6 s despawn. The energy bar shows markers at 50 and 100.
 4. *(SHOULD)* **Shield (E):** costs 50 and gives 4 s of invulnerability inside a bubble. Pressing E without enough energy plays the "denied" feedback.
 5. *(SHOULD)* **Barrage (Q):** costs 100 and fires 12 homing micro-missiles over 2 s, each dealing 6 damage.
-6. *(SHOULD)* **Player ship sprite:** a Kenney fighter hull recoloured cyan/teal, pulled forward from the E8 art pass (decision #37).
 
 ---
 
-## E4: Game Flow and Save (MUST, ~1.5 h)
+## E4: Game Flow and Save (MUST, SHOULD player ship sprite, ~2 h)
 
 **Pillars served:** Skilled Not Hopeless (instant, unlimited retries). Also delivers the goal of a finishable game.
 
 **Stories:**
 
+0. *(SHOULD)* **Player ship sprite:** a Kenney fighter hull recoloured cyan/teal, pulled forward from the E8 art pass (decision #37).
 1. **Title screen:** Play (continue), Level Select (locked levels greyed out), and Quit.
 2. **Pause menu (Esc):** Resume, Restart Level, and Quit to Title.
 3. **Unlock and save:** clearing a level unlocks the next one. Unlocked levels and energy are saved to the per-user app data folder on level clear.

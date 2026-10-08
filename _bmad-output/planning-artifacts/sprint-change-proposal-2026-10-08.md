@@ -4,7 +4,7 @@ date: 2026-10-08
 trigger: User request (correct-course 2026-10-08)
 mode: batch
 scope: minor
-status: applied 2026-10-08 - awaiting user review (placement and mode defaulted to the recommendation when the user did not answer)
+status: applied 2026-10-08 - placement revised by the user to the start of Epic 4 (Story 4.0); batch mode
 ---
 
 # Sprint Change Proposal: 2026-10-08
@@ -39,12 +39,12 @@ The rest of Story 8.2 stays in Epic 8.
 | 1.2 Problem type | [x] | Strategic resequencing (scope moved earlier), not a new requirement |
 | 1.3 Evidence | [x] | See above |
 | 2.1 Current epic | [x] | Epics 1–3 are done. Epic 4 has not started |
-| 2.2 Epic changes | [!] | Add Story 3.6 to Epic 3. Epic 3 goes back to `in-progress` until 3.6 is done |
+| 2.2 Epic changes | [!] | Add Story 4.0 at the start of Epic 4. Epic 3 is untouched (the user wants it closed) |
 | 2.3 Future epics | [!] | Story 8.2: the player ship is removed from its art-pass AC; allies, convoy, enemies, backgrounds, portraits, Flagship and HUD stay. Epics 4–7 are unaffected |
 | 2.4 Obsolete / new epics | [N/A] | None |
-| 2.5 Resequencing | [x] | Story 3.6 runs before Story 4.1 |
-| 3.1 GDD | [!] | No design change. Decision log row #37 records the move. The GDD `epics.md` E3 list gets the story |
-| 3.2 Architecture | [x] | No change now. The tree already plans `assets/sprites/player/`. Story 3.6 records the as-built |
+| 2.5 Resequencing | [x] | Story 4.0 runs first in Epic 4, before Story 4.1 |
+| 3.1 GDD | [!] | No design change. Decision log row #37 records the move. The GDD `epics.md` E4 list gets the story |
+| 3.2 Architecture | [x] | No change now. The tree already plans `assets/sprites/player/`. Story 4.0 records the as-built |
 | 3.3 UX | [x] | No change. DESIGN.md Asset Direction already describes the target |
 | 3.4 Other | [!] | First image asset, so the `--import` step and the `.import` sidecar apply. The placeholder resize in `player.gd` and its test change. `CREDITS.md` gets its first third-party row |
 | 4.1 Direct adjustment | Viable | Effort Low, risk Low |
@@ -54,9 +54,10 @@ The rest of Story 8.2 stays in Epic 8.
 
 ### Epic impact
 
-- **Epic 3:** one new story, 3.6. Its status changes from `backlog` to `in-progress`, because the sprint-status `backlog` value was already stale (Epic 3 retro item 29).
+- **Epic 3:** no change.
+- **Epic 4:** one new story, 4.0, at the start. It is numbered 4.0 so that the ids of Stories 4.1–4.5 stay the same, since they are cross-referenced in F12, F13, the architecture and sprint-status.
 - **Epic 8:** the Story 8.2 AC no longer covers the player ship.
-- **Epics 4–7:** no change.
+- **Epics 5–7:** no change.
 
 ### Technical impact
 
@@ -76,30 +77,30 @@ The rest of Story 8.2 stays in Epic 8.
 
 ## 3. Recommended Approach
 
-**Direct Adjustment.** Add Story 3.6 to Epic 3, following the precedent of Stories 1.8–1.10 (added to Epic 1 after it was done). Then trim Story 8.2.
+**Direct Adjustment.** Add Story 4.0 at the start of Epic 4, then trim Story 8.2.
 
 | Story | What | Tier | Effort | Risk |
 |---|---|---|---|---|
-| 3.6 Fly a Real Ship | Kenney Space Shooter Redux fighter hull, recoloured `coalition`, facing up, scaled to `player.sprite_px`, credited | SHOULD (inherits 8.2's tier) | Low (~0.5 h) | Low |
+| 4.0 Fly a Real Ship | Kenney Space Shooter Redux fighter hull, recoloured `coalition`, facing up, scaled to `player.sprite_px`, credited | SHOULD (inherits 8.2's tier) | Low (~0.5 h) | Low |
 
-Placement alternative considered: a Story 4.0 at the head of Epic 4. Rejected because the numbering is awkward and Epic 4 is about game flow.
+Placement: the facilitator first proposed a Story 3.6 at the end of Epic 3. The user chose the start of Epic 4 instead, so Epic 3 stays closed. Renumbering Stories 4.1–4.5 was rejected because too many documents cross-reference them.
 
-Timeline: about 0.5 h before Epic 4. Epic 8 gets the same amount shorter. The cut order is unchanged: if Story 3.6 is cut, the placeholder circle stays until Story 8.2.
+Timeline: about 0.5 h before Epic 4. Epic 8 gets the same amount shorter. The cut order is unchanged: if Story 4.0 is cut, the placeholder circle stays until Story 8.2.
 
 ## 4. Detailed Change Proposals
 
 ### 4.1 Stories: `planning-artifacts/epics.md`
 
-**Epic 3 intro.** Add an amendment note under the epic description:
+**Epic 4 intro.** Add an amendment note under the epic description:
 
 ```
-> **Amended 2026-10-08 (decision #37):** Story 3.6 (player ship sprite) was pulled forward from Story 8.2 and runs before Epic 4.
+> **Amended 2026-10-08 (decision #37):** Story 4.0 (player ship sprite) was pulled forward from Story 8.2 and opens Epic 4. It is numbered 4.0 so Stories 4.1–4.5 keep their ids.
 ```
 
-**New Story 3.6.** Insert it after Story 3.5:
+**New Story 4.0.** Insert it before Story 4.1:
 
 ```
-### Story 3.6: Fly a Real Ship
+### Story 4.0: Fly a Real Ship
 
 As a player,
 I want my ship to look like a fighter instead of a glowing circle,
@@ -154,48 +155,50 @@ OLD:
 ```
 NEW:
 ```
-**Then** Coalition ships (allies and convoy; the player ship is already done in Story 3.6, decision #37) are cyan/teal, Sovereignty enemies …
-**And** the player ship from Story 3.6 is kept, and is only re-tinted if the final palette pass changes `coalition`
+**Then** Coalition ships (allies and convoy; the player ship is already done in Story 4.0, decision #37) are cyan/teal, Sovereignty enemies …
+**And** the player ship from Story 4.0 is kept, and is only re-tinted if the final palette pass changes `coalition`
 ```
 
 Rationale: the rest of 8.2 stays in Epic 8, as the user asked.
 
 **FR coverage map and Epic List.**
-- `FR64: Epic 8 - Art pass` → `FR64: Epic 3 - Player ship sprite (Story 3.6); Epic 8 - Art pass`
-- The Epic 3 "FRs covered" line gets `FR64 (player ship)`.
+- `FR64: Epic 8 - Art pass` → `FR64: Epic 4 - Player ship sprite (Story 4.0); Epic 8 - Art pass`
+- In the Epic 4 Epic List entry:
+  - the "FRs covered" line gets `FR64 (player ship)`
+  - the tier becomes `MUST (player ship sprite SHOULD)`
 
 ### 4.2 GDD
 
 **`decision-log.md`.** New row:
 
 ```
-| 37 | 2026-10-08 | Player ship art pulled forward from Story 8.2 into a new Story 3.6 (before Epic 4): a Kenney Space Shooter Redux (CC0) fighter hull, ~96 px (`player.sprite_px`), recoloured `coalition` cyan/teal, facing up, credited in `game/assets/CREDITS.md`. The rest of Story 8.2 (allies, convoy, enemies, backgrounds, portraits, Flagship, HUD) stays in Epic 8. Tier stays SHOULD | User (correct-course 2026-10-08) | Applied 2026-10-08 via sprint-change-proposal-2026-10-08 (Story 3.6, Story 8.2 AC) |
+| 37 | 2026-10-08 | Player ship art pulled forward from Story 8.2 into a new Story 4.0 (first story of Epic 4, numbered 4.0 so 4.1–4.5 keep their ids): a Kenney Space Shooter Redux (CC0) fighter hull, ~96 px (`player.sprite_px`), recoloured `coalition` cyan/teal, facing up, credited in `game/assets/CREDITS.md`. The rest of Story 8.2 (allies, convoy, enemies, backgrounds, portraits, Flagship, HUD) stays in Epic 8. Tier stays SHOULD | User (correct-course 2026-10-08) | Applied 2026-10-08 via sprint-change-proposal-2026-10-08 (Story 4.0, Story 8.2 AC) |
 ```
 
-**`gdds/.../epics.md` E3 story list.** Add:
+**`gdds/.../epics.md` E4 story list.** Add a first item, and change the heading to `## E4: Game Flow and Save (MUST, SHOULD player ship sprite, ~2 h)`:
 
 ```
-6. *(SHOULD)* **Player ship sprite:** a Kenney fighter hull recoloured cyan/teal, pulled forward from the E8 art pass (decision #37).
+0. *(SHOULD)* **Player ship sprite:** a Kenney fighter hull recoloured cyan/teal, pulled forward from the E8 art pass (decision #37).
 ```
 
 **`gdd.md`.** No change. Its movement table already specifies the ~96 px sprite and the 24 px hitbox.
 
 ### 4.3 Architecture, UX, Narrative
 
-No changes now. Story 3.6 records the architecture as-built.
+No changes now. Story 4.0 records the architecture as-built.
 
 ### 4.4 Sprint status: `implementation-artifacts/sprint-status.yaml`
 
-- `epic-3: backlog` → `epic-3: in-progress`
-- Add `3-6-fly-a-real-ship: backlog` after `3-5-unleash-the-barrage`.
+- Add `4-0-fly-a-real-ship: backlog` before `4-1-launch-into-the-title-screen`.
+- `epic-3` is not touched.
 
 ## 5. Implementation Handoff
 
 - **Scope:** Minor. The Developer agent implements it directly.
-- **Next step:** create the story file with `gds-create-story` (`3-6-fly-a-real-ship`), then build it with `gds-dev-story` or `bmad-loop` before starting Story 4.1.
+- **Next step:** create the story file with `gds-create-story` (`4-0-fly-a-real-ship`), then build it with `gds-dev-story` or `bmad-loop` before starting Story 4.1.
 - **Asset sourcing:** the developer downloads the Kenney Space Shooter Redux pack from kenney.nl. Extract it into a scratch directory, then copy only the chosen hull PNG into `game/assets/sprites/player/`. Don't commit the pack zip (AGENTS.md section 5).
 - **Success criteria:**
-  - every Story 3.6 AC passes
+  - every Story 4.0 AC passes
   - the GUT suite is green after `--import`
   - `CREDITS.md` lists the asset
-  - Story 3.6 is `done` before Story 4.1 starts
+  - Story 4.0 is `done` before Story 4.1 starts

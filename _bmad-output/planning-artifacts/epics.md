@@ -277,7 +277,7 @@ FR60: Epic 2 (level clear) and Epic 7 (game win)
 FR61: Epic 1 (tuning and flags), Epic 2 (waves), Epic 5 (dialogue and flag-gated beats)
 FR62: Epic 1 (cooldown ring), Epic 2 (wave bar), Epic 3 (hearts, energy), Epic 6 (convoy bar), Epic 7 (boss bar)
 FR63: Epic 8 - Audio pass (SFX framework from Epic 1)
-FR64: Epic 3 - Player ship sprite (Story 3.6); Epic 8 - Art pass
+FR64: Epic 4 - Player ship sprite (Story 4.0); Epic 8 - Art pass
 FR65: Epic 8 - Windows release
 FR66: Epic 5 - Control hints (placed into Level 1 in Epic 7)
 
@@ -292,12 +292,12 @@ The player fights through data-scripted waves of Wasps, Lancers, Needles and Bas
 **FRs covered:** FR19, FR20, FR21, FR22, FR24, FR25, FR26, FR27, FR28, FR29, FR60, FR61 (waves)
 
 ### Epic 3: Player Survival and Energy
-The player can take hits, die and retry instantly, collect energy from wreckage and spend it on a Shield or a Barrage to survive spikes. **Tier:** MUST hearts and retry, SHOULD energy, Shield, Barrage and the player ship sprite.
-**FRs covered:** FR9, FR10, FR11, FR12, FR13, FR14, FR15, FR16, FR17, FR64 (player ship)
+The player can take hits, die and retry instantly, collect energy from wreckage and spend it on a Shield or a Barrage to survive spikes. **Tier:** MUST hearts and retry, SHOULD energy, Shield and Barrage.
+**FRs covered:** FR9, FR10, FR11, FR12, FR13, FR14, FR15, FR16, FR17
 
 ### Epic 4: Game Flow, Progression and Save
-The player launches into a title screen, continues where they left off, picks unlocked levels, pauses at any time and keeps their progress between sessions, in fullscreen or windowed mode. **Tier:** MUST.
-**FRs covered:** FR14, FR56, FR57, FR58, FR59
+The player launches into a title screen, continues where they left off, picks unlocked levels, pauses at any time and keeps their progress between sessions, in fullscreen or windowed mode. **Tier:** MUST (player ship sprite SHOULD).
+**FRs covered:** FR14, FR56, FR57, FR58, FR59, FR64 (player ship)
 
 ### Epic 5: Comms and Story Delivery
 The player hears the story without ever leaving the action: an opening comms scene, paused story lines, live combat chatter, Isolde's interruptions, the surrender prompt and the mid-sentence cut-off. **Tier:** MUST panel, data, cut-off and opening; SHOULD interruptions and surrender.
@@ -868,8 +868,6 @@ So that later waves force me to keep moving.
 
 The player can take hits, die and retry instantly, collect energy from wreckage and spend it on a Shield or a Barrage to survive spikes.
 
-> **Amended 2026-10-08 (decision #37):** Story 3.6 (player ship sprite) was pulled forward from Story 8.2 and runs before Epic 4.
-
 ### Story 3.1: Take Hits with Hearts and Mercy Invulnerability
 
 As a player,
@@ -1005,7 +1003,15 @@ So that I have a panic button against a crowded screen.
 **When** I press Q
 **Then** nothing fires, `Events.ability_denied(&"barrage")` fires, the "denied" SFX plays and the energy bar flashes
 
-### Story 3.6: Fly a Real Ship
+---
+
+## Epic 4: Game Flow, Progression and Save
+
+The player launches into a title screen, continues where they left off, picks unlocked levels, pauses at any time and keeps their progress between sessions, in fullscreen or windowed mode.
+
+> **Amended 2026-10-08 (decision #37):** Story 4.0 (player ship sprite) was pulled forward from Story 8.2 and opens Epic 4. It is numbered 4.0 so Stories 4.1–4.5 keep their ids.
+
+### Story 4.0: Fly a Real Ship
 
 As a player,
 I want my ship to look like a fighter instead of a glowing circle,
@@ -1048,12 +1054,6 @@ So that I can read where my ship is and where its nose points at a glance.
 **Given** I play the dev level (human check)
 **When** I fly and fight
 **Then** the ship reads at a glance as a cyan/teal fighter pointing up, distinct from enemies and pickups, with glow on
-
----
-
-## Epic 4: Game Flow, Progression and Save
-
-The player launches into a title screen, continues where they left off, picks unlocked levels, pauses at any time and keeps their progress between sessions, in fullscreen or windowed mode.
 
 ### Story 4.1: Launch into the Title Screen
 
@@ -1832,8 +1832,8 @@ So that I can read friend, foe, pickup and hazard at a glance.
 
 **Given** the Kenney space packs recoloured to the palette
 **When** the art pass is complete
-**Then** Coalition ships (allies and convoy; the player ship is already done in Story 3.6, decision #37) are cyan/teal, Sovereignty enemies and all enemy projectiles are magenta/red, energy orbs are gold, and asteroids are desaturated grey-brown with a rim light
-**And** the player ship from Story 3.6 is kept, and is only re-tinted if the final palette pass changes `coalition`
+**Then** Coalition ships (allies and convoy; the player ship is already done in Story 4.0, decision #37) are cyan/teal, Sovereignty enemies and all enemy projectiles are magenta/red, energy orbs are gold, and asteroids are desaturated grey-brown with a rim light
+**And** the player ship from Story 4.0 is kept, and is only re-tinted if the final palette pass changes `coalition`
 
 **Given** the asset list
 **When** I check the project
