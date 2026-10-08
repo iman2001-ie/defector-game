@@ -231,6 +231,33 @@ func test_clearing_every_dev_wave_clears_the_level() -> void:
 	assert_eq(cleared_lines, 1, "INFO level clear")
 
 
+## Story 2.5: level_dev wave 3 brings two counted Lancers into World/Enemies.
+func test_dev_wave_3_has_lancers() -> void:
+	(Config.tuning["waves"] as Dictionary)["gap_s"] = 0.05
+	_make_level()
+	var director: WaveDirector = _level.get_node("WaveDirector") as WaveDirector
+	for wave: int in 2:
+		director.debug_resolve_wave()
+		var waited: float = 0.0
+		while director.wave_number() == wave + 1 and waited < 3.0:
+			await wait_seconds(0.1)
+			waited += 0.1
+	assert_eq(director.wave_number(), 3, "on wave 3")
+	var lancers: int = 0
+	var spawner: Spawner = _level.get_node("Spawner") as Spawner
+	for child: Node in _level.get_node("World/Enemies").get_children():
+		var lancer: Lancer = child as Lancer
+		if lancer == null or lancer.is_queued_for_deletion() or not lancer.is_in_group(&"counted"):
+			continue
+		lancers += 1
+		assert_eq(lancer.state(), Lancer.State.ENTER, "still entering")
+		# A side entry flies level at the slot's y; a top entry would still be above it.
+		assert_almost_eq(lancer.global_position.y, lancer.formation_slot().y, 0.5,
+			"side entry: level with its slot at y %.1f" % lancer.global_position.y)
+		assert_eq(lancer.spawner, spawner, "the level Spawner is injected")
+	assert_eq(lancers, 2, "two Lancers in wave 3")
+
+
 # --- Debug-arg gates ----------------------------------------------------------
 
 const LEVEL_SCRIPT: GDScript = preload("res://scenes/level/level.gd")

@@ -50,10 +50,16 @@ func _on_area_entered(area: Area2D) -> void:
 	if _spent:
 		return
 	_spent = true
-	if area.has_method(&"apply_damage"):
+	if area.has_method(&"apply_damage") and _can_damage(area):
 		area.call(&"apply_damage", damage, self)
 	_on_impact(area)
 	queue_free()
+
+
+## Damage hook: false stops this projectile from damaging `area` (it still
+## stops and frees). EnemyBullet overrides it so enemy shots never chip asteroids.
+func _can_damage(_area: Area2D) -> bool:
+	return true
 
 
 ## Impact hook: plays the impact feedback. Missile overrides it for splash and

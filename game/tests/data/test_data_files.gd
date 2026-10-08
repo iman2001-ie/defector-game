@@ -1,7 +1,8 @@
 extends GutTest
 ## Data files: every level_*.json in res://data/levels/ passes LevelValidator;
 ## every telegraph in tuning.enemies / tuning.boss is >= the 0.3 s minimum;
-## Wasp waves fit their formation rows inside the top zone.
+## every enemy bullet speed is <= the readable maximum; Wasp and Lancer waves
+## fit their formation rows inside each type's top zone.
 
 const LEVELS_DIR: String = "res://data/levels/"
 
@@ -75,24 +76,81 @@ func test_every_telegraph_meets_the_minimum() -> void:
 			assert_gte(float(value), minimum, "%s >= %.1f s" % [path, minimum])
 
 
-# --- Wasp formation zone ------------------------------------------------------
+# --- Bullet speed rule (Pillar 1) ---------------------------------------------
+
+## Collects path -> value for every `bullet_speed_px_s` under tuning.enemies.
+## enemies.needle.bolt_speed_px_s (1600) is deliberately not collected: the
+## Needle bolt is the GDD's one telegraphed exception to the 450 px/s rule.
+static func _collect_enemy_bullet_speeds(node: Variant, path: String, out: Dictionary) -> void:
+	if not (node is Dictionary):
+		return
+	var dict: Dictionary = node
+	for key: Variant in dict:
+		var child_path: String = "%s.%s" % [path, str(key)]
+		if str(key) == "bullet_speed_px_s":
+			out[child_path] = dict[key]
+		_collect_enemy_bullet_speeds(dict[key], child_path, out)
+
+
+## Collects path -> value for every key ending `_speed_px_s` under tuning.boss.
+static func _collect_speeds(node: Variant, path: String, out: Dictionary) -> void:
+	if not (node is Dictionary):
+		return
+	var dict: Dictionary = node
+	for key: Variant in dict:
+		var child_path: String = "%s.%s" % [path, str(key)]
+		if str(key).ends_with("_speed_px_s"):
+			out[child_path] = dict[key]
+		_collect_speeds(dict[key], child_path, out)
+
+
+func test_every_enemy_bullet_is_at_most_the_max_speed() -> void:
+	var maximum: float = Config.num("weapons.enemy_bullet.max_speed_px_s")
+	assert_eq(maximum, 450.0, "GDD maximum enemy bullet speed")
+	var found: Dictionary = {}
+	_collect_enemy_bullet_speeds(Config.tuning.get("enemies"), "enemies", found)
+	_collect_speeds(Config.tuning.get("boss"), "boss", found)
+	for expected: String in ["enemies.lancer.bullet_speed_px_s", "enemies.bastion.bullet_speed_px_s"]:
+		assert_true(found.has(expected), "walk finds %s" % expected)
+	var boss_found: int = 0
+	for path: String in found:
+		if path.begins_with("boss."):
+			boss_found += 1
+	assert_gt(boss_found, 0, "walk finds boss speeds")
+	for path: String in found:
+		var value: Variant = found[path]
+		assert_true(value is float or value is int, "%s is a number" % path)
+		if value is float or value is int:
+			assert_lte(float(value), maximum, "%s <= %.0f px/s" % [path, maximum])
+
+
+# --- Formation zones ----------------------------------------------------------
 
 func _entry_count(entry: Dictionary) -> int:
 	var raw: Variant = entry.get("count", 0)
 	return int(raw) if (raw is float or raw is int) else 0
 
 
+## Enemy types whose formation slots must sit in their own top zone.
+const ZONED_TYPES: Array[StringName] = [&"wasp", &"lancer"]
+
+
 ## Mirrors WaveDirector._spawn_entry: spawns then groups, in order, on a running
 ## first row; non-objects, unknown types and empty entries take no rows. Every
-## Wasp slot must be inside the top zone and fully on screen horizontally.
-func test_wasp_formations_fit_the_top_zone() -> void:
+## Wasp and Lancer slot must be inside its type's enemies.<type>.zone_height_ratio
+## zone and fully on screen horizontally.
+func test_zoned_formations_fit_their_top_zone() -> void:
 	var spacing: Vector2 = Vector2(Config.num("waves.formation.spacing_px.x"), Config.num("waves.formation.spacing_px.y"))
 	var top_y: float = Config.num("waves.formation.top_y")
-	var zone_y: float = Config.num("enemies.wasp.zone_height_ratio") * Playfield.SIZE.y
-	var probe: Enemy = (EntityRegistry.ENEMIES[&"wasp"] as PackedScene).instantiate() as Enemy
-	var half: float = probe.sprite_px / 2.0
-	probe.free()
-	var checked: int = 0
+	var zone_y: Dictionary = {}
+	var half: Dictionary = {}
+	var checked: Dictionary = {}
+	for type_id: StringName in ZONED_TYPES:
+		zone_y[type_id] = Config.num("enemies.%s.zone_height_ratio" % type_id) * Playfield.SIZE.y
+		var probe: Enemy = (EntityRegistry.ENEMIES[type_id] as PackedScene).instantiate() as Enemy
+		half[type_id] = probe.sprite_px / 2.0
+		probe.free()
+		checked[type_id] = 0
 	for path: String in _level_files():
 		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
 		if not (parsed is Dictionary) or not ((parsed as Dictionary).get("waves") is Array):
@@ -119,14 +177,17 @@ func test_wasp_formations_fit_the_top_zone() -> void:
 				if not EntityRegistry.ENEMIES.has(type_id) or count <= 0:
 					continue
 				var formation: String = str(entry["formation"]) if entry.get("formation") is String else ""
-				if type_id == &"wasp":
-					checked += 1
+				if ZONED_TYPES.has(type_id):
+					checked[type_id] = int(checked[type_id]) + 1
+					var limit: float = zone_y[type_id]
+					var h: float = half[type_id]
 					for slot: Vector2 in Formation.slots(formation, count, first_row, spacing, top_y, Playfield.SIZE.x):
-						var where: String = "%s waves[%d] wasp slot %s" % [path, i, slot]
-						assert_lte(slot.y, zone_y, where + " inside the top zone")
-						assert_between(slot.x, half, Playfield.SIZE.x - half, where + " fully on screen")
+						var where: String = "%s waves[%d] %s slot %s" % [path, i, type_id, slot]
+						assert_between(slot.y, h, limit, where + " inside the top zone, fully on screen")
+						assert_between(slot.x, h, Playfield.SIZE.x - h, where + " fully on screen")
 				first_row += Formation.rows_used(formation, count, spacing, Playfield.SIZE.x)
-	assert_gt(checked, 0, "at least one Wasp entry checked")
+	for type_id: StringName in ZONED_TYPES:
+		assert_gt(int(checked[type_id]), 0, "at least one %s entry checked" % type_id)
 
 
 func test_wasp_tuning_ranges() -> void:
@@ -141,3 +202,13 @@ func test_wasp_tuning_ranges() -> void:
 	assert_lte(zone, 1.0, "zone_height_ratio <= 1")
 	assert_gt(Config.num("enemies.wasp.wing_flash_hz"), 0.0, "wing_flash_hz > 0")
 	assert_gt(Config.num("enemies.wasp.wing_flash_energy"), 1.0, "wing_flash_energy > 1")
+
+
+func test_lancer_tuning_ranges() -> void:
+	assert_gt(Config.num("enemies.lancer.strafe_speed_px_s"), 0.0, "strafe_speed_px_s > 0")
+	assert_gt(Config.num("enemies.lancer.bullet_speed_px_s"), 0.0, "bullet_speed_px_s > 0")
+	assert_gt(Config.num("enemies.lancer.fire_interval_s"), 0.0, "fire_interval_s > 0")
+	assert_gt(Config.num("enemies.lancer.muzzle_glow_energy"), 1.0, "muzzle_glow_energy > 1")
+	var zone: float = Config.num("enemies.lancer.zone_height_ratio")
+	assert_gt(zone, 0.0, "zone_height_ratio > 0")
+	assert_lte(zone, 1.0, "zone_height_ratio <= 1")

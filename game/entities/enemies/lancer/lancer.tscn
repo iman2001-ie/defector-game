@@ -1,0 +1,40 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://entities/enemies/lancer/lancer.gd" id="1_lancer"]
+
+[sub_resource type="Gradient" id="Gradient_glow"]
+offsets = PackedFloat32Array(0, 0.35, 1)
+colors = PackedColorArray(1, 1, 1, 1, 1, 0.168627, 0.839216, 0.8, 1, 0.168627, 0.839216, 0)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_glow"]
+gradient = SubResource("Gradient_glow")
+width = 32
+height = 32
+fill = 1
+fill_from = Vector2(0.5, 0.5)
+fill_to = Vector2(1, 0.5)
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_add"]
+blend_mode = 1
+
+[node name="Lancer" type="Area2D"]
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("1_lancer")
+sprite_px = 96.0
+
+[node name="Hitbox" type="CollisionShape2D" parent="."]
+
+[node name="Hull" type="Polygon2D" parent="."]
+color = Color(1, 0.168627, 0.839216, 1)
+polygon = PackedVector2Array(0, 48, -5, 18, -20, 10, -46, -2, -48, -18, -28, -14, -16, -30, 16, -30, 28, -14, 48, -18, 46, -2, 20, 10, 5, 18)
+
+[node name="Muzzle" type="Marker2D" parent="."]
+position = Vector2(0, 44)
+rotation = 1.5708
+
+[node name="MuzzleGlow" type="Sprite2D" parent="Muzzle"]
+visible = false
+material = SubResource("CanvasItemMaterial_add")
+texture = SubResource("GradientTexture2D_glow")

@@ -45,6 +45,34 @@ func test_registry_has_wasp_and_asteroid() -> void:
 	assert_not_null(EntityRegistry.ASTEROID)
 
 
+func test_registry_has_lancer_and_enemy_bullet() -> void:
+	assert_true(EntityRegistry.ENEMIES.has(&"lancer"))
+	assert_true(EntityRegistry.PROJECTILES.has(&"enemy_bullet"))
+	assert_true(EntityRegistry.enemy_types().has(&"lancer"), "a known level type")
+
+
+func test_spawned_enemy_gets_the_spawner() -> void:
+	var spawner: Spawner = _make_spawner(_world)
+	for type_id: StringName in [&"wasp", &"lancer"]:
+		var enemy: Enemy = spawner.spawn_enemy(type_id, {"position": Vector2(640, 160)})
+		assert_not_null(enemy)
+		if enemy != null:
+			enemy.set_physics_process(false)
+			assert_eq(enemy.spawner, spawner, "%s.spawner is the Spawner" % type_id)
+
+
+func test_spawn_enemy_bullet() -> void:
+	var spawner: Spawner = _make_spawner(_world)
+	var bullet: Projectile = spawner.spawn_projectile(&"enemy_bullet",
+		{"position": Vector2(400, 300), "velocity": Vector2(0, 450), "damage": 1})
+	assert_true(bullet is EnemyBullet)
+	if bullet == null:
+		return
+	bullet.set_physics_process(false)
+	assert_eq(bullet.get_parent(), _projectiles)
+	assert_eq(bullet.global_position, Vector2(400, 300))
+
+
 func test_spawn_parents_into_projectiles_with_params() -> void:
 	var spawner: Spawner = _make_spawner(_world)
 	var bolt: Projectile = spawner.spawn_projectile(&"laser_bolt",

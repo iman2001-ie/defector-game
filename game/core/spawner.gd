@@ -65,6 +65,7 @@ func spawn_enemy(type_id: StringName, params: Dictionary) -> Enemy:
 		Log.error("spawn", "enemy type '%s' is not an Enemy" % type_id)
 		node.queue_free()
 		return null
+	enemy.spawner = self
 	enemy.setup(params)
 	_enemies.add_child(enemy)
 	return enemy

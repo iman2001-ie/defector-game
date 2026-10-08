@@ -11,6 +11,9 @@ signal resolved
 @export var sprite_px: float = 64.0
 
 var type_id: StringName
+## Set by Spawner before add_child; shooters request projectiles through it.
+## Null for enemies created outside a Spawner (some tests).
+var spawner: Spawner = null
 var tier: int = ImpactTier.SMALL
 var hp: int = 0
 

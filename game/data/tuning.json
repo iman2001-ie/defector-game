@@ -84,6 +84,7 @@
 			"fire_interval_s": 2.0,
 			"bullet_speed_px_s": 450,
 			"telegraph_s": 0.3,
+			"muzzle_glow_energy": 2.5,
 			"convoy_aim_chance": 0.5
 		},
 		"needle": {

@@ -310,3 +310,11 @@ source_spec: `spec-2-3-watch-the-wave-progress-bar-fill.md`
 severity: medium
 reason: Pre-existing (Story 2.2 test, untouched by 2.3): it fails 5/5 in isolation on HEAD and 2/2 at baseline 07bcc62 in a clean worktree. The test sets waves.gap_s = 0.05, then awaits 2 process frames and asserts no counted enemies; the log shows wave 2/2 (1 wasp) already started before the assert, so the 0.05 s gap elapses within those 2 headless frames. The earlier 2.3 pass saw it green, so it depends on frame timing.
 status: open
+
+### DW-36: test_wave_director.test_f3_resolves_the_wave_and_fires_pending_triggers_in_order fails deterministically on this machine ("the skipped group never spawns": expected 0, got 1).
+origin: spec-deferred af06330c8b77
+location: game/tests/unit/test_wave_director.gd:387
+source_spec: `spec-2-5-face-lancers-aimed-shots.md`
+severity: medium
+reason: Fails 5/5 runs and also fails at HEAD dfa8063 and at baseline 6cad11a922c2edd30ccb48ff631445a4b329a74e, so it predates Story 2.5. The test waits wait_process_frames(2) after F3 with gap_s 0.05; if those two frames take longer than 0.05 s the next wave's single Wasp has already spawned and is counted. Likely fix: count only enemies from the skipped group, or assert before the gap can elapse.
+status: open

@@ -35,6 +35,7 @@
 		},
 		{
 			"spawns": [
+				{ "type": "lancer", "count": 2, "formation": "grid_2x1", "entry": "sides" },
 				{ "type": "wasp", "count": 10, "formation": "grid_5x2", "entry": "top" }
 			],
 			"asteroids": [],
