@@ -1,1 +1,47 @@
-{}
+{
+  "DW-26": {
+    "answered_at": "2026-10-07",
+    "bundle_name": "",
+    "effect": "keep-open",
+    "intent": "",
+    "key": "1",
+    "label": "Keep open: operator re-runs the retro",
+    "resolution": ""
+  },
+  "DW-28": {
+    "answered_at": "2026-10-07",
+    "bundle_name": "",
+    "effect": "build",
+    "intent": "Amend AGENTS.md section 5 to also accept 'sweep <bundle>: DW-n ...', 'chore(<scope>): ...' for orchestration/bookkeeping commits, and a clear summary for non-story manual work (retros, correct-course), keeping story references required for story work.",
+    "key": "1",
+    "label": "Amend section 5 to list the loop forms",
+    "resolution": ""
+  },
+  "DW-37": {
+    "answered_at": "2026-10-07",
+    "bundle_name": "",
+    "effect": "build",
+    "intent": "LevelValidator rejects any group whose naming trigger can never fire (wave_clear, off or unknown flag, unevaluated boss_* triggers) and any progress `at` that cannot be reached before the group spawns; also type-check at/phase/hp/flag (against flags.json)/wait/entry and unknown action keys, add Bastion to ZONED_TYPES in test_data_files.gd, bound grid columns to the playfield width in validator and Formation, and stop _next_row advancing for Needle and Hunter Wasp. Tests for each rule.",
+    "key": "1",
+    "label": "Build: unreachable group is a validation error",
+    "resolution": ""
+  },
+  "DW-40": {
+    "answered_at": "2026-10-07",
+    "bundle_name": "",
+    "effect": "build",
+    "intent": "Change Lancer and Bastion so the shot period equals fire_interval_s (timer runs interval minus telegraph), matching the Needle's start-to-start semantics; update tests, the as-built notes in game-architecture.md and add a decision-log row.",
+    "key": "1",
+    "label": "Full period: interval includes the telegraph",
+    "resolution": ""
+  },
+  "DW-42": {
+    "answered_at": "2026-10-07",
+    "bundle_name": "",
+    "effect": "keep-open",
+    "intent": "",
+    "key": "1",
+    "label": "Keep open for the operator playtest",
+    "resolution": ""
+  }
+}

@@ -501,10 +501,13 @@ func test_f3_resolves_the_wave_and_fires_pending_triggers_in_order() -> void:
 	assert_gt(first_at, -1, "the at 0.25 trigger ran its action")
 	assert_gt(third_at, first_at, "the at 0.25 trigger ran before the at 0.75 one")
 	assert_eq(_events_named("wave_cleared").size(), 1, "wave cleared")
-	await wait_process_frames(2)
-	assert_eq(_counted().size(), 0, "the skipped group never spawns")
+	# Assert after the gap, once the state is settled, so the outcome never
+	# depends on whether the gap ended during a frame wait (DW-35).
 	await wait_seconds(GAP_S + 0.1)
 	assert_eq(_events_named("wave_started").size(), 2, "next wave starts")
+	assert_eq(_lines_containing("[DEBUG][beat] Group 'r' was skipped").size(), 1, "the group's spawn request was refused")
+	assert_eq(_lines_containing("group 'r' spawned").size(), 0, "the skipped group never spawns")
+	assert_eq(_counted().size(), 1, "only wave 2's Wasp is alive")
 
 
 func test_f3_cancels_a_pending_group_spawn() -> void:

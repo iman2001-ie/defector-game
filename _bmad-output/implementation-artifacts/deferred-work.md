@@ -243,6 +243,7 @@ source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 1; owner Developer; sprint-status status open)
 status: open
+decision: 2026-10-07 Keep open: operator re-runs the retro
 
 ### DW-27: The --no-prewarm wiring through Sandbox._ready and DebugTools._ready is not covered by any test, so a regression could mislabel the prewarm on/off comparison.
 origin: spec-deferred def51ca50f5c
@@ -259,6 +260,7 @@ source_spec: `spec-dw-15-dw-16-agents-md-import-and-commit-format.md`
 severity: medium
 reason: git log shows `sweep dw-stress-bench-nfr-peak: DW-9, DW-21 via bmad-loop`, `chore(operator): confirm ...`, `chore(decisions): pre-answer DW-15`, `Epic 1 retro: revision 2`. The DW-15 decision only covers the `story <key>: ...` form, and the fix edits AGENTS.md (agent-context file), so it is deferred.
 status: open
+decision: 2026-10-07 Amend section 5 to list the loop forms — Amend AGENTS.md section 5 to also accept 'sweep <bundle>: DW-n ...', 'chore(<scope>): ...' for orchestration/bookkeeping commits, and a clear summary for non-story manual work (retros, correct-course), keeping story references required for story work.
 
 ### DW-29: The --import re-run triggers name only adding class_name scripts or imported assets; renaming, moving or deleting class_name scripts, changing imported assets, and pulling or switching branches that
 origin: spec-deferred e5e258f88c18
@@ -274,7 +276,9 @@ location: _bmad-output/implementation-artifacts/deferred-work.md (DW-15)
 source_spec: `spec-dw-15-dw-16-agents-md-import-and-commit-format.md`
 severity: low
 reason: Commit `chore(decisions): pre-answer DW-15` recorded it in the ledger before this run. No process decision log exists, and the GDD decision log covers game design. This is pre-existing and not caused by this change.
-status: open
+status: done 2026-10-07
+resolution: closed by human decision: Process decisions are recorded on the ledger entry's decision: line and in the AGENTS.md change itself.
+decision: 2026-10-07 Close: ledger plus AGENTS.md is the record — Process decisions are recorded on the ledger entry's decision: line and in the AGENTS.md change itself.
 
 ### DW-31: The --import re-run reason ("headless -s runs don't rescan the class cache") explains only the class_name trigger; it does not say why new imported assets also need a re-run (headless -s runs don't
 origin: spec-deferred a79436289cb2
@@ -304,7 +308,9 @@ origin: spec-deferred c6c13658c554
 location: _bmad-output/planning-artifacts/gdds/gdd-game-project-2026-10-06/gdd.md:269
 source_spec: `spec-2-1-count-wave-progress-and-evaluate-beat-triggers.md`
 reason: Pre-existing in the plan, not caused by Story 2.1: GDD gdd.md L269 and epics.md FR22/L829 set "y 80–400", while the UX layout puts the HUD band at 0–120 and the wave bar at y 40. Whether a sprite actually overlaps depends on the Bastion's sprite size and how its y is clamped. To settle it, check the Bastion story (Epic 2) against DESIGN.md's layout bands before building the Bastion.
-status: open
+status: done 2026-10-07
+resolution: closed by human decision: Story 2.7 clamps the whole hull to y 80-400; any remaining visual overlap is checked in the DW-42 playtest.
+decision: 2026-10-07 Close: covered by 2.7 and the DW-42 playtest — Story 2.7 clamps the whole hull to y 80-400; any remaining visual overlap is checked in the DW-42 playtest.
 
 ### DW-35: test_f3_resolves_the_wave_and_fires_pending_triggers_in_order fails deterministically in this environment ("the skipped group never spawns", expected 0 got 1).
 origin: spec-deferred 25bf8310c4a6
@@ -312,7 +318,9 @@ location: game/tests/unit/test_wave_director.gd:347
 source_spec: `spec-2-3-watch-the-wave-progress-bar-fill.md`
 severity: medium
 reason: Pre-existing (Story 2.2 test, untouched by 2.3): it fails 5/5 in isolation on HEAD and 2/2 at baseline 07bcc62 in a clean worktree. The test sets waves.gap_s = 0.05, then awaits 2 process frames and asserts no counted enemies; the log shows wave 2/2 (1 wasp) already started before the assert, so the 0.05 s gap elapses within those 2 headless frames. The earlier 2.3 pass saw it green, so it depends on frame timing.
-status: open
+status: done 2026-10-07
+resolution: resolved by sweep bundle dw-wave-test-reliability
+resolution-undo: eb9cda2ef210f1add7d9e92328d25734709b8f4028591fe755790a11a15e164c 2026-10-07 7374617475733a206f70656e
 
 ### DW-36: test_wave_director.test_f3_resolves_the_wave_and_fires_pending_triggers_in_order fails deterministically on this machine ("the skipped group never spawns": expected 0, got 1).
 origin: spec-deferred af06330c8b77
@@ -320,7 +328,9 @@ location: game/tests/unit/test_wave_director.gd:387
 source_spec: `spec-2-5-face-lancers-aimed-shots.md`
 severity: medium
 reason: Fails 5/5 runs and also fails at HEAD dfa8063 and at baseline 6cad11a922c2edd30ccb48ff631445a4b329a74e, so it predates Story 2.5. The test waits wait_process_frames(2) after F3 with gap_s 0.05; if those two frames take longer than 0.05 s the next wave's single Wasp has already spawned and is counted. Likely fix: count only enemies from the skipped group, or assert before the gap can elapse.
-status: open
+status: done 2026-10-07
+resolution: resolved by sweep bundle dw-wave-test-reliability
+resolution-undo: eb9cda2ef210f1add7d9e92328d25734709b8f4028591fe755790a11a15e164c 2026-10-07 7374617475733a206f70656e
 
 ### DW-37: Harden wave-data validation and counting: group counting vs trigger reachability, progress at reachability, type-check trigger/entry fields, Bastion in zoned types, grid width bound, _next_row for slotless types (R1-R7, R9)
 origin: retro action item epic-2-retro-item-15-harden-wave-data-validation-and-counting
@@ -329,6 +339,7 @@ source_spec: `_bmad-output/implementation-artifacts/epic-2-retro-2026-10-07.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 2; owner Dev loop; sprint-status status open)
 status: open
+decision: 2026-10-07 Build: unreachable group is a validation error — LevelValidator rejects any group whose naming trigger can never fire (wave_clear, off or unknown flag, unevaluated boss_* triggers) and any progress `at` that cannot be reached before the group spawns; also type-check at/phase/hp/flag (against flags.json)/wait/entry and unknown action keys, add Bastion to ZONED_TYPES in test_data_files.gd, bound grid columns to the playfield width in validator and Formation, and stop _next_row advancing for Needle and Hunter Wasp. Tests for each rule.
 
 ### DW-38: Add an integration test that plays level_dev.json to LEVEL CLEAR with real kills (no F3) and asserts no stall ERROR (R3)
 origin: retro action item epic-2-retro-item-16-add-an-integration-test-that-plays-level
@@ -336,7 +347,9 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-2-retro-2026-10-07.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 2; owner Dev loop; sprint-status status open)
-status: open
+status: done 2026-10-07
+resolution: resolved by sweep bundle dw-wave-test-reliability
+resolution-undo: eb9cda2ef210f1add7d9e92328d25734709b8f4028591fe755790a11a15e164c 2026-10-07 7374617475733a206f70656e
 
 ### DW-39: Fix the isolation-only failing F3 test in test_wave_director.gd (DW-35) and close DW-36 as its duplicate
 origin: retro action item epic-2-retro-item-17-fix-the-isolation-only-failing-f3-test-i
@@ -344,7 +357,9 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-2-retro-2026-10-07.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 2; owner Dev loop; sprint-status status open)
-status: open
+status: done 2026-10-07
+resolution: resolved by sweep bundle dw-wave-test-reliability
+resolution-undo: eb9cda2ef210f1add7d9e92328d25734709b8f4028591fe755790a11a15e164c 2026-10-07 7374617475733a206f70656e
 
 ### DW-40: Decide enemy fire cadence semantics (GDD 2.0/2.5 s vs as-built 2.3/3.0 s period; Needle start-to-start), align Lancer/Bastion/Needle, record in decision log
 origin: retro action item epic-2-retro-item-18-decide-enemy-fire-cadence-semantics-gdd
@@ -353,6 +368,7 @@ source_spec: `_bmad-output/implementation-artifacts/epic-2-retro-2026-10-07.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 2; owner Developer (decision) then Dev loop; sprint-status status open)
 status: open
+decision: 2026-10-07 Full period: interval includes the telegraph — Change Lancer and Bastion so the shot period equals fire_interval_s (timer runs interval minus telegraph), matching the Needle's start-to-start semantics; update tests, the as-built notes in game-architecture.md and add a decision-log row.
 
 ### DW-41: Extract shared enemy behaviour (setup/entry, aim, fire guard, tuning prefix) into core/enemy.gd or a ShooterEnemy base before Epic 6
 origin: retro action item epic-2-retro-item-19-extract-shared-enemy-behaviour-setup-ent
@@ -369,6 +385,7 @@ source_spec: `_bmad-output/implementation-artifacts/epic-2-retro-2026-10-07.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 2; owner Developer (operator); sprint-status status open)
 status: open
+decision: 2026-10-07 Keep open for the operator playtest
 
 ### DW-43: Set epic-1 and epic-2 to done in sprint-status once their retros are settled
 origin: retro action item epic-2-retro-item-21-set-epic-1-and-epic-2-to-done-in-sprint
@@ -376,7 +393,9 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-2-retro-2026-10-07.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 2; owner Developer; sprint-status status open)
-status: open
+status: done 2026-10-07
+resolution: closed by human decision: Operator edits sprint-status.yaml directly; all stories and retros for epics 1 and 2 are done.
+decision: 2026-10-07 Operator sets both to done now — Operator edits sprint-status.yaml directly; all stories and retros for epics 1 and 2 are done.
 
 ### DW-44: Make the verify gate catch isolation-only failures (run changed test scripts alone or randomise order), ban unscheduled known allowed failures in specs, dedupe harvested deferrals by test name
 origin: retro action item epic-2-retro-item-22-make-the-verify-gate-catch-isolation-onl
@@ -384,7 +403,9 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-2-retro-2026-10-07.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 2; owner Planning (SM) / loop config; sprint-status status open)
-status: open
+status: done 2026-10-07
+resolution: closed by human decision: Operator adds a per-changed-script or randomised-order GUT run to the local [verify] commands and bans unscheduled known failures in spec templates.
+decision: 2026-10-07 Operator updates loop config and spec rules — Operator adds a per-changed-script or randomised-order GUT run to the local [verify] commands and bans unscheduled known failures in spec templates.
 
 ### DW-45: Size stories by systems built: split stories building 5+ systems (2-2 and 2-5 overran the 2M token cap)
 origin: retro action item epic-2-retro-item-23-size-stories-by-systems-built-split-stor
@@ -392,4 +413,6 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-2-retro-2026-10-07.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 2; owner Planning (SM); sprint-status status open)
-status: open
+status: done 2026-10-07
+resolution: closed by human decision: Operator raises max_tokens_per_story in the local loop policy.
+decision: 2026-10-07 Raise the per-story cap again — Operator raises max_tokens_per_story in the local loop policy.

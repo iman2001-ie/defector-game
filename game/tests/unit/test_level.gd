@@ -231,6 +231,54 @@ func test_clearing_every_dev_wave_clears_the_level() -> void:
 	assert_eq(cleared_lines, 1, "INFO level clear")
 
 
+## R3 / DW-38: shipped level_dev cleared by real kills (no F3), so the kill ->
+## progress trigger -> reinforcements -> clear path runs against shipped data.
+func test_dev_level_clears_with_real_kills_and_no_stall() -> void:
+	const DEADLINE_S: float = 15.0
+	(Config.tuning["waves"] as Dictionary)["gap_s"] = 0.05
+	Log.sink = _capture
+	_make_level()
+	var director: WaveDirector = _level.get_node("WaveDirector") as WaveDirector
+	var banner: Label = _level.get_node("HUD/LevelClearBanner") as Label
+	var enemies: Node = _level.get_node("World/Enemies")
+	var end_ms: int = Time.get_ticks_msec() + int(DEADLINE_S * 1000.0)
+	while not director.is_level_cleared() and Time.get_ticks_msec() < end_ms:
+		for child: Node in enemies.get_children():
+			var enemy: Enemy = child as Enemy
+			if enemy == null or not enemy.is_in_group(&"counted") or enemy.is_dead() or enemy.is_queued_for_deletion():
+				continue
+			enemy.apply_damage(maxi(enemy.hp, 1), null)
+		await wait_seconds(0.1)
+	Log.sink = Callable()
+	assert_true(director.is_level_cleared(), "level cleared by real kills within %.0f s (stuck on wave %d, %d/%d resolved)" % [
+		DEADLINE_S, director.wave_number(), director.resolved_count(), director.total_count()])
+	assert_eq(_cleared, [0] as Array[int], "level_cleared(0) once")
+	assert_true(banner.visible, "LEVEL CLEAR shown")
+	for wave: int in 6:
+		var started: int = 0
+		for line: String in _lines:
+			if line.begins_with("[INFO][wave] Level 0 wave %d/6 started" % (wave + 1)):
+				started += 1
+		assert_eq(started, 1, "wave %d started once" % (wave + 1))
+	var reinforcements: int = 0
+	var stalled: int = 0
+	var wave_errors: int = 0
+	var f3: int = 0
+	for line: String in _lines:
+		if line.contains("group 'reinforcements' spawned"):
+			reinforcements += 1
+		if line.contains("stalled"):
+			stalled += 1
+		if line.begins_with("[ERROR][wave]"):
+			wave_errors += 1
+		if line.begins_with("[INFO][debug] F3:"):
+			f3 += 1
+	assert_eq(reinforcements, 1, "wave 2 reinforcements spawned once")
+	assert_eq(stalled, 0, "no stall ERROR")
+	assert_eq(wave_errors, 0, "no [ERROR][wave] line")
+	assert_eq(f3, 0, "never resolved with F3")
+
+
 ## Story 2.5: level_dev wave 3 brings two counted Lancers into World/Enemies.
 func test_dev_wave_3_has_lancers() -> void:
 	(Config.tuning["waves"] as Dictionary)["gap_s"] = 0.05
