@@ -4,7 +4,8 @@ extends RefCounted
 ##   --stress          40-Wasp stress sandbox with ~200 live projectiles
 ##   --bench=<seconds> stress sandbox that holds fire, logs frame stats and quits
 ##   --no-prewarm      the sandbox skips Feedback.prewarm() (compare first-explosion cost)
-## Unknown args are ignored. Callers pass OS.get_cmdline_user_args().
+## Unknown args are ignored. Callers pass OS.get_cmdline_user_args() or an
+## injectable user_args field that defaults to it.
 
 const STRESS_ARG: String = "--stress"
 const BENCH_PREFIX: String = "--bench="

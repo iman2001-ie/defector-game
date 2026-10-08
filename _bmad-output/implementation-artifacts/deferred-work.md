@@ -179,7 +179,9 @@ location: game/ui/debug/debug_tools.gd:28,51-52
 source_spec: `spec-dw-8-config-validating-reload.md`
 severity: low
 reason: Pre-existing gap (epic 1 retro finding B4, deferred there). This change keeps the injected-restart test seam; the B1 failure it fixes is pinned at the Config and reload_data() level only.
-status: open
+status: done 2026-10-07
+resolution: resolved by sweep bundle dw-debug-tools-injectable-user-args
+resolution-undo: 1207a1a248ff3ecc027e6a4856aa12c52d59767f76548beeae5ac53e5182b0f2 2026-10-07 7374617475733a206f70656e
 
 ### DW-20: After a resume warp the next physics tick may still read the pre-warp mouse position, giving a one-tick ship jump.
 origin: spec-deferred c9296c5c0ffe
@@ -251,7 +253,9 @@ location: game/ui/debug/debug_tools.gd _ready; game/scenes/sandbox/sandbox.gd _r
 source_spec: `spec-dw-9-dw-21-stress-bench-nfr-peak.md`
 severity: medium
 reason: Both _ready methods read OS.get_cmdline_user_args() directly, so tests cannot inject --no-prewarm. Tests cover only DebugArgs.parse, the static Sandbox.should_prewarm, and DebugTools with _prewarm set by hand. Deleting `_prewarm = args.prewarm` in debug_tools.gd would leave the suite green. Fix: an injectable user-args source for both _ready paths (the --stress wiring has the same gap).
-status: open
+status: done 2026-10-07
+resolution: resolved by sweep bundle dw-debug-tools-injectable-user-args
+resolution-undo: 1207a1a248ff3ecc027e6a4856aa12c52d59767f76548beeae5ac53e5182b0f2 2026-10-07 7374617475733a206f70656e
 
 ### DW-28: AGENTS.md section 5 still requires a story id or key, so bmad-loop's other commit subjects (`sweep <bundle>: DW-n via bmad-loop`, `chore(sweep|operator|decisions|retro): ...`) and manual non-story
 origin: spec-deferred ca109689f523
@@ -416,3 +420,11 @@ reason: retrospective action item from sprint-status.yaml (epic 2; owner Plannin
 status: done 2026-10-07
 resolution: closed by human decision: Operator raises max_tokens_per_story in the local loop policy.
 decision: 2026-10-07 Raise the per-story cap again — Operator raises max_tokens_per_story in the local loop policy.
+
+### DW-46: Level._ready still parses OS.get_cmdline_user_args() directly, so its --stress/--bench redirect to the sandbox and its --no-prewarm skip are untested (the DW-27 gap, in a third script).
+origin: spec-deferred 0c82a3ce3da1
+location: game/scenes/level/level.gd:22
+source_spec: `spec-dw-27-dw-19-debug-tools-injectable-user-args.md`
+severity: medium
+reason: game/scenes/level/level.gd:22 calls DebugArgs.parse(OS.get_cmdline_user_args()); test_level.gd only exercises the static helpers should_redirect_to_stress and should_prewarm with hand-built dictionaries, so breaking the args wiring in _ready leaves the suite green. Pre-existing and outside the bundle intent (which names DebugTools and Sandbox); the redirect also needs an injectable change_scene seam.
+status: open

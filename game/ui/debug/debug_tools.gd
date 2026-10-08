@@ -28,6 +28,9 @@ var debug_enabled: bool = OS.is_debug_build()
 var restart_scene: Callable
 ## Called with the bench exit code once the bench is over. Defaults to get_tree().quit.
 var quit_game: Callable
+## The user args _ready parses (`--stress`, `--bench=<s>`, `--no-prewarm`).
+## Tests override this before add_child.
+var user_args: PackedStringArray = OS.get_cmdline_user_args()
 
 var _last_frame_usec: int = 0
 var _window_start_usec: int = 0
@@ -66,7 +69,7 @@ func _ready() -> void:
 		restart_scene = get_tree().reload_current_scene
 	if not quit_game.is_valid():
 		quit_game = get_tree().quit
-	var args: Dictionary = DebugArgs.parse(OS.get_cmdline_user_args())
+	var args: Dictionary = DebugArgs.parse(user_args)
 	var stress: bool = args.stress
 	_prewarm = args.prewarm
 	if not _overlay_initialised:

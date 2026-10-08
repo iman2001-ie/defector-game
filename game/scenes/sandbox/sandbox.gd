@@ -26,8 +26,12 @@ const _TIMER_EPSILON: float = 0.0001
 
 ## Asteroid size and x position source; tests seed it.
 var rng: RandomNumberGenerator = RandomNumberGenerator.new()
-## Set in _ready from the debug user args; tests may set it before add_child.
+## True from _ready when a debug build gets `--stress` or `--bench=<s>` in
+## user_args; tests may also set it directly before add_child.
 var stress_mode: bool = false
+## The user args _ready parses (`--stress`, `--bench=<s>`, `--no-prewarm`).
+## Tests override this before add_child.
+var user_args: PackedStringArray = OS.get_cmdline_user_args()
 
 var _wasps_alive: int = 0
 var _asteroid_elapsed: float = 0.0
@@ -46,7 +50,7 @@ func _ready() -> void:
 	_player.set_spawner(_spawner)
 	RenderGlow.apply(($WorldEnvironment as WorldEnvironment).environment)
 	_playfield_width = Playfield.SIZE.x
-	var args: Dictionary = DebugArgs.parse(OS.get_cmdline_user_args())
+	var args: Dictionary = DebugArgs.parse(user_args)
 	if OS.is_debug_build() and args.stress:
 		stress_mode = true
 	if stress_mode:

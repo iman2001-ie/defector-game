@@ -5,19 +5,32 @@ const DEBUG_TOOLS_SCENE: PackedScene = preload("res://ui/debug/debug_tools.tscn"
 const TEMP_TUNING: String = "user://test_debug_tools_tuning.json"
 const TEMP_FLAGS: String = "user://test_debug_tools_flags.json"
 
+const SANDBOX_SCENE: PackedScene = preload("res://scenes/sandbox/sandbox.tscn")
+
 var _tools: DebugTools
 var _restarts: int = 0
+var _overlay_initialised_before: bool = false
+var _vsync_before: DisplayServer.VSyncMode = DisplayServer.VSYNC_ENABLED
+## The sandbox instantiated by _restart_sandbox (the F5 consumer re-read test).
+var _restarted_sandbox: Node2D = null
 
 
 func before_each() -> void:
 	DebugTools.overlay_visible = false
+	_overlay_initialised_before = DebugTools._overlay_initialised
+	_vsync_before = DisplayServer.window_get_vsync_mode()
 	_restarts = 0
+	_restarted_sandbox = null
 	Config.assert_on_missing = false
 
 
 func after_each() -> void:
 	_tools = null
+	_restarted_sandbox = null
 	DebugTools.overlay_visible = false
+	DebugTools._overlay_initialised = _overlay_initialised_before
+	DisplayServer.window_set_vsync_mode(_vsync_before)
+	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	Config.assert_on_missing = true
 	Config.load_data()
 	Feedback.load_tiers()
@@ -34,10 +47,12 @@ func _count_restart() -> void:
 	_restarts += 1
 
 
-## A DebugTools with an injected restart callable, added to the tree.
-func _make_tools(enabled: bool = true) -> DebugTools:
+## A DebugTools with an injected restart callable and user args (none by
+## default), added to the tree.
+func _make_tools(enabled: bool = true, args: PackedStringArray = PackedStringArray()) -> DebugTools:
 	var tools: DebugTools = DEBUG_TOOLS_SCENE.instantiate() as DebugTools
 	tools.debug_enabled = enabled
+	tools.user_args = args
 	tools.restart_scene = _count_restart
 	add_child_autofree(tools)
 	return tools
@@ -493,3 +508,121 @@ func test_overlay_wave_and_pause_lines() -> void:
 	assert_string_contains(text, "wave 1/2")
 	assert_string_contains(text, "resolved 0/0")
 	assert_string_contains(text, "pause menu")
+
+
+# --- User args wiring (DW-27) ---------------------------------------------------
+
+## A DebugTools whose _ready parses args, with logs captured from before _ready
+## and an injected quit; _process stops right after so real frames never step a bench.
+func _args_tools(args: PackedStringArray) -> DebugTools:
+	_quits.clear()
+	_lines.clear()
+	var tools: DebugTools = DEBUG_TOOLS_SCENE.instantiate() as DebugTools
+	tools.debug_enabled = true
+	tools.user_args = args
+	tools.restart_scene = _count_restart
+	tools.quit_game = _record_quit
+	DebugTools._overlay_initialised = false
+	Log.sink = _capture
+	add_child_autofree(tools)
+	Log.sink = Callable()
+	tools.set_process(false)
+	return tools
+
+
+func test_bench_arg_with_no_prewarm_starts_the_bench_prewarm_off() -> void:
+	_tools = _args_tools(PackedStringArray(["--bench=1", "--no-prewarm"]))
+	var starts: Array[String] = _lines_containing("Stress bench: ")
+	starts = starts.filter(func(line: String) -> bool: return line.contains("warm-up"))
+	assert_eq(starts.size(), 1, "one bench start line")
+	if starts.size() == 1:
+		assert_string_contains(starts[0], "prewarm=off")
+	assert_true(Input.is_action_pressed(&"fire_laser"), "fire_laser held by the bench")
+	assert_true(_overlay_label(_tools).visible, "bench implies stress: overlay shown")
+	assert_eq(_quits.size(), 0, "no quit at start")
+
+
+func test_bench_arg_defaults_to_prewarm_on() -> void:
+	_tools = _args_tools(PackedStringArray(["--bench=1"]))
+	var starts: Array[String] = _lines_containing("Stress bench: ")
+	starts = starts.filter(func(line: String) -> bool: return line.contains("warm-up"))
+	assert_eq(starts.size(), 1, "one bench start line")
+	if starts.size() == 1:
+		assert_string_contains(starts[0], "prewarm=on")
+	assert_true(Input.is_action_pressed(&"fire_laser"), "fire_laser held by the bench")
+
+
+func test_stress_arg_shows_the_overlay_without_a_bench() -> void:
+	_tools = _args_tools(PackedStringArray(["--stress"]))
+	assert_true(_overlay_label(_tools).visible, "stress shows the overlay")
+	assert_true(DebugTools.overlay_visible, "static state follows")
+	assert_false(Input.is_action_pressed(&"fire_laser"), "no bench: fire not held")
+	assert_eq(_lines_containing("Stress bench").size(), 0, "no bench line")
+
+
+func test_no_args_keeps_the_overlay_hidden_and_no_bench() -> void:
+	_tools = _args_tools(PackedStringArray())
+	assert_false(_overlay_label(_tools).visible, "overlay hidden")
+	assert_false(DebugTools.overlay_visible, "static state follows")
+	assert_false(Input.is_action_pressed(&"fire_laser"), "no bench: fire not held")
+	assert_eq(_lines_containing("Stress bench").size(), 0, "no bench line")
+
+
+# --- Real F5 path (DW-19) --------------------------------------------------------
+
+func _f5_key_event() -> InputEventKey:
+	var event: InputEventKey = InputEventKey.new()
+	event.physical_keycode = KEY_F5
+	event.pressed = true
+	return event
+
+
+func test_real_f5_key_reloads_and_restarts() -> void:
+	_write_tuning(8.0)
+	Config.load_data(TEMP_TUNING, Config.DEFAULT_FLAGS_PATH)
+	Feedback.load_tiers()
+	_tools = _make_tools()
+	_write_tuning(12.0)
+	get_viewport().push_input(_f5_key_event())
+	assert_eq(Config.num("feedback.tiers.large.shake_px"), 12.0, "Config reloaded from the changed file")
+	assert_eq(Feedback.tier_row(ImpactTier.LARGE).get("shake_px"), 12.0, "Feedback tiers reloaded")
+	assert_eq(_restarts, 1, "restart called once")
+
+
+func test_default_callables_target_the_scene_tree() -> void:
+	var tools: DebugTools = DEBUG_TOOLS_SCENE.instantiate() as DebugTools
+	tools.debug_enabled = true
+	tools.user_args = PackedStringArray()
+	add_child_autofree(tools)
+	_tools = tools
+	assert_true(tools.restart_scene.is_valid(), "restart bound")
+	assert_eq(tools.restart_scene.get_object(), get_tree(), "restart on the scene tree")
+	assert_eq(tools.restart_scene.get_method(), &"reload_current_scene", "restart reloads the scene")
+	assert_true(tools.quit_game.is_valid(), "quit bound")
+	assert_eq(tools.quit_game.get_object(), get_tree(), "quit on the scene tree")
+	assert_eq(tools.quit_game.get_method(), &"quit", "quit is SceneTree.quit")
+
+
+## Stands in for reload_current_scene: instantiates the sandbox fresh.
+func _restart_sandbox() -> void:
+	_restarts += 1
+	_restarted_sandbox = SANDBOX_SCENE.instantiate() as Node2D
+	add_child_autofree(_restarted_sandbox)
+
+
+func test_real_f5_restart_re_reads_config_in_the_new_scene() -> void:
+	var data: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(Config.DEFAULT_TUNING_PATH))
+	var new_intensity: float = (data["render"]["glow"]["intensity"] as float) + 0.25
+	_write_tuning(8.0)
+	Config.load_data(TEMP_TUNING, Config.DEFAULT_FLAGS_PATH)
+	_tools = _make_tools()
+	_tools.restart_scene = _restart_sandbox
+	data["render"]["glow"]["intensity"] = new_intensity
+	_write_tuning(0.0, JSON.stringify(data))
+	get_viewport().push_input(_f5_key_event())
+	assert_eq(_restarts, 1, "restart called once")
+	assert_not_null(_restarted_sandbox, "sandbox re-instantiated")
+	if _restarted_sandbox == null:
+		return
+	var env: Environment = (_restarted_sandbox.get_node("WorldEnvironment") as WorldEnvironment).environment
+	assert_almost_eq(env.glow_intensity, new_intensity, 0.0001, "new scene reads the reloaded glow")

@@ -18,6 +18,7 @@ func after_each() -> void:
 	Config.load_data()
 	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	PauseArbiter.clear()
+	Log.sink = Callable()
 
 
 func test_world_containers() -> void:
@@ -358,3 +359,60 @@ func test_prewarm_skipped_only_by_no_prewarm_in_debug_builds() -> void:
 	assert_true(_sandbox.should_prewarm(true, on), "debug build, no flag: pre-warm")
 	assert_false(_sandbox.should_prewarm(true, off), "debug build, --no-prewarm: skip")
 	assert_true(_sandbox.should_prewarm(false, off), "release build ignores --no-prewarm")
+
+
+# --- User args wiring (DW-27) ---------------------------------------------------
+
+var _lines: Array[String] = []
+
+
+func _capture(level: String, category: String, msg: String) -> void:
+	_lines.append(Log.format(level, category, msg))
+
+
+## A fresh sandbox whose _ready parses args (replaces the one from before_each),
+## with logs captured during _ready.
+func _sandbox_with_args(args: PackedStringArray) -> Node2D:
+	_sandbox.queue_free()
+	_lines.clear()
+	_sandbox = SANDBOX_SCENE.instantiate() as Node2D
+	_sandbox.user_args = args
+	Log.sink = _capture
+	add_child_autofree(_sandbox)
+	Log.sink = Callable()
+	return _sandbox
+
+
+## Explosions in this sandbox's World/Effects at the off-screen pre-warm spot.
+func _prewarm_explosions() -> Array[Explosion]:
+	var out: Array[Explosion] = []
+	for child: Node in _sandbox.get_node("World/Effects").get_children():
+		if child is Explosion and (child as Explosion).global_position == Feedback.PREWARM_POSITION:
+			out.append(child as Explosion)
+	return out
+
+
+func _lines_containing(text: String) -> Array[String]:
+	var out: Array[String] = []
+	for line: String in _lines:
+		if line.contains(text):
+			out.append(line)
+	return out
+
+
+func test_no_prewarm_arg_skips_the_prewarm() -> void:
+	_sandbox_with_args(PackedStringArray(["--no-prewarm"]))
+	assert_eq(_prewarm_explosions().size(), 0, "no pre-warm explosion")
+	assert_eq(_lines_containing("Feedback pre-warm skipped").size(), 1, "skip logged")
+
+
+func test_no_args_prewarms_one_explosion_per_tier() -> void:
+	_sandbox_with_args(PackedStringArray())
+	assert_eq(_prewarm_explosions().size(), ImpactTier.NAMES.size(), "one pre-warm explosion per tier")
+	assert_eq(_lines_containing("Feedback pre-warm skipped").size(), 0, "no skip line")
+
+
+func test_stress_arg_turns_on_stress_mode() -> void:
+	_sandbox_with_args(PackedStringArray(["--stress"]))
+	assert_true(_sandbox.stress_mode, "stress_mode from user_args")
+	assert_eq(_wasps().size(), 40, "40-Wasp grid")
