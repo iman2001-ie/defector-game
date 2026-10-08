@@ -40,6 +40,8 @@ func _ready() -> void:
 		return
 	var id: int = int(data.get("id", 0)) if (data.get("id") is float or data.get("id") is int) else 0
 	Events.level_started.emit(id)
+	# The HUD energy bar shows the attempt's starting energy (0 on a retry).
+	GameState.emit_energy()
 	var retry_tag: String = " (retry)" if GameState.is_retry else ""
 	Log.info("scene", "Level %d '%s' started (%s)%s" % [id, str(data.get("name", "")), Config.LEVEL_PATH_FORMAT % level_id, retry_tag])
 	_director.start_level(data, Config.LEVEL_PATH_FORMAT % level_id)

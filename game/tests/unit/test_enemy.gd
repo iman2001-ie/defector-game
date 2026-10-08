@@ -1,7 +1,8 @@
 extends GutTest
 ## Enemy contract via wasp.tscn: HP, damage intake, ally attribution, one-shot death,
 ## hitbox from tuning, scene layers, the shared subclass helpers (slot/entry
-## params, entry start, aim, fire guard, tuning keys); ImpactTier name mapping.
+## params, entry start, aim, fire guard, tuning keys); ImpactTier name mapping;
+## death drops through Loot (Story 3.3).
 
 const WASP_SCENE: PackedScene = preload("res://entities/enemies/wasp/wasp.tscn")
 const DamageTarget: GDScript = preload("res://tests/fixtures/damage_target.gd")
@@ -18,6 +19,7 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	Config.load_data()
 	Log.sink = Callable()
 	Log.debug_enabled = _debug_was
 	Feedback.reset()
@@ -318,3 +320,118 @@ func test_impact_tier_from_name() -> void:
 func test_impact_tier_unknown_name_logs_and_returns_small() -> void:
 	assert_eq(ImpactTier.from_name("gigantic"), ImpactTier.SMALL)
 	assert_push_error("gigantic")
+
+
+# --- Death drops (Story 3.3) -------------------------------------------------------
+
+
+## A World with the entity containers and Pickups, plus its Spawner.
+func _drop_world() -> Spawner:
+	var world: Node2D = Node2D.new()
+	for container: String in ["Projectiles", "Enemies", "Asteroids", "Pickups"]:
+		var node: Node2D = Node2D.new()
+		node.name = container
+		world.add_child(node)
+	add_child_autofree(world)
+	var spawner: Spawner = Spawner.new()
+	spawner.world = world
+	add_child_autofree(spawner)
+	return spawner
+
+
+## The orb started at `at`: x exact; y at most a frame's physics drift below it.
+func _assert_dropped_at(orb: EnergyOrb, at: Vector2) -> void:
+	assert_eq(orb.global_position.x, at.x)
+	assert_between(orb.global_position.y, at.y, at.y + 40.0, "spawned at the point, then drifted down")
+
+
+func _orbs(spawner: Spawner) -> Array[EnergyOrb]:
+	var out: Array[EnergyOrb] = []
+	for child: Node in spawner.world.get_node("Pickups").get_children():
+		if child is EnergyOrb:
+			(child as EnergyOrb).set_physics_process(false)
+			out.append(child as EnergyOrb)
+	return out
+
+
+var _order: Array[String] = []
+
+
+func _set_chance(type_id: String, chance: float) -> void:
+	((Config.tuning["drops"] as Dictionary)[type_id] as Dictionary)["chance"] = chance
+
+
+func _spawn(spawner: Spawner, type_id: StringName, pos: Vector2) -> Enemy:
+	var enemy: Enemy = spawner.spawn_enemy(type_id, {"position": pos})
+	enemy.set_physics_process(false)
+	return enemy
+
+
+func _on_order_killed(_t: StringName, _p: Vector2, _a: bool) -> void:
+	_order.append("killed")
+
+
+func test_kill_drops_an_orb_at_the_death_point() -> void:
+	var spawner: Spawner = _drop_world()
+	_set_chance("wasp", 1.0)
+	_spawn(spawner, &"wasp", Vector2(640, 200)).apply_damage(99, null)
+	await wait_process_frames(1)
+	var orbs: Array[EnergyOrb] = _orbs(spawner)
+	assert_eq(orbs.size(), 1)
+	if orbs.size() == 1:
+		_assert_dropped_at(orbs[0], Vector2(640, 200))
+
+
+func test_missed_roll_drops_nothing() -> void:
+	var spawner: Spawner = _drop_world()
+	_set_chance("wasp", 0.0)
+	_spawn(spawner, &"wasp", Vector2(640, 200)).apply_damage(99, null)
+	await wait_process_frames(1)
+	assert_eq(_orbs(spawner).size(), 0)
+
+
+func test_bastion_drops_two_orbs_32_px_apart() -> void:
+	var spawner: Spawner = _drop_world()
+	_spawn(spawner, &"bastion", Vector2(800, 200)).apply_damage(999, null)
+	Feedback.reset()
+	await wait_process_frames(1)
+	var xs: Array[float] = []
+	for orb: EnergyOrb in _orbs(spawner):
+		xs.append(orb.global_position.x)
+		_assert_dropped_at(orb, Vector2(orb.global_position.x, 200))
+	xs.sort()
+	assert_eq(xs, [784.0, 816.0] as Array[float])
+
+
+func test_contact_kill_drops_too() -> void:
+	var spawner: Spawner = _drop_world()
+	_set_chance("wasp", 1.0)
+	_spawn(spawner, &"wasp", Vector2(640, 200)).destroy_by_contact()
+	await wait_process_frames(1)
+	assert_eq(_orbs(spawner).size(), 1)
+
+
+func test_kill_signals_keep_their_order_and_orbs_arrive_deferred() -> void:
+	var spawner: Spawner = _drop_world()
+	_set_chance("wasp", 1.0)
+	_order.clear()
+	var wasp: Enemy = _spawn(spawner, &"wasp", Vector2(640, 200))
+	Events.enemy_killed.connect(_on_order_killed)
+	wasp.resolved.connect(func() -> void: _order.append("resolved"))
+	wasp.apply_damage(99, null)
+	Events.enemy_killed.disconnect(_on_order_killed)
+	assert_eq(_order, ["killed", "resolved"] as Array[String])
+	assert_eq(_orbs(spawner).size(), 0, "orbs arrive deferred")
+	await wait_process_frames(1)
+	assert_eq(_orbs(spawner).size(), 1)
+
+
+func test_enemy_without_spawner_drops_nothing_silently() -> void:
+	_set_chance("wasp", 1.0)
+	var wasp: Enemy = _make_wasp()
+	wasp.set_physics_process(false)
+	wasp.apply_damage(99, null)
+	await wait_process_frames(1)
+	assert_eq(get_tree().get_nodes_in_group(&"pickups").size(), 0, "no orb anywhere")
+	assert_eq(_logged("[ERROR]").size(), 0)
+	assert_eq(_logged("[WARN]").size(), 0)

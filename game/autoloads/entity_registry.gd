@@ -24,6 +24,8 @@ const PROJECTILES: Dictionary[StringName, PackedScene] = {
 const ASTEROID: PackedScene = preload("res://entities/asteroids/asteroid.tscn")
 ## One explosion scene for every impact tier; scale and extras come through setup().
 const EXPLOSION: PackedScene = preload("res://entities/effects/explosion.tscn")
+## The gold energy orb dropped by Loot (Story 3.3).
+const ENERGY_ORB: PackedScene = preload("res://entities/pickups/energy_orb.tscn")
 
 
 ## The known enemy type ids (Config validates level files against them).

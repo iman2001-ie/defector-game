@@ -4,7 +4,8 @@ extends Node
 ## overlay (plus wave n/N, resolved/total, the pause reasons and the player's
 ## invincibility), F2 toggles the player's debug_invincible, F3 resolves
 ## the current wave and F6 jumps to the boss wave (both through the scene's
-## WaveDirector, found by group), F5 reloads every JSON file and restarts the
+## WaveDirector, found by group), F4 adds debug.energy_add energy through
+## GameState (capped), F5 reloads every JSON file and restarts the
 ## scene. With the
 ## `-- --bench=<s>` user arg it also runs the self-timing stress bench; its
 ## numbers (limits, warm-up, first-large timing, quit delay) come from
@@ -113,6 +114,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed(&"debug_invincible"):
 		toggle_invincible()
 		_mark_handled()
+	elif event.is_action_pressed(&"debug_add_energy"):
+		add_energy()
+		_mark_handled()
 	elif event.is_action_pressed(&"debug_reload_data"):
 		reload_data()
 		_mark_handled()
@@ -136,6 +140,14 @@ func toggle_invincible() -> void:
 	Log.info("debug", "F2: invincible %s" % _on_off(player.debug_invincible))
 	if _label.visible:
 		refresh_overlay()
+
+
+## F4: adds debug.energy_add energy through GameState (clamped to the max).
+func add_energy() -> void:
+	if not debug_enabled:
+		return
+	var energy: int = GameState.add_energy(Config.int_("debug.energy_add"))
+	Log.info("debug", "F4: energy %d/%d" % [energy, GameState.max_energy()])
 
 
 func _player() -> Player:

@@ -1,5 +1,6 @@
 extends GutTest
-## Spawner: registry lookup, setup before add_child into the World containers, error paths.
+## Spawner: registry lookup, setup before add_child into the World containers,
+## error paths; energy orbs into the optional Pickups container (Story 3.3).
 
 var _world: Node2D
 var _projectiles: Node2D
@@ -166,3 +167,58 @@ func test_missing_world_logs_and_returns_null() -> void:
 	var spawner: Spawner = _make_spawner(null)
 	assert_push_error("no world")
 	assert_null(spawner.spawn_projectile(&"laser_bolt", {}))
+
+
+# --- Energy orbs (Story 3.3) -------------------------------------------------------
+
+var _spawn_lines: Array[String] = []
+
+
+func _capture_spawn(level: String, category: String, msg: String) -> void:
+	_spawn_lines.append(Log.format(level, category, msg))
+
+
+func test_registry_has_the_energy_orb() -> void:
+	assert_not_null(EntityRegistry.ENERGY_ORB)
+	var orb: Node = EntityRegistry.ENERGY_ORB.instantiate()
+	assert_true(orb is EnergyOrb)
+	orb.free()
+
+
+func test_spawn_orb_parents_into_pickups() -> void:
+	var pickups: Node2D = _add_container("Pickups")
+	var spawner: Spawner = _make_spawner(_world)
+	var orb: EnergyOrb = spawner.spawn_orb({"position": Vector2(300, 400)})
+	assert_not_null(orb)
+	if orb == null:
+		return
+	orb.set_physics_process(false)
+	assert_eq(orb.get_parent(), pickups)
+	assert_eq(orb.global_position, Vector2(300, 400))
+	assert_true(orb.is_in_group(&"pickups"))
+
+
+func test_spawn_orb_without_pickups_returns_null() -> void:
+	_spawn_lines.clear()
+	var debug_was: bool = Log.debug_enabled
+	Log.debug_enabled = true
+	Log.sink = _capture_spawn
+	var spawner: Spawner = _make_spawner(_world)
+	Log.sink = Callable()
+	Log.debug_enabled = debug_was
+	var pickup_lines: int = 0
+	for line: String in _spawn_lines:
+		if line.begins_with("[DEBUG][spawn]") and line.contains("Pickups"):
+			pickup_lines += 1
+	assert_eq(pickup_lines, 1, "one DEBUG line for the missing container")
+	assert_null(spawner.spawn_orb({"position": Vector2(300, 400)}))
+
+
+func test_spawned_asteroid_gets_the_spawner() -> void:
+	var spawner: Spawner = _make_spawner(_world)
+	var rock: Asteroid = spawner.spawn_asteroid({"size": &"small", "position": Vector2(500, 300)})
+	assert_not_null(rock)
+	if rock == null:
+		return
+	rock.set_physics_process(false)
+	assert_eq(rock.spawner, spawner)

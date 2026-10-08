@@ -1,6 +1,6 @@
 extends GutTest
-## DebugTools: F1 overlay toggle, F2 invincibility, F5 data reload + restart,
-## release no-op.
+## DebugTools: F1 overlay toggle, F2 invincibility, F4 energy, F5 data reload +
+## restart, release no-op.
 
 const DEBUG_TOOLS_SCENE: PackedScene = preload("res://ui/debug/debug_tools.tscn")
 const TEMP_TUNING: String = "user://test_debug_tools_tuning.json"
@@ -27,6 +27,7 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	GameState.energy = 0
 	_tools = null
 	_restarted_sandbox = null
 	DebugTools.overlay_visible = false
@@ -177,6 +178,46 @@ func test_f2_does_nothing_in_release() -> void:
 	_tools._unhandled_input(_action_event(&"debug_invincible"))
 	_tools.toggle_invincible()
 	assert_false(player.debug_invincible, "release build: F2 ignored")
+
+
+# --- F4 -----------------------------------------------------------------------
+
+var _f4_lines: Array[String] = []
+
+
+func _capture_f4(level: String, category: String, msg: String) -> void:
+	_f4_lines.append(Log.format(level, category, msg))
+
+
+func test_f4_adds_energy_capped() -> void:
+	GameState.energy = 30
+	watch_signals(Events)
+	_f4_lines.clear()
+	Log.sink = _capture_f4
+	_tools = _make_tools()
+	_tools._unhandled_input(_action_event(&"debug_add_energy"))
+	Log.sink = Callable()
+	assert_eq(GameState.energy, 100, "30 + 100, capped at 100")
+	assert_signal_emit_count(Events, "energy_changed", 1)
+	assert_signal_emitted_with_parameters(Events, "energy_changed", [100, 100])
+	assert_has(_f4_lines, "[INFO][debug] F4: energy 100/100")
+
+
+func test_f4_from_empty_adds_debug_energy_add() -> void:
+	(Config.tuning["debug"] as Dictionary)["energy_add"] = 20
+	_tools = _make_tools()
+	_tools.add_energy()
+	assert_eq(GameState.energy, 20)
+
+
+func test_f4_does_nothing_in_release() -> void:
+	GameState.energy = 30
+	watch_signals(Events)
+	_tools = _make_tools(false)
+	_tools._unhandled_input(_action_event(&"debug_add_energy"))
+	_tools.add_energy()
+	assert_eq(GameState.energy, 30, "release build: F4 ignored")
+	assert_signal_not_emitted(Events, "energy_changed")
 
 
 # --- Release ------------------------------------------------------------------

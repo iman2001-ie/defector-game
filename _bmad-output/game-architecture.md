@@ -178,7 +178,7 @@ The sections below resolve: state management, data format and access, save, the 
 
 | State | Owner | Lifetime |
 |---|---|---|
-| `energy` (0–100), `current_level_id`, `highest_unlocked_level`, `is_retry` | `GameState` autoload | Whole session. Unlocks and energy are persisted by `SaveManager`. Built (Story 3.2): `energy`, `current_level_id` (the level file key, e.g. `"dev"`) and `is_retry`, fields only; `highest_unlocked_level` is Epic 4 |
+| `energy` (0–100), `current_level_id`, `highest_unlocked_level`, `is_retry` | `GameState` autoload | Whole session. Unlocks and energy are persisted by `SaveManager`. Built (Story 3.2): `energy`, `current_level_id` (the level file key, e.g. `"dev"`) and `is_retry`; Story 3.3 adds the energy API (`max_energy()`, `add_energy(amount)`, `emit_energy()`); `highest_unlocked_level` is Epic 4 |
 | Hearts, i-frames, shield, missile cooldown | `Player` node | One level attempt |
 | Wave index, alive and resolved counts, triggers fired | `WaveDirector` node | One level attempt |
 | Convoy HP | `Convoy` node | One level attempt |
@@ -342,6 +342,7 @@ The visual sprite may be shorter. No ray/shape casts are needed.
   - Data: `player.missile_ring.radius_px` / `stroke_px`. The radius is clamped to `player.sprite_px / 2` (with a `Log.warn`), so the ring is never bigger than the ship.
   - Colours: a `text` (#E8F4FF) stroke over a `background` (#05070F) outline. It sweeps clockwise from 12 o'clock and draws nothing when the ratio is 0 (ready).
 - The hearts display and hit vignette are built (Story 3.1): `ui/hud/hearts_display.gd` (`class_name HeartsDisplay`, `HUD/HeartsDisplay`) draws the heart icons in code, right-aligned to `hud.hearts.right_x`, and pops a lost heart; `ui/hud/hit_vignette.gd` (`class_name HitVignette`, `HUD/HitVignette`, the first HUD child so it draws under the meters) is a full-rect `ColorRect` with the `hit_vignette.gdshader` edge gradient, driven by `Events.player_hit`. Both are `PROCESS_MODE_PAUSABLE` and `MOUSE_FILTER_IGNORE`; colours are the theme's `HeartsDisplay` (`heart`, `empty`, `outline`) and `HitVignette` (`color`) items; layout and timing are `hud.hearts` / `hud.hit_vignette`.
+- The energy bar is built (Story 3.3): `ui/hud/energy_bar.gd` (`class_name EnergyBar`, `HUD/EnergyBar` right after `HeartsDisplay`, `PROCESS_MODE_PAUSABLE`, `MOUSE_FILTER_IGNORE`), driven only by `Events.energy_changed`. Rect from `hud.energy_bar` (`right_x − width`, `y`, `width × height`: 1568, 76, 320×16); theme type `EnergyBar` (`track` and `fill` styleboxes, `tick` colour); tick marks at `abilities.shield.cost` and `abilities.barrage.cost` of max, clamped inside the bar.
 - The wave bar is built: `ui/hud/wave_bar.gd` (`class_name WaveBar`), the `HUD/WaveBar` child of `level.tscn` (before `LevelClearBanner`, `PROCESS_MODE_PAUSABLE`). `defector_theme.tres` exists and holds the `WaveBar` type items (`track`, `fill`, `highlight` styleboxes, `separation` constant); rect and tween time are `tuning.json` → `hud.wave_bar`.
 
 ### Architecture Decision Records
@@ -525,14 +526,14 @@ signal story_event_requested(event_name: StringName) # e.g. &"tarek_fall"
 
 Debug tools are available **only when `OS.is_debug_build()`** (editor runs and debug exports). In release builds they do nothing (`DebugTools.debug_enabled` is false: early return, processing off). A single `DebugTools` node in `Overlay` (`ui/debug/debug_tools.tscn` + `debug_tools.gd`) handles the keys.
 
-**Implemented today: F1, F2, F3, F5 and F6.** The other keys are planned for the epics that need them.
+**Implemented today: F1, F2, F3, F4, F5 and F6.** The other keys are planned for the epics that need them.
 
 | Key | Tool | Status |
 |---|---|---|
 | F1 | Toggle debug overlay. Built: FPS, frame ms (avg / max over a 0.25 s window, real time), node count, enemies alive, wave `n/N` and resolved/total (`wave -` without a WaveDirector), pause reasons (`PauseArbiter.reasons()`), `invincible on|off` (`-` without a Player). Planned addition: current comms sequence | Built (comms line planned) |
 | F2 | Toggle player invincibility (`Player.debug_invincible` on the `player` group node; damage is ignored, small and medium enemies still die on contact, no flicker) | Built |
 | F3 | Resolve the current wave (kill every counted enemy and fire its pending triggers in order) | Built |
-| F4 | Energy +100 (capped) | Planned |
+| F4 | Energy +`debug.energy_add` (100), capped: `DebugTools.add_energy()` → `GameState.add_energy(...)` and one `F4: energy n/max` INFO line | Built |
 | F5 | Reload `tuning.json` and `flags.json` through `Config.reload()`, then restart the scene (see [Configuration](#configuration)) | Built |
 | F6 | Jump to the boss wave in the current level (if any) | Built |
 | F7 | Unlock all levels (in memory, not saved) | Planned |
@@ -559,7 +560,7 @@ Debug tools are available **only when `OS.is_debug_build()`** (editor runs and d
 
 ### Directory Structure
 
-This is the target tree. As of Story 3.2 the built parts are: `project.godot`, `export_presets.cfg` and `default_bus_layout.tres`; the autoloads `Log`, `Events`, `Config`, `GameState`, `PauseArbiter`, `Audio`, `Feedback`, `EntityRegistry`, `SceneRouter`; `core/` except `health_component.gd`; `entities/player/` (without the shield); `entities/projectiles/` laser and missile; `entities/enemies/wasp/`; `entities/asteroids/`; `entities/effects/`; `systems/camera/`; `systems/waves/`; `scenes/sandbox/`; `scenes/level/`; `ui/debug/`; `ui/hud/level_clear_banner.gd`, `wave_bar.gd`, `hearts_display.gd` and `hit_vignette.gd` (+ `.gdshader`); `ui/menus/retry_prompt.tscn` + `.gd`; `data/tuning.json`, `data/flags.json` and `data/levels/`; `assets/audio/sfx/` and `assets/CREDITS.md`; `addons/gut/`; `tests/unit/` (plus `tests/fixtures/`); and `tests/data/`. Everything else is planned.
+This is the target tree. As of Story 3.3 the built parts are: `project.godot`, `export_presets.cfg` and `default_bus_layout.tres`; the autoloads `Log`, `Events`, `Config`, `GameState`, `PauseArbiter`, `Audio`, `Feedback`, `EntityRegistry`, `SceneRouter`; `core/` except `health_component.gd` (with `loot.gd`); `entities/player/` (without the shield); `entities/projectiles/` laser and missile; `entities/enemies/wasp/`; `entities/asteroids/`; `entities/pickups/`; `entities/effects/`; `systems/camera/`; `systems/waves/`; `scenes/sandbox/`; `scenes/level/`; `ui/debug/`; `ui/hud/level_clear_banner.gd`, `wave_bar.gd`, `hearts_display.gd`, `energy_bar.gd` and `hit_vignette.gd` (+ `.gdshader`); `ui/menus/retry_prompt.tscn` + `.gd`; `data/tuning.json`, `data/flags.json` and `data/levels/`; `assets/audio/sfx/` and `assets/CREDITS.md`; `addons/gut/`; `tests/unit/` (plus `tests/fixtures/`); and `tests/data/`. Everything else is planned.
 
 ```
 <repo root>/
@@ -589,7 +590,8 @@ This is the target tree. As of Story 3.2 the built parts are: `project.godot`, `
     │   ├── impact_tier.gd                   # ImpactTier enum holder + tier names
     │   ├── playfield.gd                     # Playfield: SIZE, RECT (1920×1080)
     │   ├── render_glow.gd                   # RenderGlow.apply(env): render.glow → Environment
-    │   └── collision_layers.gd              # CollisionLayers: layer bits + shot masks
+    │   ├── collision_layers.gd              # CollisionLayers: layer bits + shot masks
+    │   └── loot.gd                          # Loot: drop rolls → Spawner.spawn_orb (deferred)
     ├── entities/
     │   ├── player/            player.tscn, player.gd, player_weapons.gd, missile_ring.gd, shield_bubble.tscn (planned)
     │   ├── projectiles/       laser_bolt.tscn, missile.tscn, micro_missile.tscn,
@@ -655,7 +657,7 @@ This is the target tree. As of Story 3.2 the built parts are: `project.godot`, `
 | Global events | `autoloads/events.gd` | Signal catalogue only, no logic |
 | Logging | `autoloads/log.gd` | Levelled, categorised logging |
 | Tuning, flags, level and dialogue data | `autoloads/config.gd` + `data/` | Load, validate, typed getters, hot reload |
-| Run state (energy, unlocks, current level) | `autoloads/game_state.gd` | Single source of truth for cross-scene state. Built (Story 3.2): `energy`, `current_level_id`, `is_retry` |
+| Run state (energy, unlocks, current level) | `autoloads/game_state.gd` | Single source of truth for cross-scene state. Built (Story 3.2): `energy`, `current_level_id`, `is_retry`. Built (Story 3.3): `max_energy()`, `add_energy(amount)` (clamp + `energy_changed`), `emit_energy()` |
 | Save / load | `autoloads/save_manager.gd` | Only writer and reader of `user://save.cfg` |
 | Pause | `autoloads/pause_arbiter.gd` | Pause reasons → `tree.paused` + mouse mode |
 | Scene flow | `autoloads/scene_router.gd` | `goto_title()`, `start_level(id)`, `restart_level()`, `goto_story(id, next)`, `goto_end()`. Built (Story 3.2): `restart_level()` and a placeholder `goto_title()` (loads the main scene until Story 4.1/4.2); the others are planned |
@@ -667,7 +669,7 @@ This is the target tree. As of Story 3.2 the built parts are: `project.godot`, `
 | Enemies | `entities/enemies/<type>/` | Behaviour per type, extends `Enemy` |
 | Flagship | `entities/boss/` | Phases, turrets, core, final-choice hook |
 | Asteroids | `entities/asteroids/` | Drift, rotate, block, damage, drop |
-| Energy orbs | `entities/pickups/` | Drift, magnet, despawn, collect |
+| Energy orbs | `entities/pickups/` | Drift, magnet, despawn, collect. Built (Story 3.3): `energy_orb.tscn` + `.gd` (`EnergyOrb`); drops rolled by `core/loot.gd` (`Loot`) |
 | Convoy, allies | `entities/allies/` | Paths, shared HP, ally targeting, Tarek's fall |
 | Explosions and FX | `entities/effects/` | Visual only |
 | Waves and beat triggers | `systems/waves/` | Novel pattern: see Implementation Patterns |
@@ -967,7 +969,8 @@ The real rows are in `data/tuning.json` → `feedback.tiers`, one per `ImpactTie
 **Known gaps (registered when their epic lands):** the `boss_part` and `boss_death` rows name sfx ids that `Audio.SFX` doesn't register yet (they warn once and play nothing); `player_hit` (Story 3.1) and `player_death` (Story 3.2) are registered. The extras `white_flash` and `red_vignette` aren't handled by `Explosion` (ignored); the red vignette is the HUD `HitVignette` instead.
 
 ```gdscript
-# Every entity death looks like this — nothing else:
+# Every entity death looks like this — nothing else (as built in Enemy since Story 3.3;
+# the Asteroid drops after asteroid_destroyed the same way):
 func _die() -> void:
 	Feedback.impact(_tier, global_position)    # explosion + shake + hit-stop + sfx
 	Events.enemy_killed.emit(type_id, global_position, _last_hit_by_ally)
@@ -1272,7 +1275,7 @@ CLI export (optional, for repeatability). Run the import step first; on a fresh 
 | Friendly fire off; convoy solid (blocks every shot, damaged by enemy shots only) | Masks + `targets_convoy` flag (aimed 5 / stray 2) + Maul convoy mask + no-damage block for player shots |
 | Hearts, i-frames, shield, contact damage tiers | `player.gd` + `tuning.damage` |
 | Energy carry-over, wipe on death, save on clear | `GameState` + `SaveManager` rules |
-| Drop table, orb magnet and despawn | `tuning.drops`, `energy_orb.gd` |
+| Drop table, orb magnet and despawn | `tuning.drops`, `core/loot.gd`, `energy_orb.gd` |
 | Telegraph ≥ 0.3 s | State pattern rule + GUT data test |
 | Off-screen rule (Wasps re-enter, Maul miss resolves) | Wave Director "resolved" definition |
 | Scripted data waves, 2.0 s gap, % triggers | Wave Director + Beat Triggers |
@@ -1530,6 +1533,21 @@ Status update only; no design decision changed.
 - **Theme:** `RetryPrompt/colors/dim|reason|text`, `RetryPrompt/font_sizes/button` (28) and `RetryPrompt/styles/button_normal|button_hover|button_focus` (`surfaceAlt` fill, 1 px `border`; hover and focus have a `coalition` border).
 - **Audio:** `player_death` is registered in `Audio.SFX` (`sfx_player_death.wav`, a 1.0 s explosion plus buzz generated by `tools/gen_placeholder_sfx.py` with its own seed, so the older WAVs are unchanged).
 - **Tuning:** a new `ui` top-level section, `ui.retry_prompt` (`headline_y`, `headline_px`, `button_w`, `button_h`, `button_gap_px`, `buttons_top_y`). The beat is the existing `feedback.player_death_pause_s`.
+
+## As-built 2026-10-07 (Story 3.3)
+
+Status update only; no design decision changed.
+
+- **GameState energy:** `max_energy()` (`Config.int_("energy.max")`), `add_energy(amount) -> int` (clamps `energy + amount` into 0..max, always emits `Events.energy_changed(energy, max)`, even at the cap, and returns the new value) and `emit_energy()` (announces the current value). `SceneRouter.restart_level()` / `goto_title()` still write `energy = 0` directly; `level.gd` calls `GameState.emit_energy()` right after `level_started`, so the reloaded level announces it.
+- **Loot:** `core/loot.gd` (`class_name Loot`, static only). `orb_count(row, roll)` is `row.orbs` when `roll < row.chance`, else 0 (0 for a missing or non-number field). `drop(spawner, table_key, at, roll = randf())` reads `drops.<table_key>` and calls `spawner.spawn_orb.call_deferred({position})` once per orb, `energy.orb_spread_px` apart horizontally and centred on `at`; it returns the count. The spawner parameter is untyped so a freed spawner returns 0 with no script error (a `Spawner`-typed parameter rejects a freed instance). Spawning is deferred because deaths happen inside `area_entered` (physics query flush).
+- **Death paths:** `Enemy._die()` calls `_drop_loot()` (`Loot.drop(spawner, type_id, global_position)`) after `enemy_killed` and before `resolved`; `Asteroid` has a `spawner` field (set by `Spawner.spawn_asteroid`) and drops `asteroid_<size>` after `asteroid_destroyed`. Contact kills, ally kills and the F3 resolve all go through these paths. Without a spawner nothing drops.
+- **EnergyOrb:** `entities/pickups/energy_orb.tscn` + `.gd` (`class_name EnergyOrb extends Area2D`): layer `pickups` (32), mask 0, group `pickups`, a `Hitbox` circle and an additive gold (`#FFD23F`) gradient `Sprite`, both `energy.orb_diameter_px`. `step(delta)` (from `_physics_process`) ages it and frees it at `orb_despawn_s`; while the Player (cached once in `_ready` by group) is valid, alive and within `orb_magnet_radius_px` (inclusive) it moves toward it at `orb_magnet_speed_px_s` without overshooting, else down at `orb_drift_px_s`; it frees itself once fully below the playfield. `collect()` works once: `GameState.add_energy(orb_value)`, `Audio.play_sfx(&"energy_pickup")`, `queue_free()`.
+- **Spawner / registry:** `EntityRegistry.ENERGY_ORB`; `Spawner.spawn_orb(params)` parents to `World/Pickups`, which is optional like `Effects` (a missing container gives one DEBUG line and `spawn_orb` returns null).
+- **Player:** `on_contact` collects an `EnergyOrb` first (after the dead guard), even while invulnerable or `debug_invincible`, at no heart cost, and never remembers it.
+- **HUD:** `EnergyBar` (see UI Framework). Theme items added: `EnergyBar/styles/track` (`#2B3348`, 2 px corners), `EnergyBar/styles/fill` (`#FFD23F`, 2 px corners), `EnergyBar/colors/tick` (`#E8F4FF`).
+- **Debug:** F4 `DebugTools.add_energy()` (debug builds only).
+- **Audio:** `energy_pickup` is registered in `Audio.SFX` (`sfx_energy_pickup.wav`, a 0.15 s rising chime generated by `tools/gen_placeholder_sfx.py` with its own seed, so the older WAVs are unchanged).
+- **Tuning:** `energy.orb_magnet_speed_px_s` (600), `energy.orb_diameter_px` (24), `energy.orb_spread_px` (32), `hud.energy_bar` (`right_x` 1888, `y` 76, `width` 320, `height` 16, `tick_px` 2) and `debug.energy_add` (100). These are first-pass feel defaults (the GDD gives no magnet speed, orb size or spread).
 
 ---
 

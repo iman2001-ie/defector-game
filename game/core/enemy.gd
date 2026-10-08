@@ -19,7 +19,8 @@ const PLAYER_GROUP: StringName = &"player"
 @export var sprite_px: float = 64.0
 
 var type_id: StringName
-## Set by Spawner before add_child; shooters request projectiles through it.
+## Set by Spawner before add_child; shooters request projectiles and every
+## enemy requests its death drops (energy orbs) through it.
 ## Null for enemies created outside a Spawner (some tests).
 var spawner: Spawner = null
 var tier: int = ImpactTier.SMALL
@@ -96,10 +97,18 @@ func _die() -> void:
 		return
 	_dead = true
 	Feedback.impact(tier, global_position)
-	# Drops arrive in Epic 4.
 	Events.enemy_killed.emit(type_id, global_position, _last_hit_by_ally)
+	_drop_loot()
 	resolved.emit()
 	queue_free()
+
+
+## Rolls tuning.drops.<type_id> and asks the spawner for the orbs (deferred).
+## Without a spawner nothing drops.
+func _drop_loot() -> void:
+	if spawner == null or not is_instance_valid(spawner):
+		return
+	Loot.drop(spawner, String(type_id), global_position)
 
 
 ## Where an entry flight toward `target` starts, just off screen on the `_entry`

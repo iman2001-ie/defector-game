@@ -1,7 +1,8 @@
 class_name Asteroid
 extends Area2D
 ## Drifting, spinning, destructible cover. Blocks every projectile (projectiles
-## free themselves on contact); player shots damage it. Never splits.
+## free themselves on contact); player shots damage it. Never splits. On
+## destruction it rolls tuning.drops.asteroid_<size> through Loot (Story 3.3).
 ##
 ## Created only by Spawner: setup(params) stores values before add_child, and
 ## _ready() applies them.
@@ -11,6 +12,9 @@ const SIZES: Array[StringName] = [&"small", &"medium", &"large"]
 const RIM_WIDTH_PX: float = 3.0
 
 var size: StringName = &"small"
+## Set by Spawner before add_child; the death drop (energy orbs) is requested
+## through it. Null for asteroids created outside a Spawner (some tests).
+var spawner: Spawner = null
 var hp: int = 0
 var radius: float = 0.0
 var drift_speed: float = 0.0
@@ -72,6 +76,7 @@ func apply_damage(amount: int, _source: Node) -> void:
 	if hp <= 0:
 		_destroyed = true
 		Feedback.impact(_impact_tier, global_position)
-		# Drops arrive in Epic 4.
 		Events.asteroid_destroyed.emit(size, global_position)
+		if spawner != null and is_instance_valid(spawner):
+			Loot.drop(spawner, "asteroid_%s" % size, global_position)
 		queue_free()

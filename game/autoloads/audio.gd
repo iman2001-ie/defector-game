@@ -14,6 +14,7 @@ const SFX: Dictionary[StringName, AudioStream] = {
 	&"explosion_large": preload("res://assets/audio/sfx/sfx_explosion_large.wav"),
 	&"player_hit": preload("res://assets/audio/sfx/sfx_player_hit.wav"),
 	&"player_death": preload("res://assets/audio/sfx/sfx_player_death.wav"),
+	&"energy_pickup": preload("res://assets/audio/sfx/sfx_energy_pickup.wav"),
 }
 
 var _players: Array[AudioStreamPlayer] = []

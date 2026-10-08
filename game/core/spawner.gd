@@ -10,6 +10,7 @@ var _projectiles: Node2D
 var _enemies: Node2D
 var _asteroids: Node2D
 var _effects: Node2D
+var _pickups: Node2D
 
 
 func _ready() -> void:
@@ -25,6 +26,10 @@ func _ready() -> void:
 		Feedback.register_spawner(self)
 	else:
 		Log.debug("spawn", "World '%s' has no Effects container; explosions disabled" % world.name)
+	# Pickups is optional too (test worlds omit it); without it no orbs drop.
+	_pickups = world.get_node_or_null(^"Pickups") as Node2D
+	if _pickups == null:
+		Log.debug("spawn", "World '%s' has no Pickups container; energy orbs disabled" % world.name)
 
 
 func _exit_tree() -> void:
@@ -86,6 +91,7 @@ func spawn_asteroid(params: Dictionary) -> Asteroid:
 		Log.error("spawn", "asteroid scene is not an Asteroid")
 		node.queue_free()
 		return null
+	asteroid.spawner = self
 	asteroid.setup(params)
 	_asteroids.add_child(asteroid)
 	return asteroid
@@ -105,6 +111,22 @@ func spawn_explosion(params: Dictionary) -> Explosion:
 	explosion.setup(params)
 	_effects.add_child(explosion)
 	return explosion
+
+
+## Returns the spawned energy orb, or null without a Pickups container.
+## params: position (see EnergyOrb.setup). Loot calls this deferred.
+func spawn_orb(params: Dictionary) -> EnergyOrb:
+	if _pickups == null:
+		return null
+	var node: Node = EntityRegistry.ENERGY_ORB.instantiate()
+	var orb: EnergyOrb = node as EnergyOrb
+	if orb == null:
+		Log.error("spawn", "energy orb scene is not an EnergyOrb")
+		node.queue_free()
+		return null
+	orb.setup(params)
+	_pickups.add_child(orb)
+	return orb
 
 
 func _container(path: NodePath) -> Node2D:

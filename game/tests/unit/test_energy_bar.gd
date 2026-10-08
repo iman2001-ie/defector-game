@@ -1,0 +1,108 @@
+extends GutTest
+## EnergyBar (Story 3.3): the top-right energy meter, driven only by
+## Events.energy_changed (layout from hud.energy_bar, colours from the theme,
+## ticks at the Shield and Barrage costs).
+
+const THEME_PATH: String = "res://ui/theme/defector_theme.tres"
+
+
+func after_each() -> void:
+	Config.load_data()
+
+
+func _make() -> EnergyBar:
+	var bar: EnergyBar = EnergyBar.new()
+	bar.theme = load(THEME_PATH) as Theme
+	add_child_autofree(bar)
+	return bar
+
+
+func test_init_modes() -> void:
+	var bar: EnergyBar = _make()
+	assert_eq(bar.process_mode, Node.PROCESS_MODE_PAUSABLE)
+	assert_eq(bar.mouse_filter, Control.MOUSE_FILTER_IGNORE)
+
+
+func test_rect_from_tuning() -> void:
+	var bar: EnergyBar = _make()
+	assert_eq(bar.position, Vector2(1568, 76))
+	assert_eq(bar.size, Vector2(320, 16))
+	assert_eq(bar.get_rect().end.x, 1888.0, "right-aligned at x 1888")
+
+
+func test_starts_empty_with_the_tuning_max() -> void:
+	var bar: EnergyBar = _make()
+	assert_eq(bar.current(), 0)
+	assert_eq(bar.max_energy(), 100)
+
+
+func test_energy_changed_updates_the_bar() -> void:
+	var bar: EnergyBar = _make()
+	Events.energy_changed.emit(50, 100)
+	assert_eq(bar.current(), 50)
+	assert_eq(bar.max_energy(), 100)
+	assert_eq(EnergyBar.fill_width(bar.current(), bar.max_energy(), bar.size.x), 160.0, "fill 160 px")
+	assert_eq(bar.tick_positions(), [160.0, 318.0] as Array[float], "ticks at 50 and 100, clamped inside")
+
+
+func test_values_are_clamped() -> void:
+	var bar: EnergyBar = _make()
+	Events.energy_changed.emit(150, 100)
+	assert_eq(bar.current(), 100)
+	Events.energy_changed.emit(-5, 100)
+	assert_eq(bar.current(), 0)
+
+
+func test_fill_width() -> void:
+	assert_eq(EnergyBar.fill_width(0, 100, 320.0), 0.0, "nothing at 0")
+	assert_eq(EnergyBar.fill_width(10, 100, 320.0), 32.0)
+	assert_eq(EnergyBar.fill_width(100, 100, 320.0), 320.0)
+	assert_eq(EnergyBar.fill_width(200, 100, 320.0), 320.0, "capped")
+	assert_eq(EnergyBar.fill_width(50, 0, 320.0), 0.0, "no max")
+
+
+func test_tick_x() -> void:
+	assert_eq(EnergyBar.tick_x(50, 100, 320.0, 2.0), 160.0)
+	assert_eq(EnergyBar.tick_x(100, 100, 320.0, 2.0), 318.0, "the whole tick stays inside")
+	assert_eq(EnergyBar.tick_x(0, 100, 320.0, 2.0), 0.0)
+	assert_eq(EnergyBar.tick_x(150, 100, 320.0, 2.0), 318.0)
+	assert_eq(EnergyBar.tick_x(50, 0, 320.0, 2.0), 0.0, "no max")
+
+
+func test_ticks_follow_the_ability_costs() -> void:
+	((Config.tuning["abilities"] as Dictionary)["shield"] as Dictionary)["cost"] = 25
+	var bar: EnergyBar = _make()
+	assert_eq(bar.tick_positions(), [80.0, 318.0] as Array[float])
+
+
+func test_theme_styles() -> void:
+	var bar: EnergyBar = _make()
+	var track: StyleBoxFlat = bar.get_theme_stylebox(&"track", &"EnergyBar") as StyleBoxFlat
+	var fill: StyleBoxFlat = bar.get_theme_stylebox(&"fill", &"EnergyBar") as StyleBoxFlat
+	assert_not_null(track)
+	assert_not_null(fill)
+	if track != null:
+		assert_true(track.bg_color.is_equal_approx(Color("#2B3348")), "heartEmpty track")
+		assert_eq(track.corner_radius_top_left, 2)
+	if fill != null:
+		assert_true(fill.bg_color.is_equal_approx(Color("#FFD23F")), "energy fill")
+		assert_eq(fill.corner_radius_top_left, 2)
+	assert_true(bar.get_theme_color(&"tick", &"EnergyBar").is_equal_approx(Color("#E8F4FF")), "text ticks")
+
+
+func test_draws_without_errors() -> void:
+	var bar: EnergyBar = _make()
+	Events.energy_changed.emit(0, 100)
+	await wait_process_frames(1)
+	Events.energy_changed.emit(70, 100)
+	await wait_process_frames(1)
+	assert_eq(bar.current(), 70)
+
+
+func test_energy_changed_repaints_the_bar() -> void:
+	var bar: EnergyBar = _make()
+	await wait_process_frames(1)
+	watch_signals(bar)
+	Events.energy_changed.emit(40, 100)
+	await wait_process_frames(1)
+	assert_signal_emitted(bar, "draw", "the bar redraws after energy_changed")

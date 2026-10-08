@@ -1,7 +1,7 @@
 extends GutTest
 ## level.tscn: the architecture tree, process modes, level_started with the
 ## JSON id, the gameplay mouse mode, wave 1 from level_dev.json and the
-## LEVEL CLEAR banner, the hearts display and hit vignette in the HUD, the
+## LEVEL CLEAR banner, the hearts display, energy bar and hit vignette in the HUD, the
 ## retry prompt in the Overlay, the level id resolution and the death -> retry
 ## reload (Story 3.2). Long wave runs make the player debug_invincible so a
 ## death can't pause the tree mid-test.
@@ -230,6 +230,45 @@ func test_hearts_and_vignette_in_the_hud() -> void:
 			assert_eq(node.theme.resource_path, "res://ui/theme/defector_theme.tres")
 	assert_lt(vignette.get_index(), hearts.get_index(), "the vignette draws under the meters")
 	assert_false(vignette.visible, "vignette hidden at start")
+
+
+func test_energy_bar_in_the_hud() -> void:
+	_make_level()
+	var hud: Node = _level.get_node("HUD")
+	var bar: EnergyBar = hud.get_node_or_null("EnergyBar") as EnergyBar
+	assert_not_null(bar, "HUD/EnergyBar is an EnergyBar")
+	if bar == null:
+		return
+	assert_eq(bar.get_index(), hud.get_node("HeartsDisplay").get_index() + 1, "right after HeartsDisplay")
+	assert_eq(bar.process_mode, Node.PROCESS_MODE_PAUSABLE, "freezes with the game")
+	assert_eq(bar.mouse_filter, Control.MOUSE_FILTER_IGNORE)
+	assert_not_null(bar.theme, "has the shared theme")
+	if bar.theme != null:
+		assert_eq(bar.theme.resource_path, "res://ui/theme/defector_theme.tres")
+	assert_eq(bar.get_rect(), Rect2(1568, 76, 320, 16))
+	assert_true(bar.get_rect().end.y <= 120.0, "inside the top 120 px HUD band")
+	assert_eq(bar.tick_positions(), [160.0, 318.0] as Array[float], "ticks at 50 and 100")
+
+
+func test_level_start_announces_zero_energy_to_the_bar() -> void:
+	watch_signals(Events)
+	_make_level()
+	assert_signal_emitted_with_parameters(Events, "energy_changed", [0, 100])
+	var bar: EnergyBar = _level.get_node("HUD/EnergyBar") as EnergyBar
+	assert_eq(bar.current(), 0)
+	assert_eq(bar.max_energy(), 100)
+
+
+func test_level_start_shows_the_carried_energy() -> void:
+	GameState.energy = 30
+	_make_level()
+	assert_eq((_level.get_node("HUD/EnergyBar") as EnergyBar).current(), 30)
+
+
+func test_energy_pickup_reaches_the_bar() -> void:
+	_make_level()
+	GameState.add_energy(10)
+	assert_eq((_level.get_node("HUD/EnergyBar") as EnergyBar).current(), 10)
 
 
 func test_hearts_display_shows_five_after_one_frame() -> void:

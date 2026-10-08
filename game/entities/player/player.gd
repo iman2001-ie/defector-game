@@ -40,6 +40,8 @@ extends Area2D
 ## and survives; an Asteroid costs contact_<size>_hearts and is never destroyed.
 ## Hazards that survive are remembered while they overlap; when the i-frames end
 ## (or debug_invincible turns off) one still-overlapping hazard hits again.
+## An EnergyOrb (Story 3.3) is collected on contact (EnergyOrb.collect), even
+## while invulnerable, at no heart cost, and is never remembered.
 
 ## A mouse within this distance of its confined point is not warped: warp_mouse
 ## rounds to whole OS pixels, so under stretch the read-back can land a fraction of
@@ -192,11 +194,16 @@ func _emit_hearts() -> void:
 
 # --- Contact ----------------------------------------------------------------------
 
-## Contact with `area`: enemies and asteroids cost hearts by tier or size; small
-## and medium enemies are then destroyed (even while invulnerable). Other areas
-## (pickups) and dead enemies are ignored. Surviving hazards are remembered.
+## Contact with `area`: an energy orb is collected (no heart cost, even while
+## invulnerable); enemies and asteroids cost hearts by tier or size; small and
+## medium enemies are then destroyed (even while invulnerable). Other areas and
+## dead enemies are ignored. Surviving hazards are remembered.
 func on_contact(area: Area2D) -> void:
 	if _dead:
+		return
+	var orb: EnergyOrb = area as EnergyOrb
+	if orb != null:
+		orb.collect()
 		return
 	var enemy: Enemy = area as Enemy
 	if enemy != null:

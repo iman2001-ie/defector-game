@@ -20,6 +20,7 @@ SEED = 1606
 # Sounds added after Story 1.6 use their own RNG, so the original WAVs stay byte-identical.
 PLAYER_HIT_SEED = 3101
 PLAYER_DEATH_SEED = 3201
+ENERGY_PICKUP_SEED = 3301
 OUT_DIR = Path(__file__).resolve().parent.parent / "game" / "assets" / "audio" / "sfx"
 
 
@@ -116,6 +117,23 @@ def player_death(rng: random.Random) -> list[float]:
     return out
 
 
+def energy_pickup(rng: random.Random) -> list[float]:
+    """Bright 0.15 s chime: two rising sine partials (880 -> 1760 Hz, plus a fifth) with a tiny sparkle."""
+    n = int(0.15 * RATE)
+    out: list[float] = []
+    phase_a = 0.0
+    phase_b = 0.0
+    for i in range(n):
+        t = i / n
+        freq = 880.0 * 2.0 ** t
+        phase_a += 2.0 * math.pi * freq / RATE
+        phase_b += 2.0 * math.pi * freq * 1.5 / RATE
+        sparkle = rng.uniform(-1.0, 1.0) * max(0.0, 1.0 - t * 8.0)
+        tone = 0.7 * math.sin(phase_a) + 0.35 * math.sin(phase_b) + 0.08 * sparkle
+        out.append(tone * _envelope(i, n, 0.004, 1.6))
+    return out
+
+
 def _normalise(samples: list[float], peak: float = 0.9) -> list[float]:
     top = max(abs(s) for s in samples) or 1.0
     return [s * peak / top for s in samples]
@@ -146,6 +164,7 @@ def main() -> None:
     }
     sounds["player_hit"] = player_hit(random.Random(PLAYER_HIT_SEED))
     sounds["player_death"] = player_death(random.Random(PLAYER_DEATH_SEED))
+    sounds["energy_pickup"] = energy_pickup(random.Random(ENERGY_PICKUP_SEED))
     for name, samples in sounds.items():
         path = _write(name, samples)
         print(f"wrote {path.name} ({len(samples) / RATE:.2f} s)")

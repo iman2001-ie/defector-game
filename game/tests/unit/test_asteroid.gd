@@ -1,5 +1,6 @@
 extends GutTest
-## Asteroid: per-size tuning, drift and spin, bottom exit, destruction, scene layers.
+## Asteroid: per-size tuning, drift and spin, bottom exit, destruction, scene
+## layers; death drops through Loot (Story 3.3).
 
 const ASTEROID_SCENE: PackedScene = preload("res://entities/asteroids/asteroid.tscn")
 const DT: float = 1.0 / 60.0
@@ -15,6 +16,7 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	Config.load_data()
 	Feedback.reset()
 
 
@@ -118,3 +120,82 @@ func test_scene_contract() -> void:
 	assert_false(rock.monitoring)
 	assert_true(rock.monitorable)
 	assert_true(rock.is_in_group(&"asteroids"))
+
+
+# --- Death drops (Story 3.3) -------------------------------------------------------
+
+
+## A World with the entity containers and Pickups, plus its Spawner.
+func _drop_world() -> Spawner:
+	var world: Node2D = Node2D.new()
+	for container: String in ["Projectiles", "Enemies", "Asteroids", "Pickups"]:
+		var node: Node2D = Node2D.new()
+		node.name = container
+		world.add_child(node)
+	add_child_autofree(world)
+	var spawner: Spawner = Spawner.new()
+	spawner.world = world
+	add_child_autofree(spawner)
+	return spawner
+
+
+## The orb started at `at`: x exact; y at most a frame's physics drift below it.
+func _assert_dropped_at(orb: EnergyOrb, at: Vector2) -> void:
+	assert_eq(orb.global_position.x, at.x)
+	assert_between(orb.global_position.y, at.y, at.y + 40.0, "spawned at the point, then drifted down")
+
+
+func _orbs(spawner: Spawner) -> Array[EnergyOrb]:
+	var out: Array[EnergyOrb] = []
+	for child: Node in spawner.world.get_node("Pickups").get_children():
+		if child is EnergyOrb:
+			(child as EnergyOrb).set_physics_process(false)
+			out.append(child as EnergyOrb)
+	return out
+
+
+func _set_chance(size: StringName, chance: float) -> void:
+	((Config.tuning["drops"] as Dictionary)["asteroid_%s" % size] as Dictionary)["chance"] = chance
+
+
+## `size`'s row always drops and every other size's row never does, so a rock
+## that reads the wrong row drops nothing.
+func _only_size_drops(size: StringName) -> void:
+	for other: StringName in Asteroid.SIZES:
+		_set_chance(other, 1.0 if other == size else 0.0)
+
+
+func test_destroyed_asteroid_drops_by_size() -> void:
+	for size: StringName in Asteroid.SIZES:
+		var spawner: Spawner = _drop_world()
+		_only_size_drops(size)
+		var rock: Asteroid = spawner.spawn_asteroid({"size": size, "position": Vector2(700, 300)})
+		rock.set_physics_process(false)
+		rock.apply_damage(999, null)
+		Feedback.reset()
+		await wait_process_frames(1)
+		var orbs: Array[EnergyOrb] = _orbs(spawner)
+		assert_eq(orbs.size(), 1, "%s drops one orb" % size)
+		if orbs.size() == 1:
+			_assert_dropped_at(orbs[0], Vector2(700, 300))
+
+
+func test_missed_roll_drops_nothing() -> void:
+	var spawner: Spawner = _drop_world()
+	for size: StringName in Asteroid.SIZES:
+		_set_chance(size, 0.0)
+	var rock: Asteroid = spawner.spawn_asteroid({"size": &"large", "position": Vector2(700, 300)})
+	rock.set_physics_process(false)
+	rock.apply_damage(999, null)
+	Feedback.reset()
+	await wait_process_frames(1)
+	assert_eq(_orbs(spawner).size(), 0)
+
+
+func test_asteroid_without_spawner_drops_nothing() -> void:
+	_set_chance(&"small", 1.0)
+	var rock: Asteroid = _make(&"small")
+	assert_null(rock.spawner)
+	rock.apply_damage(999, null)
+	await wait_process_frames(1)
+	assert_eq(get_tree().get_nodes_in_group(&"pickups").size(), 0)

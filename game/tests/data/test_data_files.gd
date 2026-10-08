@@ -4,7 +4,7 @@ extends GutTest
 ## every enemy bullet speed is <= the readable maximum; Wasp and Lancer waves
 ## fit their formation rows inside each type's top zone; Needle, Bastion and
 ## Hunter Wasp tuning is sane; every Needle wave brings cover; every flag-gated
-## enemy type has its flag.
+## enemy type has its flag; the energy and drop tuning matches the GDD.
 
 const LEVELS_DIR: String = "res://data/levels/"
 
@@ -320,3 +320,38 @@ func test_every_needle_wave_has_cover() -> void:
 						cover += _entry_count(raw as Dictionary)
 			assert_gte(cover, 2, "%s waves[%d] has a Needle and >= 2 medium/large asteroids" % [path, i])
 	assert_gt(needle_waves, 0, "at least one Needle wave checked")
+
+
+## GDD Energy and drop table (FR13/FR14): the drop rows and the orb numbers.
+func test_energy_and_drops_match_the_gdd() -> void:
+	var expected: Dictionary = {
+		"wasp": [0.15, 1], "hunter_wasp": [0.15, 1], "lancer": [0.25, 1], "maul": [0.25, 1],
+		"needle": [0.30, 1], "bastion": [1.0, 2], "asteroid_small": [0.10, 1],
+		"asteroid_medium": [0.30, 1], "asteroid_large": [0.60, 1], "flagship_turret": [1.0, 1],
+	}
+	for key: String in expected:
+		var row: Array = expected[key]
+		assert_almost_eq(Config.num("drops.%s.chance" % key), float(row[0]), 0.0001, "drops.%s.chance" % key)
+		assert_eq(Config.int_("drops.%s.orbs" % key), int(row[1]), "drops.%s.orbs" % key)
+	for type_id: StringName in EntityRegistry.ENEMIES:
+		assert_true(expected.has(String(type_id)), "every enemy type has a drop row (%s)" % type_id)
+	assert_eq(Config.int_("energy.max"), 100)
+	assert_eq(Config.int_("energy.orb_value"), 10)
+	assert_eq(Config.num("energy.orb_drift_px_s"), 120.0)
+	assert_eq(Config.num("energy.orb_magnet_radius_px"), 160.0)
+	assert_eq(Config.num("energy.orb_despawn_s"), 6.0)
+
+
+## Story 3.3 feel tuning: positive orb numbers, a bar inside the HUD band, F4 > 0.
+func test_energy_feel_tuning_ranges() -> void:
+	assert_gt(Config.num("energy.orb_magnet_speed_px_s"), 0.0, "orb_magnet_speed_px_s > 0")
+	assert_gt(Config.num("energy.orb_diameter_px"), 0.0, "orb_diameter_px > 0")
+	assert_gte(Config.num("energy.orb_spread_px"), 0.0, "orb_spread_px >= 0")
+	var width: float = Config.num("hud.energy_bar.width")
+	assert_gt(width, 0.0, "energy_bar.width > 0")
+	assert_gt(Config.num("hud.energy_bar.height"), 0.0, "energy_bar.height > 0")
+	assert_lte(Config.num("hud.energy_bar.right_x"), Playfield.SIZE.x, "inside the screen")
+	assert_gte(Config.num("hud.energy_bar.right_x") - width, 0.0, "inside the screen")
+	assert_lte(Config.num("hud.energy_bar.y") + Config.num("hud.energy_bar.height"), 120.0, "inside the top HUD band")
+	assert_gt(Config.num("hud.energy_bar.tick_px"), 0.0, "tick_px > 0")
+	assert_gt(Config.int_("debug.energy_add"), 0, "debug.energy_add > 0")
