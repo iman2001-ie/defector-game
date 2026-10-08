@@ -571,7 +571,9 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-3-retro-2026-10-08.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 3; owner Developer (operator) / loop config; sprint-status status open)
-status: open
+status: done 2026-10-08
+resolution: closed by human decision: operator updated sprint-status epic statuses and policy.toml limits/verify
+decision: 2026-10-08 Close: operator has applied them — operator updated sprint-status epic statuses and policy.toml limits/verify
 
 ### DW-60: Before closing a sweep item by human decision, record the commit or config change that applies it, or leave it in-progress
 origin: retro action item epic-3-retro-item-30-before-closing-a-sweep-item-by-human-dec
