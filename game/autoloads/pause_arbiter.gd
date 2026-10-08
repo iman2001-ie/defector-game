@@ -36,6 +36,12 @@ func is_paused() -> bool:
 	return not _reasons.is_empty()
 
 
+## True while `reason` is active. Allocates nothing (the PauseMenu checks the
+## blocking `death` / `final_choice` reasons with it on every Esc).
+func has_reason(reason: StringName) -> bool:
+	return _reasons.has(reason)
+
+
 ## A copy of the active pause reasons (for the debug overlay).
 func reasons() -> Array[StringName]:
 	var out: Array[StringName] = []

@@ -136,3 +136,17 @@ func test_reasons_returns_a_copy() -> void:
 	assert_true(reasons.has(&"menu") and reasons.has(&"story"))
 	reasons.clear()
 	assert_eq(PauseArbiter.reasons().size(), 2, "editing the copy changes nothing")
+
+
+func test_has_reason() -> void:
+	assert_false(PauseArbiter.has_reason(&"menu"), "none active")
+	PauseArbiter.push(&"menu")
+	PauseArbiter.push(&"story")
+	assert_true(PauseArbiter.has_reason(&"menu"))
+	assert_true(PauseArbiter.has_reason(&"story"))
+	assert_false(PauseArbiter.has_reason(&"death"), "never pushed")
+	PauseArbiter.pop(&"menu")
+	assert_false(PauseArbiter.has_reason(&"menu"), "after pop")
+	assert_true(PauseArbiter.has_reason(&"story"), "the other reason stays")
+	PauseArbiter.clear()
+	assert_false(PauseArbiter.has_reason(&"story"), "after clear")

@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=3]
+[gd_scene load_steps=17 format=3]
 
 [ext_resource type="Script" path="res://scenes/level/level.gd" id="1_level"]
 [ext_resource type="PackedScene" path="res://entities/player/player.tscn" id="2_player"]
@@ -14,6 +14,7 @@
 [ext_resource type="Script" path="res://ui/hud/hit_vignette.gd" id="12_vignette"]
 [ext_resource type="PackedScene" path="res://ui/menus/retry_prompt.tscn" id="13_retry_prompt"]
 [ext_resource type="Script" path="res://ui/hud/energy_bar.gd" id="14_energy_bar"]
+[ext_resource type="PackedScene" path="res://ui/menus/pause_menu.tscn" id="15_pause_menu"]
 
 [sub_resource type="Environment" id="Environment_glow"]
 background_mode = 3
@@ -132,5 +133,7 @@ layer = 20
 layer = 30
 
 [node name="RetryPrompt" parent="Overlay" instance=ExtResource("13_retry_prompt")]
+
+[node name="PauseMenu" parent="Overlay" instance=ExtResource("15_pause_menu")]
 
 [node name="DebugTools" parent="Overlay" instance=ExtResource("7_debug_tools")]

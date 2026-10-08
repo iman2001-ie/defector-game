@@ -235,7 +235,7 @@ The game has two independent mechanisms. **No other code** may set `get_tree().p
 | Node | `process_mode` |
 |---|---|
 | Gameplay world (`World` node in the scene root: `level.tscn`, and the `sandbox.tscn` stress bench) | `PROCESS_MODE_PAUSABLE` (inherit) |
-| `CommsPanel`, `PauseMenu`, `FinalChoice`, retry prompt (`Overlay/RetryPrompt`, built) | `PROCESS_MODE_ALWAYS` |
+| `CommsPanel`, `FinalChoice`, retry prompt (`Overlay/RetryPrompt`, built), pause menu (`Overlay/PauseMenu`, built in Story 4.4) | `PROCESS_MODE_ALWAYS` |
 | Autoloads `PauseArbiter`, `Audio`, `Feedback`, `SceneRouter` | `PROCESS_MODE_ALWAYS` |
 | `ShakeCamera`, `DebugTools` (as built; each sets it in `_ready`) | `PROCESS_MODE_ALWAYS` |
 | HUD | `PROCESS_MODE_PAUSABLE` (it freezes along with gameplay) |
@@ -280,7 +280,7 @@ Level (Node2D, level.gd)                 # reads data/levels/level_<id>.json
 ├── WorldEnvironment                      # glow
 ├── HUD (CanvasLayer layer=10)
 ├── Comms (CanvasLayer layer=20)          # CommsPanel + FinalChoice
-└── Overlay (CanvasLayer layer=30)        # PauseMenu, RetryPrompt, DebugOverlay
+└── Overlay (CanvasLayer layer=30)        # RetryPrompt, PauseMenu (built, Story 4.4), DebugOverlay
 ```
 
 Spawned nodes are always parented to the matching `World/<Group>` container, which `Spawner` exposes.
@@ -562,7 +562,7 @@ Debug tools are available **only when `OS.is_debug_build()`** (editor runs and d
 
 ### Directory Structure
 
-This is the target tree. As of Story 4.3 the built parts are: `project.godot`, `export_presets.cfg` and `default_bus_layout.tres`; the autoloads `Log`, `Events`, `Config`, `GameState`, `SaveManager`, `PauseArbiter`, `Audio`, `Feedback`, `EntityRegistry`, `SceneRouter`; `core/` (with `loot.gd` and `health_component.gd`); `entities/player/` (with the shield, `player_shield`, `shield_bubble` and the barrage); `entities/projectiles/` laser, missile and `micro_missile`; `entities/enemies/wasp/`; `entities/asteroids/`; `entities/pickups/`; `entities/effects/`; `systems/camera/`; `systems/waves/`; `scenes/sandbox/`; `scenes/level/`; `scenes/boot/`; `scenes/title/title.tscn` + `.gd` and `level_select.tscn` + `.gd`; `ui/debug/`; `ui/hud/level_clear_banner.gd`, `wave_bar.gd`, `hearts_display.gd`, `energy_bar.gd` and `hit_vignette.gd` (+ `.gdshader`); `ui/menus/retry_prompt.tscn` + `.gd`; `data/tuning.json`, `data/flags.json` and `data/levels/`; `assets/audio/sfx/`, `assets/sprites/player/` and `assets/CREDITS.md`; `addons/gut/`; `tests/unit/` (plus `tests/fixtures/`); and `tests/data/`. Everything else is planned.
+This is the target tree. As of Story 4.4 the built parts are: `project.godot`, `export_presets.cfg` and `default_bus_layout.tres`; the autoloads `Log`, `Events`, `Config`, `GameState`, `SaveManager`, `PauseArbiter`, `Audio`, `Feedback`, `EntityRegistry`, `SceneRouter`; `core/` (with `loot.gd` and `health_component.gd`); `entities/player/` (with the shield, `player_shield`, `shield_bubble` and the barrage); `entities/projectiles/` laser, missile and `micro_missile`; `entities/enemies/wasp/`; `entities/asteroids/`; `entities/pickups/`; `entities/effects/`; `systems/camera/`; `systems/waves/`; `scenes/sandbox/`; `scenes/level/`; `scenes/boot/`; `scenes/title/title.tscn` + `.gd` and `level_select.tscn` + `.gd`; `ui/debug/`; `ui/hud/level_clear_banner.gd`, `wave_bar.gd`, `hearts_display.gd`, `energy_bar.gd` and `hit_vignette.gd` (+ `.gdshader`); `ui/menus/retry_prompt.tscn` + `.gd` and `pause_menu.tscn` + `.gd`; `data/tuning.json`, `data/flags.json` and `data/levels/`; `assets/audio/sfx/`, `assets/sprites/player/` and `assets/CREDITS.md`; `addons/gut/`; `tests/unit/` (plus `tests/fixtures/`); and `tests/data/`. Everything else is planned.
 
 ```
 <repo root>/
@@ -627,7 +627,7 @@ This is the target tree. As of Story 4.3 the built parts are: `project.godot`, `
     ├── ui/
     │   ├── hud/               hud.tscn, hud.gd, hearts_display.gd, energy_bar.gd, level_clear_banner.gd,
     │   │                      wave_bar.gd, boss_bar.gd, convoy_bar.gd
-    │   ├── menus/             pause_menu.tscn, pause_menu.gd, retry_prompt.tscn, retry_prompt.gd
+    │   ├── menus/             pause_menu.tscn, pause_menu.gd (built, Story 4.4), retry_prompt.tscn, retry_prompt.gd
     │   ├── debug/             debug_tools.tscn, debug_tools.gd, debug_args.gd, frame_stats.gd
     │   └── theme/             defector_theme.tres, fonts/
     ├── data/
@@ -1629,6 +1629,17 @@ Status update only; no design decision changed (FR56).
 - **Theme:** `LevelSelect/colors/text` (`#E8F4FF`), `muted` (`#93A7C2`, the LOCKED label), `thumbnail` (`#2B3348`); `LevelSelect/font_sizes/button` and `name` (28), `number` (20); `LevelSelect/styles/button_normal|button_hover|button_focus` reuse the `StyleBoxFlat_retry_button*` sub-resources (a disabled card uses `button_normal`). Copied onto the children in code.
 - **Tuning:** `ui.level_select` (`card_w` 480, `card_h` 280, `card_gap_px` 48, `cards_top_y` 360, `back_x` 32, `back_y` 984, `back_w` 240, `back_h` 64, `locked_alpha` 0.4).
 - **Tests:** `tests/unit/test_level_select.gd` (new); `test_title.gd` and `test_scene_router.gd` updated.
+
+## As-built 2026-10-08 (Story 4.4)
+
+Status update only; no design decision changed (FR57, FR8).
+
+- **PauseArbiter:** `has_reason(reason) -> bool` (`_reasons.has`, no allocation). Nothing else changed.
+- **PauseMenu:** `ui/menus/pause_menu.tscn` + `pause_menu.gd` (`class_name PauseMenu extends Control`, full rect, the shared theme, `PROCESS_MODE_ALWAYS`, hidden at start, `MOUSE_FILTER_IGNORE` while hidden and `MOUSE_FILTER_STOP` while shown), instanced as `Overlay/PauseMenu` in `level.tscn` between `RetryPrompt` and `DebugTools` (not in the sandbox). Children: `Dim` (full-rect ColorRect), `Panel` (holding the `Heading` Label, `PAUSED`) and the buttons `Resume` (`RESUME`), `Restart` (`RESTART LEVEL`) and `Quit` (`QUIT TO TITLE`), all `FOCUS_NONE`. `_unhandled_input` reacts only to `event.is_action_pressed(&"pause")` (echoes ignored), marks it handled and toggles: `open()` (no-op while shown, while leaving, or while `death` / `final_choice` is active; a `story` pause doesn't block it) pushes `&"menu"`, shows the menu and logs `[INFO][scene] Pause menu opened`; `resume()` (RESUME or Esc while shown; no-op when hidden or leaving) pops only `&"menu"`, hides it and logs `Pause menu closed`. Over a story pause the tree therefore stays paused and `resumed` doesn't fire. RESTART → `SceneRouter.restart_level()`, QUIT → `SceneRouter.goto_title()`; the menu stays visible until the scene changes and a `_leaving` flag ignores every later press and Esc. The HUD freeze, the shake freeze, the visible cursor and `Player._on_resumed`'s warp are the existing mechanisms, unchanged.
+- **Layout:** static `panel_rect(canvas, panel_w, padding, heading, heading_gap, button, gap, count)` (centred on `Playfield.SIZE`, height padding + heading + heading gap + 3 buttons + 2 gaps + padding) and `button_rects(panel, …)` (centred horizontally, first top at panel top + padding + heading + heading gap). Default: panel (700, 324, 520, 432), heading at y 364, buttons 400×72 at x 760, y 452 / 548 / 644.
+- **Theme:** `PauseMenu/colors/dim` (black at 0.6), `text` (`#E8F4FF`); `PauseMenu/font_sizes/heading` (48) and `button` (28); `PauseMenu/styles/panel` and `button_normal` reuse `StyleBoxFlat_retry_button`, `button_hover|button_focus` the matching `StyleBoxFlat_retry_button*` boxes. Copied onto the children in code.
+- **Tuning:** `ui.pause_menu` (`panel_w` 520, `panel_padding_px` 40, `heading_px` 48, `heading_gap_px` 40, `button_w` 400, `button_h` 72, `button_gap_px` 24). The padding and heading gap are layout defaults (the UX table gives neither).
+- **Tests:** `tests/unit/test_pause_menu.gd` (new); `test_pause_arbiter.gd` and `test_level.gd` updated.
 
 ---
 

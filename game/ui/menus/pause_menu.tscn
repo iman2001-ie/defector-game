@@ -1,0 +1,70 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://ui/menus/pause_menu.gd" id="1_pause"]
+[ext_resource type="Theme" path="res://ui/theme/defector_theme.tres" id="2_theme"]
+
+[node name="PauseMenu" type="Control"]
+process_mode = 3
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_pause")
+
+[node name="Dim" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 0.6)
+
+[node name="Panel" type="Panel" parent="."]
+layout_mode = 0
+offset_left = 700.0
+offset_top = 324.0
+offset_right = 1220.0
+offset_bottom = 756.0
+mouse_filter = 2
+
+[node name="Heading" type="Label" parent="Panel"]
+layout_mode = 0
+offset_top = 40.0
+offset_right = 520.0
+offset_bottom = 88.0
+text = "PAUSED"
+horizontal_alignment = 1
+
+[node name="Resume" type="Button" parent="."]
+layout_mode = 0
+offset_left = 760.0
+offset_top = 452.0
+offset_right = 1160.0
+offset_bottom = 524.0
+focus_mode = 0
+text = "RESUME"
+
+[node name="Restart" type="Button" parent="."]
+layout_mode = 0
+offset_left = 760.0
+offset_top = 548.0
+offset_right = 1160.0
+offset_bottom = 620.0
+focus_mode = 0
+text = "RESTART LEVEL"
+
+[node name="Quit" type="Button" parent="."]
+layout_mode = 0
+offset_left = 760.0
+offset_top = 644.0
+offset_right = 1160.0
+offset_bottom = 716.0
+focus_mode = 0
+text = "QUIT TO TITLE"

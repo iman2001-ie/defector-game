@@ -1,0 +1,372 @@
+extends GutTest
+## PauseMenu (Story 4.4): Esc (the `pause` action) toggles it. Opening pushes the
+## `menu` reason (blocked by `death` / `final_choice`, allowed over `story`);
+## RESUME or Esc pops only `menu`. RESTART LEVEL -> SceneRouter.restart_level(),
+## QUIT TO TITLE -> SceneRouter.goto_title(); the scene change is a recorder and
+## the save is a test file.
+
+const MENU_SCENE: PackedScene = preload("res://ui/menus/pause_menu.tscn")
+const THEME_PATH: String = "res://ui/theme/defector_theme.tres"
+const TEST_SAVE: String = "user://test_pause_menu_save.cfg"
+const TEXT_COLOR: Color = Color(0.909804, 0.956863, 1, 1)
+
+var _calls: Array[String] = []
+var _lines: Array[String] = []
+
+
+func before_each() -> void:
+	_calls.clear()
+	_lines.clear()
+	SaveManager.save_path = TEST_SAVE
+	_delete_save()
+	GameState.highest_unlocked_level = 1
+	GameState.all_levels_unlocked = false
+	SceneRouter.change_scene = _record
+	Log.sink = _capture
+
+
+func after_each() -> void:
+	Log.sink = Callable()
+	SceneRouter.change_scene = SceneRouter.default_change_scene()
+	_delete_save()
+	SaveManager.save_path = SaveManager.DEFAULT_SAVE_PATH
+	GameState.highest_unlocked_level = 1
+	GameState.all_levels_unlocked = false
+	GameState.energy = 0
+	GameState.current_level_id = ""
+	GameState.is_retry = false
+	Config.load_data()
+	Feedback.reset()
+	PauseArbiter.clear()
+	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+
+
+func _delete_save() -> void:
+	if FileAccess.file_exists(TEST_SAVE):
+		DirAccess.remove_absolute(TEST_SAVE)
+
+
+func _record(path: String) -> Error:
+	_calls.append(path)
+	return OK
+
+
+func _capture(level: String, category: String, msg: String) -> void:
+	_lines.append(Log.format(level, category, msg))
+
+
+func _make() -> PauseMenu:
+	var menu: PauseMenu = MENU_SCENE.instantiate() as PauseMenu
+	add_child_autofree(menu)
+	return menu
+
+
+func _esc(menu: PauseMenu) -> void:
+	var event: InputEventAction = InputEventAction.new()
+	event.action = &"pause"
+	event.pressed = true
+	menu._unhandled_input(event)
+
+
+func _button(menu: PauseMenu, name: String) -> Button:
+	return menu.get_node(name) as Button
+
+
+func _count_lines(text: String) -> int:
+	var n: int = 0
+	for line: String in _lines:
+		if line == text:
+			n += 1
+	return n
+
+
+func _assert_color(actual: Color, expected: Color, what: String) -> void:
+	assert_almost_eq(actual.r, expected.r, 0.002, what + " r")
+	assert_almost_eq(actual.g, expected.g, 0.002, what + " g")
+	assert_almost_eq(actual.b, expected.b, 0.002, what + " b")
+	assert_almost_eq(actual.a, expected.a, 0.002, what + " a")
+
+
+# --- Setup, layout and theme --------------------------------------------------------
+
+func test_tuning() -> void:
+	assert_eq(Config.num("ui.pause_menu.panel_w"), 520.0)
+	assert_eq(Config.num("ui.pause_menu.panel_padding_px"), 40.0)
+	assert_eq(Config.num("ui.pause_menu.heading_px"), 48.0)
+	assert_eq(Config.num("ui.pause_menu.heading_gap_px"), 40.0)
+	assert_eq(Config.num("ui.pause_menu.button_w"), 400.0)
+	assert_eq(Config.num("ui.pause_menu.button_h"), 72.0)
+	assert_eq(Config.num("ui.pause_menu.button_gap_px"), 24.0)
+
+
+func test_hidden_at_start() -> void:
+	var menu: PauseMenu = _make()
+	assert_eq(menu.process_mode, Node.PROCESS_MODE_ALWAYS)
+	assert_false(menu.visible)
+	assert_false(menu.is_shown())
+	assert_eq(menu.mouse_filter, Control.MOUSE_FILTER_IGNORE, "no mouse capture while hidden")
+	assert_false(PauseArbiter.is_paused())
+	assert_not_null(menu.theme)
+	if menu.theme != null:
+		assert_eq(menu.theme.resource_path, THEME_PATH)
+
+
+func test_layout() -> void:
+	var menu: PauseMenu = _make()
+	var panel: Panel = menu.get_node("Panel") as Panel
+	assert_eq(panel.get_rect(), Rect2(700, 324, 520, 432), "panel rect")
+	var heading: Label = menu.get_node("Panel/Heading") as Label
+	assert_eq(heading.global_position.y, 364.0, "heading top")
+	assert_eq(heading.position.x, 0.0)
+	assert_eq(heading.size.x, 520.0, "full panel width")
+	assert_eq(heading.horizontal_alignment, HORIZONTAL_ALIGNMENT_CENTER)
+	assert_eq(_button(menu, "Resume").get_rect(), Rect2(760, 452, 400, 72), "RESUME rect")
+	assert_eq(_button(menu, "Restart").get_rect(), Rect2(760, 548, 400, 72), "RESTART rect")
+	assert_eq(_button(menu, "Quit").get_rect(), Rect2(760, 644, 400, 72), "QUIT rect")
+	var dim: ColorRect = menu.get_node("Dim") as ColorRect
+	assert_eq(dim.mouse_filter, Control.MOUSE_FILTER_IGNORE)
+	assert_eq(dim.get_rect(), Rect2(Vector2.ZERO, Playfield.SIZE), "full-rect dim")
+
+
+func test_layout_follows_tuning() -> void:
+	var tuning: Dictionary = (Config.tuning["ui"] as Dictionary)["pause_menu"] as Dictionary
+	tuning["panel_w"] = 600
+	tuning["panel_padding_px"] = 20
+	tuning["heading_px"] = 60
+	tuning["heading_gap_px"] = 10
+	tuning["button_w"] = 300
+	tuning["button_h"] = 50
+	tuning["button_gap_px"] = 10
+	var menu: PauseMenu = _make()
+	# height = 20 + 60 + 10 + 3 * 50 + 2 * 10 + 20 = 280
+	assert_eq((menu.get_node("Panel") as Panel).get_rect(), Rect2(660, 400, 600, 280))
+	assert_eq((menu.get_node("Panel/Heading") as Label).global_position.y, 420.0)
+	assert_eq(_button(menu, "Resume").get_rect(), Rect2(810, 490, 300, 50))
+	assert_eq(_button(menu, "Restart").get_rect(), Rect2(810, 550, 300, 50))
+	assert_eq(_button(menu, "Quit").get_rect(), Rect2(810, 610, 300, 50))
+
+
+func test_rect_math() -> void:
+	var panel: Rect2 = PauseMenu.panel_rect(Vector2(1920, 1080), 520.0, 40.0, 48.0, 40.0, Vector2(400, 72), 24.0, 3)
+	assert_eq(panel, Rect2(700, 324, 520, 432))
+	var rects: Array[Rect2] = PauseMenu.button_rects(panel, 40.0, 48.0, 40.0, Vector2(400, 72), 24.0, 3)
+	assert_eq(rects, [Rect2(760, 452, 400, 72), Rect2(760, 548, 400, 72), Rect2(760, 644, 400, 72)] as Array[Rect2])
+
+
+func test_texts_are_uppercase() -> void:
+	var menu: PauseMenu = _make()
+	assert_eq((menu.get_node("Panel/Heading") as Label).text, "PAUSED")
+	assert_eq(_button(menu, "Resume").text, "RESUME")
+	assert_eq(_button(menu, "Restart").text, "RESTART LEVEL")
+	assert_eq(_button(menu, "Quit").text, "QUIT TO TITLE")
+	for name: String in ["Resume", "Restart", "Quit"]:
+		var text: String = _button(menu, name).text
+		assert_eq(text, text.to_upper(), "%s uppercase" % name)
+		assert_eq(_button(menu, name).focus_mode, Control.FOCUS_NONE, "%s mouse-only" % name)
+
+
+func test_theme_items() -> void:
+	var theme: Theme = load(THEME_PATH) as Theme
+	_assert_color(theme.get_color(&"dim", &"PauseMenu"), Color(0, 0, 0, 0.6), "dim token")
+	_assert_color(theme.get_color(&"text", &"PauseMenu"), Color("#E8F4FF"), "text token")
+	assert_eq(theme.get_font_size(&"heading", &"PauseMenu"), 48)
+	assert_eq(theme.get_font_size(&"button", &"PauseMenu"), 28)
+	var panel_box: StyleBoxFlat = theme.get_stylebox(&"panel", &"PauseMenu") as StyleBoxFlat
+	assert_not_null(panel_box, "panel StyleBoxFlat")
+	if panel_box != null:
+		_assert_color(panel_box.bg_color, Color(10.0 / 255.0, 18.0 / 255.0, 34.0 / 255.0, 0.85), "surfaceAlt fill")
+		_assert_color(panel_box.border_color, Color("#2A3B5C"), "border")
+		assert_eq(panel_box.border_width_top, 1)
+		assert_eq(panel_box.corner_radius_top_left, 4)
+	for style: StringName in [&"button_normal", &"button_hover", &"button_focus"]:
+		assert_eq(theme.get_stylebox(style, &"PauseMenu"), theme.get_stylebox(style, &"RetryPrompt"), "%s reuses the retry box" % style)
+
+
+func test_theme_applied_to_children() -> void:
+	var menu: PauseMenu = _make()
+	_assert_color((menu.get_node("Dim") as ColorRect).color, Color(0, 0, 0, 0.6), "dim colour")
+	var panel: Panel = menu.get_node("Panel") as Panel
+	var panel_box: StyleBoxFlat = panel.get_theme_stylebox(&"panel") as StyleBoxFlat
+	assert_not_null(panel_box, "panel style applied")
+	if panel_box != null:
+		_assert_color(panel_box.border_color, Color("#2A3B5C"), "panel border")
+	var heading: Label = menu.get_node("Panel/Heading") as Label
+	assert_eq(heading.get_theme_font_size(&"font_size"), 48)
+	_assert_color(heading.get_theme_color(&"font_color"), TEXT_COLOR, "heading colour")
+	for name: String in ["Resume", "Restart", "Quit"]:
+		var button: Button = _button(menu, name)
+		var expected: Dictionary = {&"normal": Color("#2A3B5C"), &"hover": Color("#22E6FF"), &"focus": Color("#22E6FF")}
+		for style: StringName in expected:
+			var box: StyleBoxFlat = button.get_theme_stylebox(style) as StyleBoxFlat
+			assert_not_null(box, "%s %s StyleBoxFlat" % [name, style])
+			if box != null:
+				_assert_color(box.border_color, expected[style] as Color, "%s %s border" % [name, style])
+		var font_px: int = button.get_theme_font_size(&"font_size")
+		assert_eq(font_px, 28, "%s font size" % name)
+		assert_gte(font_px, 20, "%s text never below 20px" % name)
+		_assert_color(button.get_theme_color(&"font_color"), TEXT_COLOR, "%s text colour" % name)
+	assert_gte(heading.get_theme_font_size(&"font_size"), 20)
+
+
+# --- Opening and closing ----------------------------------------------------------
+
+func test_esc_opens() -> void:
+	var menu: PauseMenu = _make()
+	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_CONFINED_HIDDEN)
+	_esc(menu)
+	assert_true(menu.is_shown())
+	assert_true(menu.visible)
+	assert_eq(PauseArbiter.reasons(), [&"menu"] as Array[StringName])
+	assert_true(get_tree().paused)
+	assert_eq(PauseArbiter.current_mouse_mode(), Input.MOUSE_MODE_VISIBLE, "cursor visible")
+	assert_eq(menu.mouse_filter, Control.MOUSE_FILTER_STOP, "captures the mouse while shown")
+	assert_eq(_count_lines("[INFO][scene] Pause menu opened"), 1, "one INFO line")
+
+
+func test_esc_again_resumes() -> void:
+	var menu: PauseMenu = _make()
+	_esc(menu)
+	watch_signals(PauseArbiter)
+	_esc(menu)
+	assert_false(menu.is_shown())
+	assert_false(menu.visible)
+	assert_eq(PauseArbiter.reasons(), [] as Array[StringName])
+	assert_false(get_tree().paused)
+	assert_signal_emit_count(PauseArbiter, "resumed", 1)
+	assert_eq(menu.mouse_filter, Control.MOUSE_FILTER_IGNORE)
+	assert_eq(_count_lines("[INFO][scene] Pause menu closed"), 1)
+
+
+func test_resume_button() -> void:
+	var menu: PauseMenu = _make()
+	_esc(menu)
+	watch_signals(PauseArbiter)
+	_button(menu, "Resume").pressed.emit()
+	assert_false(menu.is_shown())
+	assert_false(menu.visible)
+	assert_false(get_tree().paused)
+	assert_signal_emit_count(PauseArbiter, "resumed", 1)
+	assert_eq(menu.mouse_filter, Control.MOUSE_FILTER_IGNORE)
+	assert_eq(_count_lines("[INFO][scene] Pause menu closed"), 1)
+
+
+func test_resume_under_story_keeps_the_story_pause() -> void:
+	var menu: PauseMenu = _make()
+	PauseArbiter.push(&"story")
+	_esc(menu)
+	assert_true(menu.is_shown(), "a story pause doesn't block the menu")
+	var reasons: Array[StringName] = PauseArbiter.reasons()
+	assert_true(reasons.has(&"story") and reasons.has(&"menu"))
+	watch_signals(PauseArbiter)
+	_button(menu, "Resume").pressed.emit()
+	assert_false(menu.is_shown())
+	assert_false(menu.visible)
+	assert_eq(PauseArbiter.reasons(), [&"story"] as Array[StringName], "only menu popped")
+	assert_true(get_tree().paused, "still paused by the story")
+	assert_signal_not_emitted(PauseArbiter, "resumed")
+
+
+func test_death_blocks_the_menu() -> void:
+	var menu: PauseMenu = _make()
+	PauseArbiter.push(RetryPrompt.PAUSE_REASON)
+	_esc(menu)
+	assert_false(menu.is_shown())
+	assert_false(menu.visible)
+	assert_eq(PauseArbiter.reasons(), [RetryPrompt.PAUSE_REASON] as Array[StringName])
+	assert_eq(_count_lines("[INFO][scene] Pause menu opened"), 0)
+
+
+func test_final_choice_blocks_the_menu() -> void:
+	var menu: PauseMenu = _make()
+	PauseArbiter.push(&"final_choice")
+	_esc(menu)
+	assert_false(menu.is_shown())
+	assert_false(menu.visible)
+	assert_eq(PauseArbiter.reasons(), [&"final_choice"] as Array[StringName])
+
+
+func test_echo_is_ignored() -> void:
+	var menu: PauseMenu = _make()
+	var key: InputEventKey = InputEventKey.new()
+	key.physical_keycode = KEY_ESCAPE
+	key.pressed = true
+	key.echo = true
+	menu._unhandled_input(key)
+	assert_false(menu.is_shown(), "echo doesn't open")
+	assert_false(PauseArbiter.is_paused())
+	key.echo = false
+	menu._unhandled_input(key)
+	assert_true(menu.is_shown(), "the same key without echo opens")
+	key.echo = true
+	menu._unhandled_input(key)
+	assert_true(menu.is_shown(), "echo doesn't close")
+	assert_eq(PauseArbiter.reasons(), [&"menu"] as Array[StringName])
+
+
+func test_other_actions_are_ignored() -> void:
+	var menu: PauseMenu = _make()
+	var event: InputEventAction = InputEventAction.new()
+	event.action = &"fire"
+	event.pressed = true
+	menu._unhandled_input(event)
+	assert_false(menu.is_shown())
+	var release: InputEventAction = InputEventAction.new()
+	release.action = &"pause"
+	release.pressed = false
+	menu._unhandled_input(release)
+	assert_false(menu.is_shown(), "a release doesn't open")
+
+
+func test_resume_press_while_hidden_does_nothing() -> void:
+	var menu: PauseMenu = _make()
+	watch_signals(PauseArbiter)
+	_button(menu, "Resume").pressed.emit()
+	_button(menu, "Restart").pressed.emit()
+	_button(menu, "Quit").pressed.emit()
+	assert_false(menu.is_shown())
+	assert_false(PauseArbiter.is_paused())
+	assert_signal_not_emitted(PauseArbiter, "resumed")
+	assert_eq(_calls, [] as Array[String])
+	assert_eq(_lines.size(), 0, "nothing logged")
+
+
+# --- Leaving ----------------------------------------------------------------------
+
+func test_restart_reloads_the_level() -> void:
+	var menu: PauseMenu = _make()
+	GameState.energy = 40
+	GameState.current_level_id = "2"
+	_esc(menu)
+	_button(menu, "Restart").pressed.emit()
+	assert_eq(_calls, [SceneRouter.LEVEL_SCENE_PATH] as Array[String], "level.tscn once")
+	assert_eq(GameState.energy, 0)
+	assert_true(GameState.is_retry)
+	assert_eq(GameState.current_level_id, "2")
+	assert_false(FileAccess.file_exists(TEST_SAVE), "no save written")
+	assert_true(menu.visible, "stays visible until the scene changes")
+	_button(menu, "Restart").pressed.emit()
+	_button(menu, "Quit").pressed.emit()
+	_button(menu, "Resume").pressed.emit()
+	_esc(menu)
+	assert_eq(_calls.size(), 1, "later presses and Esc ignored")
+	assert_true(GameState.is_retry, "the quit was ignored")
+	assert_false(PauseArbiter.is_paused(), "Esc didn't reopen")
+
+
+func test_quit_goes_to_the_title() -> void:
+	var menu: PauseMenu = _make()
+	GameState.energy = 40
+	GameState.current_level_id = "2"
+	_esc(menu)
+	_button(menu, "Quit").pressed.emit()
+	assert_eq(_calls, [SceneRouter.TITLE_SCENE_PATH] as Array[String], "title.tscn once")
+	assert_eq(GameState.current_level_id, "", "goto_title ran")
+	assert_eq(GameState.energy, 0, "energy restored from the (missing) save")
+	assert_false(FileAccess.file_exists(TEST_SAVE), "no save written")
+	assert_true(menu.visible, "stays visible until the scene changes")
+	_button(menu, "Quit").pressed.emit()
+	_button(menu, "Restart").pressed.emit()
+	_esc(menu)
+	assert_eq(_calls.size(), 1, "later presses and Esc ignored")
+	assert_false(GameState.is_retry)
+	assert_false(PauseArbiter.is_paused())

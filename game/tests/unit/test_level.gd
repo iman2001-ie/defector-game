@@ -2,7 +2,7 @@ extends GutTest
 ## level.tscn: the architecture tree, process modes, level_started with the
 ## JSON id, the gameplay mouse mode, wave 1 from level_dev.json and the
 ## LEVEL CLEAR banner, the hearts display, energy bar and hit vignette in the HUD, the
-## retry prompt in the Overlay, the level id resolution and the death -> retry
+## retry prompt and pause menu in the Overlay, the level id resolution and the death -> retry
 ## reload (Story 3.2), and the level_cleared -> SceneRouter.complete_level
 ## wiring (Story 4.2; the save is a test file). Long wave runs make the player
 ## debug_invincible so a death can't pause the tree mid-test.
@@ -127,6 +127,12 @@ func test_tree() -> void:
 	if prompt != null:
 		assert_lt(prompt.get_index(), _level.get_node("Overlay/DebugTools").get_index(), "the debug overlay draws on top")
 		assert_false(prompt.visible, "hidden at start")
+	var menu: PauseMenu = _level.get_node_or_null("Overlay/PauseMenu") as PauseMenu
+	assert_not_null(menu, "Overlay/PauseMenu is a PauseMenu")
+	if menu != null:
+		assert_gt(menu.get_index(), _level.get_node("Overlay/RetryPrompt").get_index(), "after the retry prompt")
+		assert_lt(menu.get_index(), _level.get_node("Overlay/DebugTools").get_index(), "the debug overlay draws on top")
+		assert_false(menu.visible, "hidden at start")
 	var env: Environment = (_level.get_node("WorldEnvironment") as WorldEnvironment).environment
 	assert_true(env.glow_enabled, "glow on")
 	assert_almost_eq(env.glow_intensity, Config.num("render.glow.intensity"), 0.0001, "glow from data")
@@ -171,6 +177,7 @@ func test_process_modes() -> void:
 	assert_eq(_level.get_node("ShakeCamera").process_mode, Node.PROCESS_MODE_ALWAYS)
 	assert_eq(_level.get_node("Overlay/DebugTools").process_mode, Node.PROCESS_MODE_ALWAYS)
 	assert_eq(_level.get_node("Overlay/RetryPrompt").process_mode, Node.PROCESS_MODE_ALWAYS)
+	assert_eq(_level.get_node("Overlay/PauseMenu").process_mode, Node.PROCESS_MODE_ALWAYS)
 
 
 func test_level_started_with_the_json_id_and_wave_1() -> void:
@@ -643,6 +650,61 @@ func test_death_and_retry_reload_a_clean_level() -> void:
 	assert_false(fresh_prompt.visible, "retry prompt hidden")
 	assert_false(fresh_prompt.is_pending())
 	assert_eq(_retry_start_lines(), 1, "retry start logged")
+
+## Story 4.4 acceptance: Esc in a running level pauses the tree with the HUD
+## frozen and the menu shown; RESUME unpauses and the Player warps the cursor
+## back onto the unmoved ship once.
+func test_esc_pauses_and_resume_warps_onto_the_ship() -> void:
+	_make_level()
+	_make_player_invincible()
+	var player: Player = _level.get_node("World/Player") as Player
+	var warps: Array[Vector2] = []
+	player.warp_mouse = func(at: Vector2) -> void: warps.append(at)
+	var menu: PauseMenu = _level.get_node("Overlay/PauseMenu") as PauseMenu
+	var ship_at: Vector2 = player.global_position
+	assert_eq(PauseArbiter.current_mouse_mode(), Input.MOUSE_MODE_CONFINED_HIDDEN, "gameplay mode")
+	var esc: InputEventAction = InputEventAction.new()
+	esc.action = &"pause"
+	esc.pressed = true
+	menu._unhandled_input(esc)
+	assert_true(menu.is_shown(), "menu shown")
+	assert_true(menu.visible)
+	assert_eq(PauseArbiter.reasons(), [&"menu"] as Array[StringName])
+	assert_true(get_tree().paused, "tree paused")
+	assert_eq(PauseArbiter.current_mouse_mode(), Input.MOUSE_MODE_VISIBLE, "cursor visible")
+	for hud_node: String in ["HitVignette", "WaveBar", "HeartsDisplay", "EnergyBar"]:
+		var node: Node = _level.get_node("HUD/" + hud_node)
+		assert_eq(node.process_mode, Node.PROCESS_MODE_PAUSABLE, "%s freezes" % hud_node)
+		assert_false(node.can_process(), "%s frozen under the menu" % hud_node)
+	assert_eq(warps, [] as Array[Vector2], "no warp on open")
+	(menu.get_node("Resume") as Button).pressed.emit()
+	assert_false(menu.is_shown(), "menu hidden")
+	assert_false(get_tree().paused, "tree unpaused")
+	assert_eq(PauseArbiter.current_mouse_mode(), Input.MOUSE_MODE_CONFINED_HIDDEN, "gameplay mode back")
+	assert_eq(warps, [ship_at] as Array[Vector2], "cursor warped onto the ship once")
+	assert_eq(player.global_position, ship_at, "the ship didn't move")
+
+func _esc_key_event() -> InputEventKey:
+	var event: InputEventKey = InputEventKey.new()
+	event.physical_keycode = KEY_ESCAPE
+	event.pressed = true
+	return event
+
+
+## Story 4.4: a real Esc key through the viewport reaches the PauseMenu, which
+## marks it handled; a second Esc closes the menu.
+func test_real_esc_key_toggles_the_menu() -> void:
+	_make_level()
+	_make_player_invincible()
+	var menu: PauseMenu = _level.get_node("Overlay/PauseMenu") as PauseMenu
+	get_viewport().push_input(_esc_key_event())
+	assert_true(get_viewport().is_input_handled(), "Esc marked handled")
+	assert_true(menu.is_shown(), "menu shown")
+	assert_true(get_tree().paused, "tree paused")
+	get_viewport().push_input(_esc_key_event())
+	assert_true(get_viewport().is_input_handled(), "second Esc marked handled")
+	assert_false(menu.is_shown(), "menu hidden")
+	assert_false(get_tree().paused, "tree unpaused")
 
 # --- Debug-arg gates ----------------------------------------------------------
 
