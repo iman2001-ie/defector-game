@@ -25,5 +25,14 @@
     "key": "1",
     "label": "Full period: interval includes the telegraph",
     "resolution": ""
+  },
+  "DW-54": {
+    "answered_at": "2026-10-08",
+    "bundle_name": "",
+    "effect": "build",
+    "intent": "Make the level end exactly once. After level_failed, WaveDirector stops counting kill progress and never emits level_cleared, so in-flight missiles no longer score. After level_cleared, the player can no longer die (hazards are ignored and level_failed is never emitted). Add a decision-log row and tests that combine a death with a clear in both orders.",
+    "key": "1",
+    "label": "First outcome wins; clear makes the ship safe",
+    "resolution": ""
   }
 }
