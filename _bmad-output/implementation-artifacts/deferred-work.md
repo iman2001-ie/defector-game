@@ -490,3 +490,67 @@ source_spec: `spec-dw-29-dw-31-agents-md-import-rerun-wording.md`
 severity: low
 reason: This clause was added by this change. Agents rarely inspect a pull's contents, so they may skip a needed re-import. "After any pull or branch switch" would be simpler, and re-importing costs little. The "stale game/.godot/" catch-all only partly covers it. The fix edits AGENTS.md (agent-context file), so it is deferred.
 status: open
+
+### DW-54: Make a level end exactly once (cleared or failed): stop level_cleared and kill progress after level_failed, decide death-after-clear, add a death+clear test (F1) before Story 4.2
+origin: retro action item epic-3-retro-item-24-make-a-level-end-exactly-once-cleared-or
+location: n/a
+source_spec: `_bmad-output/implementation-artifacts/epic-3-retro-2026-10-08.md`
+severity: low
+reason: retrospective action item from sprint-status.yaml (epic 3; owner Dev loop; sprint-status status open)
+status: open
+
+### DW-55: Split player.gd: extract hearts/i-frames (HealthComponent or a recorded replacement) and the shield into components, and fold try_shield/try_barrage into one spend gate (A1, A3)
+origin: retro action item epic-3-retro-item-25-split-player-gd-extract-hearts-i-frames
+location: n/a
+source_spec: `_bmad-output/implementation-artifacts/epic-3-retro-2026-10-08.md`
+severity: low
+reason: retrospective action item from sprint-status.yaml (epic 3; owner Dev loop + Architect; sprint-status status open)
+status: open
+
+### DW-56: Add a shared player test fixture (tests/fixtures/player_test_base.gd + hazard factory) and move the player test files onto it (A2)
+origin: retro action item epic-3-retro-item-26-add-a-shared-player-test-fixture-tests-f
+location: n/a
+source_spec: `_bmad-output/implementation-artifacts/epic-3-retro-2026-10-08.md`
+severity: low
+reason: retrospective action item from sprint-status.yaml (epic 3; owner Dev loop; sprint-status status open)
+status: open
+
+### DW-57: Record Epic 3 deviations in the decision log: asteroids survive contact (S1), new tuning values and the ui section (S3); clarify the retry-headline anchor in DESIGN.md:100 (S2)
+origin: retro action item epic-3-retro-item-27-record-epic-3-deviations-in-the-decision
+location: n/a
+source_spec: `_bmad-output/implementation-artifacts/epic-3-retro-2026-10-08.md`
+severity: low
+reason: retrospective action item from sprint-status.yaml (epic 3; owner Developer; sprint-status status open)
+status: open
+
+### DW-58: Playtest the Epic 3 manual checks listed in specs 3-1 to 3-5
+origin: retro action item epic-3-retro-item-28-playtest-the-epic-3-manual-checks-listed
+location: n/a
+source_spec: `_bmad-output/implementation-artifacts/epic-3-retro-2026-10-08.md`
+severity: low
+reason: retrospective action item from sprint-status.yaml (epic 3; owner Developer (operator); sprint-status status open)
+status: open
+
+### DW-59: Apply the decision-closed items that did not take effect: epic-1/2/3 to done in sprint-status (DW-43), raise max_tokens_per_story (DW-45), add a per-script or randomised verify command (DW-44); confirm in the next run journal
+origin: retro action item epic-3-retro-item-29-apply-the-decision-closed-items-that-did
+location: n/a
+source_spec: `_bmad-output/implementation-artifacts/epic-3-retro-2026-10-08.md`
+severity: low
+reason: retrospective action item from sprint-status.yaml (epic 3; owner Developer (operator) / loop config; sprint-status status open)
+status: open
+
+### DW-60: Before closing a sweep item by human decision, record the commit or config change that applies it, or leave it in-progress
+origin: retro action item epic-3-retro-item-30-before-closing-a-sweep-item-by-human-dec
+location: n/a
+source_spec: `_bmad-output/implementation-artifacts/epic-3-retro-2026-10-08.md`
+severity: low
+reason: retrospective action item from sprint-status.yaml (epic 3; owner Planning (SM); sprint-status status open)
+status: open
+
+### DW-61: Tidy debug and retry edges: SceneRouter clears pauses at the swap (F2), F5 resets GameState energy and retry (F3), add a Groups const class (A5)
+origin: retro action item epic-3-retro-item-31-tidy-debug-and-retry-edges-scenerouter-c
+location: n/a
+source_spec: `_bmad-output/implementation-artifacts/epic-3-retro-2026-10-08.md`
+severity: low
+reason: retrospective action item from sprint-status.yaml (epic 3; owner Dev loop; sprint-status status open)
+status: open
