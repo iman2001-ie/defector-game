@@ -1,8 +1,8 @@
 extends Node2D
 ## The one generic level scene (architecture Scene Structure, ADR-006). Reads
 ## data/levels/level_<level_id>.json through Config.level() and hands it to the
-## WaveDirector. Until the title flow exists (Epic 4) it is the main scene and
-## runs level_dev.json.
+## WaveDirector. The title's PLAY reaches it through SceneRouter.start_level();
+## run directly (no GameState id) it falls back to its exported "dev" level.
 ##
 ## The level id is GameState.current_level_id when set (a retry reloads this
 ## scene with the same id, ADR-004), else the exported level_id; the resolved

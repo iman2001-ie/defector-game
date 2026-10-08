@@ -3,7 +3,7 @@ title: 'Story 4.0: Fly a Real Ship'
 type: 'feature'
 created: '2026-10-08'
 baseline_revision: '55442a7af6b901c3a17f1806973a15cdf9a6156c'
-status: 'awaiting-operator'
+status: done
 operator_actions:
   - 'Play the dev level with glow on and confirm the ship reads at a glance as a cyan/teal fighter pointing up, distinct from enemies and pickups.'
 review_loop_iteration: 0
@@ -165,3 +165,11 @@ Status: awaiting-operator
 
 **Operator actions owed:**
 - Play the dev level with glow on and confirm the ship reads at a glance as a cyan/teal fighter pointing up, distinct from enemies and pickups.
+
+## Operator Confirmation
+
+Confirmed 2026-10-08: the external actions this story owed were carried out.
+
+- Play the dev level with glow on and confirm the ship reads at a glance as a cyan/teal fighter pointing up, distinct from enemies and pickups.
+
+_Appended by the bmad-loop orchestrator (`bmad-loop confirm`, #335): a human confirmed these external actions out of band, and the story was advanced from `awaiting-operator` to `done`._

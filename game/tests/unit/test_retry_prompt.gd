@@ -247,7 +247,7 @@ func test_repeat_press_does_nothing_more() -> void:
 	assert_true(GameState.is_retry, "the quit was ignored")
 
 
-func test_quit_goes_to_the_title_placeholder() -> void:
+func test_quit_goes_to_the_title() -> void:
 	var prompt: RetryPrompt = _make()
 	GameState.energy = 60
 	GameState.is_retry = true
@@ -256,7 +256,7 @@ func test_quit_goes_to_the_title_placeholder() -> void:
 	assert_eq(GameState.energy, 0)
 	assert_false(GameState.is_retry)
 	assert_false(PauseArbiter.is_paused())
-	assert_eq(_calls, [str(ProjectSettings.get_setting("application/run/main_scene"))] as Array[String])
+	assert_eq(_calls, [SceneRouter.TITLE_SCENE_PATH] as Array[String])
 
 
 func test_buttons_do_nothing_while_hidden() -> void:

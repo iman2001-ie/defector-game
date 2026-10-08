@@ -1,8 +1,9 @@
 extends GutTest
-## SceneRouter (Story 3.2): restart_level() and the placeholder goto_title()
-## reset GameState, clear every pause reason, end hit-stop and change the scene
-## through the injectable change_scene (a recorder here: the real one would
-## replace the test runner's scene).
+## SceneRouter (Stories 3.2, 4.1): restart_level(), goto_title() and
+## start_level(id) set GameState, clear every pause reason, end hit-stop and
+## change the scene through the injectable change_scene (a recorder here: the
+## real one would replace the test runner's scene). start_level refuses while
+## Config.load_error is set.
 
 var _calls: Array[String] = []
 var _lines: Array[String] = []
@@ -97,17 +98,63 @@ func test_many_restarts_have_no_limit() -> void:
 	assert_true(GameState.is_retry)
 
 
-func test_goto_title_is_a_fresh_attempt_of_the_main_scene() -> void:
+func test_title_scene_path() -> void:
+	assert_eq(SceneRouter.TITLE_SCENE_PATH, "res://scenes/title/title.tscn")
+	assert_true(ResourceLoader.exists(SceneRouter.TITLE_SCENE_PATH))
+
+
+func test_goto_title_resets_state_and_goes_to_the_title() -> void:
 	GameState.energy = 30
 	GameState.is_retry = true
 	GameState.current_level_id = "dev"
 	PauseArbiter.push(&"death")
+	Feedback.hit_stop(500.0)
 	SceneRouter.goto_title()
 	assert_eq(GameState.energy, 0)
 	assert_false(GameState.is_retry, "not a retry")
-	assert_eq(GameState.current_level_id, "", "level id cleared: the main scene uses its own")
-	assert_false(PauseArbiter.is_paused())
-	assert_eq(Engine.time_scale, 1.0)
-	var main_scene: String = str(ProjectSettings.get_setting("application/run/main_scene"))
-	assert_eq(_calls, [main_scene] as Array[String])
+	assert_eq(GameState.current_level_id, "", "level id cleared")
+	assert_false(PauseArbiter.is_paused(), "pause reasons cleared")
+	assert_eq(Engine.time_scale, 1.0, "hit-stop ended")
+	assert_eq(_calls, [SceneRouter.TITLE_SCENE_PATH] as Array[String], "one change to the title")
 	assert_eq(_scene_lines().size(), 1, "one INFO scene line")
+
+
+func test_start_level_sets_the_id_and_keeps_the_energy() -> void:
+	GameState.energy = 40
+	GameState.is_retry = true
+	GameState.current_level_id = ""
+	PauseArbiter.push(&"menu")
+	PauseArbiter.push(&"story")
+	Feedback.hit_stop(500.0)
+	SceneRouter.start_level("2")
+	assert_eq(GameState.current_level_id, "2")
+	assert_false(GameState.is_retry, "a fresh attempt")
+	assert_eq(GameState.energy, 40, "energy carried")
+	assert_false(PauseArbiter.is_paused(), "pause reasons cleared")
+	assert_eq(PauseArbiter.reasons(), [] as Array[StringName])
+	assert_eq(Engine.time_scale, 1.0, "hit-stop ended")
+	assert_eq(_calls, [SceneRouter.LEVEL_SCENE_PATH] as Array[String], "one change to the level")
+	assert_eq(_scene_lines().size(), 1, "one INFO scene line")
+
+
+func test_start_level_with_a_config_error_changes_nothing() -> void:
+	var saved_error: String = Config.load_error
+	Config.load_error = "res://data/tuning.json parse error at line 1: test"
+	GameState.energy = 10
+	GameState.is_retry = true
+	GameState.current_level_id = "dev"
+	PauseArbiter.push(&"death")
+	SceneRouter.start_level("1")
+	Config.load_error = saved_error
+	assert_eq(_calls, [] as Array[String], "no scene change")
+	assert_eq(GameState.current_level_id, "dev", "level id untouched")
+	assert_true(GameState.is_retry, "is_retry untouched")
+	assert_eq(GameState.energy, 10, "energy untouched")
+	assert_true(PauseArbiter.is_paused(), "pause reasons untouched")
+	var errors: int = 0
+	for line: String in _lines:
+		if line.begins_with("[ERROR][scene]") and line.contains("Cannot start level '1'"):
+			errors += 1
+	assert_eq(errors, 1, "one ERROR scene line")
+	assert_push_error("Cannot start level '1'")
+	assert_eq(_scene_lines().size(), 0, "no INFO scene line")

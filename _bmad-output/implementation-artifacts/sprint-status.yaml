@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: "2026-10-07 09:00"
-last_updated: 10-08-2026 01:14
+last_updated: 2026-10-08
 project: defector-game
 project_key: NOKEY
 tracking_system: file-system
@@ -72,8 +72,8 @@ development_status:
   3-5-unleash-the-barrage: done
   epic-3-retrospective: done
   epic-4: backlog
-  4-0-fly-a-real-ship: awaiting-operator
-  4-1-launch-into-the-title-screen: backlog
+  4-0-fly-a-real-ship: done
+  4-1-launch-into-the-title-screen: awaiting-operator
   4-2-unlock-the-next-level-and-save-progress: backlog
   4-3-choose-a-level-from-level-select: backlog
   4-4-pause-the-game-with-esc: backlog

@@ -1,9 +1,0 @@
-{
-  "actions": [
-    "Play the dev level with glow on and confirm the ship reads at a glance as a cyan/teal fighter pointing up, distinct from enemies and pickups."
-  ],
-  "parked_at": "2026-10-08",
-  "run_id": "20261007-173701-8906",
-  "spec_file": "_bmad-output/implementation-artifacts/spec-4-0-fly-a-real-ship.md",
-  "story_key": "4-0-fly-a-real-ship"
-}

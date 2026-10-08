@@ -1,0 +1,10 @@
+{
+  "actions": [
+    "Launch the game from the CLI (or the editor) and confirm the title screen looks right: the DEFECTOR logo centred near the top with a cyan glow, and PLAY above QUIT, centred, with a cyan border on hover.",
+    "Click PLAY and confirm Level 1 (\"Cargo Ambush\") starts with Wasp waves; then return to the title through the death screen QUIT TO TITLE and click QUIT to confirm the game closes."
+  ],
+  "parked_at": "2026-10-08",
+  "run_id": "20261007-173701-8906",
+  "spec_file": "_bmad-output/implementation-artifacts/spec-4-1-launch-into-the-title-screen.md",
+  "story_key": "4-1-launch-into-the-title-screen"
+}

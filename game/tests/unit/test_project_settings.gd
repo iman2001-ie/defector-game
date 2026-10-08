@@ -53,7 +53,7 @@ const EVENTS: Dictionary = {
 	"final_choice_made": [TYPE_STRING_NAME],
 	"story_event_requested": [TYPE_STRING_NAME],
 }
-## Project setting -> expected value (Story 1.1 project.godot task, plus the Story 1.2 main scene and clear colour).
+## Project setting -> expected value (Story 1.1 project.godot task, the clear colour, and the Story 4.1 boot main scene).
 const SETTINGS: Dictionary = {
 	"application/config/name": "DEFECTOR",
 	"application/config/use_custom_user_dir": true,
@@ -68,7 +68,7 @@ const SETTINGS: Dictionary = {
 	"debug/file_logging/enable_file_logging": true,
 	"debug/file_logging/enable_file_logging.pc": true,
 	"debug/gdscript/warnings/untyped_declaration": 1,
-	"application/run/main_scene": "res://scenes/level/level.tscn",
+	"application/run/main_scene": "res://scenes/boot/boot.tscn",
 	"rendering/environment/defaults/default_clear_color": Color(0.0196, 0.0275, 0.0588, 1),
 }
 

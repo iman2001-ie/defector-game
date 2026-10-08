@@ -21,6 +21,48 @@ func _level_files() -> Array[String]:
 
 func test_level_files_exist() -> void:
 	assert_true(_level_files().has(LEVELS_DIR + "level_dev.json"), "level_dev.json present")
+	for i: int in [1, 2, 3]:
+		assert_true(_level_files().has(LEVELS_DIR + "level_%d.json" % i), "level_%d.json present" % i)
+
+
+## The placeholder levels (Story 4.1, replaced in Epic 7, decision F12): GDD
+## names, ids 1..3, the level_dev key set, and 1-2 Wasp-only waves.
+const LEVEL_NAMES: Dictionary = {
+	1: "Cargo Ambush",
+	2: "The Blockade",
+	3: "Siege of the Throne World",
+}
+
+
+func test_placeholder_levels_have_their_names_and_wasp_waves() -> void:
+	var dev: Variant = JSON.parse_string(FileAccess.get_file_as_string(LEVELS_DIR + "level_dev.json"))
+	assert_true(dev is Dictionary, "level_dev.json parses")
+	if not (dev is Dictionary):
+		return
+	var dev_keys: Array = (dev as Dictionary).keys()
+	dev_keys.sort()
+	for i: int in LEVEL_NAMES:
+		var path: String = LEVELS_DIR + "level_%d.json" % i
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+		assert_true(parsed is Dictionary, "%s parses to an object" % path)
+		if not (parsed is Dictionary):
+			continue
+		var data: Dictionary = parsed
+		var keys: Array = data.keys()
+		keys.sort()
+		assert_eq(keys, dev_keys, "%s has the level_dev key set" % path)
+		assert_eq(data.get("id"), float(i), "%s id" % path)
+		assert_eq(data.get("name"), LEVEL_NAMES[i], "%s name" % path)
+		assert_eq(data.get("convoy"), false, "%s has no convoy" % path)
+		var waves: Array = data.get("waves", []) as Array
+		assert_between(waves.size(), 1, 2, "%s has 1-2 waves" % path)
+		for w: int in waves.size():
+			var spawns: Array = (waves[w] as Dictionary).get("spawns", []) as Array
+			assert_gt(spawns.size(), 0, "%s wave %d spawns something" % [path, w])
+			for entry: Variant in spawns:
+				assert_eq((entry as Dictionary).get("type"), "wasp", "%s wave %d is Wasp-only" % [path, w])
+			assert_false((waves[w] as Dictionary).has("groups"), "%s wave %d has no groups" % [path, w])
+		assert_false(Config.level("%d" % i).is_empty(), "Config.level('%d') loads" % i)
 
 
 func test_every_level_file_is_valid() -> void:

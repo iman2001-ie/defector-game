@@ -1,0 +1,55 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scenes/title/title.gd" id="1_title"]
+[ext_resource type="Theme" path="res://ui/theme/defector_theme.tres" id="2_theme"]
+
+[node name="Title" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_title")
+
+[node name="Logo" type="Label" parent="."]
+layout_mode = 0
+offset_top = 180.0
+offset_right = 1920.0
+offset_bottom = 420.0
+theme_override_font_sizes/font_size = 120
+text = "DEFECTOR"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Buttons" type="VBoxContainer" parent="."]
+layout_mode = 0
+offset_left = 760.0
+offset_top = 560.0
+offset_right = 1160.0
+offset_bottom = 728.0
+theme_override_constants/separation = 24
+
+[node name="Play" type="Button" parent="Buttons"]
+custom_minimum_size = Vector2(400, 72)
+layout_mode = 2
+focus_mode = 0
+text = "PLAY"
+
+[node name="Quit" type="Button" parent="Buttons"]
+custom_minimum_size = Vector2(400, 72)
+layout_mode = 2
+focus_mode = 0
+text = "QUIT"
+
+[node name="Error" type="Label" parent="."]
+visible = false
+layout_mode = 0
+offset_left = 32.0
+offset_top = 560.0
+offset_right = 1888.0
+offset_bottom = 760.0
+text = "CONFIG ERROR"
+horizontal_alignment = 1
+autowrap_mode = 3
