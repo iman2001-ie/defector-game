@@ -295,3 +295,10 @@ location: game/entities/projectiles/missile.gd:27
 source_spec: `spec-dw-2-dw-10-laser-mask-player-shots.md`
 reason: game/entities/projectiles/missile.gd:27-29 calls apply_splash before super._on_impact for every hit. missile.tscn has masked CONVOY (84) since Story 1.5, so this predates DW-2/DW-10. epics.md:1409-1411 (Epic 6 convoy story) says missiles reaching a convoy ship are "stopped and free itself, the convoy takes no damage", but says nothing about splash on nearby enemies. Settle by a design ruling in the Epic 6 convoy story (detonate with splash vs. fizzle) and a test for it.
 status: open
+
+### DW-34: The Bastion's y 80–400 drift range may let a large sprite overlap the 0–120 px HUD band and the wave bar.
+origin: spec-deferred c6c13658c554
+location: _bmad-output/planning-artifacts/gdds/gdd-game-project-2026-10-06/gdd.md:269
+source_spec: `spec-2-1-count-wave-progress-and-evaluate-beat-triggers.md`
+reason: Pre-existing in the plan, not caused by Story 2.1: GDD gdd.md L269 and epics.md FR22/L829 set "y 80–400", while the UX layout puts the HUD band at 0–120 and the wave bar at y 40. Whether a sprite actually overlaps depends on the Bastion's sprite size and how its y is clamped. To settle it, check the Bastion story (Epic 2) against DESIGN.md's layout bands before building the Bastion.
+status: open
