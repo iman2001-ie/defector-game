@@ -18,13 +18,13 @@ extends Area2D
 ## Player drives it each physics tick and keeps set_spawner, step_fire and
 ## step_missile as one-line delegators.
 ##
-## Hearts and i-frames (Story 3.1): `hearts` starts at player.hearts and only
-## goes down within an attempt. apply_damage(amount, source) costs hearts, emits
-## Events.hearts_changed and Events.player_hit, plays the PLAYER_HIT feedback and
-## starts player.iframes_s of i-frames. Damage while invulnerable (i-frames or
-## debug_invincible) is ignored entirely. I-frame time accumulates from physics
-## delta in step_iframes, so it freezes under pause and hit-stop; meanwhile only
-## the Sprite flickers at player.iframe_flicker_hz.
+## Hearts and i-frames (Story 3.1) live in the Health child (HealthComponent);
+## `hearts` / `max_hearts` forward to it. apply_damage(amount, source) costs
+## hearts unless invulnerable (i-frames, shield or debug_invincible); on Health's
+## `damaged` the Player emits Events.hearts_changed and Events.player_hit and
+## plays the PLAYER_HIT feedback, then Health starts player.iframes_s of
+## i-frames. step_iframes ticks them from physics delta (frozen under pause and
+## hit-stop); only the Sprite flickers, at player.iframe_flicker_hz.
 ##
 ## Death (Story 3.2): the hit that brings hearts to 0 still emits hearts_changed
 ## and player_hit, then plays the PLAYER_DEATH feedback (instead of PLAYER_HIT)
@@ -43,24 +43,16 @@ extends Area2D
 ## An EnergyOrb (Story 3.3) is collected on contact (EnergyOrb.collect), even
 ## while invulnerable, at no heart cost, and is never remembered.
 ##
-## Shield (Story 3.4): the `ability_shield` action (E) calls try_shield(). With
-## at least abilities.shield.cost energy and no active shield it spends the cost
-## through GameState.add_energy and makes the ship invulnerable for
-## abilities.shield.duration_s, shown by the ShieldBubble child. An active
-## shield is never stacked or refreshed. Without enough energy it only emits
-## Events.ability_denied(&"shield") and plays the `ability_denied` SFX. The
-## shield is part of is_invulnerable(), so it blocks every damage source and
-## contact cost while small and medium enemies are still destroyed by contact.
-## Its time counts down from physics delta in step_shield (frozen under pause and
-## hit-stop); when it ends a still-overlapping hazard hits again, as with i-frames.
-##
-## Barrage (Story 3.5): the `ability_barrage` action (Q) calls try_barrage().
-## With at least abilities.barrage.cost energy and no volley running it spends the
-## cost through GameState.add_energy and starts the volley in PlayerWeapons
-## (start_barrage / step_barrage): homing MicroMissiles launched over duration_s
-## with a LARGE finish at the muzzle. A running volley is never restarted or
-## extended. Without enough energy it is denied like the shield (_deny). Death
-## stops the volley (no more launches, no finish).
+## Shield (Story 3.4) and barrage (Story 3.5): the `ability_shield` (E) and
+## `ability_barrage` (Q) actions call try_shield() / try_barrage(). Both go
+## through one spend gate (_spend): dead or already running is a silent false;
+## too little energy is denied (Events.ability_denied + the `ability_denied`
+## SFX); else the cost is spent through GameState.add_energy. The shield state
+## lives in the Shield child (PlayerShield, drawn by the ShieldBubble child), is
+## never stacked or refreshed and is part of is_invulnerable() (small and medium
+## enemies are still destroyed by contact); when it ends a still-overlapping
+## hazard hits again, as with i-frames. The volley runs in PlayerWeapons, is
+## never restarted, and death stops it (no more launches, no finish).
 
 ## A mouse within this distance of its confined point is not warped: warp_mouse
 ## rounds to whole OS pixels, so under stretch the read-back can land a fraction of
@@ -71,10 +63,21 @@ const WARP_EPS_PX: float = 1.0
 ## warp_mouse in _ready; tests inject a recorder.
 var warp_mouse: Callable
 
-## Hearts left in this attempt (0..max_hearts).
-var hearts: int = 0
-## Hearts at the start of an attempt (player.hearts).
-var max_hearts: int = 0
+## Hearts left in this attempt (0..max_hearts); forwards to the Health child
+## (0 before _ready).
+var hearts: int:
+	get:
+		return _health.current if _health != null else 0
+	set(value):
+		if _health != null:
+			_health.current = value
+## Hearts at the start of an attempt (player.hearts); forwards to Health.
+var max_hearts: int:
+	get:
+		return _health.max_value if _health != null else 0
+	set(value):
+		if _health != null:
+			_health.max_value = value
 ## Debug-only invincibility (F2). Turning it off re-applies overlapping hazards.
 var debug_invincible: bool = false:
 	set(value):
@@ -87,10 +90,6 @@ var debug_invincible: bool = false:
 var _bounds_min: Vector2
 var _bounds_max: Vector2
 
-var _iframes_s: float = 0.0
-var _flicker_hz: float = 0.0
-var _iframe_active: bool = false
-var _iframe_elapsed: float = 0.0
 var _contact_small: int = 0
 var _contact_medium: int = 0
 var _contact_large: int = 0
@@ -98,17 +97,13 @@ var _contact_large: int = 0
 var _contacts: Array[Area2D] = []
 var _dead: bool = false
 
-var _shield_cost: int = 0
-var _shield_duration_s: float = 0.0
-var _shield_active: bool = false
-var _shield_remaining: float = 0.0
-
 var _barrage_cost: int = 0
 
 @onready var _hurtbox: CollisionShape2D = $Hurtbox
 @onready var _sprite: Sprite2D = $Sprite
 @onready var _weapons: PlayerWeapons = $Weapons
-@onready var _shield_bubble: ShieldBubble = $ShieldBubble
+@onready var _health: HealthComponent = $Health
+@onready var _shield: PlayerShield = $Shield
 
 
 func _ready() -> void:
@@ -127,17 +122,17 @@ func _ready() -> void:
 		placeholder.width = px
 		placeholder.height = px
 
-	max_hearts = Config.int_("player.hearts")
-	hearts = max_hearts
-	_iframes_s = maxf(Config.num("player.iframes_s"), 0.0)
-	_flicker_hz = maxf(Config.num("player.iframe_flicker_hz"), 0.0)
+	_health.setup(Config.int_("player.hearts"), Config.num("player.iframes_s"),
+			Config.num("player.iframe_flicker_hz"), _sprite)
 	_contact_small = Config.int_("damage.contact_small_hearts")
 	_contact_medium = Config.int_("damage.contact_medium_hearts")
 	_contact_large = Config.int_("damage.contact_large_hearts")
-	_shield_cost = maxi(Config.int_("abilities.shield.cost"), 0)
-	_shield_duration_s = maxf(Config.num("abilities.shield.duration_s"), 0.0)
 	_barrage_cost = maxi(Config.int_("abilities.barrage.cost"), 0)
 
+	_health.damaged.connect(_on_damaged)
+	_health.died.connect(_die)
+	_health.iframes_ended.connect(_recheck_contacts)
+	_shield.ended.connect(_recheck_contacts)
 	PauseArbiter.resumed.connect(_on_resumed)
 	area_entered.connect(_on_area_entered)
 	area_exited.connect(_on_area_exited)
@@ -164,7 +159,7 @@ func _physics_process(delta: float) -> void:
 
 ## True during i-frames, while the shield is up or while debug_invincible is on.
 func is_invulnerable() -> bool:
-	return _iframe_active or _shield_active or debug_invincible
+	return _health.is_iframing() or _shield.is_active() or debug_invincible
 
 
 ## True once hearts reached 0 in this attempt.
@@ -176,28 +171,28 @@ func is_dead() -> bool:
 ## reaches 0 kills the ship instead. Ignored when amount <= 0, while
 ## invulnerable, at 0 hearts or once dead.
 func apply_damage(amount: int, _source: Node) -> void:
-	if _dead or amount <= 0 or is_invulnerable() or hearts <= 0:
+	if _dead or is_invulnerable():
 		return
-	hearts = maxi(hearts - amount, 0)
-	Events.hearts_changed.emit(hearts, max_hearts)
+	_health.take(amount)
+
+
+## Health's `damaged`: the hit events, then PLAYER_HIT unless the hit was lethal.
+## Health then emits `died` (-> _die) or starts the i-frames.
+func _on_damaged(current: int, max_value: int) -> void:
+	Events.hearts_changed.emit(current, max_value)
 	Events.player_hit.emit(global_position)
-	if hearts == 0:
-		_die()
-		return
-	Feedback.impact(ImpactTier.PLAYER_HIT, global_position)
-	_start_iframes()
+	if current > 0:
+		Feedback.impact(ImpactTier.PLAYER_HIT, global_position)
 
 
 ## The lethal hit: PLAYER_DEATH feedback, the ship goes hidden and inert, then
-## player_died and level_failed(&"hearts"). Runs once (apply_damage guards it).
+## player_died and level_failed(&"hearts"). Runs once, on Health's `died` (take
+## ignores an owner at 0 hearts; apply_damage ignores a dead ship).
 func _die() -> void:
 	_dead = true
-	_iframe_active = false
-	_shield_active = false
-	_shield_remaining = 0.0
-	_shield_bubble.hide_bubble()
+	_health.stop_iframes()
+	_shield.drop()
 	_weapons.stop_barrage()
-	_sprite.visible = true
 	visible = false
 	set_deferred(&"monitoring", false)
 	set_deferred(&"monitorable", false)
@@ -208,24 +203,10 @@ func _die() -> void:
 	Events.level_failed.emit(&"hearts")
 
 
-## One i-frame tick: advances the window by `delta`, flickers the sprite and,
-## on the tick the window ends, re-applies a hazard that still overlaps.
+## One i-frame tick (see HealthComponent.step); on the tick the window ends, a
+## hazard that still overlaps hits again.
 func step_iframes(delta: float) -> void:
-	if not _iframe_active:
-		return
-	_iframe_elapsed += delta
-	if _iframe_elapsed >= _iframes_s:
-		_iframe_active = false
-		_sprite.visible = true
-		_recheck_contacts()
-		return
-	_sprite.visible = fmod(_iframe_elapsed * _flicker_hz, 1.0) < 0.5
-
-
-func _start_iframes() -> void:
-	_iframe_active = _iframes_s > 0.0
-	_iframe_elapsed = 0.0
-	_sprite.visible = true
+	_health.step(delta)
 
 
 func _emit_hearts() -> void:
@@ -236,45 +217,29 @@ func _emit_hearts() -> void:
 
 ## True while the shield is up.
 func is_shielded() -> bool:
-	return _shield_active
+	return _shield.is_active()
 
 
 ## Seconds of shield left (0 when down).
 func shield_remaining() -> float:
-	return _shield_remaining if _shield_active else 0.0
+	return _shield.remaining()
 
 
 ## Raises the shield if the ship is alive, unshielded and can pay
 ## abilities.shield.cost; returns true when it went up. An active shield is left
 ## untouched (no spend, no denial). Too little energy is denied (see _deny).
 func try_shield() -> bool:
-	if _dead or _shield_active:
+	var line: String = "Shield up: -%d energy, %.1f s" % [_shield.cost, _shield.duration_s]
+	if not _spend(&"shield", _shield.is_active(), _shield.cost, line):
 		return false
-	if GameState.energy < _shield_cost:
-		_deny(&"shield")
-		return false
-	GameState.add_energy(-_shield_cost)
-	_shield_active = _shield_duration_s > 0.0
-	_shield_remaining = _shield_duration_s
-	_shield_bubble.show_remaining(shield_remaining())
-	Log.info("combat", "Shield up: -%d energy, %.1f s" % [_shield_cost, _shield_duration_s])
+	_shield.raise()
 	return true
 
 
-## One shield tick: counts the shield down by `delta`, updates the bubble and,
-## on the tick it runs out, drops the shield and re-applies a hazard that still
-## overlaps.
+## One shield tick (see PlayerShield.step); on the tick it runs out, a hazard
+## that still overlaps hits again.
 func step_shield(delta: float) -> void:
-	if not _shield_active:
-		return
-	_shield_remaining -= delta
-	if _shield_remaining <= 0.0:
-		_shield_active = false
-		_shield_remaining = 0.0
-		_shield_bubble.hide_bubble()
-		_recheck_contacts()
-		return
-	_shield_bubble.show_remaining(_shield_remaining)
+	_shield.step(delta)
 
 
 # --- Barrage ----------------------------------------------------------------------
@@ -288,20 +253,28 @@ func is_barraging() -> bool:
 ## abilities.barrage.cost; returns true when it started. A running volley is
 ## left untouched (no spend, no denial). Too little energy is denied (see _deny).
 func try_barrage() -> bool:
-	if _dead or _weapons.is_barraging():
+	if not _spend(&"barrage", _weapons.is_barraging(), _barrage_cost, "Barrage: -%d energy" % _barrage_cost):
 		return false
-	if GameState.energy < _barrage_cost:
-		_deny(&"barrage")
-		return false
-	GameState.add_energy(-_barrage_cost)
 	_weapons.start_barrage()
-	Log.info("combat", "Barrage: -%d energy" % _barrage_cost)
 	return true
 
 
 ## One barrage tick (see PlayerWeapons.step_barrage).
 func step_barrage(delta: float) -> void:
 	_weapons.step_barrage(delta)
+
+
+## The ability spend gate: dead or `busy` is a silent false; less than `cost`
+## energy is denied (_deny); else the cost is spent, `log_line` logged, true.
+func _spend(ability: StringName, busy: bool, cost: int, log_line: String) -> bool:
+	if _dead or busy:
+		return false
+	if GameState.energy < cost:
+		_deny(ability)
+		return false
+	GameState.add_energy(-cost)
+	Log.info("combat", log_line)
+	return true
 
 
 ## An ability pressed without enough energy: only the event and the denied SFX.

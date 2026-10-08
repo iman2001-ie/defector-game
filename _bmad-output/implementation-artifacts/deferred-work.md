@@ -532,7 +532,9 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-3-retro-2026-10-08.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 3; owner Dev loop + Architect; sprint-status status open)
-status: open
+status: done 2026-10-08
+resolution: resolved by sweep bundle dw-player-split-health-shield
+resolution-undo: 9aaf762b29edad327fec3362789223598c7bae0889457eb16817047a02529c2e 2026-10-08 7374617475733a206f70656e
 
 ### DW-56: Add a shared player test fixture (tests/fixtures/player_test_base.gd + hazard factory) and move the player test files onto it (A2)
 origin: retro action item epic-3-retro-item-26-add-a-shared-player-test-fixture-tests-f
@@ -655,4 +657,27 @@ location: _bmad-output/planning-artifacts/epics.md:785
 source_spec: `spec-dw-40-enemy-fire-cadence-full-period.md`
 severity: low
 reason: epics.md:785-787. FR20 ("every 2.0 s") and decision #38 match the new behaviour, and the architecture note explains it. The DW-40 decision lists only tests, the architecture notes and a decision-log row as the docs to update, and AGENTS.md says to ask the user before changing planning docs, so amending a done story's AC (as #34/#35 did) is left for the user to decide.
+status: open
+
+### DW-71: PlayerShield's missing-bubble degradation path (Log.error plus null-safe raise/step/drop) has no test.
+origin: spec-deferred 64f10899a665
+location: game/entities/player/player_shield.gd:29
+source_spec: `spec-dw-55-player-split-health-shield.md`
+severity: low
+reason: grep for "missing its bubble" hits only player_shield.gd; every test wires a real ShieldBubble. Only consumer player.tscn wires it correctly today.
+status: open
+
+### DW-72: Pre-existing: player.hearts tuning is used unclamped, so a negative value makes the ship unhittable with no warning.
+origin: spec-deferred dab8b901182c
+location: game/core/health_component.gd:36
+source_spec: `spec-dw-55-player-split-health-shield.md`
+severity: low
+reason: HealthComponent.setup copies p_max_value as given, exactly as the old Player._ready did (max_hearts = Config.int_("player.hearts")). Not caused by DW-55; clamping would change behaviour.
+status: open
+
+### DW-73: Pre-existing order-dependent test: test_player_barrage.gd::test_physics_process_steps_before_reading_q fails when run in one session with the other player test scripts.
+origin: spec-deferred aa9a4085355f
+location: game/tests/unit/test_player_barrage.gd:201
+source_spec: `spec-dw-55-player-split-health-shield.md`
+reason: Reported by the implementation subagent: the six existing player scripts run together fail it at line 201 (0 launches, expected 1) on baseline 4cb60cd too; it passes alone and in the full-suite run (913/913). Suspected leaked simulated Q press; unconfirmed.
 status: open
