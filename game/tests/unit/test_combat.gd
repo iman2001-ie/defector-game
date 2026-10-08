@@ -135,15 +135,24 @@ func test_layer_constants() -> void:
 	assert_eq(CollisionLayers.MASK_ENEMY_SHOTS, CollisionLayers.PLAYER | CollisionLayers.ASTEROIDS | CollisionLayers.CONVOY)
 
 
-func test_laser_bolt_masks_enemies_and_asteroids() -> void:
+func test_laser_bolt_masks_player_shots() -> void:
 	var bolt: Projectile = _spawner.spawn_projectile(&"laser_bolt", {"position": Vector2(960, 500), "velocity": Vector2.ZERO})
 	assert_not_null(bolt)
 	if bolt == null:
 		return
 	bolt.set_physics_process(false)
 	assert_eq(bolt.collision_layer, CollisionLayers.PLAYER_SHOTS)
-	assert_eq(bolt.collision_mask & CollisionLayers.ASTEROIDS, CollisionLayers.ASTEROIDS)
-	assert_eq(bolt.collision_mask & CollisionLayers.ENEMIES, CollisionLayers.ENEMIES)
+	assert_eq(bolt.collision_mask, CollisionLayers.MASK_PLAYER_SHOTS, "enemies + asteroids + convoy")
+
+
+func test_missile_masks_player_shots() -> void:
+	var missile: Projectile = _spawner.spawn_projectile(&"missile", {"position": Vector2(960, 500), "velocity": Vector2.ZERO, "damage": 8})
+	assert_not_null(missile)
+	if missile == null:
+		return
+	missile.set_physics_process(false)
+	assert_eq(missile.collision_layer, CollisionLayers.PLAYER_SHOTS)
+	assert_eq(missile.collision_mask, CollisionLayers.MASK_PLAYER_SHOTS, "enemies + asteroids + convoy")
 
 
 func test_project_layer_bits_match_constants() -> void:

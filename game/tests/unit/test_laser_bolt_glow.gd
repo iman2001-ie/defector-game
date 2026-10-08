@@ -118,5 +118,5 @@ func test_hitbox_and_layout_unchanged() -> void:
 	assert_eq((bolt.get_node("BoltLeft") as Node2D).position, Vector2(-8, 0), "left twin")
 	assert_eq((bolt.get_node("BoltRight") as Node2D).position, Vector2(8, 0), "right twin")
 	assert_eq(bolt.collision_layer, 1 << 1, "player_shots")
-	assert_eq(bolt.collision_mask, (1 << 2) | (1 << 4), "enemies + asteroids")
+	assert_eq(bolt.collision_mask, CollisionLayers.MASK_PLAYER_SHOTS, "enemies + asteroids + convoy")
 	assert_eq(bolt.damage, 1, "damage")

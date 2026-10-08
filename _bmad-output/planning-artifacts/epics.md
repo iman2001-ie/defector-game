@@ -411,7 +411,7 @@ So that I always have sustained damage against fodder.
 **Given** the sandbox is running and unpaused
 **When** I hold LMB (`fire_laser`)
 **Then** twin laser bolts spawn at 10 bolts/s (one damage instance per bolt, the twin is visual only), travel straight up at 1800 px/s, and deal 1 damage each
-**And** each bolt uses a `CapsuleShape2D` of height ≥ 30 px (speed / 60), is on `player_shots`, masks `enemies` and `asteroids`, and has `monitorable = false`
+**And** each bolt uses a `CapsuleShape2D` of height ≥ 30 px (speed / 60), is on `player_shots`, masks `enemies`, `asteroids` and `convoy` (`MASK_PLAYER_SHOTS`), and has `monitorable = false`
 **And** a muzzle flash shows on every shot
 **And** bolts are freed when they leave the playfield bounds
 

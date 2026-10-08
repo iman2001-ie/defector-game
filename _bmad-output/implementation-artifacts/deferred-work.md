@@ -14,7 +14,9 @@ location: game/entities/projectiles/laser_bolt.tscn:4
 source_spec: `spec-1-4-shoot-wasps-and-asteroids-in-the-sandbox.md`
 severity: low
 reason: game/entities/projectiles/laser_bolt.tscn has collision_mask = 20 (set in Story 1.3; Story 1.4 may not change the laser). game-architecture.md layer table: player_shots mask = enemies, asteroids, convoy; FR33 says convoy ships block every projectile. No convoy exists until Epic 6, so nothing breaks today, but player bolts would pass through convoy ships. test_laser_bolt_masks_enemies_and_asteroids checks single bits only, so the gap is not flagged.
-status: open
+status: done 2026-10-07
+resolution: resolved by sweep bundle dw-laser-mask-player-shots
+resolution-undo: b6d7862c5bcf8093a8495f725b9b7caf2f0c3c82331a9d27f8bc220e75772a51 2026-10-07 7374617475733a206f70656e
 decision: 2026-10-07 Set mask 84 and test equality — Set the laser bolt collision mask to CollisionLayers.MASK_PLAYER_SHOTS (84), add a test asserting exact mask equality with the constant, and correct the epics.md Story 1.3 AC.
 
 ### DW-3: A player's straight shot into the grid_4x2 formation hits a bottom-row Wasp and splashes nothing, so the missile does not "burst a formation" from the ship's firing position.
@@ -85,7 +87,9 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 1; owner Developer (decision) then Dev loop; sprint-status status open)
-status: open
+status: done 2026-10-07
+resolution: resolved by sweep bundle dw-laser-mask-player-shots
+resolution-undo: b6d7862c5bcf8093a8495f725b9b7caf2f0c3c82331a9d27f8bc220e75772a51 2026-10-07 7374617475733a206f70656e
 decision: 2026-10-07 Follow the architecture: mask 84 — Set the laser bolt mask to CollisionLayers.MASK_PLAYER_SHOTS (84), preferably assigned from CollisionLayers in code or guarded by a test that asserts exact mask equality for laser and missile. Correct the Story 1.3 AC in epics.md to include convoy and record the decision in the decision log. This also closes DW-2.
 
 ### DW-11: Reconcile game-architecture.md with the as-built: play_sfx pitch param, tier sfx_volume_db, single explosion scene, Spawner/ShakeCamera to Feedback registration, CLI stress/bench modes
@@ -271,4 +275,19 @@ location: AGENTS.md:30; _bmad-output/game-architecture.md:1335-1337
 source_spec: `spec-dw-15-dw-16-agents-md-import-and-commit-format.md`
 severity: low
 reason: AGENTS.md:30 and game-architecture.md:1335-1337 list "new imported assets" as a trigger, but the stated cause is only the class cache. A new WAV that Audio preloads has no .import artefact until --import runs. The instruction itself is still correct, so following it gives the right result. The fix edits AGENTS.md (agent-context file), so it is deferred.
+status: open
+
+### DW-32: Projectile._on_area_entered calls apply_damage on any overlapped area, so once a convoy with apply_damage exists, player bolts (now masking CONVOY) would damage it instead of being blocked with no
+origin: spec-deferred f39d733a65b1
+location: game/core/projectile.gd:49
+source_spec: `spec-dw-2-dw-10-laser-mask-player-shots.md`
+severity: medium
+reason: game/core/projectile.gd:49-54 has no convoy check. FR7, GDD #23 and game-architecture.md:310 require player shots to be blocked by the convoy without damage. No convoy exists until Epic 6, so nothing breaks today. The Epic 6 convoy story must add the no-damage path, plus a test that a convoy-layer area stops a bolt without apply_damage.
+status: open
+
+### DW-33: Missile._on_impact always runs apply_splash, so a missile stopped by a convoy ship (missile mask already includes CONVOY) would still splash enemies and asteroids near the convoy; whether a blocked
+origin: spec-deferred 27d4e4bd97cb
+location: game/entities/projectiles/missile.gd:27
+source_spec: `spec-dw-2-dw-10-laser-mask-player-shots.md`
+reason: game/entities/projectiles/missile.gd:27-29 calls apply_splash before super._on_impact for every hit. missile.tscn has masked CONVOY (84) since Story 1.5, so this predates DW-2/DW-10. epics.md:1409-1411 (Epic 6 convoy story) says missiles reaching a convoy ship are "stopped and free itself, the convoy takes no damage", but says nothing about splash on nearby enemies. Settle by a design ruling in the Epic 6 convoy story (detonate with splash vs. fizzle) and a test for it.
 status: open

@@ -5,7 +5,6 @@ const BOLT_SCENE: PackedScene = preload("res://entities/projectiles/laser_bolt.t
 const DamageTarget: GDScript = preload("res://tests/fixtures/damage_target.gd")
 const DT: float = 1.0 / 60.0
 const LAYER_PLAYER_SHOTS: int = 1 << 1
-const MASK_ENEMIES_ASTEROIDS: int = (1 << 2) | (1 << 4)
 
 
 func after_each() -> void:
@@ -125,7 +124,7 @@ func test_scene_root_layers() -> void:
 	var bolt: Projectile = _make_bolt(Vector2(960, 500))
 	assert_true(bolt is LaserBolt, "root is a LaserBolt (Projectile)")
 	assert_eq(bolt.collision_layer, LAYER_PLAYER_SHOTS, "player_shots")
-	assert_eq(bolt.collision_mask, MASK_ENEMIES_ASTEROIDS, "enemies + asteroids")
+	assert_eq(bolt.collision_mask, CollisionLayers.MASK_PLAYER_SHOTS, "enemies + asteroids + convoy")
 	assert_false(bolt.monitorable)
 	assert_true(bolt.monitoring)
 
