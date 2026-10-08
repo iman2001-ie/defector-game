@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://scenes/level/level.gd" id="1_level"]
 [ext_resource type="PackedScene" path="res://entities/player/player.tscn" id="2_player"]
@@ -7,6 +7,8 @@
 [ext_resource type="Script" path="res://systems/camera/shake_camera.gd" id="5_camera"]
 [ext_resource type="Script" path="res://ui/hud/level_clear_banner.gd" id="6_banner"]
 [ext_resource type="PackedScene" path="res://ui/debug/debug_tools.tscn" id="7_debug_tools"]
+[ext_resource type="Script" path="res://ui/hud/wave_bar.gd" id="8_wave_bar"]
+[ext_resource type="Theme" path="res://ui/theme/defector_theme.tres" id="9_theme"]
 
 [sub_resource type="Environment" id="Environment_glow"]
 background_mode = 3
@@ -51,6 +53,18 @@ environment = SubResource("Environment_glow")
 
 [node name="HUD" type="CanvasLayer" parent="."]
 layer = 10
+
+[node name="WaveBar" type="Control" parent="HUD"]
+process_mode = 1
+layout_mode = 3
+anchors_preset = 0
+offset_left = 680.0
+offset_top = 40.0
+offset_right = 1240.0
+offset_bottom = 60.0
+mouse_filter = 2
+theme = ExtResource("9_theme")
+script = ExtResource("8_wave_bar")
 
 [node name="LevelClearBanner" type="Label" parent="HUD"]
 anchors_preset = 15

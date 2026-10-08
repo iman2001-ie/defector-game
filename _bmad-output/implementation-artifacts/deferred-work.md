@@ -302,3 +302,11 @@ location: _bmad-output/planning-artifacts/gdds/gdd-game-project-2026-10-06/gdd.m
 source_spec: `spec-2-1-count-wave-progress-and-evaluate-beat-triggers.md`
 reason: Pre-existing in the plan, not caused by Story 2.1: GDD gdd.md L269 and epics.md FR22/L829 set "y 80–400", while the UX layout puts the HUD band at 0–120 and the wave bar at y 40. Whether a sprite actually overlaps depends on the Bastion's sprite size and how its y is clamped. To settle it, check the Bastion story (Epic 2) against DESIGN.md's layout bands before building the Bastion.
 status: open
+
+### DW-35: test_f3_resolves_the_wave_and_fires_pending_triggers_in_order fails deterministically in this environment ("the skipped group never spawns", expected 0 got 1).
+origin: spec-deferred 25bf8310c4a6
+location: game/tests/unit/test_wave_director.gd:347
+source_spec: `spec-2-3-watch-the-wave-progress-bar-fill.md`
+severity: medium
+reason: Pre-existing (Story 2.2 test, untouched by 2.3): it fails 5/5 in isolation on HEAD and 2/2 at baseline 07bcc62 in a clean worktree. The test sets waves.gap_s = 0.05, then awaits 2 process frames and asserts no counted enemies; the log shows wave 2/2 (1 wasp) already started before the assert, so the 0.05 s gap elapses within those 2 headless frames. The earlier 2.3 pass saw it green, so it depends on frame timing.
+status: open

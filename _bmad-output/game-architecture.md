@@ -341,6 +341,7 @@ The visual sprite may be shorter. No ray/shape casts are needed.
   - As built: `entities/player/missile_ring.gd` (`class_name MissileRing`), the `MissileRing` child of the Player with `z_index = 1`.
   - Data: `player.missile_ring.radius_px` / `stroke_px`. The radius is clamped to `player.sprite_px / 2` (with a `Log.warn`), so the ring is never bigger than the ship.
   - Colours: a `text` (#E8F4FF) stroke over a `background` (#05070F) outline. It sweeps clockwise from 12 o'clock and draws nothing when the ratio is 0 (ready).
+- The wave bar is built: `ui/hud/wave_bar.gd` (`class_name WaveBar`), the `HUD/WaveBar` child of `level.tscn` (before `LevelClearBanner`, `PROCESS_MODE_PAUSABLE`). `defector_theme.tres` exists and holds the `WaveBar` type items (`track`, `fill`, `highlight` styleboxes, `separation` constant); rect and tween time are `tuning.json` → `hud.wave_bar`.
 
 ### Architecture Decision Records
 
@@ -1158,7 +1159,7 @@ func int_(path: String) -> int:
 	return int(num(path))
 ```
 
-**`tuning.json` top-level sections (fixed):** `player`, `weapons`, `abilities`, `energy`, `drops`, `enemies`, `boss`, `asteroids`, `convoy`, `allies`, `waves`, `comms`, `feedback`, `damage`, `render`, `debug`.
+**`tuning.json` top-level sections (fixed):** `player`, `weapons`, `abilities`, `energy`, `drops`, `enemies`, `boss`, `asteroids`, `convoy`, `allies`, `waves`, `comms`, `feedback`, `damage`, `hud`, `render`, `debug`.
 
 - `debug.bench` (`avg_ms_max`, `p99_ms_max`, `max_ms_max`, `warmup_s`, `first_large_at_s`, `first_large_frames`, `quit_delay_s`) and `debug.stress` (`projectiles`, `projectile_spawn_per_tick`) hold the debug-build stress bench numbers (GDD decision log #33). Only `DebugTools` and the sandbox's stress mode read them; the stress-grid layout and `BENCH_MAX_FPS` / `BENCH_AIM` / `OVERLAY_REFRESH_S` stay code consts.
 - `render.glow` holds `intensity`, `bloom` and `hdr_threshold`. The scene root's `_ready` passes its `WorldEnvironment`'s environment to `RenderGlow.apply(env)` (`core/render_glow.gd`), so the F5 scene restart re-applies it. `glow_enabled` and the background mode stay in the `.tscn`.
@@ -1442,6 +1443,14 @@ Status update only; no design decision changed.
 - **`waves.formation`** in `tuning.json` (`spacing_px.x/y`, `top_y`) drives the `grid_<C>x<R>` slot math; each spawn entry and spawned group starts on the next free formation row.
 - **`--stress` / `--bench` redirect:** in a debug build, `level.gd` switches to the sandbox stress scene (`change_scene_to_file`, deferred) when either arg is given. Like the F5 reload, this is a debug-only exception to "only `SceneRouter` changes scenes".
 - `Config.level()` reads `EntityRegistry`'s enemy ids at runtime (`EntityRegistry.enemy_types()`): a static reference to `EntityRegistry.ENEMIES` from `Config` is a cyclic compile dependency (enemy scripts use `Config`).
+
+## As-built 2026-10-07 (Story 2.3)
+
+Status update only; no design decision changed.
+
+- **Built:** `ui/hud/wave_bar.gd` (`WaveBar`) on the level's HUD layer, driven only by `level_started` / `wave_started` / `wave_progress_changed` / `wave_cleared`. It fills the current segment with a node-bound 0.2 s tween, never goes back within an attempt, and highlights the next segment during the gap.
+- **Theme created:** `ui/theme/defector_theme.tres`, seeded with the `WaveBar` type items (`track`, `fill`, `highlight` `StyleBoxFlat`s in the UX Cold Neon tokens, `separation` = 4).
+- **Tuning:** a new `hud` top-level section, `hud.wave_bar` (`x`, `y`, `width`, `height`, `fill_tween_s`).
 
 ---
 

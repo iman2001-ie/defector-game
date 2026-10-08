@@ -129,6 +129,42 @@ func test_banner_shows_on_level_cleared() -> void:
 	assert_true(banner.visible, "shown on level_cleared")
 
 
+func test_wave_bar_in_the_hud() -> void:
+	_make_level()
+	var hud: Node = _level.get_node("HUD")
+	var bar: WaveBar = hud.get_node_or_null("WaveBar") as WaveBar
+	assert_not_null(bar, "HUD/WaveBar is a WaveBar")
+	if bar == null:
+		return
+	assert_lt(bar.get_index(), hud.get_node("LevelClearBanner").get_index(), "banner draws on top")
+	assert_eq(bar.process_mode, Node.PROCESS_MODE_PAUSABLE, "freezes with the game")
+	assert_eq(bar.mouse_filter, Control.MOUSE_FILTER_IGNORE)
+	assert_not_null(bar.theme, "has the shared theme")
+	if bar.theme != null:
+		assert_eq(bar.theme.resource_path, "res://ui/theme/defector_theme.tres")
+	assert_eq(bar.position, Vector2(680, 40))
+	assert_eq(bar.size, Vector2(560, 20))
+	assert_true(bar.get_rect().end.y <= 120.0, "inside the top 120 px HUD band")
+	var waves: Array = Config.level("dev").get("waves", []) as Array
+	assert_gt(waves.size(), 1, "level_dev has several waves")
+	assert_eq(bar.segment_count(), waves.size(), "one segment per level_dev wave")
+	assert_eq(bar.current_index(), 0)
+
+
+func test_wave_bar_follows_the_director() -> void:
+	_make_level()
+	var bar: WaveBar = _level.get_node("HUD/WaveBar") as WaveBar
+	var director: WaveDirector = _level.get_node("WaveDirector") as WaveDirector
+	director.debug_resolve_wave()
+	# level_dev wave 1 has a 0.5 s wait chain; the clear follows it.
+	var waited: float = 0.0
+	while bar.highlighted_index() != 1 and waited < 2.0:
+		await wait_seconds(0.1)
+		waited += 0.1
+	assert_eq(bar.target_fill(0), 1.0, "wave 1 segment full")
+	assert_eq(bar.highlighted_index(), 1, "wave 2 segment highlighted in the gap")
+
+
 func test_missing_level_file_starts_nothing() -> void:
 	_make_level("does_not_exist")
 	assert_push_error("not found")

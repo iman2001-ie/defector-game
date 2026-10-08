@@ -247,6 +247,9 @@
 		"convoy_stray": 2,
 		"convoy_maul": 10
 	},
+	"hud": {
+		"wave_bar": { "x": 680, "y": 40, "width": 560, "height": 20, "fill_tween_s": 0.2 }
+	},
 	"render": {
 		"glow": { "intensity": 1.0, "bloom": 0.08, "hdr_threshold": 0.55 }
 	},
