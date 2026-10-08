@@ -244,7 +244,9 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-1-retro-2026-10-07.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 1; owner Developer; sprint-status status open)
-status: open
+status: done 2026-10-08
+resolution: closed by human decision: Stories 1.8-1.10 were covered by the Epic 2 and Epic 3 retros; a separate Epic 1 re-run is not needed
+decision: 2026-10-08 Close: Epic 2/3 retros superseded it — Stories 1.8-1.10 were covered by the Epic 2 and Epic 3 retros; a separate Epic 1 re-run is not needed
 decision: 2026-10-07 Keep open: operator re-runs the retro
 
 ### DW-27: The --no-prewarm wiring through Sandbox._ready and DebugTools._ready is not covered by any test, so a regression could mislabel the prewarm on/off comparison.
