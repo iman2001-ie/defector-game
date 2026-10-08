@@ -223,6 +223,124 @@ func test_unknown_type_is_logged_subtracted_and_the_wave_still_clears() -> void:
 	assert_eq(_events_named("wave_cleared"), [["wave_cleared", 0]] as Array[Array], "clears after the Wasp dies")
 
 
+# --- Feature-flag gate (Story 2.8) --------------------------------------------
+
+func _hunters(count: int, formation: String = "") -> Dictionary:
+	var entry: Dictionary = {"type": "hunter_wasp", "count": float(count)}
+	if not formation.is_empty():
+		entry["formation"] = formation
+	return entry
+
+
+func _skip_lines() -> Array[String]:
+	return _lines_containing("hunter_wasp skipped (flag 'hunter_wasp' off); not counted")
+
+
+func test_flag_off_skips_hunters_uncounted_and_the_wave_clears() -> void:
+	Config.flags["hunter_wasp"] = false
+	_start([{"spawns": [_hunters(4, "grid_4x1"), _wasps(2, "grid_2x1")]}])
+	assert_eq(_director.total_count(), 2, "hunters not counted")
+	assert_eq(_enemies().size(), 2, "only the Wasps spawned")
+	for enemy: Enemy in _enemies():
+		assert_true(enemy is Wasp)
+		assert_eq((enemy as Wasp).formation_slot().y, 160.0, "Wasps take formation row 0")
+	assert_eq(_skip_lines(), [
+		"[DEBUG][spawn] %s waves[0].spawns[0]: 4 x hunter_wasp skipped (flag 'hunter_wasp' off); not counted" % SRC,
+	] as Array[String], "one DEBUG skip line")
+	assert_eq(_events_named("wave_progress_changed").size(), 0, "not a subtraction")
+	_kill(1)
+	assert_eq(_events_named("wave_cleared").size(), 0, "not clear yet")
+	_kill(1)
+	assert_eq(_events_named("wave_cleared").size(), 1, "clears after 2 resolves")
+
+
+func test_flag_on_spawns_counted_hunters() -> void:
+	Config.flags["hunter_wasp"] = true
+	_start([{"spawns": [_hunters(4, "grid_4x1"), _wasps(2, "grid_2x1")]}])
+	assert_eq(_director.total_count(), 6)
+	var hunters: int = 0
+	var wasps: int = 0
+	for enemy: Enemy in _counted():
+		if enemy is HunterWasp:
+			hunters += 1
+		elif enemy is Wasp:
+			wasps += 1
+			assert_eq((enemy as Wasp).formation_slot().y, 280.0, "hunters took row 0")
+	assert_eq(hunters, 4, "4 counted Hunter Wasps")
+	assert_eq(wasps, 2, "2 counted Wasps")
+	assert_eq(_skip_lines().size(), 0, "nothing skipped")
+	_kill(6)
+	assert_eq(_events_named("wave_cleared").size(), 1)
+
+
+func test_flag_off_group_entry_is_not_counted_or_spawned() -> void:
+	Config.flags["hunter_wasp"] = false
+	_start([{
+		"spawns": [_wasps(1)],
+		"groups": {"r": [_hunters(2), _wasps(1)]},
+		"triggers": [{"when": "progress", "at": 0.5, "actions": [{"spawn_group": "r"}]}],
+	}])
+	assert_eq(_director.total_count(), 2, "the group's hunters are not in the total")
+	_kill(1)
+	await wait_process_frames(2)
+	assert_eq(_counted().size(), 1, "the group spawned only its Wasp")
+	for enemy: Enemy in _enemies():
+		assert_false(enemy is HunterWasp, "no Hunter spawned")
+	assert_eq(_skip_lines(), [
+		"[DEBUG][spawn] %s waves[0].groups.r[0]: 2 x hunter_wasp skipped (flag 'hunter_wasp' off); not counted" % SRC,
+	] as Array[String])
+	_kill(1)
+	assert_eq(_director.total_count(), 2, "nothing subtracted")
+	assert_eq(_events_named("wave_cleared").size(), 1, "wave clears")
+
+
+func test_flag_gate_is_read_once_per_wave() -> void:
+	Config.flags["hunter_wasp"] = false
+	_start([{
+		"spawns": [_wasps(1)],
+		"groups": {"r": [_hunters(2), _wasps(1)]},
+		"triggers": [{"when": "progress", "at": 0.5, "actions": [{"spawn_group": "r"}]}],
+	}])
+	assert_eq(_director.total_count(), 2)
+	Config.flags["hunter_wasp"] = true
+	_kill(1)
+	await wait_process_frames(2)
+	for enemy: Enemy in _enemies():
+		assert_false(enemy is HunterWasp, "the gate cached at wave start still holds")
+	assert_eq(_counted().size(), 1, "only the group's Wasp spawned")
+	assert_eq(_director.total_count(), 2, "total unchanged")
+	assert_eq(_skip_lines().size(), 1, "the group entry was skipped")
+
+
+func test_wave_of_only_disabled_entries_clears_without_a_stall() -> void:
+	Config.flags["hunter_wasp"] = false
+	_start([{"spawns": [_hunters(3, "grid_3x1")]}])
+	assert_eq(_director.total_count(), 0, "nothing counted")
+	assert_eq(_enemies().size(), 0, "nothing spawned")
+	assert_eq(_lines_containing("stalled").size(), 0, "no stall ERROR")
+	assert_eq(_events_named("wave_cleared").size(), 1, "the wave clears")
+
+
+## GDD Level 3 wave 2 shape (decision F14): Hunters stay a known id with the flag off.
+func test_cut_story_level_3_wave_2_shape_validates_and_clears() -> void:
+	Config.flags["hunter_wasp"] = false
+	var data: Dictionary = {"id": 3.0, "waves": [{
+		"spawns": [
+			{"type": "bastion", "count": 2.0, "formation": "grid_2x1", "entry": "top"},
+			{"type": "needle", "count": 2.0, "formation": "grid_2x1", "entry": "top"},
+			_hunters(4, "grid_4x1"),
+		],
+		"asteroids": [{"size": "medium", "count": 3.0}],
+	}]}
+	assert_eq(LevelValidator.validate(data, SRC, EntityRegistry.enemy_types()), [] as Array[String], "validates")
+	_director.start_level(data, SRC)
+	assert_eq(_director.total_count(), 4, "2 Bastions + 2 Needles")
+	assert_eq(_counted().size(), 4)
+	assert_eq(_skip_lines().size(), 1, "DEBUG skip line")
+	_kill(4)
+	assert_eq(_events_named("wave_cleared").size(), 1, "clears after 4 resolves")
+
+
 # --- Progress trigger ---------------------------------------------------------
 
 func test_progress_trigger_fires_once_and_spawns_after_a_pausable_wait() -> void:

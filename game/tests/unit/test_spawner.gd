@@ -62,9 +62,15 @@ func test_registry_has_bastion() -> void:
 	assert_true(EntityRegistry.enemy_types().has(&"bastion"), "a known level type")
 
 
+func test_registry_has_hunter_wasp_and_its_flag() -> void:
+	assert_true(EntityRegistry.ENEMIES.has(&"hunter_wasp"))
+	assert_true(EntityRegistry.enemy_types().has(&"hunter_wasp"), "always a known level type (F14)")
+	assert_eq(EntityRegistry.ENEMY_FLAGS.get(&"hunter_wasp", ""), "hunter_wasp", "gated by flags.hunter_wasp")
+
+
 func test_spawned_enemy_gets_the_spawner() -> void:
 	var spawner: Spawner = _make_spawner(_world)
-	for type_id: StringName in [&"wasp", &"lancer", &"needle", &"bastion"]:
+	for type_id: StringName in [&"wasp", &"lancer", &"needle", &"bastion", &"hunter_wasp"]:
 		var enemy: Enemy = spawner.spawn_enemy(type_id, {"position": Vector2(640, 160)})
 		assert_not_null(enemy)
 		if enemy != null:

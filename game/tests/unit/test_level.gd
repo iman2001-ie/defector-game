@@ -136,7 +136,7 @@ func test_level_started_with_the_json_id_and_wave_1() -> void:
 	assert_eq(_started, [0] as Array[int], "level_started(0) from level_dev.json")
 	var director: WaveDirector = _level.get_node("WaveDirector") as WaveDirector
 	assert_eq(director.wave_number(), 1, "wave 1 started")
-	assert_eq(director.wave_count(), 5)
+	assert_eq(director.wave_count(), 6)
 	assert_eq(director.level_id(), 0)
 	assert_eq(_counted(), 8, "8 Wasps")
 	var info: Array[String] = []
@@ -204,14 +204,14 @@ func test_missing_level_file_starts_nothing() -> void:
 	assert_eq(_counted(), 0, "nothing spawned")
 
 
-## Acceptance: clearing all five waves of level_dev (via F3) clears the level.
+## Acceptance: clearing all six waves of level_dev (via F3) clears the level.
 func test_clearing_every_dev_wave_clears_the_level() -> void:
 	(Config.tuning["waves"] as Dictionary)["gap_s"] = 0.05
 	Log.sink = _capture
 	_make_level()
 	var director: WaveDirector = _level.get_node("WaveDirector") as WaveDirector
 	var banner: Label = _level.get_node("HUD/LevelClearBanner") as Label
-	for wave: int in 5:
+	for wave: int in 6:
 		assert_eq(director.wave_number(), wave + 1, "on wave %d" % (wave + 1))
 		director.debug_resolve_wave()
 		# Longest chain in level_dev is 1.0 s, plus the gap.
@@ -314,6 +314,39 @@ func test_dev_wave_5_has_a_bastion() -> void:
 	assert_eq(bastions, 1, "one Bastion in wave 5")
 	for line: String in _lines:
 		assert_false(line.begins_with("[WARN][spawn] bastion"), "no clamp WARN: " + line)
+
+
+## Story 2.8: level_dev wave 6 lists Hunter Wasps; with the default flag (off)
+## only its six Wasps spawn and count, and the skip is logged at DEBUG.
+func test_dev_wave_6_skips_hunters_with_the_default_flag() -> void:
+	(Config.tuning["waves"] as Dictionary)["gap_s"] = 0.05
+	Log.sink = _capture
+	_make_level()
+	var director: WaveDirector = _level.get_node("WaveDirector") as WaveDirector
+	for wave: int in 5:
+		director.debug_resolve_wave()
+		var waited: float = 0.0
+		while director.wave_number() == wave + 1 and waited < 3.0:
+			await wait_seconds(0.1)
+			waited += 0.1
+		assert_eq(director.wave_number(), wave + 2, "wave %d advanced within 3 s" % (wave + 1))
+	Log.sink = Callable()
+	assert_false(Config.flag("hunter_wasp"), "flag default stays off")
+	assert_eq(director.wave_number(), 6, "on wave 6")
+	assert_eq(director.total_count(), 6, "six counted Wasps")
+	var wasps: int = 0
+	for child: Node in _level.get_node("World/Enemies").get_children():
+		if child.is_queued_for_deletion():
+			continue
+		assert_false(child is HunterWasp, "no Hunter Wasp spawned")
+		if child is Wasp and child.is_in_group(&"counted"):
+			wasps += 1
+	assert_eq(wasps, 6)
+	var skips: int = 0
+	for line: String in _lines:
+		if line.begins_with("[DEBUG][spawn]") and line.contains("waves[5].spawns[0]: 4 x hunter_wasp skipped"):
+			skips += 1
+	assert_eq(skips, 1, "one DEBUG skip line")
 
 
 # --- Debug-arg gates ----------------------------------------------------------

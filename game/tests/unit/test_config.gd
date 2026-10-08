@@ -434,7 +434,7 @@ func test_level_dev_loads() -> void:
 	var data: Dictionary = Config.level("dev")
 	assert_false(data.is_empty(), "level_dev.json loads")
 	assert_eq(int(data.get("id", -1)), 0, "id 0")
-	assert_eq((data.get("waves", []) as Array).size(), 5, "five waves")
+	assert_eq((data.get("waves", []) as Array).size(), 6, "six waves")
 
 
 func test_level_missing_id_returns_empty() -> void:

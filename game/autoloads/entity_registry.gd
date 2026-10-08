@@ -6,6 +6,13 @@ const ENEMIES: Dictionary[StringName, PackedScene] = {
 	&"lancer": preload("res://entities/enemies/lancer/lancer.tscn"),
 	&"needle": preload("res://entities/enemies/needle/needle.tscn"),
 	&"bastion": preload("res://entities/enemies/bastion/bastion.tscn"),
+	&"hunter_wasp": preload("res://entities/enemies/hunter_wasp/hunter_wasp.tscn"),
+}
+## Enemy type id -> the flags.json flag that gates its wave spawns. A type is
+## always a known id (levels validate with it); the WaveDirector skips its
+## spawn entries, uncounted, while the flag is false.
+const ENEMY_FLAGS: Dictionary[StringName, String] = {
+	&"hunter_wasp": "hunter_wasp",
 }
 const PROJECTILES: Dictionary[StringName, PackedScene] = {
 	&"laser_bolt": preload("res://entities/projectiles/laser_bolt.tscn"),

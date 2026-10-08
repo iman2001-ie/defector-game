@@ -2,8 +2,9 @@ extends GutTest
 ## Data files: every level_*.json in res://data/levels/ passes LevelValidator;
 ## every telegraph in tuning.enemies / tuning.boss is >= the 0.3 s minimum;
 ## every enemy bullet speed is <= the readable maximum; Wasp and Lancer waves
-## fit their formation rows inside each type's top zone; Needle tuning is sane
-## and every Needle wave brings cover.
+## fit their formation rows inside each type's top zone; Needle, Bastion and
+## Hunter Wasp tuning is sane; every Needle wave brings cover; every flag-gated
+## enemy type has its flag.
 
 const LEVELS_DIR: String = "res://data/levels/"
 
@@ -137,7 +138,8 @@ const ZONED_TYPES: Array[StringName] = [&"wasp", &"lancer"]
 
 
 ## Mirrors WaveDirector._spawn_entry: spawns then groups, in order, on a running
-## first row; non-objects, unknown types and empty entries take no rows. Every
+## first row; non-objects, unknown types and empty entries take no rows.
+## Flag-gated types always take their rows here (the worst case, flag on). Every
 ## Wasp and Lancer slot must be inside its type's enemies.<type>.zone_height_ratio
 ## zone and fully on screen horizontally.
 func test_zoned_formations_fit_their_top_zone() -> void:
@@ -259,6 +261,29 @@ func test_bastion_tuning_ranges() -> void:
 	var sprite: float = probe.sprite_px
 	probe.free()
 	assert_gte(band_max - band_min, sprite, "the hull fits inside band_y")
+
+
+## GDD FR24: the Hunter Wasp chases at a positive speed with a sane turn cap.
+func test_hunter_wasp_tuning_ranges() -> void:
+	assert_gt(Config.num("enemies.hunter_wasp.chase_speed_px_s"), 0.0, "chase_speed_px_s > 0")
+	var turn: float = Config.num("enemies.hunter_wasp.turn_rate_deg_s")
+	assert_gt(turn, 0.0, "turn_rate_deg_s > 0")
+	assert_lte(turn, 360.0, "turn_rate_deg_s <= 360")
+	assert_gte(Config.int_("enemies.hunter_wasp.hp"), 1, "hp >= 1")
+
+
+## Every flag-gated enemy type is registered and its flag is a bool in flags.json.
+func test_every_gated_type_has_a_flag() -> void:
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://data/flags.json"))
+	assert_true(parsed is Dictionary, "flags.json parses to an object")
+	if not (parsed is Dictionary):
+		return
+	var flags: Dictionary = parsed
+	assert_gt(EntityRegistry.ENEMY_FLAGS.size(), 0, "at least one gated type")
+	for type_id: StringName in EntityRegistry.ENEMY_FLAGS:
+		var flag_name: String = EntityRegistry.ENEMY_FLAGS[type_id]
+		assert_true(EntityRegistry.ENEMIES.has(type_id), "%s is a registered enemy" % type_id)
+		assert_true(flags.get(flag_name) is bool, "flags.%s is a bool (gates %s)" % [flag_name, type_id])
 
 
 ## GDD (Arena and Level Design): every Needle wave has >= 2 medium or large asteroids.

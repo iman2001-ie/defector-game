@@ -14,6 +14,13 @@ extends Node
 ## or group spawn is pending; then wave_clear triggers, a waves.gap_s gap, the
 ## running chains finish, and the next wave starts (or the level clears).
 ## A stall net subtracts groups that can never spawn, so no wave soft-locks.
+##
+## Feature-flag gate: a type listed in EntityRegistry.ENEMY_FLAGS whose flag is
+## false at wave start is disabled for that wave. Its spawn and group entries
+## count 0 toward the total, take no formation rows and spawn nothing. One DEBUG
+## line is logged when such an entry would spawn (a group entry only if its group
+## is requested; a never-requested group logs nothing). They are a designer
+## choice, not an error, so never subtracted.
 
 ## Emitted when the last running action chain finishes.
 signal chains_finished
@@ -48,6 +55,9 @@ var _skipped_groups: Dictionary = {}
 ## Group name -> true while its deferred spawn is pending.
 var _pending_groups: Dictionary = {}
 var _next_row: int = 0
+## Enemy type id (StringName) -> gating flag name, for types whose flag was off
+## at wave start.
+var _disabled_types: Dictionary = {}
 var _live_counted: int = 0
 var _running_chains: int = 0
 var _clearing: bool = false
@@ -102,6 +112,11 @@ func start_wave(index: int) -> void:
 	_spawned_groups.clear()
 	_skipped_groups.clear()
 	_pending_groups.clear()
+	_disabled_types.clear()
+	for type_id: StringName in EntityRegistry.ENEMY_FLAGS:
+		var flag_name: String = EntityRegistry.ENEMY_FLAGS[type_id]
+		if not Config.flag(flag_name):
+			_disabled_types[type_id] = flag_name
 	var path: String = "waves[%d]" % index
 	var wave: Dictionary = _waves[index] if _waves[index] is Dictionary else {}
 
@@ -116,10 +131,10 @@ func start_wave(index: int) -> void:
 
 	var total: int = 0
 	for entry: Variant in spawns:
-		total += _entry_count(entry)
+		total += _counted_count(entry)
 	for key: Variant in _groups:
 		for entry: Variant in _group_entries(str(key)):
-			total += _entry_count(entry)
+			total += _counted_count(entry)
 	if wave.has("boss"):
 		total += 1
 	_progress.reset(total)
@@ -233,6 +248,9 @@ func _spawn_entry(entry: Variant, path: String, serial: int) -> int:
 		Log.error("wave", "%s %s.type: unknown enemy type '%s'; %d not counted" % [_source, path, type_id, count])
 		return count
 	if count <= 0:
+		return 0
+	if _disabled_types.has(type_id):
+		Log.debug("spawn", "%s %s: %d x %s skipped (flag '%s' off); not counted" % [_source, path, count, type_id, _disabled_types[type_id]])
 		return 0
 	var formation: String = str(dict.get("formation", "")) if dict.get("formation") is String else ""
 	var entry_kind: StringName = StringName(str(dict.get("entry", DEFAULT_ENTRY)))
@@ -440,6 +458,14 @@ func _entry_count(entry: Variant) -> int:
 	if not (raw is float or raw is int):
 		return 0
 	return maxi(int(raw), 0)
+
+
+## What an entry adds to the wave total: its count, or 0 when its type is
+## disabled by a feature flag this wave.
+func _counted_count(entry: Variant) -> int:
+	if entry is Dictionary and _disabled_types.has(StringName(str((entry as Dictionary).get("type", "")))):
+		return 0
+	return _entry_count(entry)
 
 
 func _group_entries(group_name: String) -> Array:
