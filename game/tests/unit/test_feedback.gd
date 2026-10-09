@@ -261,6 +261,40 @@ func test_shake_tier_without_camera_is_a_no_op() -> void:
 	assert_false(Feedback.is_hit_stopped())
 
 
+# --- shake() (GDD decision #43) ----------------------------------------------
+
+func test_shake_shakes_only() -> void:
+	_setup_listeners()
+	Audio.play_sfx(&"laser_zap")
+	var before: AudioStreamPlayer = Audio.newest_player()
+	Feedback.shake(18.0, 0.9)
+	assert_almost_eq(_camera.current_amplitude(), 18.0, 0.0001, "18 px")
+	assert_eq(_explosions().size(), 0, "no explosion")
+	assert_eq(Engine.time_scale, 1.0, "no hit-stop")
+	assert_false(Feedback.is_hit_stopped())
+	assert_eq(Audio.newest_player(), before, "no sound")
+
+
+func test_shake_non_positive_values_are_a_no_op() -> void:
+	_setup_listeners()
+	for args: Array in [[0.0, 1.0], [18.0, 0.0], [-5.0, 1.0], [18.0, -1.0]]:
+		Feedback.shake(args[0] as float, args[1] as float)
+		assert_eq(_camera.current_amplitude(), 0.0, "no shake for %s" % [args])
+
+
+func test_shake_without_camera_is_a_no_op() -> void:
+	Feedback.shake(18.0, 0.9)
+	assert_eq(Engine.time_scale, 1.0)
+	assert_false(Feedback.is_hit_stopped())
+
+
+func test_tier_shake_goes_through_shake() -> void:
+	_setup_listeners()
+	Feedback.shake_tier(ImpactTier.MEDIUM)
+	var row: Dictionary = Feedback.tier_row(ImpactTier.MEDIUM)
+	assert_almost_eq(_camera.current_amplitude(), row.get("shake_px", -1.0) as float, 0.0001, "the medium row's shake_px")
+
+
 # --- Hit-stop ----------------------------------------------------------------
 
 func test_hit_stop_zero_or_negative_ignored() -> void:

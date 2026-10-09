@@ -739,3 +739,27 @@ source_spec: `spec-5-1-comms-open-radio-sfx.md`
 severity: low
 reason: Pre-existing flake, not caused by the comms-open SFX change (shake_camera.gd and its test are untouched). Seen in the first full GUT run (1340/1341); the immediate full re-run passed. Likely a near-zero headless frame delta or a sampled offset of zero within 3 frames.
 status: open
+
+### DW-80: A long SFX (the 6.0 s comms_static) is the first player Audio steals once all pool players are busy, so heavy combat during the cut-off hold can stop the static early.
+origin: quick-dev
+location: game/autoloads/audio.gd _pick_player
+source_spec: `spec-5-4-cut-off-readability-and-impact.md`
+severity: low
+reason: _pick_player steals the oldest busy player when the pool is full, and a 6 s clip is almost always the oldest. Not observed; needs about 12 overlapping SFX during the hold. A fix would let a caller mark a player as not stealable (or reserve one comms player) and needs a decision on the Audio API.
+status: open
+
+### DW-81: A story request during the cut-off line's typing window (now about 2.4 s instead of 0.87 s) drops the cut-off with none of its effects, and a wave clear in that window skips the silence while the static, shake and music stop still fire.
+origin: quick-dev
+location: game/systems/comms/comms_channel.gd _preempt_combat / _on_wave_cleared
+source_spec: `spec-5-4-cut-off-readability-and-impact.md`
+severity: low
+reason: Pre-existing 5.4 rules (preempt drops effects, void rule), made about 3x more likely by the slower typing. No shipped data requests a story near Tarek's cut-off. Story 6.5 / Epic 7 data should keep the Level 2 Wave 5 cut-off clear of story requests and of the wave end; otherwise decide whether a cut-off should be preempt-proof.
+status: open
+
+### DW-82: The 6.0 s cut-off hold occupies the interruption box, so when the wave clears during the hold the next wave's opening combat lines queue behind it (up to about 6 s late) or are dropped past comms.combat_queue_max.
+origin: quick-dev
+location: game/systems/comms/comms_channel.gd step_combat
+source_spec: `spec-5-4-cut-off-readability-and-impact.md`
+severity: low
+reason: A consequence of the user's 6.0 s hold (GDD #43). Level 2 Wave 6 data (Epic 7) should not open with combat chatter, or the hold should end early on wave_cleared; that needs a design call.
+status: open

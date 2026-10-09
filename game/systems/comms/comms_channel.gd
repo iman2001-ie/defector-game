@@ -40,13 +40,21 @@ extends Node
 ##   from another combat line (box still up or fading). All of them play
 ##   quieter than in a story (comms.combat_open_db / combat_line_cue_db); no
 ##   cue when the box fades or hides.
-## - Cut-off (Story 5.4): a combat line with `cut_off_at` (a combat sequence
-##   has one line, so it is the whole sequence) types to exactly `cut_off_at`
-##   characters over cut_off_at / chars_per_s s of game time. At that moment
-##   the box stops there and the `after` effects run in order: the sfx
-##   (Audio.play_sfx), the shake tier (Feedback.shake_tier), the music action
-##   (Audio.apply_music_action), then silence. comms.cutoff_hide_s later the
-##   box hides at once (no fade) and `finished` is emitted. Both phases count
+## - Cut-off (Story 5.4, GDD decision #43): a combat line with `cut_off_at` (a
+##   combat sequence has one line, so it is the whole sequence) types to
+##   exactly `cut_off_at` characters over cut_off_at / comms.cutoff_chars_per_s
+##   s of game time. At that moment the box stops there and shows
+##   comms.cutoff_suffix after the cut, and the `after` effects run in order:
+##   the sfx (Audio.play_sfx), the shake (`cutoff`: Feedback.shake with
+##   comms.cutoff_shake_px / cutoff_shake_s; a tier name:
+##   Feedback.shake_tier), the music action (Audio.apply_music_action), then
+##   silence. comms.cutoff_hide_s later the box hides at once (no fade) and
+##   `finished` is emitted. The after-sfx (the 6 s static) lives with the
+##   line: it is stopped whenever the line ends (the hide, a preempt, the
+##   channel leaving the tree) and its stream pauses while the tree is paused.
+##   The hold counts real time (game delta / Engine.time_scale), so it stays in
+##   step with the audio under a hit-stop's slow-down; the typing counts game
+##   time. Both phases count
 ##   game time in step_combat, so a pause freezes them. A story that preempts
 ##   the line before its cut-off moment drops it with no effects.
 ## - Silence (`after.silence: until_wave_clear`): drops every queued combat
@@ -100,6 +108,16 @@ var _combat_open_db: float = 0.0
 var _combat_line_cue_db: float = 0.0
 var _combat_queue_max: int = 0
 var _cutoff_hide_s: float = 0.0
+## `comms.cutoff_chars_per_s` / `cutoff_suffix` / `cutoff_shake_px` /
+## `cutoff_shake_s`: the cut-off line's typing speed, cut marker and shake.
+var _cutoff_chars_per_s: float = 0.0
+var _cutoff_suffix: String = ""
+var _cutoff_shake_px: float = 0.0
+var _cutoff_shake_s: float = 0.0
+## The player Audio.play_sfx returned for the cut-off's after-sfx, and its
+## stream (the pool may hand the player to another sound).
+var _cut_sfx_player: AudioStreamPlayer = null
+var _cut_sfx_stream: AudioStream = null
 
 ## Cut-off state of the playing combat line (Story 5.4); NONE for a plain line.
 var _cut_phase: CutPhase = CutPhase.NONE
@@ -127,11 +145,16 @@ func _ready() -> void:
 	_combat_line_cue_db = Config.num("comms.combat_line_cue_db")
 	_combat_queue_max = maxi(Config.int_("comms.combat_queue_max"), 0)
 	_cutoff_hide_s = maxf(Config.num("comms.cutoff_hide_s"), 0.0)
+	_cutoff_chars_per_s = Config.num("comms.cutoff_chars_per_s")
+	_cutoff_suffix = cutoff_suffix_from(Config.section("comms"))
+	_cutoff_shake_px = Config.num("comms.cutoff_shake_px")
+	_cutoff_shake_s = Config.num("comms.cutoff_shake_s")
 	Events.comms_sequence_requested.connect(_on_events_comms_sequence_requested)
 	Events.wave_cleared.connect(_on_events_wave_cleared)
 
 
 func _exit_tree() -> void:
+	_stop_cut_sfx()
 	if Events.comms_sequence_requested.is_connected(_on_events_comms_sequence_requested):
 		Events.comms_sequence_requested.disconnect(_on_events_comms_sequence_requested)
 	if Events.wave_cleared.is_connected(_on_events_wave_cleared):
@@ -308,6 +331,7 @@ func _finish() -> void:
 # --- Combat ------------------------------------------------------------------------
 
 func _process(delta: float) -> void:
+	_sync_cut_sfx_pause(get_tree().paused)
 	if is_playing_combat() and not get_tree().paused:
 		step_combat(delta)
 
@@ -317,11 +341,12 @@ func _process(delta: float) -> void:
 ## `finished` and starts the next queued combat if no story is showing and
 ## nothing (a `finished` listener) started one. A cut-off line first reaches
 ## its cut-off moment (see _cut_off), then holds for comms.cutoff_hide_s and
-## hides the box at once instead of fading it.
+## hides the box at once instead of fading it. The hold counts real time
+## (hold_step), the rest game time.
 func step_combat(delta: float) -> void:
 	if not is_playing_combat():
 		return
-	_combat_left_s -= delta
+	_combat_left_s -= hold_step(delta, Engine.time_scale) if _cut_phase == CutPhase.HOLD else delta
 	if _combat_left_s > COMBAT_EPSILON_S:
 		return
 	if _cut_phase == CutPhase.TYPING:
@@ -384,7 +409,7 @@ func _show_combat_line() -> void:
 		_cut_at = clampi(int(cut_raw), 0, text.length())
 		var after_raw: Variant = line.get(AFTER_KEY)
 		_cut_after = after_raw if after_raw is Dictionary else {}
-		_combat_left_s = _cut_at / _chars_per_s if _chars_per_s > 0.0 else 0.0
+		_combat_left_s = _cut_at / _cutoff_chars_per_s if _cutoff_chars_per_s > 0.0 else 0.0
 	else:
 		_combat_left_s = combat_line_s(text.length(), _chars_per_s, _combat_min_s, _combat_extra_s)
 	if box != null:
@@ -402,21 +427,26 @@ static func combat_cue(box_visible: bool, previous_speaker: StringName, speaker:
 	return HANDOVER_SFX if speaker != previous_speaker else CLICK_SFX
 
 
-## The cut-off moment: the box stops at `cut_off_at` characters, then the
-## `after` effects run in order (sfx, shake, music, silence) and the line holds
-## for comms.cutoff_hide_s more seconds of game time.
+## The cut-off moment: the box stops at `cut_off_at` characters plus
+## comms.cutoff_suffix, then the `after` effects run in order (sfx, shake,
+## music, silence) and the line holds for comms.cutoff_hide_s more seconds of
+## game time.
 func _cut_off() -> void:
 	_cut_phase = CutPhase.HOLD
 	_combat_left_s += _cutoff_hide_s
 	if box != null:
-		box.cut_off(_cut_at)
+		box.cut_off(_cut_at, _cutoff_suffix)
 	Log.info("comms", "Combat sequence '%s' cut off at %d characters" % [_combat, _cut_at])
 	var sfx: Variant = _cut_after.get(DialogueValidator.AFTER_SFX)
 	if sfx is String and not (sfx as String).is_empty():
-		Audio.play_sfx(StringName(sfx as String), 0.0)
+		_cut_sfx_player = Audio.play_sfx(StringName(sfx as String), 0.0)
+		_cut_sfx_stream = _cut_sfx_player.stream if _cut_sfx_player != null else null
 	var shake: Variant = _cut_after.get(DialogueValidator.AFTER_SHAKE)
 	if shake is String:
-		Feedback.shake_tier(ImpactTier.from_name(shake as String))
+		if (shake as String) == DialogueValidator.SHAKE_CUTOFF:
+			Feedback.shake(_cutoff_shake_px, _cutoff_shake_s)
+		else:
+			Feedback.shake_tier(ImpactTier.from_name(shake as String))
 	var music: Variant = _cut_after.get(DialogueValidator.AFTER_MUSIC)
 	if music is String:
 		Audio.apply_music_action(StringName(music as String))
@@ -447,7 +477,50 @@ func _on_events_wave_cleared(_wave_index: int) -> void:
 		Log.info("comms", "Comms silence lifted (wave cleared)")
 
 
+## The game-time `delta` as real time (delta / time_scale), so the cut-off
+## hold keeps step with the static under a slow-down. A time scale of 0 or
+## less (a hit-stop freeze, where delta is 0 too) returns `delta`.
+static func hold_step(delta: float, time_scale: float) -> float:
+	return delta / time_scale if time_scale > 0.0 else delta
+
+
+## comms.cutoff_suffix, or "" with an error when it isn't a String.
+static func cutoff_suffix_from(comms: Dictionary) -> String:
+	var raw: Variant = comms.get("cutoff_suffix")
+	if raw is String:
+		return raw
+	Log.error("data", "tuning.comms.cutoff_suffix missing or not a string")
+	return ""
+
+
+## The cut-off's after-sfx player while it still plays that stream, else null.
+func cut_sfx_player() -> AudioStreamPlayer:
+	if _cut_sfx_player == null or not is_instance_valid(_cut_sfx_player):
+		return null
+	if _cut_sfx_player.stream != _cut_sfx_stream:
+		return null
+	return _cut_sfx_player
+
+
+## Pauses or resumes the cut-off's after-sfx with the tree.
+func _sync_cut_sfx_pause(paused: bool) -> void:
+	var player: AudioStreamPlayer = cut_sfx_player()
+	if player != null and player.stream_paused != paused:
+		player.stream_paused = paused
+
+
+## Stops the cut-off's after-sfx (unpaused, so the pooled player is clean).
+func _stop_cut_sfx() -> void:
+	var player: AudioStreamPlayer = cut_sfx_player()
+	if player != null:
+		player.stream_paused = false
+		player.stop()
+	_cut_sfx_player = null
+	_cut_sfx_stream = null
+
+
 func _reset_cut() -> void:
+	_stop_cut_sfx()
 	_cut_phase = CutPhase.NONE
 	_cut_at = -1
 	_cut_after = {}

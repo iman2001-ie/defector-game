@@ -60,6 +60,7 @@ func test_tuning() -> void:
 	assert_eq(Config.int_("comms.combat_line_max_chars"), 50)
 	assert_eq(Config.num("comms.box_slide_in_s"), 0.15)
 	assert_eq(Config.num("comms.box_fade_out_s"), 0.6)
+	assert_eq(_make().cutoff_chars_per_s, Config.num("comms.cutoff_chars_per_s"), "the cut-off typing speed is cached")
 
 
 func test_layout_math_with_portrait() -> void:
@@ -191,20 +192,26 @@ func test_typewriter_speed() -> void:
 
 
 ## Story 5.4: a cut-off line types only to cut_off_at characters over
-## cut_off_at / chars_per_s and stays there (never -1).
+## cut_off_at / comms.cutoff_chars_per_s (GDD decision #43) and stays there
+## (never -1).
 func test_cut_off_line_types_to_cut_off_at_and_stays() -> void:
 	var box: CommsBox = _make()
 	var line: String = "General, get behind me, I've got you cov—"
+	var cut_s: float = 39.0 / Config.num("comms.cutoff_chars_per_s")
+	assert_gt(cut_s, 39.0 / Config.num("comms.chars_per_s"), "slower than a normal line")
 	box.show_line(&"tarek", line, 39)
 	var text: Label = _label(box, "Box/Text")
 	assert_eq(text.text, line, "the whole text is set")
 	assert_eq(text.visible_characters, 0, "starts at 0")
 	assert_true(box.is_typing())
-	box._type_tween.custom_step(39.0 / 45.0 - 0.02)
-	assert_true(box.is_typing(), "still typing just before 39 / 45 s")
+	box._type_tween.custom_step(39.0 / Config.num("comms.chars_per_s"))
+	assert_true(box.is_typing(), "not done at the normal speed")
+	# 0.1 s before the end, more than one character is left at 16 chars/s.
+	box._type_tween.custom_step(cut_s - 39.0 / Config.num("comms.chars_per_s") - 0.1)
+	assert_true(box.is_typing(), "still typing just before 39 / cutoff_chars_per_s s")
 	assert_lt(text.visible_characters, 39)
-	box._type_tween.custom_step(0.03)
-	assert_false(box.is_typing(), "done at 39 / 45 s")
+	box._type_tween.custom_step(0.11)
+	assert_false(box.is_typing(), "done at 39 / cutoff_chars_per_s s")
 	assert_eq(text.visible_characters, 39, "stops at cut_off_at, never -1")
 	for i: int in 3:
 		await get_tree().process_frame
@@ -217,8 +224,37 @@ func test_cut_off_stops_the_typewriter() -> void:
 	box._type_tween.custom_step(0.2)
 	box.cut_off(39)
 	assert_false(box.is_typing(), "tween killed")
+	assert_eq(_label(box, "Box/Text").text, "a".repeat(41), "no suffix: the text is kept")
 	assert_eq(_label(box, "Box/Text").visible_characters, 39)
 	assert_true(box.visible, "still shown")
+
+
+## GDD decision #43: with a suffix the text becomes the first `chars`
+## characters plus the suffix, all visible, and the typewriter stops.
+func test_cut_off_with_a_suffix() -> void:
+	var box: CommsBox = _make()
+	box.show_line(&"tarek", "General, get behind me, I've got you cov—", 39)
+	box._type_tween.custom_step(0.5)
+	box.cut_off(39, "...")
+	var text: Label = _label(box, "Box/Text")
+	assert_false(box.is_typing(), "tween killed")
+	assert_eq(text.text, "General, get behind me, I've got you co...")
+	assert_eq(text.visible_characters, -1, "all of it visible")
+	for i: int in 3:
+		await get_tree().process_frame
+	assert_eq(text.text, "General, get behind me, I've got you co...", "stays")
+	assert_eq(text.visible_characters, -1, "stays visible")
+	assert_true(box.visible, "still shown")
+
+
+## A cut-off line with a non-positive cutoff_chars_per_s shows its cut_off_at
+## characters at once.
+func test_cut_off_line_with_no_typing_speed_is_instant() -> void:
+	var box: CommsBox = _make()
+	box.cutoff_chars_per_s = 0.0
+	box.show_line(&"tarek", "General, get behind me, I've got you cov—", 39)
+	assert_false(box.is_typing(), "no tween")
+	assert_eq(_label(box, "Box/Text").visible_characters, 39)
 
 
 func test_default_show_line_is_unchanged() -> void:

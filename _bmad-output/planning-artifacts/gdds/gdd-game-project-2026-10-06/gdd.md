@@ -387,7 +387,7 @@ N/A. DEFECTOR is single-player only. Multiplayer is out of scope (see Out of Sco
 | 2 | 1 Bastion, 8 Wasps | |
 | 3 | 3 Needles, 3 Lancers, 2 medium asteroids | Isolde interruption |
 | 4 | 2 Bastions, 10 Wasps, 1 large asteroid | |
-| 5 | 2 Bastions, 2 Needles, 4 Lancers, 2 medium asteroids | When 50% of the wave is destroyed: Tarek shields Vale, and his line is cut off mid-sentence. This is an interruption, so the game does not pause. Then a large-tier screen shake, his ship trails fire and leaves, and the comms channel goes silent until the wave clears. |
+| 5 | 2 Bastions, 2 Needles, 4 Lancers, 2 medium asteroids | When 50% of the wave is destroyed: Tarek shields Vale, and his line is cut off mid-sentence. This is an interruption, so the game does not pause. Then a strong screen shake (the dedicated cut-off shake, 18 px for 0.9 s; was large-tier, decision #43), his ship trails fire and leaves, and the comms channel goes silent until the wave clears. |
 
 - After the wave clears, Ryn reports that Tarek is alive but gravely injured, and that she is taking command.
 

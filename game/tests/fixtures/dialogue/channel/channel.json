@@ -97,9 +97,22 @@
 					"cut_off_at": 39,
 					"after": {
 						"silence": "until_wave_clear",
-						"shake": "large",
+						"shake": "cutoff",
 						"sfx": "comms_static",
 						"music": "stop"
+					}
+				}
+			]
+		},
+		"cut_large": {
+			"mode": "combat",
+			"lines": [
+				{
+					"speaker": "tarek",
+					"text": "General, get behind me, I've got you cov—",
+					"cut_off_at": 39,
+					"after": {
+						"shake": "large"
 					}
 				}
 			]

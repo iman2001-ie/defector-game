@@ -192,6 +192,8 @@ func test_valid_cut_off_lines() -> void:
 		assert_eq(_cut_problems("combat", {"cut_off_at": 39, "after": {"music": music}}), [] as Array[String], music)
 	for tier: String in ImpactTier.NAMES:
 		assert_eq(_cut_problems("combat", {"cut_off_at": 39, "after": {"shake": tier}}), [] as Array[String], tier)
+	assert_eq(_cut_problems("combat", {"cut_off_at": 39, "after": {"shake": DialogueValidator.SHAKE_CUTOFF}}), [] as Array[String], "cutoff")
+	assert_eq(DialogueValidator.SHAKE_CUTOFF, "cutoff")
 
 
 func test_cut_off_in_a_story_sequence() -> void:
@@ -222,7 +224,8 @@ func test_after_unknown_key() -> void:
 
 func test_after_bad_values() -> void:
 	_only_problem(_cut_problems("combat", {"cut_off_at": 39, "after": {"silence": "forever"}}), "lines[0].after.silence: must be 'until_wave_clear'")
-	_only_problem(_cut_problems("combat", {"cut_off_at": 39, "after": {"shake": "huge"}}), "lines[0].after.shake: must be one of small")
+	_only_problem(_cut_problems("combat", {"cut_off_at": 39, "after": {"shake": "huge"}}), "lines[0].after.shake: must be one of small, medium, large, boss_part, boss_death, player_hit, player_death, cutoff, not 'huge'")
+	_only_problem(_cut_problems("combat", {"cut_off_at": 39, "after": {"shake": 18}}), "lines[0].after.shake: must be one of")
 	_only_problem(_cut_problems("combat", {"cut_off_at": 39, "after": {"sfx": ""}}), "lines[0].after.sfx: must be a non-empty sfx id")
 	_only_problem(_cut_problems("combat", {"cut_off_at": 39, "after": {"sfx": 5}}), "lines[0].after.sfx")
 	_only_problem(_cut_problems("combat", {"cut_off_at": 39, "after": {"music": "loud"}}), "lines[0].after.music: must be one of stop, combat, boss")

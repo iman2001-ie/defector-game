@@ -1097,10 +1097,11 @@ func _kill_one_counted() -> bool:
 
 ## Story 5.4 acceptance 1: on level_dev wave 2, killing counted enemies one by
 ## one until progress reaches 0.25 shows dev_tarek_cutoff in the real box; at
-## the cut-off moment the text shows exactly 39 characters, comms_static plays,
-## the level ShakeCamera shakes and the channel is silenced, so a combat
-## request is dropped; the box hides 0.6 s later; once the rest die,
-## wave_cleared lifts the silence and wave 3 starts.
+## the cut-off moment (39 / comms.cutoff_chars_per_s s in) the text shows the
+## first 39 characters plus comms.cutoff_suffix, comms_static plays, the level
+## ShakeCamera shakes by comms.cutoff_shake_px and the channel is silenced, so
+## a combat request is dropped; the box hides comms.cutoff_hide_s later with no
+## fade; once the rest die, wave_cleared lifts the silence and wave 3 starts.
 func test_dev_wave_2_cut_off_by_real_kills() -> void:
 	(Config.tuning["waves"] as Dictionary)["gap_s"] = 0.05
 	Log.sink = _capture
@@ -1128,10 +1129,13 @@ func test_dev_wave_2_cut_off_by_real_kills() -> void:
 	assert_eq(text.text, "General, get behind me, I've got you cov—")
 	assert_true(box.is_typing(), "typing")
 	assert_false(channel.is_silenced(), "not silenced before the cut-off")
+	assert_almost_eq(channel._combat_left_s, 39.0 / Config.num("comms.cutoff_chars_per_s"), 0.1, "the cut lands 39 / cutoff_chars_per_s s in")
 	channel.step_combat(channel._combat_left_s + 0.001)
-	assert_eq(text.visible_characters, 39, "exactly 39 characters")
+	assert_eq(text.text, "General, get behind me, I've got you co" + str(Config.section("comms").get("cutoff_suffix")), "39 characters and the suffix")
+	assert_true(text.text.ends_with("co..."), "ends in co...")
+	assert_eq(text.visible_characters, -1, "all of it visible")
 	assert_eq(Audio.newest_player().stream, Audio.SFX[&"comms_static"], "comms_static plays")
-	assert_gt(camera.current_amplitude(), 0.0, "the level ShakeCamera shakes")
+	assert_almost_eq(camera.current_amplitude(), Config.num("comms.cutoff_shake_px"), 0.0001, "the level ShakeCamera shakes by cutoff_shake_px")
 	assert_true(channel.is_silenced(), "silenced")
 	assert_true(box.visible, "still shown at the cut-off moment")
 	Events.comms_sequence_requested.emit(&"dev_combat_check")
@@ -1139,9 +1143,11 @@ func test_dev_wave_2_cut_off_by_real_kills() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	assert_true(finished.has(&"dev_combat_check"), "dev_combat_check dropped with finished")
-	assert_true(box.visible, "still shown before +0.6 s")
+	assert_true(box.visible, "still shown before +cutoff_hide_s")
+	assert_eq(box.modulate.a, 1.0, "no fade while holding")
+	assert_almost_eq(channel._combat_left_s, Config.num("comms.cutoff_hide_s"), 0.1, "holds cutoff_hide_s")
 	channel.step_combat(channel._combat_left_s + 0.001)
-	assert_false(box.visible, "hidden 0.6 s after the cut-off")
+	assert_false(box.visible, "hidden cutoff_hide_s after the cut-off, no fade")
 	assert_true(finished.has(&"dev_tarek_cutoff"), "the cut-off finished")
 	var end_ms: int = Time.get_ticks_msec() + 10000
 	while director.wave_number() == 2 and Time.get_ticks_msec() < end_ms:
@@ -1157,8 +1163,9 @@ func test_dev_wave_2_cut_off_by_real_kills() -> void:
 
 
 ## Story 5.4 acceptance 2: F3 on level_dev wave 2 still fires the cut-off (box
-## shown, then stopped at 39 characters with the static SFX), the wave clears,
-## wave 3 starts as usual and the channel isn't silenced during wave 3.
+## shown, then stopped at 39 characters plus the suffix with the static SFX),
+## the wave clears, wave 3 starts as usual and the channel isn't silenced
+## during wave 3. Waits come from comms.cutoff_chars_per_s / cutoff_hide_s.
 func test_dev_wave_2_cut_off_under_f3() -> void:
 	(Config.tuning["waves"] as Dictionary)["gap_s"] = 0.05
 	Log.sink = _capture
@@ -1173,13 +1180,16 @@ func test_dev_wave_2_cut_off_under_f3() -> void:
 	director.debug_resolve_wave()
 	assert_eq(channel.current_combat(), &"dev_tarek_cutoff", "the cut-off line plays")
 	assert_true(box.visible, "box shown")
+	var cut_ms: int = int(39.0 / Config.num("comms.cutoff_chars_per_s") * 1000.0)
+	var hide_ms: int = int(Config.num("comms.cutoff_hide_s") * 1000.0)
 	var cut_seen: bool = false
-	var end_ms: int = Time.get_ticks_msec() + 5000
+	var end_ms: int = Time.get_ticks_msec() + cut_ms + 3000
 	while not cut_seen and Time.get_ticks_msec() < end_ms:
 		await get_tree().process_frame
 		cut_seen = channel.cut_phase() == CommsChannel.CutPhase.HOLD
 	assert_true(cut_seen, "the cut-off fired")
-	assert_eq(text.visible_characters, 39, "stopped at 39 characters")
+	assert_true(text.text.ends_with("co" + str(Config.section("comms").get("cutoff_suffix"))), "stopped at 39 characters plus the suffix")
+	assert_eq(text.visible_characters, -1, "all of it visible")
 	assert_true(box.visible, "still shown at the cut-off")
 	assert_eq(Audio.newest_player().stream, Audio.SFX[&"comms_static"], "static SFX")
 	end_ms = Time.get_ticks_msec() + 5000
@@ -1187,7 +1197,7 @@ func test_dev_wave_2_cut_off_under_f3() -> void:
 		await get_tree().process_frame
 	assert_eq(director.wave_number(), 3, "wave 3 starts")
 	assert_false(channel.is_silenced(), "not silenced during wave 3")
-	end_ms = Time.get_ticks_msec() + 3000
+	end_ms = Time.get_ticks_msec() + hide_ms + 3000
 	while channel.current_combat() != &"" and Time.get_ticks_msec() < end_ms:
 		await get_tree().process_frame
 	assert_eq(channel.current_combat(), &"", "the cut-off line is gone")

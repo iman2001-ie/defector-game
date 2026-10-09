@@ -18,7 +18,7 @@
 			"mode": "combat",
 			"lines": [
 				{ "speaker": "tarek", "text": "General, get behind me, I've got you covered!",
-					"cut_off_at": 40, "after": { "silence": "until_wave_clear", "shake": "large", "sfx": "comms_static", "music": "stop" } }
+					"cut_off_at": 40, "after": { "silence": "until_wave_clear", "shake": "cutoff", "sfx": "comms_static", "music": "stop" } }
 			]
 		},
 		"l2_ryn_report": {

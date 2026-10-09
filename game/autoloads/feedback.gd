@@ -94,6 +94,14 @@ func shake_tier(tier: int) -> void:
 	_shake(_tiers[tier])
 
 
+## Shakes the registered camera by `px` pixels for `s` seconds only: no
+## explosion, hit-stop or SFX (the comms cut-off's own shake, GDD decision #43).
+## A no-op when either value isn't above 0 or no camera is registered.
+func shake(px: float, s: float) -> void:
+	if _camera != null and is_instance_valid(_camera) and px > 0.0 and s > 0.0:
+		_camera.shake(px, s)
+
+
 ## Freezes time for ms milliseconds. Overlapping stops keep the longest remaining
 ## one; they never stack. Stale timers are ignored through the serial.
 func hit_stop(ms: float) -> void:
@@ -126,13 +134,9 @@ func reset() -> void:
 	Engine.time_scale = 1.0
 
 
-## Shakes the registered camera with the row's shake_px / shake_s when both are
-## above 0.
+## Shakes the registered camera with the row's shake_px / shake_s (see shake).
 func _shake(row: Dictionary) -> void:
-	var shake_px: float = row["shake_px"]
-	var shake_s: float = row["shake_s"]
-	if _camera != null and is_instance_valid(_camera) and shake_px > 0.0 and shake_s > 0.0:
-		_camera.shake(shake_px, shake_s)
+	shake(row["shake_px"] as float, row["shake_s"] as float)
 
 
 func _spawn_explosion(row: Dictionary, position: Vector2) -> void:

@@ -8,10 +8,11 @@ extends GutTest
 ## combat_line_s of game time (driven with step_combat), freeze under a pause,
 ## ignore clicks, are preempted by a story (deferred `finished`), queue FIFO
 ## (max 3, oldest dropped with a deferred `finished`) and wait behind a story.
-## Story 5.4: a cut-off line types to cut_off_at, then (at its cut-off moment)
-## runs the `after` effects (comms_static, the shake tier, the music action,
-## silence) and hides comms.cutoff_hide_s later; silence drops combat until
-## Events.wave_cleared.
+## Story 5.4: a cut-off line types to cut_off_at at comms.cutoff_chars_per_s,
+## then (at its cut-off moment) shows comms.cutoff_suffix after the cut, runs
+## the `after` effects (comms_static, the `cutoff` shake or a tier's shake, the
+## music action, silence) and hides comms.cutoff_hide_s later; silence drops
+## combat until Events.wave_cleared.
 ## Decision #40: advancing a story line plays comms_click (same speaker) or
 ## comms_handover (speaker change); completing or closing plays none.
 ## Input goes through get_viewport().push_input like a real click. Under GUT
@@ -39,9 +40,15 @@ const CHANNEL_DIR: String = "res://tests/fixtures/dialogue/channel/"
 const CLICK_AT: Vector2 = Vector2(960, 900)
 ## Music id the cut-off tests play (restored in after_each).
 const TEST_MUSIC: StringName = &"combat"
-## The cut-off moment of cut_a / cut_plain: 39 characters at 45 chars/s.
-const CUT_S: float = 39.0 / 45.0
-const HIDE_S: float = 0.6
+## The text of cut_a / cut_plain / cut_large and their cut point.
+const CUT_TEXT: String = "General, get behind me, I've got you cov—"
+const CUT_AT: int = 39
+
+## The cut-off moment of cut_a / cut_plain (CUT_AT characters at
+## comms.cutoff_chars_per_s) and the hold after it (comms.cutoff_hide_s), set
+## from the tuning in before_each.
+var _cut_s: float = 0.0
+var _hide_s: float = 0.0
 
 var _channel: CommsChannel
 var _panel: CommsPanel
@@ -63,6 +70,8 @@ func before_each() -> void:
 	_at_finish.clear()
 	_lines.clear()
 	Config.load_data(Config.DEFAULT_TUNING_PATH, Config.DEFAULT_FLAGS_PATH, CHANNEL_DIR)
+	_cut_s = CUT_AT / Config.num("comms.cutoff_chars_per_s")
+	_hide_s = Config.num("comms.cutoff_hide_s")
 	Events.comms_sequence_finished.connect(_on_finished)
 	Log.sink = _capture
 	_probe = Probe.new()
@@ -95,6 +104,7 @@ func after_each() -> void:
 	Audio.music_streams.erase(TEST_MUSIC)
 	Audio._warned_music.erase(TEST_MUSIC)
 	_camera = null
+	Engine.time_scale = 1.0
 
 
 func _on_finished(id: StringName) -> void:
@@ -730,42 +740,48 @@ func _newest_stream() -> AudioStream:
 ## Runs cut_a to just past its cut-off moment (silence on).
 func _silence() -> void:
 	_request(&"cut_a")
-	_channel.step_combat(CUT_S + 0.01)
+	_channel.step_combat(_cut_s + 0.01)
 	assert_true(_channel.is_silenced(), "silenced by cut_a")
 
 
 func test_cut_off_timeline() -> void:
 	_add_camera()
 	_play_music()
+	var cut_text: String = CUT_TEXT.left(CUT_AT) + str(Config.section("comms").get("cutoff_suffix"))
 	_request(&"cut_a")
 	assert_eq(_newest_stream(), Audio.SFX[&"comms_open_nobeep"], "the cut-off line keys in like any other")
 	var before: AudioStreamPlayer = Audio.newest_player()
 	assert_true(_box.visible, "box shown")
 	assert_true(_box.is_typing(), "typing")
-	assert_eq(_box_text().text, "General, get behind me, I've got you cov—")
+	assert_eq(_box_text().text, CUT_TEXT)
 	assert_eq(_channel.cut_phase(), CommsChannel.CutPhase.TYPING)
-	_channel.step_combat(CUT_S - 0.01)
+	assert_almost_eq(_channel._combat_left_s, _cut_s, 0.0001, "cut at cut_off_at / cutoff_chars_per_s")
+	_channel.step_combat(_cut_s - 0.01)
 	assert_eq(Audio.newest_player(), before, "no SFX before the cut-off moment")
 	assert_eq(_camera.current_amplitude(), 0.0, "no shake yet")
 	assert_eq(Audio.current_music(), TEST_MUSIC, "music still on")
 	assert_false(_channel.is_silenced(), "not silenced yet")
+	assert_eq(_box_text().text, CUT_TEXT, "no suffix before the cut")
 	_channel.step_combat(0.02)
-	assert_eq(_box_text().visible_characters, 39, "stopped at exactly cut_off_at")
+	assert_eq(_box_text().text, cut_text, "the cut text and the suffix")
+	assert_eq(_box_text().text, "General, get behind me, I've got you co...", "the tuned suffix is ...")
+	assert_eq(_box_text().visible_characters, -1, "all of it visible")
 	assert_false(_box.is_typing(), "typewriter stopped")
 	assert_eq(_newest_stream(), Audio.SFX[&"comms_static"], "comms_static played")
-	assert_almost_eq(_camera.current_amplitude(), 8.0, 0.0001, "large shake")
+	assert_almost_eq(_camera.current_amplitude(), Config.num("comms.cutoff_shake_px"), 0.0001, "the cut-off shake")
 	assert_eq(Engine.time_scale, 1.0, "no hit-stop")
 	assert_eq(Audio.current_music(), &"", "music stopped")
 	assert_true(_channel.is_silenced(), "silenced")
 	assert_eq(_channel.cut_phase(), CommsChannel.CutPhase.HOLD)
 	assert_eq(_count_lines("[INFO][comms] Combat sequence 'cut_a' cut off at 39 characters"), 1)
 	assert_eq(_count_lines("[INFO][comms] Comms silenced until the wave clears (cut-off 'cut_a')"), 1)
-	_channel.step_combat(HIDE_S - 0.02)
-	assert_true(_box.visible, "still visible before +0.6 s")
-	assert_eq(_box_text().visible_characters, 39, "still at 39")
+	_channel.step_combat(_hide_s - 0.02)
+	assert_true(_box.visible, "still visible before +cutoff_hide_s")
+	assert_eq(_box.modulate.a, 1.0, "no fade while holding")
+	assert_eq(_box_text().text, cut_text, "still the cut text")
 	assert_eq(_finished, [] as Array[StringName], "not finished yet")
 	_channel.step_combat(0.02)
-	assert_false(_box.visible, "hidden at once at +0.6 s")
+	assert_false(_box.visible, "hidden at once at +cutoff_hide_s")
 	assert_eq(_finished, [&"cut_a"] as Array[StringName], "finished once")
 	assert_eq(_channel.current_combat(), &"")
 	assert_eq(_channel.cut_phase(), CommsChannel.CutPhase.NONE)
@@ -776,18 +792,158 @@ func test_cut_off_timeline() -> void:
 	assert_eq(_finished, [&"cut_a"] as Array[StringName], "only once")
 
 
+## GDD decision #43: the shipped cut-off tuning. 39 characters at 16 chars/s put
+## the cut at about 2.4 s; the 6.0 s hold equals the static clip.
+func test_cut_off_tuning() -> void:
+	assert_eq(Config.num("comms.cutoff_chars_per_s"), 16.0)
+	assert_eq(Config.num("comms.cutoff_hide_s"), 6.0)
+	assert_eq(Config.num("comms.cutoff_shake_px"), 18.0)
+	assert_eq(Config.num("comms.cutoff_shake_s"), 0.9)
+	assert_eq(Config.section("comms").get("cutoff_suffix"), "...")
+	assert_almost_eq(_cut_s, 2.4375, 0.0001, "the cut lands at about 2.4 s")
+	assert_lt(Config.num("comms.cutoff_chars_per_s"), Config.num("comms.chars_per_s"), "slower than a normal line")
+
+
+## A tier name in after.shake still shakes with that tier (Feedback.shake_tier).
+func test_cut_off_with_a_tier_shake() -> void:
+	_add_camera()
+	_request(&"cut_large")
+	_channel.step_combat(_cut_s + 0.01)
+	var large_px: float = Feedback.tier_row(ImpactTier.LARGE).get("shake_px", 0.0) as float
+	assert_gt(large_px, 0.0, "large has a shake")
+	assert_almost_eq(_camera.current_amplitude(), large_px, 0.0001, "the large tier's shake")
+	assert_ne(_camera.current_amplitude(), Config.num("comms.cutoff_shake_px"), "not the cut-off shake")
+	assert_eq(_channel.cut_phase(), CommsChannel.CutPhase.HOLD)
+	_channel.step_combat(_hide_s + 0.01)
+	assert_false(_box.visible, "hidden after the hold")
+	assert_eq(_finished, [&"cut_large"] as Array[StringName], "finished once")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(_finished, [&"cut_large"] as Array[StringName], "only once")
+
+
+# --- The static lives with the cut-off line --------------------------------------------
+
+## Runs cut_a to just past its cut-off moment; returns the static's player.
+func _cut_static() -> AudioStreamPlayer:
+	_request(&"cut_a")
+	_channel.step_combat(_cut_s + 0.01)
+	var player: AudioStreamPlayer = _channel.cut_sfx_player()
+	assert_not_null(player, "the static's player is kept")
+	if player != null:
+		assert_eq(player.stream, Audio.SFX[&"comms_static"], "it plays comms_static")
+		assert_true(player.playing, "playing")
+	return player
+
+
+func test_the_static_stops_with_the_hide() -> void:
+	var player: AudioStreamPlayer = _cut_static()
+	_channel.step_combat(_hide_s - 0.02)
+	assert_true(player.playing, "still playing during the hold")
+	_channel.step_combat(0.03)
+	assert_false(_box.visible, "hidden")
+	assert_false(player.playing, "stopped with the line")
+	assert_null(_channel.cut_sfx_player(), "released")
+
+
+func test_a_preempt_during_the_hold_stops_the_static() -> void:
+	var player: AudioStreamPlayer = _cut_static()
+	_request(&"story_a")
+	assert_false(_box.visible, "box hidden")
+	assert_false(player.playing, "the static stopped")
+	assert_false(player.stream_paused, "left unpaused for the pool")
+	assert_null(_channel.cut_sfx_player(), "released")
+
+
+func test_leaving_the_tree_stops_the_static() -> void:
+	var player: AudioStreamPlayer = _cut_static()
+	remove_child(_channel)
+	assert_false(player.playing, "stopped on exit (death reload, retry, scene change)")
+	add_child(_channel)
+
+
+func test_a_pause_pauses_the_static() -> void:
+	var player: AudioStreamPlayer = _cut_static()
+	PauseArbiter.push(&"menu")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_true(player.stream_paused, "paused with the tree")
+	var left: float = _channel._combat_left_s
+	for i: int in 5:
+		await get_tree().process_frame
+	assert_eq(_channel._combat_left_s, left, "the hold is frozen too")
+	PauseArbiter.pop(&"menu")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_false(player.stream_paused, "resumed with the tree")
+	assert_eq(player.stream, Audio.SFX[&"comms_static"], "still the static")
+
+
+func test_other_sfx_are_not_paused() -> void:
+	_cut_static()
+	var other: AudioStreamPlayer = Audio.play_sfx(&"laser_zap")
+	PauseArbiter.push(&"menu")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_false(other.stream_paused, "only the static pauses")
+	PauseArbiter.pop(&"menu")
+
+
+## The hold counts real time: at a time scale of 0.5 the game delta is half the
+## real delta, so it still ends after cutoff_hide_s real seconds.
+func test_the_hold_counts_real_time_under_a_slow_down() -> void:
+	_request(&"cut_a")
+	Engine.time_scale = 0.5
+	_channel.step_combat(_cut_s + 0.01)
+	assert_eq(_channel.cut_phase(), CommsChannel.CutPhase.HOLD, "typing counts game time")
+	var game_delta: float = (_hide_s - 0.04) * 0.5
+	_channel.step_combat(game_delta)
+	assert_true(_box.visible, "still holding just before cutoff_hide_s real seconds")
+	_channel.step_combat(0.04)
+	assert_false(_box.visible, "hidden after cutoff_hide_s real seconds")
+	assert_eq(_finished, [&"cut_a"] as Array[StringName])
+	Engine.time_scale = 1.0
+
+
+func test_hold_step() -> void:
+	assert_almost_eq(CommsChannel.hold_step(0.1, 1.0), 0.1, 0.000001)
+	assert_almost_eq(CommsChannel.hold_step(0.05, 0.5), 0.1, 0.000001, "slowed: real time")
+	assert_eq(CommsChannel.hold_step(0.0, 0.0), 0.0, "a freeze adds nothing")
+	assert_eq(CommsChannel.hold_step(0.1, -1.0), 0.1, "guarded")
+
+
+func test_cutoff_suffix_must_be_a_string() -> void:
+	assert_eq(CommsChannel.cutoff_suffix_from({"cutoff_suffix": "..."}), "...")
+	assert_eq(CommsChannel.cutoff_suffix_from({"cutoff_suffix": ""}), "")
+	assert_eq(CommsChannel.cutoff_suffix_from({"cutoff_suffix": 3}), "", "not a string")
+	assert_push_error("tuning.comms.cutoff_suffix missing or not a string")
+	assert_eq(CommsChannel.cutoff_suffix_from({}), "", "missing")
+	assert_push_error("tuning.comms.cutoff_suffix missing or not a string")
+
+
+## An empty comms.cutoff_suffix: the text stops at cut_off_at characters with
+## no suffix (the Story 5.4 behaviour).
+func test_cut_off_with_an_empty_suffix() -> void:
+	_channel._cutoff_suffix = ""
+	_request(&"cut_a")
+	_channel.step_combat(_cut_s + 0.01)
+	assert_eq(_box_text().text, CUT_TEXT, "the text is kept, no suffix")
+	assert_eq(_box_text().visible_characters, CUT_AT, "only cut_off_at characters show")
+	assert_false(_box.is_typing(), "typewriter stopped")
+
+
 func test_cut_off_without_after() -> void:
 	_add_camera()
 	_request(&"cut_plain")
 	var before: AudioStreamPlayer = Audio.newest_player()
-	_channel.step_combat(CUT_S + 0.01)
-	assert_eq(_box_text().visible_characters, 39, "stops at cut_off_at")
+	_channel.step_combat(_cut_s + 0.01)
+	assert_eq(_box_text().text, "General, get behind me, I've got you co...", "stops at cut_off_at, with the suffix")
 	assert_eq(Audio.newest_player(), before, "no SFX")
 	assert_eq(_camera.current_amplitude(), 0.0, "no shake")
 	assert_false(_channel.is_silenced(), "no silence")
 	assert_true(_box.visible)
-	_channel.step_combat(HIDE_S)
-	assert_false(_box.visible, "hidden 0.6 s later")
+	_channel.step_combat(_hide_s)
+	assert_false(_box.visible, "hidden cutoff_hide_s later")
 	assert_eq(_finished, [&"cut_plain"] as Array[StringName], "finished")
 
 
@@ -801,7 +957,7 @@ func test_silence_drops_combat_requests() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	assert_eq(_finished, [&"combat_a"] as Array[StringName], "finished once")
-	_channel.step_combat(HIDE_S)
+	_channel.step_combat(_hide_s)
 	assert_eq(_channel.current_combat(), &"", "nothing plays after the cut-off")
 	_request(&"combat_b")
 	assert_eq(_channel.current_combat(), &"", "still silenced")
@@ -809,7 +965,7 @@ func test_silence_drops_combat_requests() -> void:
 
 func test_silence_keeps_story() -> void:
 	_silence()
-	_channel.step_combat(HIDE_S)
+	_channel.step_combat(_hide_s)
 	_request(&"story_a")
 	assert_eq(_channel.current_sequence(), &"story_a", "story plays")
 	assert_true(PauseArbiter.has_reason(&"story"), "story pauses")
@@ -822,7 +978,7 @@ func test_silence_keeps_story() -> void:
 
 func test_wave_cleared_lifts_the_silence() -> void:
 	_silence()
-	_channel.step_combat(HIDE_S)
+	_channel.step_combat(_hide_s)
 	Events.wave_cleared.emit(1)
 	assert_false(_channel.is_silenced(), "silence lifted")
 	assert_eq(_count_lines("[INFO][comms] Comms silence lifted (wave cleared)"), 1)
@@ -835,7 +991,7 @@ func test_silence_flushes_the_combat_queue() -> void:
 	_request(&"combat_a")
 	_request(&"combat_b")
 	assert_eq(_channel.combat_queued(), [&"combat_a", &"combat_b"] as Array[StringName], "queued behind the cut-off")
-	_channel.step_combat(CUT_S + 0.01)
+	_channel.step_combat(_cut_s + 0.01)
 	assert_eq(_channel.combat_queued(), [] as Array[StringName], "dropped at the cut-off moment")
 	assert_eq(_count_lines("[DEBUG][comms] Comms silenced: dropped queued combat sequence 'combat_a'"), 1)
 	assert_eq(_count_lines("[DEBUG][comms] Comms silenced: dropped queued combat sequence 'combat_b'"), 1)
@@ -843,7 +999,7 @@ func test_silence_flushes_the_combat_queue() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	assert_eq(_finished, [&"combat_a", &"combat_b"] as Array[StringName], "each finished once")
-	_channel.step_combat(HIDE_S)
+	_channel.step_combat(_hide_s)
 	assert_eq(_channel.current_combat(), &"", "nothing queued plays")
 	assert_eq(_finished, [&"combat_a", &"combat_b", &"cut_a"] as Array[StringName])
 
@@ -853,12 +1009,12 @@ func test_wave_clear_before_the_cut_off_voids_the_silence() -> void:
 	_request(&"cut_a")
 	_channel.step_combat(0.3)
 	Events.wave_cleared.emit(1)
-	_channel.step_combat(CUT_S)
+	_channel.step_combat(_cut_s)
 	assert_eq(_newest_stream(), Audio.SFX[&"comms_static"], "effects still run")
-	assert_almost_eq(_camera.current_amplitude(), 8.0, 0.0001, "shake still runs")
+	assert_almost_eq(_camera.current_amplitude(), Config.num("comms.cutoff_shake_px"), 0.0001, "shake still runs")
 	assert_false(_channel.is_silenced(), "no silence into the next wave")
 	assert_eq(_count_lines("[DEBUG][comms] Silence from 'cut_a' skipped: its wave already cleared"), 1)
-	_channel.step_combat(HIDE_S)
+	_channel.step_combat(_hide_s)
 	_request(&"combat_a")
 	assert_eq(_channel.current_combat(), &"combat_a", "combat plays")
 

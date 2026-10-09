@@ -107,7 +107,7 @@ FR31: Weapon feel: muzzle flash on every shot; short bright laser bolts with a l
 FR32: In Level 1, three medium cargo ships (~160×80 px, hitbox ~80% of the sprite) fly as a tight triangle (a lead ship plus two flankers). The group crosses the screen left to right at 40 px/s within y 760–920, then loops back. They share one 100 HP bar that carries across waves and refills only when the level restarts. The convoy is solid to the player's ship (push-out, no damage), so the player can body-block shots aimed at it (GDD decision #25). When the convoy pushes the ship, the cursor is moved with it (decision #29).
 FR33: Convoy ships are solid to every projectile. Every enemy shot that touches one is stopped and damages the convoy: 5 if a Lancer aimed it at the convoy, 2 if stray. Maul dives deal 10. Bastions and Needles never aim at the convoy, but their strays can hit it. If the convoy bar reaches 0, the level restarts from wave 1.
 FR34: Ally ships (Tarek in Levels 1–2, Ryn in Level 3) patrol scripted horizontal paths at y 620–760 at 150 px/s and fire 1 damage every 0.5 s at the nearest enemy. They cannot be destroyed or damaged (except Tarek's scripted hit). They make roughly 10–15% of total kills.
-FR35: Tarek's fall (Level 2 Wave 5, at 50% of the wave destroyed): Tarek shields Vale, his comms line is cut off mid-sentence (combat line, no pause), a large-tier screen shake fires, his damaged ship trails fire and leaves, the comms channel goes silent until the wave clears, and the music drops out.
+FR35: Tarek's fall (Level 2 Wave 5, at 50% of the wave destroyed): Tarek shields Vale, his comms line is cut off mid-sentence (combat line, no pause), a strong screen shake fires (the dedicated cut-off shake, 18 px for 0.9 s; was large-tier, GDD decision #43), his damaged ship trails fire and leaves, the comms channel goes silent until the wave clears, and the music drops out.
 FR36 (COULD, deferred): A scrolling convoy variant. *(No design yet; see F9.)*
 
 **Comms and story**
@@ -1325,7 +1325,7 @@ So that a character's sudden loss hits hard without a cutscene.
 
 **Given** a line with `cut_off_at` and `after` effects (`silence`, `shake`, `sfx`, `music`)
 **When** it types out
-**Then** the typewriter stops at exactly `cut_off_at` characters, the static burst SFX plays, the named shake tier fires through `Feedback`, the music stops, and the panel hides after 0.6 s
+**Then** the typewriter stops at exactly `cut_off_at` characters, the static burst SFX plays, the named shake fires through `Feedback`, the music stops, and the panel hides after 0.6 s (amended by GDD decision #43: a cut-off line types at 16 chars/s, ends in `...`, uses the dedicated `cutoff` shake, and the box holds 6.0 s, the length of the static, then hides with no fade)
 
 **Given** silence is `until_wave_clear`
 **When** further combat sequences are requested

@@ -4,6 +4,9 @@ Stdlib only, fixed seed, so the output is reproducible. Writes 16-bit mono
 44.1 kHz WAVs, each 1 s or shorter, into game/assets/audio/sfx/. These stand in for
 Kenney sounds until real assets can be downloaded.
 
+sfx_comms_static.wav is not generated here: it is a CC0 recording (see
+game/assets/CREDITS.md), so a regeneration never overwrites it.
+
 Run from the repo root:  uv run python tools/gen_placeholder_sfx.py
 """
 
@@ -24,7 +27,6 @@ ENERGY_PICKUP_SEED = 3301
 ABILITY_DENIED_SEED = 3401
 BARRAGE_WHOOSH_SEED = 3501
 COMMS_OPEN_SEED = 5101
-COMMS_STATIC_SEED = 5401
 COMMS_CLICK_SEED = 5102
 COMMS_HANDOVER_SEED = 5103
 # Normalisation peak per sound when it differs from the default 0.9: the line cues sit under comms_open.
@@ -201,7 +203,7 @@ def comms_open(rng: random.Random, beep_on: bool = True) -> list[float]:
     """0.30 s radio channel opening: a short soft squelch click that settles into a steady carrier
     hiss, then a 1 kHz talk-permit beep as the main event, all through a 300 Hz - 3 kHz voice band
     with light saturation. Steady pitch and a smooth, ungated carrier keep it apart from
-    comms_static's stuttering dead channel and from glitchy sci-fi chirps.
+    the cut-off's recorded dead-channel static and from glitchy sci-fi chirps.
     """
     n = int(0.30 * RATE)
     attack_n = int(0.002 * RATE)
@@ -299,29 +301,6 @@ def _voice_band(samples: list[float]) -> list[float]:
     return out
 
 
-def comms_static(rng: random.Random) -> list[float]:
-    """Harsh 0.4 s dead-channel burst: crackly broadband noise with random dropouts and a 50 Hz hum."""
-    n = int(0.40 * RATE)
-    out: list[float] = []
-    hp_prev = 0.0
-    hp = 0.0
-    gate = 1.0
-    phase = 0.0
-    for i in range(n):
-        t = i / n
-        # Every ~10 ms the crackle gate jumps, so the noise stutters like a dying signal.
-        if i % int(0.01 * RATE) == 0:
-            gate = 1.0 if rng.random() > 0.3 else rng.uniform(0.05, 0.3)
-        noise = rng.uniform(-1.0, 1.0)
-        # One-pole high-pass keeps it hissy rather than rumbly.
-        hp = 0.85 * (hp + noise - hp_prev)
-        hp_prev = noise
-        phase += 2.0 * math.pi * 50.0 / RATE
-        hum = 0.25 * math.tanh(3.0 * math.sin(phase))
-        out.append((0.9 * hp * gate + hum) * _envelope(i, n, 0.002, 1.3) * (1.0 - 0.3 * t))
-    return out
-
-
 def _normalise(samples: list[float], peak: float = 0.9) -> list[float]:
     top = max(abs(s) for s in samples) or 1.0
     return [s * peak / top for s in samples]
@@ -361,7 +340,6 @@ def main() -> None:
     # scaled by comms_open's own normalisation gain, so its click and carrier stay at the same level.
     sounds["comms_open_nobeep"] = comms_open(random.Random(COMMS_OPEN_SEED), beep_on=False)
     PEAKS["comms_open_nobeep"] = 0.9 * max(abs(s) for s in sounds["comms_open_nobeep"]) / max(abs(s) for s in sounds["comms_open"])
-    sounds["comms_static"] = comms_static(random.Random(COMMS_STATIC_SEED))
     sounds["comms_click"] = comms_click(random.Random(COMMS_CLICK_SEED))
     sounds["comms_handover"] = comms_handover(random.Random(COMMS_HANDOVER_SEED))
     for name, samples in sounds.items():

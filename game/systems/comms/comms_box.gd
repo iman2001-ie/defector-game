@@ -6,7 +6,8 @@ extends Control
 ##
 ## A view only: it never reads dialogue data, and only CommsChannel calls it
 ## (show_line, cut_off, dismiss, hide_now, is_typing, is_open). A cut-off line
-## (Story 5.4) types only to its `cut_off_at` characters and stays there. Mouse-transparent
+## (Story 5.4) types only to its `cut_off_at` characters, at the slower
+## `comms.cutoff_chars_per_s`, and cut_off shows it with the cut suffix. Mouse-transparent
 ## (MOUSE_FILTER_IGNORE on it and every child), so clicks reach the game.
 ## The process mode is inherited (pausable in the level), and every tween is
 ## created on the box with the default pause mode, so the slide, the typewriter
@@ -17,7 +18,7 @@ extends Control
 ## `CommsPanel` colours, shared with the story panel. The portrait frame is the
 ## only per-node style override; the `Edge` colour is set on the ColorRect.
 ## Layout numbers come from `ui.comms_box`, speaker names and the portrait flag
-## from `comms.speakers`, the typing speed and the slide / fade times from
+## from `comms.speakers`, the typing speeds and the slide / fade times from
 ## `comms`. All are cached in _ready.
 
 const THEME_TYPE: StringName = &"CommsBox"
@@ -40,6 +41,8 @@ const RECT_NAME: StringName = &"name"
 const RECT_TEXT: StringName = &"text"
 
 var chars_per_s: float = 0.0
+## `comms.cutoff_chars_per_s`: the typing speed of a cut-off line (GDD decision #43).
+var cutoff_chars_per_s: float = 0.0
 
 ## `ui.comms_box` numbers.
 var _box_rect: Rect2 = Rect2()
@@ -76,6 +79,7 @@ func _init() -> void:
 
 func _ready() -> void:
 	chars_per_s = Config.num("comms.chars_per_s")
+	cutoff_chars_per_s = Config.num("comms.cutoff_chars_per_s")
 	_slide_s = maxf(Config.num("comms.box_slide_in_s"), 0.0)
 	_fade_s = maxf(Config.num("comms.box_fade_out_s"), 0.0)
 	_box_rect = Rect2(
@@ -108,7 +112,7 @@ func _ready() -> void:
 ## text block re-laid out for either variant). The box slides in from the left
 ## edge of the screen and the text types from the first character. With
 ## `cut_off_at >= 0` (a cut-off line, Story 5.4) it types only to `cut_off_at`
-## characters over cut_off_at / chars_per_s and stays there (never -1).
+## characters over cut_off_at / cutoff_chars_per_s and stays there (never -1).
 func show_line(speaker: StringName, text: String, cut_off_at: int = -1) -> void:
 	_kill_tweens()
 	_speaker = speaker
@@ -148,12 +152,19 @@ func dismiss() -> void:
 	_fade_tween.finished.connect(_hide)
 
 
-## The cut-off moment (Story 5.4): stops the typewriter and shows exactly
-## `chars` characters.
-func cut_off(chars: int) -> void:
+## The cut-off moment (Story 5.4): stops the typewriter and shows exactly the
+## first `chars` characters. With a `suffix` (comms.cutoff_suffix, "...", GDD
+## decision #43) the text becomes those characters plus the suffix, all
+## visible; with an empty one the text is kept and only `chars` show.
+func cut_off(chars: int, suffix: String = "") -> void:
 	_kill_tween(_type_tween)
 	_type_tween = null
-	_text.visible_characters = maxi(chars, 0)
+	var shown: int = maxi(chars, 0)
+	if suffix.is_empty():
+		_text.visible_characters = shown
+		return
+	_text.text = _text.text.left(shown) + suffix
+	_text.visible_characters = -1
 
 
 ## Stops every tween and hides the box at once (a story line preempts it).
@@ -219,17 +230,19 @@ func _slide_in() -> void:
 
 ## Tweens visible_characters from 0 to the character count over
 ## count / chars_per_s seconds (default pause mode: freezes while paused).
-## With `cut_off_at >= 0` it types only to that count and keeps it at the end
-## (a cut-off line never shows the whole text).
+## With `cut_off_at >= 0` it types only to that count, over
+## count / cutoff_chars_per_s, and keeps it at the end (a cut-off line never
+## shows the whole text). A speed of 0 or less shows the count at once.
 func _type(cut_off_at: int = -1) -> void:
 	var cut: bool = cut_off_at >= 0
 	var count: int = mini(cut_off_at, _text.text.length()) if cut else _text.text.length()
-	if chars_per_s <= 0.0 or count == 0:
+	var speed: float = cutoff_chars_per_s if cut else chars_per_s
+	if speed <= 0.0 or count == 0:
 		_text.visible_characters = count if cut else -1
 		return
 	_text.visible_characters = 0
 	_type_tween = create_tween()
-	_type_tween.tween_property(_text, ^"visible_characters", count, count / chars_per_s).from(0)
+	_type_tween.tween_property(_text, ^"visible_characters", count, count / speed).from(0)
 	if cut:
 		_type_tween.finished.connect(_on_cut_typed)
 	else:

@@ -16,13 +16,13 @@ extends RefCounted
 ##
 ## Cut-off lines (Story 5.4), combat sequences only:
 ##   { "speaker", "text", "cut_off_at": <int>, "after"?: { "silence"?:
-##     "until_wave_clear", "shake"?: "<ImpactTier name>", "sfx"?: "<sfx id>",
+##     "until_wave_clear", "shake"?: "<ImpactTier name>"|"cutoff", "sfx"?: "<sfx id>",
 ##     "music"?: "stop"|"combat"|"boss" } }
 ## One problem each for: `cut_off_at` in a story sequence; `cut_off_at` not a
 ## whole number from 1 to text length - 1 (a JSON float with no fraction is
 ## whole); `after` without `cut_off_at` or not an object; an unknown `after`
 ## key; `silence` other than `until_wave_clear`; `shake` not in
-## ImpactTier.NAMES; `sfx` not a non-empty string; `music` not in
+## ImpactTier.NAMES or SHAKE_CUTOFF; `sfx` not a non-empty string; `music` not in
 ## LevelValidator.MUSIC_ACTIONS.
 
 const SPEAKERS: Array[StringName] = [&"vale", &"isolde", &"tarek", &"ryn", &"system"]
@@ -39,6 +39,9 @@ const AFTER_SFX: String = "sfx"
 const AFTER_MUSIC: String = "music"
 ## The only `after.silence` value.
 const SILENCE_UNTIL_WAVE_CLEAR: String = "until_wave_clear"
+## The `after.shake` value for the dedicated cut-off shake (comms.cutoff_shake_px
+## / cutoff_shake_s, GDD decision #43); every other value names an ImpactTier.
+const SHAKE_CUTOFF: String = "cutoff"
 
 
 ## Returns every problem in the file (empty when it is valid).
@@ -158,8 +161,8 @@ static func _cut_off_problems(line: Dictionary, mode: StringName, path: String, 
 				if not (value is String and (value as String) == SILENCE_UNTIL_WAVE_CLEAR):
 					problems.append(_problem(path, key_path, "must be '%s', not '%s'" % [SILENCE_UNTIL_WAVE_CLEAR, str(value)]))
 			AFTER_SHAKE:
-				if not (value is String and ImpactTier.NAMES.has(value as String)):
-					problems.append(_problem(path, key_path, "must be one of %s, not '%s'" % [", ".join(ImpactTier.NAMES), str(value)]))
+				if not (value is String and ((value as String) == SHAKE_CUTOFF or ImpactTier.NAMES.has(value as String))):
+					problems.append(_problem(path, key_path, "must be one of %s, %s, not '%s'" % [", ".join(ImpactTier.NAMES), SHAKE_CUTOFF, str(value)]))
 			AFTER_SFX:
 				if not (value is String and not (value as String).strip_edges().is_empty()):
 					problems.append(_problem(path, key_path, "must be a non-empty sfx id, not '%s'" % str(value)))

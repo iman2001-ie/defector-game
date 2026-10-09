@@ -783,7 +783,8 @@ func test_music_fade_out_tuning() -> void:
 
 func test_combat_comms_tuning_is_positive() -> void:
 	for key: String in ["comms.combat_line_max_chars", "comms.box_slide_in_s", "comms.box_fade_out_s",
-			"comms.combat_line_min_s", "comms.combat_line_extra_s", "comms.combat_queue_max"]:
+			"comms.combat_line_min_s", "comms.combat_line_extra_s", "comms.combat_queue_max",
+			"comms.cutoff_hide_s", "comms.cutoff_chars_per_s", "comms.cutoff_shake_px", "comms.cutoff_shake_s"]:
 		assert_gt(Config.num(key), 0.0, key)
 	for key: String in ["x", "y"]:
 		assert_gte(Config.num("ui.comms_box.%s" % key), 0.0, "ui.comms_box.%s" % key)
@@ -1026,7 +1027,7 @@ func test_tarek_cutoff_is_final() -> void:
 		return
 	var line: Dictionary = lines[0] as Dictionary
 	assert_eq(str(line.get("speaker")), "tarek", "Tarek speaks")
-	assert_eq(line.get("after"), {"silence": "until_wave_clear", "shake": "large", "sfx": "comms_static", "music": "stop"}, "the full after")
+	assert_eq(line.get("after"), {"silence": "until_wave_clear", "shake": "cutoff", "sfx": "comms_static", "music": "stop"}, "the full after")
 	var text: String = str(line.get("text"))
 	var at: int = int(line.get("cut_off_at", 0))
 	assert_between(at, 1, text.length() - 1, "cut_off_at inside the text")
@@ -1034,6 +1035,27 @@ func test_tarek_cutoff_is_final() -> void:
 		return
 	assert_true(_is_letter(text[at - 1]), "the last shown char '%s' is a letter" % text[at - 1])
 	assert_true(_is_letter(text[at]), "the next char '%s' is a letter (mid-word)" % text[at])
+
+
+## GDD decision #43: the cut-off tuning (16 chars/s, a "..." suffix, an
+## 18 px / 0.9 s shake, a 6.0 s hold equal to the comms_static clip) and both
+## Tarek cut-offs use the dedicated `cutoff` shake.
+func test_cut_off_tuning_and_shake() -> void:
+	var comms: Dictionary = Config.section("comms")
+	assert_true(comms.get("cutoff_suffix") is String, "cutoff_suffix is a String")
+	assert_eq(comms.get("cutoff_chars_per_s"), 16.0, "cutoff_chars_per_s")
+	assert_eq(comms.get("cutoff_suffix"), "...", "cutoff_suffix")
+	assert_eq(comms.get("cutoff_shake_px"), 18.0, "cutoff_shake_px")
+	assert_eq(comms.get("cutoff_shake_s"), 0.9, "cutoff_shake_s")
+	assert_eq(comms.get("cutoff_hide_s"), 6.0, "cutoff_hide_s")
+	var clip: AudioStream = Audio.SFX[&"comms_static"]
+	assert_almost_eq(clip.get_length(), Config.num("comms.cutoff_hide_s"), 0.01, "the hold equals the static clip")
+	for id: StringName in [&"dev_tarek_cutoff", &"l2_w5_tarek_cutoff"]:
+		var lines: Array = Config.sequence(id).get("lines", []) as Array
+		assert_eq(lines.size(), 1, "%s: one line" % id)
+		if lines.size() == 1:
+			var after: Dictionary = (lines[0] as Dictionary).get("after", {}) as Dictionary
+			assert_eq(after.get("shake"), DialogueValidator.SHAKE_CUTOFF, "%s: the cut-off shake" % id)
 
 
 ## Whether `text` uses a GENDERED_ADDRESS term as a whole word (case-insensitive;
