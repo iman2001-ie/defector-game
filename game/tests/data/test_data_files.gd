@@ -10,7 +10,11 @@ extends GutTest
 ## validates, every combat sequence is one line of at most 50 characters, and
 ## every level has at most 2 interruptions (the cut-off line excluded). Story
 ## 5.3: every sequence id a level references (comms actions, intro and outro)
-## exists, and the music fade-out tuning.
+## exists, and the music fade-out tuning. Story 5.7 (the dialogue script):
+## every campaign sequence lives in its file with its mode, line count and
+## speakers, no system speaker and no choice yet; the Final Choice refusals
+## open with Vale; Tarek's cut-off is final and cuts mid-word; the cast rules
+## (Vale's line cap, no gendered terms, self-introductions, "General").
 
 const LEVELS_DIR: String = "res://data/levels/"
 
@@ -843,3 +847,199 @@ func test_dev_isolde_level_shape() -> void:
 		{"when": "progress", "at": 0.30, "flag": "surrender_prompts", "actions": [{"comms": "l1_w5_surrender"}, {"spawn_group": "reinforcements"}]},
 		{"when": "progress", "at": 0.30, "flag": "!surrender_prompts", "actions": [{"spawn_group": "reinforcements"}]},
 	], "wave 2 paired surrender triggers")
+
+
+# --- The dialogue script (Story 5.7) ----------------------------------------------
+
+## The campaign dialogue files (dev.json is not part of the script).
+const CAMPAIGN_DIALOGUE_FILES: Array[String] = ["opening.json", "level_1.json", "level_2.json", "level_3.json"]
+
+## Every campaign sequence: [file, id, mode, allowed speakers, min lines, max lines].
+const CAMPAIGN_SCRIPT: Array[Array] = [
+	["opening.json", "opening_main", "story", ["vale", "tarek", "isolde"], 6, 10],
+	["level_1.json", "l1_w3_tarek_warning", "combat", ["tarek"], 1, 1],
+	["level_1.json", "l1_w3_isolde_interrupt", "combat", ["isolde"], 1, 1],
+	["level_1.json", "l1_w5_surrender", "story", ["isolde"], 1, 1],
+	["level_1.json", "l1_tarek_closing", "story", ["tarek"], 1, 2],
+	["level_2.json", "l2_briefing", "story", ["tarek"], 2, 3],
+	["level_2.json", "l2_w3_isolde_interrupt", "combat", ["isolde"], 1, 1],
+	["level_2.json", "l2_w5_tarek_cutoff", "combat", ["tarek"], 1, 1],
+	["level_2.json", "l2_ryn_report", "story", ["ryn"], 1, 10],
+	["level_3.json", "l3_briefing", "story", ["ryn"], 1, 10],
+	["level_3.json", "l3_w3_isolde_taunt", "combat", ["isolde"], 1, 1],
+	["level_3.json", "l3_final_choice", "story", ["isolde"], 1, 10],
+	["level_3.json", "l3_isolde_refuse_surrender", "story", ["vale", "isolde"], 2, 2],
+	["level_3.json", "l3_isolde_refuse_destroy", "story", ["vale", "isolde"], 2, 2],
+	["level_3.json", "l3_isolde_final", "story", ["isolde"], 1, 10],
+]
+
+## Gendered terms no line may use, as whole words (Vale is gender-neutral).
+const GENDERED_ADDRESS: Array[String] = ["sir", "ma'am", "madam", "mister", "mr", "mrs", "ms", "lady", "lord", "son"]
+
+## The most lines Vale speaks across the campaign files (the opening plus line
+## 1 of each Final Choice refusal).
+const MAX_VALE_LINES: int = 5
+
+
+## The sequences of one campaign file (id String -> Dictionary), empty when it
+## doesn't parse.
+func _file_sequences(file: String) -> Dictionary:
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(DIALOGUE_DIR + file))
+	if parsed is Dictionary and (parsed as Dictionary).get("sequences") is Dictionary:
+		return (parsed as Dictionary).get("sequences") as Dictionary
+	return {}
+
+
+## Every line of every sequence in the campaign files, as [file, id, line] triples.
+func _campaign_lines() -> Array[Array]:
+	var out: Array[Array] = []
+	for file: String in CAMPAIGN_DIALOGUE_FILES:
+		var sequences: Dictionary = _file_sequences(file)
+		for id: Variant in sequences:
+			for line: Variant in (sequences[id] as Dictionary).get("lines", []) as Array:
+				out.append([file, str(id), line as Dictionary])
+	return out
+
+
+func _lines_of(id: String) -> Array:
+	return Config.sequence(StringName(id)).get("lines", []) as Array
+
+
+## Every campaign id lives in its file, with its mode, its line count and only
+## its allowed speakers, and loads through Config; no `system` speaker anywhere
+## in the campaign; no `choice` on the surrender or on the Final Choice lead-in
+## (Story 7.5 adds that one).
+func test_campaign_script_layout() -> void:
+	assert_eq(CAMPAIGN_SCRIPT.size(), 15, "15 campaign sequences")
+	for file: String in CAMPAIGN_DIALOGUE_FILES:
+		var expected: Array = []
+		for row: Array in CAMPAIGN_SCRIPT:
+			if str(row[0]) == file:
+				expected.append(str(row[1]))
+		expected.sort()
+		var actual: Array = []
+		for id: Variant in _file_sequences(file):
+			actual.append(str(id))
+		actual.sort()
+		assert_eq(actual, expected, "%s holds exactly its campaign sequences" % file)
+	for row: Array in CAMPAIGN_SCRIPT:
+		var file: String = str(row[0])
+		var id: String = str(row[1])
+		var sequences: Dictionary = _file_sequences(file)
+		assert_true(sequences.has(id), "%s lives in %s" % [id, file])
+		if not sequences.has(id):
+			continue
+		var seq: Dictionary = sequences[id] as Dictionary
+		assert_eq(seq.get("mode"), row[2], "%s mode" % id)
+		assert_true(Config.has_sequence(StringName(id)), "%s loads through Config" % id)
+		assert_eq(Config.dialogue_is_story(StringName(id)), row[2] == "story", "%s loads with its mode" % id)
+		var lines: Array = seq.get("lines", []) as Array
+		assert_between(lines.size(), int(row[4]), int(row[5]), "%s has %d-%d lines" % [id, row[4], row[5]])
+		for line: Variant in lines:
+			var speaker: String = str((line as Dictionary).get("speaker"))
+			assert_true((row[3] as Array).has(speaker), "%s speaker '%s' is one of %s" % [id, speaker, row[3]])
+	var all_lines: Array[Array] = _campaign_lines()
+	assert_gt(all_lines.size(), 0, "campaign lines to check")
+	for entry: Array in all_lines:
+		assert_ne(str((entry[2] as Dictionary).get("speaker")), "system", "%s %s: no system speaker" % [entry[0], entry[1]])
+	for id: StringName in [&"l1_w5_surrender", &"l3_final_choice"]:
+		assert_false(Config.sequence(id).has("choice"), "%s has no choice" % id)
+
+
+## Both Final Choice refusals open with Vale's line and Isolde answers; the
+## surrender refusal echoes "come home" back at Vale.
+func test_refusals_open_with_vale() -> void:
+	for id: String in ["l3_isolde_refuse_surrender", "l3_isolde_refuse_destroy"]:
+		var lines: Array = _lines_of(id)
+		assert_gte(lines.size(), 2, "%s has Vale's line and Isolde's answer" % id)
+		if lines.size() < 2:
+			continue
+		assert_eq(str((lines[0] as Dictionary).get("speaker")), "vale", "%s line 1 is Vale" % id)
+		for i: int in range(1, lines.size()):
+			assert_eq(str((lines[i] as Dictionary).get("speaker")), "isolde", "%s line %d is Isolde" % [id, i + 1])
+	var echo: bool = false
+	var surrender: Array = _lines_of("l3_isolde_refuse_surrender")
+	for i: int in range(1, surrender.size()):
+		if str((surrender[i] as Dictionary).get("text")).to_lower().contains("come home"):
+			echo = true
+	assert_true(echo, "Isolde's contempt echoes 'come home'")
+
+
+## True for a single letter character.
+static func _is_letter(c: String) -> bool:
+	return c.length() == 1 and c.to_lower() != c.to_upper()
+
+
+func test_is_letter_self_check() -> void:
+	assert_true(_is_letter("v"), "v")
+	assert_true(_is_letter("E"), "E")
+	for c: String in [" ", ",", "'", "!", "-", "4", "", "ab"]:
+		assert_false(_is_letter(c), "'%s' is not a letter" % c)
+
+
+## Tarek's cut-off: Tarek, combat, the full `after`, and the cut lands mid-word.
+func test_tarek_cutoff_is_final() -> void:
+	var seq: Dictionary = Config.sequence(&"l2_w5_tarek_cutoff")
+	assert_eq(seq.get("mode"), "combat", "combat mode")
+	var lines: Array = seq.get("lines", []) as Array
+	assert_eq(lines.size(), 1, "one line")
+	if lines.size() != 1:
+		return
+	var line: Dictionary = lines[0] as Dictionary
+	assert_eq(str(line.get("speaker")), "tarek", "Tarek speaks")
+	assert_eq(line.get("after"), {"silence": "until_wave_clear", "shake": "large", "sfx": "comms_static", "music": "stop"}, "the full after")
+	var text: String = str(line.get("text"))
+	var at: int = int(line.get("cut_off_at", 0))
+	assert_between(at, 1, text.length() - 1, "cut_off_at inside the text")
+	if at < 1 or at > text.length() - 1:
+		return
+	assert_true(_is_letter(text[at - 1]), "the last shown char '%s' is a letter" % text[at - 1])
+	assert_true(_is_letter(text[at]), "the next char '%s' is a letter (mid-word)" % text[at])
+
+
+## Whether `text` uses a GENDERED_ADDRESS term as a whole word (case-insensitive;
+## an apostrophe counts as part of a word, so "son's" is caught by neither side).
+static func _gendered(text: String) -> bool:
+	var regex: RegEx = RegEx.create_from_string("(?i)(?<![\\w'])(%s)(?![\\w'])" % "|".join(GENDERED_ADDRESS))
+	return regex.search(text) != null
+
+
+func test_gendered_check_self_check() -> void:
+	for text: String in ["Yes, sir.", "Ma'am!", "MADAM", "Mister Vale", "Mr. Vale", "Lady Arden", "My son.", "Mrs. Vale", "Ms Vale", "My lord."]:
+		assert_true(_gendered(text), "'%s' is gendered" % text)
+	for text: String in ["Sirens wail.", "Arden Madison", "Persona", "Ladybird", "Season", "General Arden Vale"]:
+		assert_false(_gendered(text), "'%s' is not gendered" % text)
+
+
+## Vale speaks at most MAX_VALE_LINES lines and no line uses a gendered term;
+## Tarek, Vale ("Arden Vale") and Isolde name themselves in their own opening
+## lines; Ryn names herself in her report's first line; in every campaign file
+## someone other than Vale addresses the General.
+func test_cast_rules() -> void:
+	var vale_lines: int = 0
+	var general_in: Dictionary = {}
+	for entry: Array in _campaign_lines():
+		var line: Dictionary = entry[2] as Dictionary
+		var speaker: String = str(line.get("speaker"))
+		var text: String = str(line.get("text"))
+		if speaker == "vale":
+			vale_lines += 1
+		elif text.contains("General"):
+			general_in[entry[0]] = true
+		assert_false(_gendered(text), "%s %s: no gendered term in '%s'" % [entry[0], entry[1], text])
+	assert_lte(vale_lines, MAX_VALE_LINES, "Vale speaks at most %d lines" % MAX_VALE_LINES)
+	for file: String in CAMPAIGN_DIALOGUE_FILES:
+		assert_true(general_in.has(file), "%s: someone addresses the General" % file)
+	var names: Dictionary = {"tarek": "Tarek", "vale": "Arden Vale", "isolde": "Isolde"}
+	var named: Dictionary = {}
+	for line: Variant in _lines_of("opening_main"):
+		var speaker: String = str((line as Dictionary).get("speaker"))
+		if names.has(speaker) and str((line as Dictionary).get("text")).contains(str(names[speaker])):
+			named[speaker] = true
+	for speaker: String in names:
+		assert_true(named.has(speaker), "%s names themselves in the opening" % speaker)
+	var report: Array = _lines_of("l2_ryn_report")
+	assert_false(report.is_empty(), "l2_ryn_report has lines")
+	if not report.is_empty():
+		assert_eq(str((report[0] as Dictionary).get("speaker")), "ryn", "Ryn speaks first")
+		assert_true(str((report[0] as Dictionary).get("text")).contains("Ryn"), "Ryn names herself")

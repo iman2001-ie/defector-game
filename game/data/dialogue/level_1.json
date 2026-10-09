@@ -1,15 +1,28 @@
 {
 	"sequences": {
+		"l1_w3_tarek_warning": {
+			"mode": "combat",
+			"lines": [
+				{ "speaker": "tarek", "text": "Contacts closing fast. It's an ambush, General!" }
+			]
+		},
 		"l1_w3_isolde_interrupt": {
 			"mode": "combat",
 			"lines": [
-				{ "speaker": "isolde", "text": "Running with rebels now, Arden? How very sad." }
+				{ "speaker": "isolde", "text": "Guarding freighters now, Arden? How far you fell." }
 			]
 		},
 		"l1_w5_surrender": {
 			"mode": "story",
 			"lines": [
 				{ "speaker": "isolde", "text": "You're outnumbered, General. Come home." }
+			]
+		},
+		"l1_tarek_closing": {
+			"mode": "story",
+			"lines": [
+				{ "speaker": "tarek", "text": "Convoy's through, every ship of it. You flew like you meant it, General." },
+				{ "speaker": "tarek", "text": "Get some rest. Tomorrow we break her blockade, and I want you on my wing when we do." }
 			]
 		}
 	}

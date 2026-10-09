@@ -1,9 +1,44 @@
 {
 	"sequences": {
+		"l3_briefing": {
+			"mode": "story",
+			"lines": [
+				{ "speaker": "ryn", "text": "Commander Holt to all ships. I have the fleet now, General, and we end this today." },
+				{ "speaker": "ryn", "text": "Isolde's home fleet is dug in around the throne world. We break through it, then we bring down her Flagship." },
+				{ "speaker": "ryn", "text": "My father believed in you. Show me he was right." }
+			]
+		},
 		"l3_w3_isolde_taunt": {
 			"mode": "combat",
 			"lines": [
-				{ "speaker": "isolde", "text": "No admiral to hide behind now, Arden." }
+				{ "speaker": "isolde", "text": "No admiral to save you this time, Arden." }
+			]
+		},
+		"l3_final_choice": {
+			"mode": "story",
+			"lines": [
+				{ "speaker": "isolde", "text": "Enough. You have burned my fleet and reached my throne, Arden. I taught you well." },
+				{ "speaker": "isolde", "text": "So, General. What will you do with me now?" }
+			]
+		},
+		"l3_isolde_refuse_surrender": {
+			"mode": "story",
+			"lines": [
+				{ "speaker": "vale", "text": "You're outnumbered, Isolde. Surrender, and come home to your people." },
+				{ "speaker": "isolde", "text": "Come home? To you? I am home, traitor. I will burn with my throne before I kneel to what I made." }
+			]
+		},
+		"l3_isolde_refuse_destroy": {
+			"mode": "story",
+			"lines": [
+				{ "speaker": "vale", "text": "No more offers. This ends with your Flagship." },
+				{ "speaker": "isolde", "text": "Then come and take it, General. I am the Sovereignty, and I do not break." }
+			]
+		},
+		"l3_isolde_final": {
+			"mode": "story",
+			"lines": [
+				{ "speaker": "isolde", "text": "My finest general... Remember, Arden. I made you." }
 			]
 		}
 	}

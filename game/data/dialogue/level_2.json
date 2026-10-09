@@ -1,9 +1,32 @@
 {
 	"sequences": {
+		"l2_briefing": {
+			"mode": "story",
+			"lines": [
+				{ "speaker": "tarek", "text": "General, the Sovereignty has sealed the trade corridor. Nothing gets in or out, and four colonies are starving behind that line." },
+				{ "speaker": "tarek", "text": "Bastions anchor the blockade. Needles snipe from range, so keep a rock between you and them." },
+				{ "speaker": "tarek", "text": "Stay close and watch my back. I'll watch yours. That's how the Coalition flies." }
+			]
+		},
 		"l2_w3_isolde_interrupt": {
 			"mode": "combat",
 			"lines": [
-				{ "speaker": "isolde", "text": "Your new friends die so easily, General." }
+				{ "speaker": "isolde", "text": "Every ship you lead here dies, Arden. Every one." }
+			]
+		},
+		"l2_w5_tarek_cutoff": {
+			"mode": "combat",
+			"lines": [
+				{ "speaker": "tarek", "text": "General, get behind me, I've got you covered!",
+					"cut_off_at": 40, "after": { "silence": "until_wave_clear", "shake": "large", "sfx": "comms_static", "music": "stop" } }
+			]
+		},
+		"l2_ryn_report": {
+			"mode": "story",
+			"lines": [
+				{ "speaker": "ryn", "text": "General, this is Commander Ryn Holt, Tarek's daughter. His ship is mine now." },
+				{ "speaker": "ryn", "text": "He's alive. Barely. The medics have him, and he won't fly again for a long time." },
+				{ "speaker": "ryn", "text": "And so is his fight. I'm taking command." }
 			]
 		}
 	}
