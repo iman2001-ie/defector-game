@@ -2,7 +2,7 @@
 title: 'Story 5.2: Hear Combat Chatter Without Stopping the Fight'
 type: 'feature'
 created: '2026-10-08'
-status: 'awaiting-operator'
+status: done
 operator_actions:
   - 'Run the level scene in a debug build with `-- --comms=dev_combat_check` and confirm the interruption box slides in top-left, shows the Isolde placeholder portrait, the pink accent edge, the uppercase name and two lines of typing text that fit the box and stay clear of the wave bar, and that the fight never pauses.'
   - 'Run it again with `-- --comms=dev_combat_vale` and confirm the no-portrait variant: the text spans the full box width and the accent edge stays.'
@@ -191,3 +191,14 @@ Status: awaiting-operator
 - The look (slide, fade, two-line fit, 28 px name in a 28 px slot) is checked as node state with Godot's fallback font only; Epic 8's Kenney Future font will need new spacing values. See `operator_actions`.
 - Three rules the docs left open were decided and recorded (combat behind a story queues; queued combat survives a preempt; dropped queue entries emit `finished`).
 - Back-to-back queued combat lines replace each other without a visible fade gap.
+
+## Operator Confirmation
+
+Confirmed 2026-10-09: the external actions this story owed were carried out.
+
+- Run the level scene in a debug build with `-- --comms=dev_combat_check` and confirm the interruption box slides in top-left, shows the Isolde placeholder portrait, the pink accent edge, the uppercase name and two lines of typing text that fit the box and stay clear of the wave bar, and that the fight never pauses.
+- Run it again with `-- --comms=dev_combat_vale` and confirm the no-portrait variant: the text spans the full box width and the accent edge stays.
+- Confirm the two text lines read cleanly at the 28 px line height (descenders on the first line do not touch the second line) and the 28 px name does not overlap the text.
+- Confirm the box stays up about 2-3 s, then fades out, and that clicking during the line fires the laser normally.
+
+_Appended by the bmad-loop orchestrator (`bmad-loop confirm`, #335): a human confirmed these external actions out of band, and the story was advanced from `awaiting-operator` to `done`._
