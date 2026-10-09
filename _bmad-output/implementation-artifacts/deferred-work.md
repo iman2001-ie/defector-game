@@ -756,10 +756,10 @@ severity: low
 reason: Pre-existing 5.4 rules (preempt drops effects, void rule), made about 3x more likely by the slower typing. No shipped data requests a story near Tarek's cut-off. Story 6.5 / Epic 7 data should keep the Level 2 Wave 5 cut-off clear of story requests and of the wave end; otherwise decide whether a cut-off should be preempt-proof.
 status: open
 
-### DW-82: The 6.0 s cut-off hold occupies the interruption box, so when the wave clears during the hold the next wave's opening combat lines queue behind it (up to about 6 s late) or are dropped past comms.combat_queue_max.
+### DW-82: The 4.5 s cut-off hold (6.0 s when logged) occupies the interruption box, so when the wave clears during the hold the next wave's opening combat lines queue behind it (up to about 4.5 s late) or are dropped past comms.combat_queue_max.
 origin: quick-dev
 location: game/systems/comms/comms_channel.gd step_combat
 source_spec: `spec-5-4-cut-off-readability-and-impact.md`
 severity: low
-reason: A consequence of the user's 6.0 s hold (GDD #43). Level 2 Wave 6 data (Epic 7) should not open with combat chatter, or the hold should end early on wave_cleared; that needs a design call.
+reason: A consequence of the user's 4.5 s hold (GDD #43, revised from 6.0 s). Level 2 Wave 6 data (Epic 7) should not open with combat chatter, or the hold should end early on wave_cleared; that needs a design call.
 status: open

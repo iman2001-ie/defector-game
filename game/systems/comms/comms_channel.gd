@@ -49,7 +49,7 @@ extends Node
 ##   comms.cutoff_shake_px / cutoff_shake_s; a tier name:
 ##   Feedback.shake_tier), the music action (Audio.apply_music_action), then
 ##   silence. comms.cutoff_hide_s later the box hides at once (no fade) and
-##   `finished` is emitted. The after-sfx (the 6 s static) lives with the
+##   `finished` is emitted. The after-sfx (the 4.5 s static) lives with the
 ##   line: it is stopped whenever the line ends (the hide, a preempt, the
 ##   channel leaving the tree) and its stream pauses while the tree is paused.
 ##   The hold counts real time (game delta / Engine.time_scale), so it stays in

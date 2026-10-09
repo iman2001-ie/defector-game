@@ -1325,7 +1325,7 @@ So that a character's sudden loss hits hard without a cutscene.
 
 **Given** a line with `cut_off_at` and `after` effects (`silence`, `shake`, `sfx`, `music`)
 **When** it types out
-**Then** the typewriter stops at exactly `cut_off_at` characters, the static burst SFX plays, the named shake fires through `Feedback`, the music stops, and the panel hides after 0.6 s (amended by GDD decision #43: a cut-off line types at 16 chars/s, ends in `...`, uses the dedicated `cutoff` shake, and the box holds 6.0 s, the length of the static, then hides with no fade)
+**Then** the typewriter stops at exactly `cut_off_at` characters, the static burst SFX plays, the named shake fires through `Feedback`, the music stops, and the panel hides after 0.6 s (amended by GDD decision #43: a cut-off line types at 16 chars/s, ends in `...`, uses the dedicated `cutoff` shake, and the box holds 4.5 s, the length of the softened static (which has a 0.2 s end fade), then hides with no fade)
 
 **Given** silence is `until_wave_clear`
 **When** further combat sequences are requested

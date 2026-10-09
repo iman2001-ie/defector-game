@@ -15,10 +15,10 @@ context:
 
 **Problem:** In the Story 5.4 operator check, the cut-off went by too fast to follow. The line types its 39 characters in 0.87 s and the box hides 0.6 s later, so it's on screen for about 1.5 s against 5 s for other combat lines. Nothing marks the cut. The `large` shake (8 px, 0.25 s) is barely felt, and the 0.4 s generated static is far too short and doesn't sound like a dead radio channel.
 
-**Approach:** Make it a timeline of about 8.5 s:
+**Approach:** Make it a timeline of about 7 s:
 - The cut-off line types slower, so the cut lands at about 2.4 s.
-- At the cut, a `...` suffix appears, a dedicated strong shake fires and 6 s of CC0 static plays at full level with no fade, then stops dead.
-- The box holds the cut text for the same 6 s, then vanishes instantly together with the static (no fade, as before).
+- At the cut, a `...` suffix appears, a dedicated strong shake fires and 4.5 s of softened CC0 static plays, with a 0.2 s fade-out at its very end.
+- The box holds the cut text for the same 4.5 s, then vanishes instantly as the static ends (no fade, as before).
 
 Every number lives in `tuning.json`.
 
@@ -30,7 +30,7 @@ Every number lives in `tuning.json`.
   - `cutoff_suffix`: `"..."`
   - `cutoff_shake_px`: 18
   - `cutoff_shake_s`: 0.9
-- **Changed tuning key:** `cutoff_hide_s` goes from 0.6 to 6.0, equal to the clip's length.
+- **Changed tuning key:** `cutoff_hide_s` goes from 0.6 to 4.5, equal to the clip's length.
 - **Typing speed:** a cut-off line's typing timer in `CommsChannel` and its tween in `CommsBox` both use `cutoff_chars_per_s`. A value of 0 or less means instant, as with the normal speed.
 - **`CommsBox.cut_off(chars, suffix := "")`:**
   - It kills the type tween.
@@ -43,15 +43,15 @@ Every number lives in `tuning.json`.
   - `DialogueValidator` accepts `"cutoff"`.
   - `dev.json`'s `dev_tarek_cutoff` changes to `"shake": "cutoff"`.
 - **SFX:**
-  - `sfx_comms_static.wav` is replaced with the clip the user picked: CC0 "Frequency Static" `static2.wav` by bretbernhoft (OpenGameArt), unfiltered, from 20.0 s for 6.0 s, mono 44.1 kHz 16-bit, limited at 0.9.
-  - **No fade-out or decay.** It's full static to the end, with only 5 ms anti-click ramps at each edge. The audition file is `cand2_raw_6.0s.wav` (mean about -9.3 dB).
+  - `sfx_comms_static.wav` is replaced with the clip the user picked: CC0 "Frequency Static" `static2.wav` by bretbernhoft (OpenGameArt), from 20.0 s for 4.5 s, mono 44.1 kHz 16-bit, limiter at 0.9 without auto-level, a gentle 1-pole 6 kHz lowpass and -0.6 dB (slightly softer: mean about -12.0 dB, peak about -1.6 dB).
+  - **No decay.** It's full static to the end, with a 5 ms fade-in and a 0.2 s fade-out at its very end. The audition file is `static_4.5s_slightly_soft.wav`.
   - `comms_static` is removed from `tools/gen_placeholder_sfx.py` (the function, seed and `sounds` entry) so a regeneration can't overwrite it. The other WAVs must stay byte-identical.
   - The `CREDITS.md` row names the source URL, the author, CC0 and the ffmpeg recipe used.
   - Run `--import` afterwards.
 - **Decision logs:** the user changed these documented rules (FR35/GDD "large-tier shake", UX EXPERIENCE.md:67 "hides after 0.6 s"). Record them as GDD decision #43 and UX decision #25. Update EXPERIENCE.md:67 and the 5.4 As-built section of `game-architecture.md`.
 - Existing 5.4 behaviour is unchanged: the order of the after effects, silence, the void rule, preempt and pause freeze.
 
-**Ask First:** any change to the static's level, filtering or length beyond the user-picked `cand2_raw_6.0s.wav`.
+**Ask First:** any change to the static's level, filtering or length beyond the user-picked `static_4.5s_slightly_soft.wav`.
 
 **Never:**
 - No fade on the cut-off box.
@@ -63,7 +63,7 @@ Every number lives in `tuning.json`.
 
 | Scenario | Input / State | Expected Output / Behavior | Error Handling |
 |----------|--------------|---------------------------|----------------|
-| Timeline | `dev_tarek_cutoff`, tuning defaults | no effects before 39/16 s; at the cut: text `General, get behind me, I've got you co...`, static plays, camera shakes 18 px, silenced; box visible until +6.0 s, then hidden (no fade) and `finished` once | none |
+| Timeline | `dev_tarek_cutoff`, tuning defaults | no effects before 39/16 s; at the cut: text `General, get behind me, I've got you co...`, static plays, camera shakes 18 px, silenced; box visible until +4.5 s, then hidden (no fade) and `finished` once | none |
 | Tier shake still works | `after.shake: "large"` | `Feedback.shake_tier(LARGE)` as before | none |
 | Validator | `shake: "cutoff"` / `shake: "huge"` | valid / one problem | logged |
 | Empty suffix | `cutoff_suffix: ""` | text stops at 39 characters, no suffix | none |
@@ -105,13 +105,17 @@ Every number lives in `tuning.json`.
 - [x] Docs: GDD decision-log #43, UX `.decision-log.md` #25, EXPERIENCE.md:67, and the 5.4 As-built section in `game-architecture.md`.
 
 **Acceptance Criteria:**
-- Given level_dev wave 2 with real kills past 0.25, when the cut-off fires, then the box shows the line ending in `co...` at about 2.4 s, `comms_static` (the new clip) plays, the ShakeCamera amplitude is 18 px, and the box hides 6.0 s later without fading.
+- Given level_dev wave 2 with real kills past 0.25, when the cut-off fires, then the box shows the line ending in `co...` at about 2.4 s, `comms_static` (the new clip) plays, the ShakeCamera amplitude is 18 px, and the box hides 4.5 s later without fading.
 - Given F3 on the same wave, then the cut-off still fires and wave 3 starts.
 - Given the full GUT suite after `--import`, then everything passes, and the existing generated WAVs are byte-identical in `git status`.
 
+## Spec Change Log
+
+- 2026-10-09: user retuned after hearing it: 4.5 s hold and clip, softer clip, 0.2 s end fade.
+
 ## Design Notes
 
-The cut lands mid-typing because the slower typing speed sells it as an interruption rather than a pause. The 6.0 s hold equals the static clip's length, so the box and the static end on the same frame. The hard stop into silence (the music has stopped too) is the "radio silence". The user rejected decaying or fading static in the audition.
+The cut lands mid-typing because the slower typing speed sells it as an interruption rather than a pause. The 4.5 s hold equals the static clip's length, so the box and the static end on the same frame. The quick end into silence (the music has stopped too) is the "radio silence": the static has no decay, only a 0.2 s fade-out at its very end so it doesn't click off. The user rejected decaying static in the audition, then shortened and softened the first 6.0 s full-level cut after hearing it.
 
 ## Verification
 
@@ -127,7 +131,7 @@ The cut lands mid-typing because the slower typing speed sells it as an interrup
 - Entry point: the cut runs the suffix, the dedicated shake and the static, and keeps the static's player.
   [`comms_channel.gd:434`](../../game/systems/comms/comms_channel.gd#L434)
 
-- HOLD counts real time, so hit-stop can't stretch the box past the 6 s static.
+- HOLD counts real time, so hit-stop can't stretch the box past the 4.5 s static.
   [`comms_channel.gd:483`](../../game/systems/comms/comms_channel.gd#L483)
 
 - The static stops with the line: hide, preempt, clear, exit tree.
@@ -169,7 +173,7 @@ The cut lands mid-typing because the slower typing speed sells it as an interrup
 
 **Tests**
 
-- The full timeline: suffix, 18 px shake, 6.0 s hold, finished once.
+- The full timeline: suffix, 18 px shake, 4.5 s hold, finished once.
   [`test_comms_channel.gd:747`](../../game/tests/unit/test_comms_channel.gd#L747)
 
 - Static lifetime: hide, preempt, tree exit, pause.

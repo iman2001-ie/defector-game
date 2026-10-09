@@ -1038,7 +1038,7 @@ func test_tarek_cutoff_is_final() -> void:
 
 
 ## GDD decision #43: the cut-off tuning (16 chars/s, a "..." suffix, an
-## 18 px / 0.9 s shake, a 6.0 s hold equal to the comms_static clip) and both
+## 18 px / 0.9 s shake, a 4.5 s hold equal to the comms_static clip) and both
 ## Tarek cut-offs use the dedicated `cutoff` shake.
 func test_cut_off_tuning_and_shake() -> void:
 	var comms: Dictionary = Config.section("comms")
@@ -1047,7 +1047,7 @@ func test_cut_off_tuning_and_shake() -> void:
 	assert_eq(comms.get("cutoff_suffix"), "...", "cutoff_suffix")
 	assert_eq(comms.get("cutoff_shake_px"), 18.0, "cutoff_shake_px")
 	assert_eq(comms.get("cutoff_shake_s"), 0.9, "cutoff_shake_s")
-	assert_eq(comms.get("cutoff_hide_s"), 6.0, "cutoff_hide_s")
+	assert_eq(comms.get("cutoff_hide_s"), 4.5, "cutoff_hide_s")
 	var clip: AudioStream = Audio.SFX[&"comms_static"]
 	assert_almost_eq(clip.get_length(), Config.num("comms.cutoff_hide_s"), 0.01, "the hold equals the static clip")
 	for id: StringName in [&"dev_tarek_cutoff", &"l2_w5_tarek_cutoff"]:

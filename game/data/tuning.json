@@ -219,7 +219,7 @@
 		"combat_line_min_s": 5.0,
 		"combat_line_extra_s": 3.0,
 		"combat_queue_max": 3,
-		"cutoff_hide_s": 6.0,
+		"cutoff_hide_s": 4.5,
 		"cutoff_chars_per_s": 16,
 		"cutoff_suffix": "...",
 		"cutoff_shake_px": 18,

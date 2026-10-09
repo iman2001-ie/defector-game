@@ -793,10 +793,10 @@ func test_cut_off_timeline() -> void:
 
 
 ## GDD decision #43: the shipped cut-off tuning. 39 characters at 16 chars/s put
-## the cut at about 2.4 s; the 6.0 s hold equals the static clip.
+## the cut at about 2.4 s; the 4.5 s hold equals the static clip.
 func test_cut_off_tuning() -> void:
 	assert_eq(Config.num("comms.cutoff_chars_per_s"), 16.0)
-	assert_eq(Config.num("comms.cutoff_hide_s"), 6.0)
+	assert_eq(Config.num("comms.cutoff_hide_s"), 4.5)
 	assert_eq(Config.num("comms.cutoff_shake_px"), 18.0)
 	assert_eq(Config.num("comms.cutoff_shake_s"), 0.9)
 	assert_eq(Config.section("comms").get("cutoff_suffix"), "...")
