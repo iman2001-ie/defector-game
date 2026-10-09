@@ -24,9 +24,9 @@
 		"l2_ryn_report": {
 			"mode": "story",
 			"lines": [
-				{ "speaker": "ryn", "text": "General, this is Commander Ryn Holt, Tarek's daughter. His ship is mine now." },
-				{ "speaker": "ryn", "text": "He's alive. Barely. The medics have him, and he won't fly again for a long time." },
-				{ "speaker": "ryn", "text": "And so is his fight. I'm taking command." }
+				{ "speaker": "ryn", "text": "General, this is Commander Ryn Holt. Tarek's daughter." },
+				{ "speaker": "ryn", "text": "He's alive. Barely. The medics are doing everything they can, but he won't be flying again anytime soon." },
+				{ "speaker": "ryn", "text": "Until he can, I'm taking command of his ship. We finish his fight together, General." }
 			]
 		}
 	}

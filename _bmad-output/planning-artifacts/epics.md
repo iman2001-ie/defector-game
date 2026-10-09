@@ -1396,7 +1396,7 @@ So that the story beats carry their emotional weight in the shipped game.
 
 **Given** the dialogue files
 **When** the script is complete
-**Then** final text exists for: `opening_main`; `l1_w3_tarek_warning` (ambush warning, one line) and `l1_tarek_closing`; Isolde's interruptions and surrender line; the Level 2 briefing (2–3 story lines); `l2_w5_tarek_cutoff` with its `cut_off_at`; `l2_ryn_report`; the Level 3 briefing `l3_briefing` (Ryn takes command); `l3_final_choice` (Isolde's lead-in); `l3_isolde_refuse_surrender` (contempt, echoing "Come home"); `l3_isolde_refuse_destroy` (defiance); and `l3_isolde_final`
+**Then** final text exists for: `opening_main`; `l1_w3_tarek_warning` (ambush warning, one line) and `l1_tarek_closing`; Isolde's interruptions and surrender line; the Level 2 briefing (2–3 story lines); `l2_w5_tarek_cutoff` with its `cut_off_at`; `l2_ryn_report`; the Level 3 briefing `l3_briefing` (Ryn takes command); `l3_final_choice` (Isolde's lead-in); `l3_isolde_refuse_surrender` (Vale offers surrender in Isolde's Level 1 words, "You're outnumbered"; she refuses with contempt, decision #44); `l3_isolde_refuse_destroy` (defiance); and `l3_isolde_final`
 
 **Given** the cast rules
 **When** I review the script

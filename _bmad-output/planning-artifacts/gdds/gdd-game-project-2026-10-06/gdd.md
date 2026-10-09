@@ -287,7 +287,7 @@ All values below are **initial tuning**, chosen to be easy to change. They are e
 - **Flagship HP display:** a dedicated boss bar replaces the wave progress bar during the fight. It has three segment markers: turrets, core, and final.
 - **Final Choice UI:** two large buttons centred on the screen, chosen by click. Combat stays paused until the player chooses. There is no timer.
 - **Final Choice responses:**
-  - **[Offer Surrender]:** Isolde refuses with contempt, echoing the "Come home" line back at Vale.
+  - **[Offer Surrender]:** Vale offers surrender in Isolde's own Level 1 words ("You're outnumbered"), and Isolde refuses with contempt (decision #44).
   - **[Destroy Her]:** Isolde refuses with defiance.
   - The exact lines are written during content authoring. The choice changes only this one dialogue line.
 

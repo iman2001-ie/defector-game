@@ -3,7 +3,7 @@
 		"l3_briefing": {
 			"mode": "story",
 			"lines": [
-				{ "speaker": "ryn", "text": "Commander Holt to all ships. I have the fleet now, General, and we end this today." },
+				{ "speaker": "ryn", "text": "Commander Holt to all ships. I've taken my father's fleet, General, and we end this today." },
 				{ "speaker": "ryn", "text": "Isolde's home fleet is dug in around the throne world. We break through it, then we bring down her Flagship." },
 				{ "speaker": "ryn", "text": "My father believed in you. Show me he was right." }
 			]
@@ -24,8 +24,8 @@
 		"l3_isolde_refuse_surrender": {
 			"mode": "story",
 			"lines": [
-				{ "speaker": "vale", "text": "You're outnumbered, Isolde. Surrender, and come home to your people." },
-				{ "speaker": "isolde", "text": "Come home? To you? I am home, traitor. I will burn with my throne before I kneel to what I made." }
+				{ "speaker": "vale", "text": "You're outnumbered, Isolde. Surrender, and give up the throne." },
+				{ "speaker": "isolde", "text": "Surrender? To you? I would rather burn with my throne than kneel to the traitor I made." }
 			]
 		},
 		"l3_isolde_refuse_destroy": {

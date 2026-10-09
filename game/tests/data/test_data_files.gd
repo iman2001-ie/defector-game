@@ -987,7 +987,8 @@ func test_campaign_script_layout() -> void:
 
 
 ## Both Final Choice refusals open with Vale's line and Isolde answers; the
-## surrender refusal echoes "come home" back at Vale.
+## Vale's surrender offer mirrors Isolde's Level 1 "You're outnumbered" (GDD
+## decision #44).
 func test_refusals_open_with_vale() -> void:
 	for id: String in ["l3_isolde_refuse_surrender", "l3_isolde_refuse_destroy"]:
 		var lines: Array = _lines_of(id)
@@ -997,12 +998,11 @@ func test_refusals_open_with_vale() -> void:
 		assert_eq(str((lines[0] as Dictionary).get("speaker")), "vale", "%s line 1 is Vale" % id)
 		for i: int in range(1, lines.size()):
 			assert_eq(str((lines[i] as Dictionary).get("speaker")), "isolde", "%s line %d is Isolde" % [id, i + 1])
-	var echo: bool = false
 	var surrender: Array = _lines_of("l3_isolde_refuse_surrender")
-	for i: int in range(1, surrender.size()):
-		if str((surrender[i] as Dictionary).get("text")).to_lower().contains("come home"):
-			echo = true
-	assert_true(echo, "Isolde's contempt echoes 'come home'")
+	if surrender.is_empty():
+		return
+	var offer: String = str((surrender[0] as Dictionary).get("text")).to_lower()
+	assert_true(offer.contains("outnumbered"), "Vale's offer mirrors Isolde's 'You're outnumbered'")
 
 
 ## True for a single letter character.
