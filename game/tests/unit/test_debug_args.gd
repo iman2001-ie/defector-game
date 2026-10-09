@@ -73,3 +73,31 @@ func test_no_prewarm_combines_with_bench() -> void:
 	assert_false(parsed.prewarm, "pre-warm off")
 	assert_true(parsed.stress, "bench implies stress")
 	assert_eq(parsed.bench_s, 2.0, "bench seconds")
+
+
+# --- Comms sequence (Story 5.1) -------------------------------------------------
+
+func test_comms_defaults_to_empty() -> void:
+	var parsed: Dictionary = DebugArgs.parse(PackedStringArray())
+	assert_eq(parsed.comms, &"")
+	assert_eq(typeof(parsed.comms), TYPE_STRING_NAME)
+
+
+func test_comms_id() -> void:
+	var parsed: Dictionary = DebugArgs.parse(PackedStringArray(["--comms=dev_comms_check"]))
+	assert_eq(parsed.comms, &"dev_comms_check")
+	assert_eq(typeof(parsed.comms), TYPE_STRING_NAME)
+	assert_false(parsed.stress, "does not imply stress")
+	assert_true(parsed.prewarm)
+
+
+func test_comms_combines_with_other_args() -> void:
+	var parsed: Dictionary = DebugArgs.parse(PackedStringArray(["--no-prewarm", "--comms=abc"]))
+	assert_eq(parsed.comms, &"abc")
+	assert_false(parsed.prewarm)
+
+
+func test_empty_comms_warns_and_is_ignored() -> void:
+	var parsed: Dictionary = DebugArgs.parse(PackedStringArray(["--comms="]))
+	assert_eq(parsed.comms, &"")
+	assert_push_warning("--comms")

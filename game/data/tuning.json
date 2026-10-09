@@ -219,7 +219,15 @@
 		"combat_line_min_s": 2.0,
 		"combat_line_extra_s": 1.2,
 		"combat_queue_max": 3,
-		"cutoff_hide_s": 0.6
+		"cutoff_hide_s": 0.6,
+		"story_line_max_chars": 200,
+		"speakers": {
+			"vale": { "name": "VALE", "portrait": false },
+			"isolde": { "name": "ISOLDE", "portrait": true },
+			"tarek": { "name": "TAREK", "portrait": true },
+			"ryn": { "name": "RYN", "portrait": true },
+			"system": { "name": "SYSTEM", "portrait": false }
+		}
 	},
 	"feedback": {
 		"tiers": {
@@ -275,7 +283,8 @@
 		"retry_prompt": { "headline_y": 440, "headline_px": 48, "button_w": 320, "button_h": 80, "button_gap_px": 48, "buttons_top_y": 560 },
 		"title": { "logo_y": 300, "logo_px": 120, "button_w": 400, "button_h": 72, "button_gap_px": 24, "buttons_top_y": 560 },
 		"level_select": { "card_w": 480, "card_h": 280, "card_gap_px": 48, "cards_top_y": 360, "back_x": 32, "back_y": 984, "back_w": 240, "back_h": 64, "locked_alpha": 0.4 },
-		"pause_menu": { "panel_w": 520, "panel_padding_px": 40, "heading_px": 48, "heading_gap_px": 40, "button_w": 400, "button_h": 72, "button_gap_px": 24 }
+		"pause_menu": { "panel_w": 520, "panel_padding_px": 40, "heading_px": 48, "heading_gap_px": 40, "button_w": 400, "button_h": 72, "button_gap_px": 24 },
+		"comms_panel": { "x": 410, "y": 300, "w": 1100, "h": 300, "padding_px": 32, "portrait_px": 200, "portrait_gap_px": 24, "name_h_px": 36, "name_gap_px": 8, "cue_h_px": 24 }
 	},
 	"render": {
 		"glow": { "intensity": 1.0, "bloom": 0.08, "hdr_threshold": 0.55 }

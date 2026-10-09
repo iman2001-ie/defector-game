@@ -7,7 +7,9 @@ extends Control
 ## Esc (the `pause` action, echoes ignored) toggles it. open() pushes the `menu`
 ## pause reason; it does nothing while the `death` or `final_choice` reason is
 ## active (a `story` pause doesn't block it). resume() (RESUME or Esc again) pops
-## only `menu`, so an underlying story pause stays. RESTART LEVEL calls
+## only `menu`, so an underlying story pause stays. Over a story pause the menu
+## hides its own Dim (the comms panel's dim is already up: one dim, never
+## stacked). RESTART LEVEL calls
 ## SceneRouter.restart_level(), QUIT TO TITLE SceneRouter.goto_title(); the menu
 ## stays visible until the scene changes and a `_leaving` guard ignores every
 ## later press and Esc.
@@ -26,6 +28,8 @@ const STYLE_BUTTON_FOCUS: StringName = &"button_focus"
 const FONT_SIZE_HEADING: StringName = &"heading"
 const FONT_SIZE_BUTTON: StringName = &"button"
 const PAUSE_REASON: StringName = &"menu"
+## While this reason is active the comms panel's dim is showing (Story 5.1).
+const STORY_REASON: StringName = &"story"
 ## Reasons under which Esc does not open the menu.
 const BLOCKING_REASONS: Array[StringName] = [&"death", &"final_choice"]
 const TEXT_HEADING: String = "PAUSED"
@@ -122,6 +126,7 @@ func open() -> void:
 		if PauseArbiter.has_reason(reason):
 			return
 	_shown = true
+	_dim.visible = not PauseArbiter.has_reason(STORY_REASON)
 	PauseArbiter.push(PAUSE_REASON)
 	visible = true
 	mouse_filter = Control.MOUSE_FILTER_STOP

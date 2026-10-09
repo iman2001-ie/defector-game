@@ -461,3 +461,62 @@ func test_barrage_matches_the_gdd_and_feel_keys_are_positive() -> void:
 	assert_gt(Config.num("abilities.barrage.speed_px_s"), 0.0, "speed_px_s > 0")
 	assert_gt(Config.num("abilities.barrage.turn_rate_deg_s"), 0.0, "turn_rate_deg_s > 0")
 	assert_gt(Config.num("abilities.barrage.lifetime_s"), 0.0, "lifetime_s > 0")
+
+
+# --- Dialogue (Story 5.1) -----------------------------------------------------
+
+const DIALOGUE_DIR: String = "res://data/dialogue/"
+
+
+func _dialogue_files() -> Array[String]:
+	var out: Array[String] = []
+	for file: String in DirAccess.get_files_at(DIALOGUE_DIR):
+		if file.ends_with(".json"):
+			out.append(DIALOGUE_DIR + file)
+	return out
+
+
+func test_every_dialogue_file_is_valid() -> void:
+	var files: Array[String] = _dialogue_files()
+	assert_true(files.has(DIALOGUE_DIR + "dev.json"), "dev.json present")
+	var max_chars: int = Config.int_("comms.story_line_max_chars")
+	assert_eq(max_chars, 200, "comms.story_line_max_chars")
+	var seen: Dictionary = {}
+	for path: String in files:
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+		assert_true(parsed is Dictionary, "%s parses to an object" % path)
+		if not (parsed is Dictionary):
+			continue
+		assert_eq(DialogueValidator.validate(parsed as Dictionary, path, max_chars), [] as Array[String], "%s has no problems" % path)
+		var sequences: Variant = (parsed as Dictionary).get("sequences")
+		if sequences is Dictionary:
+			for id: Variant in sequences:
+				assert_false(seen.has(id), "sequence id '%s' is unique (also in %s)" % [id, seen.get(id, "")])
+				seen[id] = path
+
+
+func test_dev_comms_check_is_a_story_with_both_panel_variants() -> void:
+	assert_true(Config.dialogue_is_story(&"dev_comms_check"), "dev_comms_check loads and is story")
+	var lines: Array = Config.sequence(&"dev_comms_check").get("lines", []) as Array
+	assert_between(lines.size(), 3, 4, "3-4 lines")
+	var speakers: Array[String] = []
+	var longest: int = 0
+	for line: Variant in lines:
+		speakers.append(str((line as Dictionary).get("speaker")))
+		longest = maxi(longest, str((line as Dictionary).get("text")).length())
+	assert_true(speakers.has("vale"), "a no-portrait speaker")
+	assert_true(speakers.has("tarek") or speakers.has("isolde"), "a portrait speaker")
+	assert_between(longest, 180, 200, "one line near 200 characters for the wrap check")
+
+
+func test_every_speaker_has_comms_tuning() -> void:
+	var speakers: Dictionary = Config.section("comms.speakers")
+	for speaker: StringName in DialogueValidator.SPEAKERS:
+		var entry: Variant = speakers.get(String(speaker))
+		assert_true(entry is Dictionary, "comms.speakers.%s" % speaker)
+		if not (entry is Dictionary):
+			continue
+		var display_name: Variant = (entry as Dictionary).get("name")
+		assert_true(display_name is String and not (display_name as String).is_empty(), "comms.speakers.%s.name" % speaker)
+		assert_true((entry as Dictionary).get("portrait") is bool, "comms.speakers.%s.portrait is a bool" % speaker)
+	assert_gt(Config.num("comms.chars_per_s"), 0.0, "comms.chars_per_s")

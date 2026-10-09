@@ -1,0 +1,69 @@
+{
+	"sequences": {
+		"good_one": {
+			"mode": "story",
+			"lines": [
+				{
+					"speaker": "tarek",
+					"text": "First definition wins."
+				}
+			]
+		},
+		"unknown_speaker": {
+			"mode": "story",
+			"lines": [
+				{
+					"speaker": "bob",
+					"text": "Who am I?"
+				}
+			]
+		},
+		"bad_mode": {
+			"mode": "chatter",
+			"lines": [
+				{
+					"speaker": "ryn",
+					"text": "Wrong mode."
+				}
+			]
+		},
+		"empty_lines": {
+			"mode": "story",
+			"lines": []
+		},
+		"empty_text": {
+			"mode": "story",
+			"lines": [
+				{
+					"speaker": "isolde",
+					"text": "   "
+				}
+			]
+		},
+		"too_long": {
+			"mode": "story",
+			"lines": [
+				{
+					"speaker": "vale",
+					"text": "This story line is one character too long. This story line is one character too long. This story line is one character too long. This story line is one character too long. This story line is one charac"
+				}
+			]
+		},
+		"non_object_line": {
+			"mode": "story",
+			"lines": [
+				"just a string"
+			]
+		},
+		"not_an_object": 5,
+		" ": {
+			"mode": "story",
+			"lines": [
+				{
+					"speaker": "tarek",
+					"text": "An id made of a space."
+				}
+			]
+		}
+	}
+}

@@ -1,0 +1,39 @@
+{
+	"sequences": {
+		"story_a": {
+			"mode": "story",
+			"lines": [
+				{
+					"speaker": "tarek",
+					"text": "Forty-five characters exactly, General. Okay."
+				},
+				{
+					"speaker": "vale",
+					"text": "Vale has no portrait."
+				},
+				{
+					"speaker": "isolde",
+					"text": "Last line of A."
+				}
+			]
+		},
+		"story_b": {
+			"mode": "story",
+			"lines": [
+				{
+					"speaker": "ryn",
+					"text": "Story B, one line."
+				}
+			]
+		},
+		"combat_a": {
+			"mode": "combat",
+			"lines": [
+				{
+					"speaker": "isolde",
+					"text": "Combat chatter."
+				}
+			]
+		}
+	}
+}

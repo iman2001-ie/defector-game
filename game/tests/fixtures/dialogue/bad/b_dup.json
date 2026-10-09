@@ -1,0 +1,22 @@
+{
+	"sequences": {
+		"good_one": {
+			"mode": "story",
+			"lines": [
+				{
+					"speaker": "ryn",
+					"text": "Second definition is ignored."
+				}
+			]
+		},
+		"good_two": {
+			"mode": "combat",
+			"lines": [
+				{
+					"speaker": "isolde",
+					"text": "Still here, General?"
+				}
+			]
+		}
+	}
+}

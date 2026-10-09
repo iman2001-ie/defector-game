@@ -1,5 +1,6 @@
 extends Node
-## Loads data/tuning.json and data/flags.json and serves typed, dot-path lookups.
+## Loads data/tuning.json, data/flags.json and every data/dialogue/*.json and
+## serves typed, dot-path lookups plus the dialogue sequences.
 ##
 ## Gameplay code never indexes `tuning` directly: use num / int_ / flag / section.
 ## A missing key or wrong type logs an error naming the full key path, asserts
@@ -9,6 +10,10 @@ const DEFAULT_TUNING_PATH: String = "res://data/tuning.json"
 const DEFAULT_FLAGS_PATH: String = "res://data/flags.json"
 ## Level files are keyed by a string id: level_dev.json, later level_1.json.
 const LEVEL_PATH_FORMAT: String = "res://data/levels/level_%s.json"
+## Every *.json in this dir is a dialogue file (Story 5.1), loaded in name order.
+const DEFAULT_DIALOGUE_DIR: String = "res://data/dialogue/"
+const DIALOGUE_EXTENSION: String = ".json"
+const STORY_MAX_CHARS_KEY: String = "comms.story_line_max_chars"
 
 var tuning: Dictionary = {}
 var flags: Dictionary = {}
@@ -19,6 +24,9 @@ var assert_on_missing: bool = true
 
 var _tuning_path: String = DEFAULT_TUNING_PATH
 var _flags_path: String = DEFAULT_FLAGS_PATH
+var _dialogue_dir: String = DEFAULT_DIALOGUE_DIR
+## Valid dialogue sequences: StringName id -> sequence Dictionary.
+var _dialogue: Dictionary = {}
 
 
 func _ready() -> void:
@@ -26,11 +34,14 @@ func _ready() -> void:
 	_log_summary()
 
 
-## Loads both files. A tuning failure sets load_error and empties tuning; a flags
-## failure empties flags and is logged, but does not touch load_error.
-func load_data(tuning_path: String = DEFAULT_TUNING_PATH, flags_path: String = DEFAULT_FLAGS_PATH) -> void:
+## Loads both files, then the dialogue dir. A tuning failure sets load_error and
+## empties tuning; a flags failure empties flags and is logged, but does not
+## touch load_error. Dialogue problems are logged and the bad files or
+## sequences are left out (see _load_dialogue); they never touch load_error.
+func load_data(tuning_path: String = DEFAULT_TUNING_PATH, flags_path: String = DEFAULT_FLAGS_PATH, dialogue_dir: String = DEFAULT_DIALOGUE_DIR) -> void:
 	_tuning_path = tuning_path
 	_flags_path = flags_path
+	_dialogue_dir = dialogue_dir
 	load_error = ""
 
 	var tuning_result: Dictionary = _read_json_dict(tuning_path)
@@ -41,18 +52,25 @@ func load_data(tuning_path: String = DEFAULT_TUNING_PATH, flags_path: String = D
 	var flags_result: Dictionary = _read_json_dict(flags_path)
 	flags = flags_result.data
 
+	var ignored: Array[String] = []
+	_dialogue = _load_dialogue(dialogue_dir, tuning, ignored)
+
 
 ## Re-reads the files most recently passed to load_data() and validates them
 ## against the shape of the data loaded now: every current key path must still
-## exist with the same kind (extra keys are fine). On success commits both,
-## clears load_error and returns true. On any failure logs every problem, leaves
-## tuning, flags and load_error untouched and returns false.
+## exist with the same kind (extra keys are fine). It re-reads the dialogue dir
+## too: a dialogue file that fails to parse (or a missing dir) is a reload
+## problem; validator problems are only logged and the bad sequences left out.
+## On success commits tuning, flags and dialogue, clears load_error and returns
+## true. On any failure logs every problem, leaves tuning, flags, dialogue and
+## load_error untouched and returns false.
 func reload() -> bool:
 	var problems: Array[String] = []
 	var tuning_result: Dictionary = _read_json_dict(_tuning_path)
 	var flags_result: Dictionary = _read_json_dict(_flags_path)
 	var new_tuning: Dictionary = tuning_result.data
 	var new_flags: Dictionary = flags_result.data
+	var new_dialogue: Dictionary = _load_dialogue(_dialogue_dir, new_tuning, problems)
 	if (tuning_result.error as String).is_empty():
 		_check_shape(tuning, new_tuning, "tuning", problems)
 	else:
@@ -66,6 +84,7 @@ func reload() -> bool:
 		return false
 	tuning = new_tuning
 	flags = new_flags
+	_dialogue = new_dialogue
 	load_error = ""
 	_log_summary()
 	return true
@@ -97,6 +116,25 @@ func section(path: String) -> Dictionary:
 		_report_missing("tuning." + path, "a section")
 		return {}
 	return (v as Dictionary).duplicate(true)
+
+
+# --- Dialogue (Story 5.1) -------------------------------------------------------
+
+## A deep copy of sequence `id` ({"mode", "lines"}), or {} for an unknown id.
+## Logs nothing: CommsChannel reports an unknown id.
+func sequence(id: StringName) -> Dictionary:
+	var seq: Variant = _dialogue.get(id)
+	return (seq as Dictionary).duplicate(true) if seq is Dictionary else {}
+
+
+func has_sequence(id: StringName) -> bool:
+	return _dialogue.has(id)
+
+
+## True only for a known sequence whose mode is story.
+func dialogue_is_story(id: StringName) -> bool:
+	var seq: Variant = _dialogue.get(id)
+	return seq is Dictionary and (seq as Dictionary).get("mode") == String(DialogueValidator.MODE_STORY)
 
 
 ## Level data for `id` (res://data/levels/level_<id>.json). See level_at().
@@ -145,6 +183,68 @@ func _enemy_flags() -> Dictionary:
 		return {}
 	var out: Variant = registry.call(&"enemy_flags")
 	return out if out is Dictionary else {}
+
+
+## Reads every *.json in `dir` (sorted by name) and returns the valid sequences
+## (StringName id -> Dictionary). The story line limit comes from `tuning_data`
+## (comms.story_line_max_chars). A missing dir, or a file that is missing, fails
+## to parse or isn't an object, is Log.error'ed, skipped and appended to
+## `read_problems` (reload() rejects on those). Every validator problem is
+## Log.error'ed and a sequence with any problem is left out. A duplicate id
+## across files is Log.error'ed and the first one wins.
+func _load_dialogue(dir: String, tuning_data: Dictionary, read_problems: Array[String]) -> Dictionary:
+	var out: Dictionary = {}
+	if not DirAccess.dir_exists_absolute(dir):
+		var missing: String = "%s dialogue dir not found" % dir
+		Log.error("data", missing)
+		read_problems.append(missing)
+		return out
+	var max_chars: int = _story_max_chars(tuning_data)
+	var files: Array[String] = []
+	for file: String in DirAccess.get_files_at(dir):
+		if file.ends_with(DIALOGUE_EXTENSION):
+			files.append(file)
+	files.sort()
+	## Sequence id -> the file that defined it first.
+	var sources: Dictionary = {}
+	for file: String in files:
+		var path: String = dir.path_join(file)
+		var result: Dictionary = _read_json_dict(path)
+		if not (result.error as String).is_empty():
+			read_problems.append(result.error)
+			continue
+		var data: Dictionary = result.data
+		var sequences: Variant = data.get("sequences")
+		if not (sequences is Dictionary):
+			for problem: String in DialogueValidator.validate(data, path, max_chars):
+				Log.error("data", problem)
+			continue
+		for key: Variant in sequences:
+			var id: StringName = StringName(str(key))
+			var seq: Variant = (sequences as Dictionary)[key]
+			var problems: Array[String] = DialogueValidator.validate_sequence(str(key), seq, path, max_chars)
+			for problem: String in problems:
+				Log.error("data", problem)
+			if not problems.is_empty():
+				continue
+			if out.has(id):
+				Log.error("data", "%s sequences.%s: duplicate sequence id (first in %s); ignored" % [path, id, sources[id]])
+				continue
+			out[id] = seq
+			sources[id] = path
+	return out
+
+
+## comms.story_line_max_chars from `tuning_data`, or -1 (no limit) when it is
+## missing. That is an error only when tuning itself loaded (a failed tuning
+## load is already reported and blocks every level).
+func _story_max_chars(tuning_data: Dictionary) -> int:
+	var v: Variant = _lookup(tuning_data, STORY_MAX_CHARS_KEY)
+	if v is int or v is float:
+		return int(v)
+	if not tuning_data.is_empty():
+		Log.error("data", "tuning.%s missing or not a number; story line length not checked" % STORY_MAX_CHARS_KEY)
+	return -1
 
 
 func _lookup(root: Dictionary, path: String) -> Variant:
@@ -212,3 +312,4 @@ func _log_summary() -> void:
 		Log.info("data", "Loaded %s (%d sections) and %s (%d flags)" % [_tuning_path, tuning.size(), _flags_path, flags.size()])
 	else:
 		Log.info("data", "Data loaded with errors: %s" % load_error)
+	Log.info("data", "Loaded %d dialogue sequences from %s" % [_dialogue.size(), _dialogue_dir])

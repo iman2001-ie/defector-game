@@ -492,3 +492,141 @@ func test_level_at_passes_flags_and_column_bound() -> void:
 	assert_eq(errors.size(), 2, "only the column and unknown-flag problems: %s" % [errors])
 	assert_push_error("%s waves[0].spawns[0].formation" % TEMP_LEVEL)
 	assert_push_error("%s waves[0].triggers[1].flag" % TEMP_LEVEL)
+
+
+# --- Dialogue data (Story 5.1) ------------------------------------------------
+
+const BAD_DIALOGUE_DIR: String = "res://tests/fixtures/dialogue/bad/"
+const MISSING_DIALOGUE_DIR: String = "res://tests/fixtures/dialogue/does_not_exist/"
+const TEMP_DIALOGUE_DIR: String = "user://test_config_dialogue/"
+
+
+func _clear_temp_dialogue() -> void:
+	if not DirAccess.dir_exists_absolute(TEMP_DIALOGUE_DIR):
+		return
+	for file: String in DirAccess.get_files_at(TEMP_DIALOGUE_DIR):
+		DirAccess.remove_absolute(TEMP_DIALOGUE_DIR + file)
+	DirAccess.remove_absolute(TEMP_DIALOGUE_DIR)
+
+
+func _write_dialogue(file: String, text: String) -> void:
+	DirAccess.make_dir_recursive_absolute(TEMP_DIALOGUE_DIR)
+	_write(TEMP_DIALOGUE_DIR + file, text)
+
+
+func _story(id: String, text: String) -> String:
+	return JSON.stringify({"sequences": {id: {"mode": "story", "lines": [{"speaker": "tarek", "text": text}]}}})
+
+
+func test_dev_comms_check_is_a_story_sequence() -> void:
+	assert_true(Config.has_sequence(&"dev_comms_check"))
+	assert_true(Config.dialogue_is_story(&"dev_comms_check"))
+	var seq: Dictionary = Config.sequence(&"dev_comms_check")
+	assert_eq(seq.get("mode"), "story")
+	assert_between((seq.get("lines", []) as Array).size(), 3, 4, "3-4 placeholder lines")
+
+
+func test_sequence_returns_a_deep_copy() -> void:
+	var seq: Dictionary = Config.sequence(&"dev_comms_check")
+	((seq.lines as Array)[0] as Dictionary)["text"] = "changed"
+	(seq.lines as Array).clear()
+	var again: Dictionary = Config.sequence(&"dev_comms_check")
+	assert_gt((again.lines as Array).size(), 0, "lines untouched")
+	assert_ne(((again.lines as Array)[0] as Dictionary).get("text"), "changed", "line untouched")
+
+
+func test_unknown_sequence_is_empty_without_logging() -> void:
+	Log.sink = _capture
+	assert_eq(Config.sequence(&"nope"), {})
+	assert_false(Config.has_sequence(&"nope"))
+	assert_false(Config.dialogue_is_story(&"nope"))
+	assert_eq(_captured.size(), 0, "nothing logged")
+	assert_push_error_count(0)
+
+
+func test_bad_dialogue_files_are_logged_and_skipped() -> void:
+	Config.load_data(Config.DEFAULT_TUNING_PATH, Config.DEFAULT_FLAGS_PATH, BAD_DIALOGUE_DIR)
+	var a: String = BAD_DIALOGUE_DIR + "a_bad.json"
+	for fragment: String in [
+		"%s sequences.unknown_speaker.lines[0].speaker" % a,
+		"%s sequences.bad_mode.mode" % a,
+		"%s sequences.empty_lines.lines" % a,
+		"%s sequences.empty_text.lines[0].text" % a,
+		"%s sequences.too_long.lines[0].text: story line has 201 characters" % a,
+		"%s sequences.non_object_line.lines[0]" % a,
+		"%s sequences.not_an_object" % a,
+		"%sb_dup.json sequences.good_one: duplicate sequence id" % BAD_DIALOGUE_DIR,
+		"%sc_parse.json parse error" % BAD_DIALOGUE_DIR,
+		"%sd_no_sequences.json sequences: missing or not an object" % BAD_DIALOGUE_DIR,
+		"%s sequences.\" \": sequence id is empty" % a,
+	]:
+		assert_push_error(fragment)
+	assert_push_error_count(11)
+	assert_false(Config.has_sequence(&""), "no empty id")
+	assert_false(Config.has_sequence(&" "), "no blank id")
+	for id: StringName in [&"unknown_speaker", &"bad_mode", &"empty_lines", &"empty_text", &"too_long", &"non_object_line", &"not_an_object"]:
+		assert_false(Config.has_sequence(id), "%s left out" % id)
+	assert_true(Config.dialogue_is_story(&"good_one"), "the good sequence loads")
+	assert_eq(((Config.sequence(&"good_one").lines as Array)[0] as Dictionary).get("text"), "First definition wins.", "first duplicate wins")
+	assert_true(Config.has_sequence(&"good_two"), "the other file's sequence loads")
+	assert_false(Config.dialogue_is_story(&"good_two"), "combat is not story")
+	assert_eq(Config.load_error, "", "dialogue never sets load_error")
+
+
+func test_missing_dialogue_dir_leaves_dialogue_empty() -> void:
+	Config.load_data(Config.DEFAULT_TUNING_PATH, Config.DEFAULT_FLAGS_PATH, MISSING_DIALOGUE_DIR)
+	assert_false(Config.has_sequence(&"dev_comms_check"))
+	assert_eq(Config.load_error, "")
+	assert_push_error("dialogue dir not found")
+
+
+func test_load_logs_the_dialogue_summary() -> void:
+	Log.sink = _capture
+	Config._ready()
+	var found: bool = false
+	for entry: Array in _captured:
+		if entry[0] == "INFO" and entry[1] == "data" and (entry[2] as String).begins_with("Loaded ") and (entry[2] as String).contains("dialogue sequences from %s" % Config.DEFAULT_DIALOGUE_DIR):
+			found = true
+	assert_true(found, "boot logs the dialogue summary")
+
+
+func test_reload_rereads_dialogue() -> void:
+	_clear_temp_dialogue()
+	_write_dialogue("a.json", _story("first", "One."))
+	Config.load_data(Config.DEFAULT_TUNING_PATH, Config.DEFAULT_FLAGS_PATH, TEMP_DIALOGUE_DIR)
+	assert_true(Config.has_sequence(&"first"))
+	_write_dialogue("a.json", _story("second", "Two."))
+	assert_true(Config.reload(), "reload accepted")
+	assert_false(Config.has_sequence(&"first"), "old sequence gone")
+	assert_true(Config.dialogue_is_story(&"second"), "new sequence served")
+	_clear_temp_dialogue()
+
+
+func test_reload_rejects_a_dialogue_parse_error() -> void:
+	_clear_temp_dialogue()
+	_write_dialogue("a.json", _story("first", "One."))
+	Config.load_data(Config.DEFAULT_TUNING_PATH, Config.DEFAULT_FLAGS_PATH, TEMP_DIALOGUE_DIR)
+	_write_dialogue("a.json", _story("second", "Two."))
+	_write_dialogue("b.json", "{ not json")
+	assert_false(Config.reload(), "reload refused")
+	assert_true(Config.has_sequence(&"first"), "previous dialogue kept")
+	assert_false(Config.has_sequence(&"second"))
+	_assert_rejection_names(["b.json parse error"])
+	assert_push_error("parse error")
+	_clear_temp_dialogue()
+
+
+func test_reload_only_logs_validator_problems() -> void:
+	_clear_temp_dialogue()
+	_write_dialogue("a.json", _story("first", "One."))
+	Config.load_data(Config.DEFAULT_TUNING_PATH, Config.DEFAULT_FLAGS_PATH, TEMP_DIALOGUE_DIR)
+	_write_dialogue("a.json", JSON.stringify({"sequences": {
+		"first": {"mode": "story", "lines": [{"speaker": "tarek", "text": "One."}]},
+		"broken": {"mode": "story", "lines": [{"speaker": "bob", "text": "Who?"}]},
+	}}))
+	assert_true(Config.reload(), "validator problems don't reject the reload")
+	assert_true(Config.has_sequence(&"first"))
+	assert_false(Config.has_sequence(&"broken"), "bad sequence left out")
+	assert_push_error("sequences.broken.lines[0].speaker")
+	assert_push_error_count(1)
+	_clear_temp_dialogue()

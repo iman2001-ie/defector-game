@@ -370,3 +370,23 @@ func test_quit_goes_to_the_title() -> void:
 	assert_eq(_calls.size(), 1, "later presses and Esc ignored")
 	assert_false(GameState.is_retry)
 	assert_false(PauseArbiter.is_paused())
+
+
+# --- One dim (Story 5.1) -------------------------------------------------------------
+
+func test_dim_shown_without_a_story() -> void:
+	var menu: PauseMenu = _make()
+	_esc(menu)
+	assert_true((menu.get_node("Dim") as Control).visible, "own dim over gameplay")
+
+
+func test_dim_hidden_over_a_story_pause() -> void:
+	var menu: PauseMenu = _make()
+	PauseArbiter.push(&"story")
+	_esc(menu)
+	assert_true(menu.is_shown())
+	assert_false((menu.get_node("Dim") as Control).visible, "the comms dim is already up: one dim")
+	_esc(menu)
+	PauseArbiter.pop(&"story")
+	_esc(menu)
+	assert_true((menu.get_node("Dim") as Control).visible, "dim back once the story is over")

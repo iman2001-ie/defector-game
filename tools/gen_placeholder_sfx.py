@@ -23,6 +23,7 @@ PLAYER_DEATH_SEED = 3201
 ENERGY_PICKUP_SEED = 3301
 ABILITY_DENIED_SEED = 3401
 BARRAGE_WHOOSH_SEED = 3501
+COMMS_OPEN_SEED = 5101
 OUT_DIR = Path(__file__).resolve().parent.parent / "game" / "assets" / "audio" / "sfx"
 
 
@@ -175,6 +176,33 @@ def barrage_whoosh(rng: random.Random) -> list[float]:
     return out
 
 
+def comms_open(rng: random.Random) -> list[float]:
+    """Short 0.25 s radio-open blip: two quick rising sine chirps plus a little band-limited static."""
+    n = int(0.25 * RATE)
+    chirp_n = int(0.07 * RATE)
+    # The chirps start at 0 s and 0.09 s; the second is a fourth higher.
+    chirps = ((0, 900.0, 1500.0), (int(0.09 * RATE), 1200.0, 2000.0))
+    out: list[float] = []
+    phases = [0.0, 0.0]
+    lp = 0.0
+    bp = 0.0
+    for i in range(n):
+        t = i / n
+        tone = 0.0
+        for c, (start, f0, f1) in enumerate(chirps):
+            k = i - start
+            if 0 <= k < chirp_n:
+                u = k / chirp_n
+                phases[c] += 2.0 * math.pi * (f0 * (f1 / f0) ** u) / RATE
+                tone += math.sin(phases[c]) * _envelope(k, chirp_n, 0.003, 1.4)
+        # Static: noise band-passed around ~2.5 kHz, fading out over the blip.
+        lp += 0.35 * (rng.uniform(-1.0, 1.0) - lp)
+        bp += 0.35 * (lp - bp)
+        static = (lp - bp) * (1.0 - t) ** 1.5
+        out.append(0.75 * tone + 0.5 * static)
+    return out
+
+
 def _normalise(samples: list[float], peak: float = 0.9) -> list[float]:
     top = max(abs(s) for s in samples) or 1.0
     return [s * peak / top for s in samples]
@@ -208,6 +236,7 @@ def main() -> None:
     sounds["energy_pickup"] = energy_pickup(random.Random(ENERGY_PICKUP_SEED))
     sounds["ability_denied"] = ability_denied(random.Random(ABILITY_DENIED_SEED))
     sounds["barrage_whoosh"] = barrage_whoosh(random.Random(BARRAGE_WHOOSH_SEED))
+    sounds["comms_open"] = comms_open(random.Random(COMMS_OPEN_SEED))
     for name, samples in sounds.items():
         path = _write(name, samples)
         print(f"wrote {path.name} ({len(samples) / RATE:.2f} s)")

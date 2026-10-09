@@ -810,3 +810,131 @@ func test_ready_wires_the_real_change_scene() -> void:
 	assert_true(wired.is_valid(), "change_scene wired")
 	assert_eq(wired.get_method(), &"change_scene_to_file", "the tree's change_scene_to_file")
 	assert_eq(wired.get_object(), get_tree(), "bound to the scene tree")
+
+
+# --- Comms (Story 5.1) ---------------------------------------------------------
+
+func test_comms_channel_and_panel_in_the_comms_layer() -> void:
+	_make_level()
+	var channel: CommsChannel = _level.get_node_or_null("Comms/CommsChannel") as CommsChannel
+	assert_not_null(channel, "Comms/CommsChannel is a CommsChannel")
+	if channel == null:
+		return
+	var panel: CommsPanel = _level.get_node_or_null("Comms/CommsPanel") as CommsPanel
+	assert_not_null(panel, "Comms/CommsPanel is a CommsPanel")
+	assert_true(is_instance_valid(channel.panel), "the channel's panel is wired")
+	assert_eq(channel.panel, panel, "wired to Comms/CommsPanel")
+	assert_eq(channel.process_mode, Node.PROCESS_MODE_ALWAYS)
+	if panel != null:
+		assert_eq(panel.process_mode, Node.PROCESS_MODE_ALWAYS)
+		assert_false(panel.visible, "hidden at start")
+	assert_false(channel.is_showing())
+
+
+func test_debug_comms_id_only_in_debug_builds() -> void:
+	var args: Dictionary = DebugArgs.parse(PackedStringArray(["--comms=dev_comms_check"]))
+	var none: Dictionary = DebugArgs.parse(PackedStringArray())
+	assert_eq(LEVEL_SCRIPT.debug_comms_id(true, args), &"dev_comms_check", "debug build")
+	assert_eq(LEVEL_SCRIPT.debug_comms_id(false, args), &"", "release build ignores it")
+	assert_eq(LEVEL_SCRIPT.debug_comms_id(true, none), &"", "no arg")
+
+
+func test_comms_arg_requests_the_sequence_after_the_start() -> void:
+	var requested: Array[StringName] = []
+	var record: Callable = func(id: StringName) -> void: requested.append(id)
+	Events.comms_sequence_requested.connect(record)
+	_level_with_args(PackedStringArray(["--comms=dev_comms_check"]))
+	assert_eq(_started, [0] as Array[int], "the level started")
+	assert_eq(requested, [] as Array[StringName], "requested deferred")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	Events.comms_sequence_requested.disconnect(record)
+	assert_eq(requested, [&"dev_comms_check"] as Array[StringName], "requested once")
+	var channel: CommsChannel = _level.get_node("Comms/CommsChannel") as CommsChannel
+	assert_eq(channel.current_sequence(), &"dev_comms_check", "the panel shows it")
+	assert_true(get_tree().paused, "story pause")
+
+
+func _laser_bolts() -> int:
+	var n: int = 0
+	for child: Node in _level.get_node("World/Projectiles").get_children():
+		if child is LaserBolt:
+			n += 1
+	return n
+
+
+## One LMB press or release through the real input path: Input parses it
+## (so `fire_laser` / `comms_advance` are held or not, as for a real click)
+## and dispatches it to the viewport. `at` is in viewport coordinates.
+func _real_click(pressed: bool, at: Vector2) -> void:
+	var event: InputEventMouseButton = InputEventMouseButton.new()
+	event.button_index = MOUSE_BUTTON_LEFT
+	event.pressed = pressed
+	event.button_mask = MOUSE_BUTTON_MASK_LEFT if pressed else 0
+	_parse_at(event, at)
+
+
+## Parses a mouse event placed at viewport position `at` (window coordinates
+## through the viewport's screen transform) and flushes it.
+func _parse_at(event: InputEventMouse, at: Vector2) -> void:
+	var window_at: Vector2 = get_viewport().get_screen_transform() * at
+	event.position = window_at
+	event.global_position = window_at
+	Input.parse_input_event(event)
+	Input.flush_buffered_events()
+
+
+## Story 5.1 acceptance: the story panel opens over the running level (paused,
+## dimmed, HUD frozen, comms-open SFX, name and typing text, no buttons), and
+## clicking through every line never fires a laser bolt: the channel consumes
+## press and release and lifts the pause on the release.
+func test_clicking_through_a_story_never_fires_the_laser() -> void:
+	_make_level()
+	_make_player_invincible()
+	var player: Player = _level.get_node("World/Player") as Player
+	player.warp_mouse = func(_at: Vector2) -> void: pass
+	var ship_at: Vector2 = player.global_position
+	var mouse_before: Vector2 = get_viewport().get_mouse_position()
+	var channel: CommsChannel = _level.get_node("Comms/CommsChannel") as CommsChannel
+	var panel: CommsPanel = _level.get_node("Comms/CommsPanel") as CommsPanel
+	assert_false(Input.is_action_pressed(&"fire_laser"), "no fire held before")
+	await get_tree().physics_frame
+	assert_eq(_laser_bolts(), 0, "no bolt before")
+	# Another sfx first, so the comms_open check below can only pass if the channel played it.
+	Audio.play_sfx(&"laser_zap")
+	Events.comms_sequence_requested.emit(&"dev_comms_check")
+	assert_true(get_tree().paused, "paused")
+	assert_true(PauseArbiter.has_reason(&"story"))
+	assert_true(panel.visible, "panel and dim shown")
+	assert_eq(Audio.newest_player().stream, Audio.SFX[&"comms_open"], "comms-open SFX")
+	assert_eq((panel.get_node("Panel/Name") as Label).text, "TAREK")
+	assert_true(panel.is_typing(), "text typing")
+	assert_eq(panel.find_children("*", "BaseButton", true, false).size(), 0, "no buttons")
+	for hud_node: String in ["WaveBar", "HeartsDisplay", "EnergyBar"]:
+		assert_true(_level.get_node("HUD/" + hud_node).is_visible_in_tree(), "%s visible" % hud_node)
+		assert_false(_level.get_node("HUD/" + hud_node).can_process(), "%s frozen" % hud_node)
+	var clicks: int = 0
+	while channel.is_showing() and clicks < 20:
+		_real_click(true, ship_at)
+		assert_true(Input.is_action_pressed(&"fire_laser"), "LMB held after the press")
+		await get_tree().physics_frame
+		await get_tree().physics_frame
+		_real_click(false, ship_at)
+		assert_false(Input.is_action_pressed(&"fire_laser"), "LMB up after the release")
+		await get_tree().physics_frame
+		await get_tree().physics_frame
+		assert_eq(_laser_bolts(), 0, "no bolt after click %d" % (clicks + 1))
+		clicks += 1
+	assert_false(channel.is_showing(), "clicked through to the end")
+	assert_between(clicks, 4, 8, "4 lines: complete (if still typing) + advance each")
+	assert_false(get_tree().paused, "unpaused")
+	for i: int in 5:
+		await get_tree().physics_frame
+	assert_eq(_laser_bolts(), 0, "no laser bolt from any click")
+	var weapons: PlayerWeapons = player.get_node("Weapons") as PlayerWeapons
+	assert_eq(weapons._fire_cooldown, 0.0, "fire state idle")
+	Input.action_release(&"fire_laser")
+	Input.action_release(&"comms_advance")
+	# Other suites read the viewport mouse: put it back.
+	_parse_at(InputEventMouseMotion.new(), mouse_before)
+	assert_almost_eq(get_viewport().get_mouse_position(), mouse_before, Vector2.ONE, "mouse restored")

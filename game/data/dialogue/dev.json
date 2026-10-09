@@ -1,0 +1,13 @@
+{
+	"sequences": {
+		"dev_comms_check": {
+			"mode": "story",
+			"lines": [
+				{ "speaker": "tarek", "text": "Comms check, General. Tarek here, reading you loud and clear." },
+				{ "speaker": "isolde", "text": "Placeholder briefing, General. This line is long on purpose so a human can check the wrap: it should fill about four lines of the 812 px text block at 30 px and never spill out of the panel edge." },
+				{ "speaker": "vale", "text": "No portrait on this one. The text spans the full width." },
+				{ "speaker": "isolde", "text": "Placeholder line. Click to close the channel." }
+			]
+		}
+	}
+}
