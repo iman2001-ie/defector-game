@@ -110,7 +110,7 @@ func test_theme_items() -> void:
 	for speaker: StringName in ACCENTS:
 		_assert_color(theme.get_color(speaker, &"CommsPanel"), Color(ACCENTS[speaker] as String), "%s accent" % speaker)
 	assert_eq(theme.get_font_size(&"text", &"CommsPanel"), 30)
-	assert_eq(theme.get_font_size(&"name", &"CommsPanel"), 28)
+	assert_eq(theme.get_font_size(&"name", &"CommsPanel"), 30)
 	assert_eq(theme.get_font_size(&"cue", &"CommsPanel"), 20)
 	var box: StyleBoxFlat = theme.get_stylebox(&"panel", &"CommsPanel") as StyleBoxFlat
 	assert_not_null(box, "panel StyleBoxFlat")
@@ -125,7 +125,10 @@ func test_theme_applied_to_children() -> void:
 	var panel: CommsPanel = _make()
 	_assert_color((panel.get_node("Dim") as ColorRect).color, Color(0, 0, 0, 0.6), "dim colour")
 	assert_eq(_label(panel, "Panel/Text").get_theme_font_size(&"font_size"), 30)
-	assert_eq(_label(panel, "Panel/Name").get_theme_font_size(&"font_size"), 28)
+	assert_eq(_label(panel, "Panel/Name").get_theme_font_size(&"font_size"), 30)
+	# UX decision #22: the 30 px name still ends above the text block (36 px row + 8 px gap).
+	_label(panel, "Panel/Name").text = "ISOLDE"
+	assert_lte(_label(panel, "Panel/Name").get_minimum_size().y, 44.0, "name fits above the text")
 	assert_eq(_label(panel, "Panel/Cue").get_theme_font_size(&"font_size"), 20)
 	_assert_color(_label(panel, "Panel/Text").get_theme_color(&"font_color"), Color("#E8F4FF"), "text colour")
 	_assert_color(_label(panel, "Panel/Cue").get_theme_color(&"font_color"), Color("#93A7C2"), "cue in muted")

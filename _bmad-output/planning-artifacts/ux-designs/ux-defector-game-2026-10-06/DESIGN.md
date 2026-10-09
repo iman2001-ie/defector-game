@@ -31,7 +31,7 @@ colors:
   dim: 'rgba(0,0,0,0.6)'
 typography:
   font: 'Kenney Future (CC0, from the Kenney packs); Kenney Future Narrow for long comms text if needed'
-  scale: 'at 1080p: hud-label 20px, body 28px, comms 30px (story panel) / 24px (interruption box), name 28px, heading 48px, title 120px'
+  scale: 'at 1080p: hud-label 20px, body 28px, comms 30px (story panel) / 24px (interruption box), name 30px (story panel) / 28px (interruption box), heading 48px, title 120px'
   weights: 'single weight (the font has one); hierarchy via size, colour and glow'
   case: 'UPPERCASE for labels, buttons and names; sentence case for dialogue'
 rounded: '4px panels, 2px bars; buttons 4px'
@@ -79,7 +79,7 @@ Contrast was checked against the panel colour composited on the background (`#09
 ## Typography
 
 - **Font:** Kenney Future (CC0, ships with the Kenney packs). Credit it in `CREDITS.md`.
-- **Sizes at 1080p:** HUD labels 20px · body/hints 28px · comms text 30px (interruption box 24px) · speaker name 28px · menu headings 48px · title logo 120px. Nothing below 20px. [ASSUMPTION: sizes; tune once the font is in-engine]
+- **Sizes at 1080p:** HUD labels 20px · body/hints 28px · comms text 30px (interruption box 24px) · speaker name 30px (interruption box 28px) · menu headings 48px · title logo 120px. Nothing below 20px. [ASSUMPTION: sizes; tune once the font is in-engine]
 - Labels, buttons and speaker names are UPPERCASE. Dialogue uses sentence case.
 
 ## Layout & Spacing
