@@ -101,3 +101,38 @@ func test_empty_comms_warns_and_is_ignored() -> void:
 	var parsed: Dictionary = DebugArgs.parse(PackedStringArray(["--comms="]))
 	assert_eq(parsed.comms, &"")
 	assert_push_warning("--comms")
+
+
+# --- Level id (Story 5.6) -------------------------------------------------------
+
+func test_level_defaults_to_empty() -> void:
+	var parsed: Dictionary = DebugArgs.parse(PackedStringArray())
+	assert_eq(parsed.level, "")
+	assert_eq(typeof(parsed.level), TYPE_STRING)
+
+
+func test_level_id() -> void:
+	var parsed: Dictionary = DebugArgs.parse(PackedStringArray(["--level=dev_isolde"]))
+	assert_eq(parsed.level, "dev_isolde")
+	assert_eq(typeof(parsed.level), TYPE_STRING)
+	assert_false(parsed.stress, "does not imply stress")
+	assert_true(parsed.prewarm)
+	assert_eq(parsed.comms, &"", "does not set comms")
+
+
+func test_level_combines_with_other_args() -> void:
+	var parsed: Dictionary = DebugArgs.parse(PackedStringArray(["--comms=abc", "--level=dev", "--no-prewarm"]))
+	assert_eq(parsed.level, "dev")
+	assert_eq(parsed.comms, &"abc")
+	assert_false(parsed.prewarm)
+
+
+func test_empty_level_warns_and_is_ignored() -> void:
+	var parsed: Dictionary = DebugArgs.parse(PackedStringArray(["--level="]))
+	assert_eq(parsed.level, "")
+	assert_push_warning("--level")
+
+
+func test_parse_returns_every_key() -> void:
+	var parsed: Dictionary = DebugArgs.parse(PackedStringArray())
+	assert_eq(parsed, {"stress": false, "bench_s": 0.0, "prewarm": true, "comms": &"", "level": ""})

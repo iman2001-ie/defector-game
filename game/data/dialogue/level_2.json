@@ -1,0 +1,10 @@
+{
+	"sequences": {
+		"l2_w3_isolde_interrupt": {
+			"mode": "combat",
+			"lines": [
+				{ "speaker": "isolde", "text": "Your new friends die so easily, General." }
+			]
+		}
+	}
+}

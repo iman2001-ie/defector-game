@@ -774,3 +774,72 @@ func test_combat_comms_tuning_is_positive() -> void:
 		assert_gte(Config.num("ui.comms_box.%s" % key), 0.0, "ui.comms_box.%s" % key)
 	for key: String in ["w", "h", "edge_px", "padding_px", "portrait_px", "portrait_gap_px", "name_h_px", "text_line_h_px", "text_lines"]:
 		assert_gt(Config.num("ui.comms_box.%s" % key), 0.0, "ui.comms_box.%s" % key)
+
+
+# --- Isolde beats (Story 5.6) -----------------------------------------------------
+
+## Each Isolde beat: its file, its mode, exactly one Isolde line; combat lines
+## are at most 50 characters; the surrender text is exact and has no choice.
+func test_isolde_beats_live_in_their_level_files() -> void:
+	var beats: Array[Array] = [
+		["level_1.json", "l1_w3_isolde_interrupt", "combat"],
+		["level_1.json", "l1_w5_surrender", "story"],
+		["level_2.json", "l2_w3_isolde_interrupt", "combat"],
+		["level_3.json", "l3_w3_isolde_taunt", "combat"],
+	]
+	var limit: int = Config.int_("comms.combat_line_max_chars")
+	for beat: Array in beats:
+		var path: String = DIALOGUE_DIR + str(beat[0])
+		var id: String = str(beat[1])
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+		assert_true(parsed is Dictionary, "%s parses to an object" % path)
+		if not (parsed is Dictionary):
+			continue
+		var sequences: Variant = (parsed as Dictionary).get("sequences")
+		assert_true(sequences is Dictionary and (sequences as Dictionary).has(id), "%s lives in %s" % [id, path])
+		if not (sequences is Dictionary and (sequences as Dictionary).has(id)):
+			continue
+		var seq: Dictionary = (sequences as Dictionary)[id] as Dictionary
+		assert_eq(seq.get("mode"), beat[2], "%s mode" % id)
+		assert_eq(Config.dialogue_is_story(StringName(id)), beat[2] == "story", "%s loads with its mode" % id)
+		var lines: Array = seq.get("lines", []) as Array
+		assert_eq(lines.size(), 1, "%s has exactly 1 line" % id)
+		if lines.is_empty():
+			continue
+		var line: Dictionary = lines[0] as Dictionary
+		assert_eq(str(line.get("speaker")), "isolde", "%s speaker" % id)
+		if beat[2] == "combat":
+			assert_lte(str(line.get("text", "")).length(), limit, "%s within the combat limit" % id)
+	var surrender: Dictionary = Config.sequence(&"l1_w5_surrender")
+	assert_eq(str(((surrender.get("lines", []) as Array)[0] as Dictionary).get("text")), "You're outnumbered, General. Come home.", "the exact surrender text")
+	assert_false(surrender.has("choice"), "no choice on the sequence")
+	assert_false(((surrender.get("lines", []) as Array)[0] as Dictionary).has("choice"), "no choice on the line")
+
+
+## The dev level that exercises both patterns: the level_dev key set, wave 1's
+## gated interruption, wave 2's reinforcements group and the paired triggers.
+func test_dev_isolde_level_shape() -> void:
+	var data: Dictionary = Config.level("dev_isolde")
+	assert_false(data.is_empty(), "level_dev_isolde.json loads")
+	var dev: Dictionary = Config.level("dev")
+	assert_eq(data.keys().size(), dev.keys().size(), "same root keys as level_dev.json")
+	for key: Variant in dev.keys():
+		assert_true(data.has(key), "has root key %s" % key)
+	assert_eq(data.get("id"), 0.0, "id 0")
+	assert_eq(data.get("name"), "Development: Isolde beats")
+	assert_null(data.get("intro_sequence"), "no intro")
+	assert_null(data.get("outro_sequence"), "no outro")
+	var waves: Array = data.get("waves", []) as Array
+	assert_eq(waves.size(), 2, "2 waves")
+	if waves.size() != 2:
+		return
+	var w1: Dictionary = waves[0] as Dictionary
+	assert_eq(w1.get("spawns"), [{"type": "wasp", "count": 8.0, "formation": "grid_4x2", "entry": "top"}], "wave 1 spawns")
+	assert_eq(w1.get("triggers"), [{"when": "progress", "at": 0.25, "flag": "isolde_interruptions", "actions": [{"comms": "l1_w3_isolde_interrupt"}]}], "wave 1 interruption")
+	var w2: Dictionary = waves[1] as Dictionary
+	assert_eq(w2.get("spawns"), [{"type": "wasp", "count": 10.0, "formation": "grid_5x2", "entry": "top"}], "wave 2 spawns")
+	assert_eq(w2.get("groups"), {"reinforcements": [{"type": "wasp", "count": 4.0, "formation": "grid_4x1", "entry": "top"}]}, "wave 2 reinforcements")
+	assert_eq(w2.get("triggers"), [
+		{"when": "progress", "at": 0.30, "flag": "surrender_prompts", "actions": [{"comms": "l1_w5_surrender"}, {"spawn_group": "reinforcements"}]},
+		{"when": "progress", "at": 0.30, "flag": "!surrender_prompts", "actions": [{"spawn_group": "reinforcements"}]},
+	], "wave 2 paired surrender triggers")

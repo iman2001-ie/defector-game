@@ -1,0 +1,10 @@
+{
+	"sequences": {
+		"l3_w3_isolde_taunt": {
+			"mode": "combat",
+			"lines": [
+				{ "speaker": "isolde", "text": "No admiral to hide behind now, Arden." }
+			]
+		}
+	}
+}

@@ -19,7 +19,13 @@ extends Node2D
 ## from user_args and the redirect goes through change_scene (DW-46 seams).
 ## `-- --comms=<id>` (debug builds, Story 5.1) requests that comms sequence
 ## (deferred) once the level has started, so the comms panel can be checked
-## before the wave triggers exist.
+## before the wave triggers exist. `-- --level=<id>` (debug builds, Story 5.6)
+## replaces the exported level_id before resolve_level_id, so a human can play
+## a level the title doesn't reach (e.g. dev_isolde); a non-empty GameState id
+## (a retry or any SceneRouter entry) still wins. It only takes effect when
+## level.tscn is the launched scene (boot.tscn is the main scene and routes in
+## through SceneRouter, which sets the GameState id):
+##   "<GODOT_DIR>/Godot_v4.7.2-stable_win64.exe" --path game res://scenes/level/level.tscn -- --level=dev_isolde
 
 const SANDBOX_SCENE_PATH: String = "res://scenes/sandbox/sandbox.tscn"
 
@@ -27,7 +33,8 @@ const SANDBOX_SCENE_PATH: String = "res://scenes/sandbox/sandbox.tscn"
 ## GameState.current_level_id is empty; replaced by the resolved id in _ready.
 @export var level_id: String = "dev"
 
-## The user args _ready parses (`--stress`, `--bench=<s>`, `--no-prewarm`).
+## The user args _ready parses (`--stress`, `--bench=<s>`, `--no-prewarm`,
+## `--comms=<id>`, `--level=<id>`).
 ## Tests override this before add_child.
 var user_args: PackedStringArray = OS.get_cmdline_user_args()
 ## Changes the scene to a file path (the debug `--stress` redirect, deferred).
@@ -52,6 +59,13 @@ func _ready() -> void:
 	# Progression (Story 4.2): a cleared level goes through the router, which
 	# saves and moves on for campaign levels only (the dev level is a no-op).
 	Events.level_cleared.connect(_on_events_level_cleared)
+	var arg_level: String = debug_level_id(OS.is_debug_build(), args)
+	if not arg_level.is_empty():
+		if GameState.current_level_id.is_empty():
+			Log.info("debug", "--level: running level '%s'" % arg_level)
+		else:
+			Log.info("debug", "--level '%s' ignored: GameState level '%s' wins" % [arg_level, GameState.current_level_id])
+		level_id = arg_level
 	level_id = resolve_level_id(level_id, GameState.current_level_id)
 	GameState.current_level_id = level_id
 	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_CONFINED_HIDDEN)
@@ -104,6 +118,15 @@ static func debug_comms_id(debug_build: bool, args: Dictionary) -> StringName:
 		return &""
 	var id: Variant = args.get("comms", &"")
 	return StringName(id) if (id is StringName or id is String) else &""
+
+
+## The --level=<id> level file key that replaces the exported level_id: debug
+## builds only ("" in release builds or without the arg).
+static func debug_level_id(debug_build: bool, args: Dictionary) -> String:
+	if not debug_build:
+		return ""
+	var id: Variant = args.get("level", "")
+	return String(id) if (id is String or id is StringName) else ""
 
 
 ## Pre-warm unless a debug build was given `--no-prewarm` (release builds always pre-warm).

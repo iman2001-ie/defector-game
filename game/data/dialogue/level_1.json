@@ -1,0 +1,16 @@
+{
+	"sequences": {
+		"l1_w3_isolde_interrupt": {
+			"mode": "combat",
+			"lines": [
+				{ "speaker": "isolde", "text": "Running with rebels now, Arden? How very sad." }
+			]
+		},
+		"l1_w5_surrender": {
+			"mode": "story",
+			"lines": [
+				{ "speaker": "isolde", "text": "You're outnumbered, General. Come home." }
+			]
+		}
+	}
+}
