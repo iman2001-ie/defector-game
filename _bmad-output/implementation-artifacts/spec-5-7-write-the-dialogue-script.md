@@ -2,7 +2,7 @@
 title: 'Story 5.7: Write the Dialogue Script'
 type: 'feature'
 created: '2026-10-08'
-status: 'awaiting-operator'
+status: done
 operator_actions:
   - 'Read game/data/dialogue/opening.json, level_1.json, level_2.json and level_3.json top to bottom and confirm the tone is personal, not comedic, and that each line sounds like its speaker (Isolde condescending, Tarek warm, Ryn steady).'
   - 'Confirm no line refers to Vale with a gendered pronoun or term, and that others address Vale as "General" (or "Arden").'
@@ -245,3 +245,13 @@ Status: awaiting-operator
 **Residual risks:**
 - Only a human can judge the tone, the voice, and gender neutrality through pronouns (see `operator_actions`).
 - None of the new beats is reachable in a campaign level until Epic 7 places them. Once it does, `l1_w3_tarek_warning` and the Isolde interrupt fill Level 1's cap of 2 interruptions.
+
+## Operator Confirmation
+
+Confirmed 2026-10-09: the external actions this story owed were carried out.
+
+- Read game/data/dialogue/opening.json, level_1.json, level_2.json and level_3.json top to bottom and confirm the tone is personal, not comedic, and that each line sounds like its speaker (Isolde condescending, Tarek warm, Ryn steady).
+- Confirm no line refers to Vale with a gendered pronoun or term, and that others address Vale as "General" (or "Arden").
+- Confirm the Final Choice mirror lands: Vale offers Isolde surrender in her own Level 1 words, and her refusal throws "Come home" back with contempt.
+
+_Appended by the bmad-loop orchestrator (`bmad-loop confirm`, #335): a human confirmed these external actions out of band, and the story was advanced from `awaiting-operator` to `done`._
