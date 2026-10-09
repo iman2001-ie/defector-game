@@ -27,6 +27,18 @@ extends Node
 ## share a row with the next entry). The Needle takes a row: it anchors on and
 ## roams it.
 ##
+## Actions (Story 5.3) run in order inside each trigger's chain: spawn_group,
+## wait (a pausable one-shot Timer child), comms (requests the sequence; a story
+## sequence holds the chain until its comms_sequence_finished arrives, even
+## synchronously during the request; combat and unknown ids don't wait),
+## story_event (Events.story_event_requested) and music (Audio.apply_music_action).
+## The level's intro_sequence plays before wave 1 (skipped on a retry) and its
+## outro_sequence before level_cleared (also on a retry), each the same way as
+## a comms action. Every await in a chain, the intro or the outro is on this
+## node's own signal or a child Timer, so a freed director (death reload)
+## never resumes one. After every await a chain of an older wave (F6, a new
+## start_level) returns without touching the counters.
+##
 ## Feature-flag gate: a type listed in EntityRegistry.ENEMY_FLAGS whose flag is
 ## false at wave start is disabled for that wave. Its spawn and group entries
 ## count 0 toward the total, take no formation rows and spawn nothing. One DEBUG
@@ -36,6 +48,9 @@ extends Node
 
 ## Emitted when the last running action chain finishes.
 signal chains_finished
+## Relay of Events.comms_sequence_finished (connected in _ready): chains, the
+## intro and the outro await this, never the Events signal itself.
+signal _sequence_done(sequence_id: StringName)
 
 const WHEN_WAVE_START: StringName = &"wave_start"
 const WHEN_PROGRESS: StringName = &"progress"
@@ -50,9 +65,13 @@ var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var _source: String = ""
 var _level_id: int = 0
 var _waves: Array = []
+var _intro_sequence: String = ""
 var _outro_sequence: String = ""
+## Sequence id -> how many comms_sequence_finished it has had (a story wait
+## compares against the count taken before its request).
+var _finished_counts: Dictionary[StringName, int] = {}
 var _wave_index: int = -1
-## Bumped by every start_wave: resolves, chains and spawns of an older wave are ignored.
+## Bumped by every start_level and start_wave: resolves, chains and spawns of an older wave are ignored.
 var _serial: int = 0
 var _progress: WaveProgress = WaveProgress.new()
 var _triggers: Array[BeatTrigger] = []
@@ -89,6 +108,7 @@ var _width: float = 0.0
 func _ready() -> void:
 	add_to_group(Groups.WAVE_DIRECTOR)
 	Events.level_failed.connect(_on_events_level_failed)
+	Events.comms_sequence_finished.connect(_on_events_comms_sequence_finished)
 
 
 ## First outcome wins (DW-54): a failure after the level cleared is ignored.
@@ -98,14 +118,23 @@ func _on_events_level_failed(_reason: StringName) -> void:
 	_failed = true
 
 
-## Starts the level at wave 1. `source` (the file path) prefixes every data error.
+func _on_events_comms_sequence_finished(sequence_id: StringName) -> void:
+	_finished_counts[sequence_id] = _finished_count(sequence_id) + 1
+	_sequence_done.emit(sequence_id)
+
+
+## Starts the level: its intro (if any, and not on a retry), then wave 1.
+## `source` (the file path) prefixes every data error. Callers don't await it.
 func start_level(data: Dictionary, source: String) -> void:
+	_serial += 1
+	_wave_index = -1
 	_source = source
 	_gap_s = Config.num("waves.gap_s")
 	_spacing = Vector2(Config.num("waves.formation.spacing_px.x"), Config.num("waves.formation.spacing_px.y"))
 	_top_y = Config.num("waves.formation.top_y")
 	_width = Playfield.SIZE.x
 	_level_id = int(data.get("id", 0)) if (data.get("id") is float or data.get("id") is int) else 0
+	_intro_sequence = str(data.get("intro_sequence", "")) if data.get("intro_sequence") is String else ""
 	_outro_sequence = str(data.get("outro_sequence", "")) if data.get("outro_sequence") is String else ""
 	_level_done = false
 	_failed = false
@@ -117,6 +146,28 @@ func start_level(data: Dictionary, source: String) -> void:
 	_waves = waves
 	if spawner == null:
 		Log.error("wave", "WaveDirector has no spawner; every spawn fails")
+	if _intro_sequence.is_empty():
+		start_wave(0)
+	elif GameState.is_retry:
+		Log.info("beat", "Level %d intro '%s' skipped (retry)" % [_level_id, _intro_sequence])
+		start_wave(0)
+	else:
+		_play_intro()  # Not awaited: wave 1 starts once the intro allows it.
+
+
+## Plays the intro like a comms action (a story intro holds wave 1 until it
+## finishes), then starts wave 1 unless F6 or a new start_level moved on.
+func _play_intro() -> void:
+	var serial: int = _serial
+	var id: StringName = StringName(_intro_sequence)
+	Log.info("beat", "Level %d intro '%s'" % [_level_id, id])
+	var before: int = _request_sequence(id)
+	while before >= 0 and _finished_count(id) == before:
+		await _sequence_done
+		if serial != _serial or _failed:
+			return
+	if serial != _serial or _failed:
+		return
 	start_wave(0)
 
 
@@ -413,11 +464,26 @@ func _run_chain(trigger: BeatTrigger) -> void:
 			_request_group(str(action["spawn_group"]))
 		elif action.has("wait"):
 			var wait_s: float = float(action["wait"]) if (action["wait"] is float or action["wait"] is int) else 0.0
-			await get_tree().create_timer(wait_s, false).timeout
-			if serial != _serial:
-				return
-		elif action.has("comms") or action.has("story_event") or action.has("music"):
-			Log.debug("beat", "Action %s skipped: arrives in Epic 5" % [action])
+			if wait_s > 0.0 and is_inside_tree():
+				var timer: Timer = _start_wait_timer(wait_s)
+				await timer.timeout
+				timer.queue_free()
+				if serial != _serial:
+					return
+		elif action.has("comms"):
+			var id: StringName = StringName(str(action["comms"]))
+			Log.info("beat", "Level %d wave %d: comms '%s'" % [_level_id, _wave_index + 1, id])
+			var before: int = _request_sequence(id)
+			while before >= 0 and _finished_count(id) == before:
+				await _sequence_done
+				if serial != _serial:
+					return
+		elif action.has("story_event"):
+			var event_name: StringName = StringName(str(action["story_event"]))
+			Log.info("beat", "Level %d wave %d: story event '%s'" % [_level_id, _wave_index + 1, event_name])
+			Events.story_event_requested.emit(event_name)
+		elif action.has("music"):
+			Audio.apply_music_action(StringName(str(action["music"])))
 		else:
 			Log.warn("beat", "%s waves[%d]: unknown action %s; skipped" % [_source, _wave_index, action])
 	_running_chains -= 1
@@ -426,6 +492,34 @@ func _run_chain(trigger: BeatTrigger) -> void:
 	if not _in_step:
 		_check_stall()
 		_try_clear()
+
+
+## Emits the request for comms sequence `id`. Returns the finished count taken
+## before the request when the caller must wait (a story sequence), else -1
+## (combat and unknown ids don't block; the channel finishes unknown ids).
+## The count is taken first, so a finished emitted synchronously during the
+## request still releases the caller.
+func _request_sequence(id: StringName) -> int:
+	var before: int = _finished_count(id)
+	var story: bool = Config.dialogue_is_story(id)
+	Events.comms_sequence_requested.emit(id)
+	return before if story else -1
+
+
+func _finished_count(id: StringName) -> int:
+	return int(_finished_counts.get(id, 0))
+
+
+## A one-shot pausable Timer child for a `wait` action: freed with the director,
+## so an abandoned chain never resumes.
+func _start_wait_timer(wait_s: float) -> Timer:
+	var timer: Timer = Timer.new()
+	timer.one_shot = true
+	timer.process_mode = Node.PROCESS_MODE_PAUSABLE
+	timer.wait_time = wait_s
+	add_child(timer)
+	timer.start()
+	return timer
 
 
 ## Stall net: no live counted enemy, no chain, no pending spawn, yet the wave
@@ -473,12 +567,23 @@ func _try_clear() -> void:
 		_finish_level()
 
 
+## Plays the outro like a comms action (also on a retry), then clears the
+## level, unless the attempt failed or F6 / a new start_level moved on meanwhile.
 func _finish_level() -> void:
 	if _failed:
 		return
-	_level_done = true
+	var serial: int = _serial
 	if not _outro_sequence.is_empty():
-		Log.debug("beat", "outro_sequence '%s' skipped: arrives in Epic 5" % _outro_sequence)
+		var id: StringName = StringName(_outro_sequence)
+		Log.info("beat", "Level %d outro '%s'" % [_level_id, id])
+		var before: int = _request_sequence(id)
+		while before >= 0 and _finished_count(id) == before:
+			await _sequence_done
+			if serial != _serial or _failed:
+				return
+		if serial != _serial or _failed:
+			return
+	_level_done = true
 	Events.level_cleared.emit(_level_id)
 	Log.info("wave", "Level %d cleared" % _level_id)
 

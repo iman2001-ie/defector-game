@@ -8,7 +8,9 @@ extends GutTest
 ## energy and drop tuning matches the GDD; the Shield cost and duration match
 ## the GDD and its UX tuning exists. Dialogue (Stories 5.1-5.2): every file
 ## validates, every combat sequence is one line of at most 50 characters, and
-## every level has at most 2 interruptions (the cut-off line excluded).
+## every level has at most 2 interruptions (the cut-off line excluded). Story
+## 5.3: every sequence id a level references (comms actions, intro and outro)
+## exists, and the music fade-out tuning.
 
 const LEVELS_DIR: String = "res://data/levels/"
 
@@ -624,6 +626,71 @@ func test_interruption_counter_self_check() -> void:
 	]}
 	assert_eq(_interruptions(three, sequences), 3, "3 non-cut-off combat actions count 3 (the data test fails on > 2)")
 	assert_eq(_interruptions({}, sequences), 0, "no waves")
+
+
+# --- Wave-triggered dialogue and music (Story 5.3) ------------------------------
+
+## Every sequence id `level` references: each `comms` action value
+## (waves[].triggers[].actions[]) and a non-null intro_sequence / outro_sequence,
+## as [path, id] pairs.
+static func _referenced_sequences(level: Dictionary) -> Array[Array]:
+	var out: Array[Array] = []
+	for key: String in ["intro_sequence", "outro_sequence"]:
+		if level.get(key) != null:
+			out.append([key, str(level.get(key))])
+	var waves: Variant = level.get("waves")
+	if not (waves is Array):
+		return out
+	for w: int in (waves as Array).size():
+		var wave: Variant = (waves as Array)[w]
+		var triggers: Variant = (wave as Dictionary).get("triggers") if wave is Dictionary else null
+		if not (triggers is Array):
+			continue
+		for t: int in (triggers as Array).size():
+			var trigger: Variant = (triggers as Array)[t]
+			var actions: Variant = (trigger as Dictionary).get("actions") if trigger is Dictionary else null
+			if not (actions is Array):
+				continue
+			for a: int in (actions as Array).size():
+				var action: Variant = (actions as Array)[a]
+				if action is Dictionary and (action as Dictionary).has("comms"):
+					out.append(["waves[%d].triggers[%d].actions[%d].comms" % [w, t, a], str((action as Dictionary)["comms"])])
+	return out
+
+
+func test_every_referenced_sequence_exists() -> void:
+	assert_gt(_level_files().size(), 0, "level files to check")
+	for path: String in _level_files():
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+		if not (parsed is Dictionary):
+			continue
+		for ref: Array in _referenced_sequences(parsed as Dictionary):
+			assert_true(Config.has_sequence(StringName(str(ref[1]))), "%s %s: sequence '%s' exists" % [path, ref[0], ref[1]])
+
+
+func test_referenced_sequence_collector_self_check() -> void:
+	var level: Dictionary = {
+		"intro_sequence": "brief",
+		"outro_sequence": null,
+		"waves": [
+			{"triggers": [{"when": "wave_start", "actions": [{"wait": 1.0}, {"comms": "w1"}]}]},
+			{"spawns": []},
+			{"triggers": [{"when": "progress", "at": 0.5, "actions": [{"music": "boss"}, {"comms": "w3"}]}]},
+		],
+	}
+	var refs: Array[Array] = _referenced_sequences(level)
+	assert_eq(refs, [
+		["intro_sequence", "brief"],
+		["waves[0].triggers[0].actions[1].comms", "w1"],
+		["waves[2].triggers[0].actions[1].comms", "w3"],
+	] as Array[Array], "finds the intro and both comms actions, skips the null outro")
+	level["outro_sequence"] = "debrief"
+	assert_eq(_referenced_sequences(level).size(), 4, "finds the outro too")
+	assert_eq(_referenced_sequences({}).size(), 0, "nothing referenced")
+
+
+func test_music_fade_out_tuning() -> void:
+	assert_almost_eq(Config.num("audio.music_fade_out_s"), 0.5, 0.0001, "audio.music_fade_out_s")
 
 
 func test_combat_comms_tuning_is_positive() -> void:

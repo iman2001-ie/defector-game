@@ -11,6 +11,8 @@ extends RefCounted
 ## Rules:
 ## - `id` is a number; `waves` is a non-empty array of objects; a wave has a
 ##   `spawns` array or a `boss` (a non-empty string).
+## - `intro_sequence` and `outro_sequence` are absent, null or a non-empty
+##   string (Story 5.3).
 ## - Spawn and group entries: a known `type`, an integer `count` > 0, an optional
 ##   valid `formation` with at most `max_columns` grid columns (when > 0), an
 ##   optional `entry` of `top` or `sides`.
@@ -21,7 +23,8 @@ extends RefCounted
 ##   `flags`, optionally negated with "!".
 ## - Actions: objects with exactly one of comms, spawn_group, story_event,
 ##   music, wait. `wait` is a number >= 0, the rest non-empty strings; a
-##   spawn_group names a group in the same wave.
+##   spawn_group names a group in the same wave; a music value is one of
+##   MUSIC_ACTIONS (stop, combat, boss).
 ## - Every group is named by some spawn_group action.
 ## - Reachability (mirrors WaveDirector counting): a type gated by `type_flags`
 ##   whose flag isn't `true` counts 0, a boss counts 1, and every group counts
@@ -37,6 +40,8 @@ extends RefCounted
 
 const WHENS: Array[String] = ["wave_start", "progress", "wave_clear", "boss_phase", "boss_hp_le"]
 const ACTION_KEYS: Array[String] = ["comms", "spawn_group", "story_event", "music", "wait"]
+const MUSIC_ACTIONS: Array[String] = ["stop", "combat", "boss"]
+const SEQUENCE_KEYS: Array[String] = ["intro_sequence", "outro_sequence"]
 const NEGATE_PREFIX: String = "!"
 
 
@@ -48,6 +53,10 @@ static func validate(data: Dictionary, source: String, known_types: Array[String
 	var problems: Array[String] = []
 	if not _is_number(data.get("id")):
 		problems.append(_problem(source, "id", "missing or not a number"))
+	for key: String in SEQUENCE_KEYS:
+		var seq: Variant = data.get(key)
+		if seq != null and not (seq is String and not (seq as String).is_empty()):
+			problems.append(_problem(source, key, "must be null or a non-empty string"))
 	var waves: Variant = data.get("waves")
 	if not (waves is Array):
 		problems.append(_problem(source, "waves", "missing or not an array"))
@@ -309,6 +318,9 @@ static func _check_trigger(trigger: Dictionary, ctx: Dictionary, path: String, g
 			continue
 		if not (value is String and not (value as String).is_empty()):
 			problems.append(_problem(source, "%s.%s" % [action_path, key], "is not a non-empty string"))
+			continue
+		if key == "music" and not MUSIC_ACTIONS.has(value as String):
+			problems.append(_problem(source, action_path + ".music", "must be one of %s, not '%s'" % [", ".join(MUSIC_ACTIONS), value]))
 			continue
 		if key == "spawn_group":
 			var group_name: String = value

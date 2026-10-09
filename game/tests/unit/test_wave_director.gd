@@ -4,6 +4,7 @@ extends GutTest
 
 const SRC: String = "res://data/levels/level_test.json"
 const GAP_S: float = 0.05
+const UnscaledClock := preload("res://tests/fixtures/unscaled_clock.gd")
 
 var _root: Node
 var _world: Node2D
@@ -23,6 +24,8 @@ func before_each() -> void:
 		"wave_progress_changed": func(i: int, r: float) -> void: _events.append(["wave_progress_changed", i, r]),
 		"wave_cleared": func(i: int) -> void: _events.append(["wave_cleared", i]),
 		"level_cleared": func(id: int) -> void: _events.append(["level_cleared", id]),
+		"comms_sequence_requested": func(id: StringName) -> void: _events.append(["comms_sequence_requested", id]),
+		"story_event_requested": func(event_name: StringName) -> void: _events.append(["story_event_requested", event_name]),
 	}
 	for signal_name: String in _recorders:
 		Events.connect(signal_name, _recorders[signal_name])
@@ -52,6 +55,10 @@ func after_each() -> void:
 	Log.sink = Callable()
 	Config.load_data()
 	PauseArbiter.clear()
+	GameState.is_retry = false
+	Audio.stop_music(0.0)
+	Audio.music_streams.clear()
+	Audio._warned_music.clear()
 	_director = null
 
 
@@ -659,14 +666,14 @@ func test_f3_resolves_the_wave_and_fires_pending_triggers_in_order() -> void:
 		assert_true(enemy.is_dead(), "killed through the death path")
 	assert_eq(_director.resolved_count(), _director.total_count(), "fully resolved")
 	assert_eq(_director.total_count(), 8, "skipped group resolved, not subtracted")
-	var fired: Array[String] = _lines_containing("[INFO][beat]")
+	var fired: Array[String] = _lines_containing("trigger fired")
 	assert_eq(fired.size(), 3, "every progress trigger fired")
 	var first_at: int = -1
 	var third_at: int = -1
 	for i: int in _lines.size():
-		if _lines[i].begins_with("[DEBUG][beat] Action") and _lines[i].contains("first"):
+		if _lines[i].begins_with("[INFO][beat]") and _lines[i].contains("comms 'first'"):
 			first_at = i
-		elif _lines[i].begins_with("[DEBUG][beat] Action") and _lines[i].contains("third"):
+		elif _lines[i].begins_with("[INFO][beat]") and _lines[i].contains("comms 'third'"):
 			third_at = i
 	assert_gt(first_at, -1, "the at 0.25 trigger ran its action")
 	assert_gt(third_at, first_at, "the at 0.25 trigger ran before the at 0.75 one")
@@ -743,3 +750,308 @@ func test_level_without_waves_starts_nothing() -> void:
 	assert_push_error("has no waves")
 	assert_eq(_events_named("wave_started").size(), 0)
 	assert_eq(_director.wave_number(), 0)
+
+
+# --- Comms, story events, music, intro and outro (Story 5.3) ------------------
+
+const CHANNEL_DIR: String = "res://tests/fixtures/dialogue/channel/"
+
+
+## Loads the channel fixture dialogue (story_a, story_b: story; combat_a: combat).
+## The fixture has no CommsChannel: tests emit comms_sequence_finished themselves.
+func _load_dialogue() -> void:
+	Config.load_data(Config.DEFAULT_TUNING_PATH, Config.DEFAULT_FLAGS_PATH, CHANNEL_DIR)
+	(Config.tuning["waves"] as Dictionary)["gap_s"] = GAP_S
+	assert_true(Config.dialogue_is_story(&"story_a"), "fixture story_a")
+	assert_true(Config.dialogue_is_story(&"story_b"), "fixture story_b")
+	assert_true(Config.has_sequence(&"combat_a") and not Config.dialogue_is_story(&"combat_a"), "fixture combat_a")
+
+
+## One wave of `wasps` Wasps whose wave_start chain is `actions`.
+func _start_chain(actions: Array, wasps: int = 1) -> void:
+	_start([{"spawns": [_wasps(wasps)], "triggers": [{"when": "wave_start", "actions": actions}]}])
+
+
+func _requests() -> Array[Array]:
+	return _events_named("comms_sequence_requested")
+
+
+func _story_events() -> Array[Array]:
+	return _events_named("story_event_requested")
+
+
+func _finish(id: StringName) -> void:
+	Events.comms_sequence_finished.emit(id)
+
+
+func test_story_comms_blocks_the_chain_until_finished() -> void:
+	_load_dialogue()
+	_start_chain([{"comms": "story_a"}, {"story_event": "e"}])
+	assert_eq(_requests(), [["comms_sequence_requested", &"story_a"]] as Array[Array], "request emitted")
+	assert_eq(_story_events(), [] as Array[Array], "e waits for the story")
+	assert_eq(_director.running_chains(), 1, "chain running")
+	assert_eq(_lines_containing("[INFO][beat] Level 3 wave 1: comms 'story_a'").size(), 1, "INFO beat line")
+	_finish(&"story_a")
+	assert_eq(_story_events(), [["story_event_requested", &"e"]] as Array[Array], "e after finished")
+	assert_eq(_director.running_chains(), 0, "chain finished")
+
+
+func test_f6_abandons_a_chain_waiting_on_a_story() -> void:
+	_load_dialogue()
+	_start([
+		{"spawns": [_wasps(1)], "triggers": [{"when": "wave_start", "actions": [{"comms": "story_a"}, {"story_event": "e"}]}]},
+		{"boss": "flagship"},
+	])
+	assert_eq(_director.running_chains(), 1, "chain waiting on story_a")
+	_director.debug_skip_to_boss()
+	assert_push_error("boss 'flagship'")
+	assert_eq(_director.running_chains(), 0, "F6 dropped the chain count")
+	_finish(&"story_a")
+	assert_eq(_story_events(), [] as Array[Array], "the abandoned chain runs nothing")
+	assert_eq(_director.running_chains(), 0, "the abandoned chain left the counters alone")
+
+
+func test_combat_comms_does_not_block() -> void:
+	_load_dialogue()
+	_start_chain([{"comms": "combat_a"}, {"story_event": "e"}])
+	assert_eq(_requests(), [["comms_sequence_requested", &"combat_a"]] as Array[Array])
+	assert_eq(_story_events(), [["story_event_requested", &"e"]] as Array[Array], "e in the same call")
+	assert_eq(_director.running_chains(), 0)
+
+
+func test_unknown_comms_id_does_not_block() -> void:
+	_load_dialogue()
+	_start_chain([{"comms": "nope"}, {"story_event": "e"}])
+	assert_eq(_requests(), [["comms_sequence_requested", &"nope"]] as Array[Array], "request emitted")
+	assert_eq(_story_events(), [["story_event_requested", &"e"]] as Array[Array], "e follows at once")
+	assert_eq(_director.running_chains(), 0)
+
+
+func test_another_ids_finished_keeps_waiting() -> void:
+	_load_dialogue()
+	_start_chain([{"comms": "story_a"}, {"story_event": "e"}])
+	_finish(&"story_b")
+	assert_eq(_story_events(), [] as Array[Array], "still waiting")
+	assert_eq(_director.running_chains(), 1)
+	_finish(&"story_a")
+	assert_eq(_story_events().size(), 1, "released by its own id")
+
+
+func test_synchronous_finished_during_the_request_continues() -> void:
+	_load_dialogue()
+	var instant: Callable = func(id: StringName) -> void: Events.comms_sequence_finished.emit(id)
+	Events.comms_sequence_requested.connect(instant)
+	_start_chain([{"comms": "story_a"}, {"story_event": "e"}])
+	Events.comms_sequence_requested.disconnect(instant)
+	assert_eq(_story_events(), [["story_event_requested", &"e"]] as Array[Array], "chain continued")
+	assert_eq(_director.running_chains(), 0)
+
+
+func test_story_event_is_emitted_once() -> void:
+	_start_chain([{"story_event": "tarek_fall"}])
+	assert_eq(_story_events(), [["story_event_requested", &"tarek_fall"]] as Array[Array])
+	assert_eq(_lines_containing("[INFO][beat] Level 3 wave 1: story event 'tarek_fall'").size(), 1)
+
+
+func _silent_wav() -> AudioStreamWAV:
+	var wav: AudioStreamWAV = AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.mix_rate = 22050
+	var data: PackedByteArray = PackedByteArray()
+	data.resize(2205 * 2)
+	wav.data = data
+	wav.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	wav.loop_end = 2205
+	return wav
+
+
+func test_music_actions_play_switch_and_fade_stop() -> void:
+	assert_true(await UnscaledClock.settle(self), "unscaled clock settled")
+	Audio.music_streams[&"combat"] = _silent_wav()
+	Audio.music_streams[&"boss"] = _silent_wav()
+	_start([{
+		"spawns": [_wasps(2)],
+		"triggers": [
+			{"when": "wave_start", "actions": [{"music": "combat"}]},
+			{"when": "progress", "at": 0.5, "actions": [{"music": "boss"}]},
+			{"when": "progress", "at": 1.0, "actions": [{"music": "stop"}]},
+		],
+	}])
+	var player: AudioStreamPlayer = Audio.music_player()
+	assert_eq(Audio.current_music(), &"combat")
+	assert_eq(player.stream, Audio.music_streams[&"combat"])
+	_kill(1)
+	assert_eq(Audio.current_music(), &"boss", "switched")
+	assert_eq(player.stream, Audio.music_streams[&"boss"])
+	_kill(1)
+	assert_eq(Audio.current_music(), &"", "stop")
+	await wait_seconds(0.25)
+	assert_lt(player.volume_db, -1.0, "fading over 0.5 s")
+	assert_gt(player.volume_db, -80.0)
+	await wait_seconds(0.4)
+	assert_false(player.playing, "stopped")
+	assert_almost_eq(player.volume_db, 0.0, 0.0001, "base volume restored")
+
+
+func test_missing_music_stream_warns_once_and_stays_silent() -> void:
+	Audio.music_streams[&"combat"] = _silent_wav()
+	_start_chain([{"music": "combat"}, {"music": "boss"}, {"music": "boss"}])
+	assert_eq(Audio.current_music(), &"", "silent")
+	assert_false(Audio.music_player().playing, "combat stopped")
+	assert_eq(_lines_containing("[WARN][audio]").size(), 1, "one warning")
+	assert_push_warning_count(1)
+
+
+func test_clear_waits_for_a_story_chain() -> void:
+	_load_dialogue()
+	_start_chain([{"comms": "story_a"}, {"story_event": "e"}], 2)
+	_kill(2)
+	assert_eq(_director.resolved_count(), 2, "every enemy resolved")
+	assert_eq(_events_named("wave_cleared"), [] as Array[Array], "no clear while the story chain waits")
+	_finish(&"story_a")
+	assert_eq(_events_named("wave_cleared"), [["wave_cleared", 0]] as Array[Array], "clears once the chain ends")
+
+
+func _level(waves: Array, intro: Variant = null, outro: Variant = null) -> Dictionary:
+	return {"id": 3.0, "intro_sequence": intro, "outro_sequence": outro, "waves": waves}
+
+
+func test_story_intro_holds_wave_one() -> void:
+	_load_dialogue()
+	_director.start_level(_level([{"spawns": [_wasps(1)]}], "story_a"), SRC)
+	assert_eq(_requests(), [["comms_sequence_requested", &"story_a"]] as Array[Array], "intro requested")
+	assert_eq(_events_named("wave_started"), [] as Array[Array], "no wave yet")
+	assert_eq(_director.wave_number(), 0)
+	assert_eq(_lines_containing("[INFO][beat] Level 3 intro 'story_a'").size(), 1)
+	_finish(&"story_b")
+	assert_eq(_events_named("wave_started"), [] as Array[Array], "a finished for another id")
+	_finish(&"story_a")
+	assert_eq(_events_named("wave_started"), [["wave_started", 0, 1]] as Array[Array], "wave 1 after the intro")
+	assert_eq(_counted().size(), 1)
+
+
+func test_intro_is_skipped_on_retry() -> void:
+	_load_dialogue()
+	GameState.is_retry = true
+	_director.start_level(_level([{"spawns": [_wasps(1)]}], "story_a"), SRC)
+	assert_eq(_requests(), [] as Array[Array], "no request")
+	assert_eq(_events_named("wave_started"), [["wave_started", 0, 1]] as Array[Array], "wave 1 at once")
+	assert_eq(_lines_containing("[INFO][beat] Level 3 intro 'story_a' skipped (retry)").size(), 1, "INFO skip line")
+
+
+func test_combat_intro_does_not_hold_wave_one() -> void:
+	_load_dialogue()
+	_director.start_level(_level([{"spawns": [_wasps(1)]}], "combat_a"), SRC)
+	assert_eq(_requests(), [["comms_sequence_requested", &"combat_a"]] as Array[Array])
+	assert_eq(_events_named("wave_started").size(), 1, "wave 1 at once")
+
+
+func test_restart_during_the_intro_abandons_it() -> void:
+	_load_dialogue()
+	_director.start_level(_level([{"spawns": [_wasps(1)]}], "story_a"), SRC)
+	_director.start_level(_level([{"spawns": [_wasps(1)]}]), SRC)
+	assert_eq(_events_named("wave_started").size(), 1, "the new level started")
+	_finish(&"story_a")
+	assert_eq(_events_named("wave_started").size(), 1, "the old intro starts nothing")
+	assert_eq(_counted().size(), 1)
+
+
+func test_f6_during_the_intro_abandons_it() -> void:
+	_load_dialogue()
+	_director.start_level(_level([{"spawns": [_wasps(1)]}, {"boss": "flagship"}], "story_a"), SRC)
+	_director.debug_skip_to_boss()
+	assert_push_error("boss 'flagship'")
+	assert_eq(_events_named("wave_started"), [["wave_started", 1, 2]] as Array[Array], "boss wave")
+	_finish(&"story_a")
+	assert_eq(_events_named("wave_started").size(), 1, "the intro starts nothing after F6")
+
+
+func test_story_outro_plays_before_level_cleared() -> void:
+	_load_dialogue()
+	_director.start_level(_level([{"spawns": [_wasps(1)]}], null, "story_b"), SRC)
+	_kill(1)
+	assert_eq(_requests(), [] as Array[Array], "not before the gap")
+	await wait_seconds(GAP_S + 0.1)
+	assert_eq(_requests(), [["comms_sequence_requested", &"story_b"]] as Array[Array], "outro after the gap")
+	assert_eq(_lines_containing("[INFO][beat] Level 3 outro 'story_b'").size(), 1)
+	assert_eq(_events_named("level_cleared"), [] as Array[Array], "waits for the outro")
+	assert_false(_director.is_level_cleared())
+	_finish(&"story_b")
+	assert_eq(_events_named("level_cleared"), [["level_cleared", 3]] as Array[Array], "cleared after the outro")
+	assert_true(_director.is_level_cleared())
+
+
+func test_outro_plays_on_retry_too() -> void:
+	_load_dialogue()
+	GameState.is_retry = true
+	_director.start_level(_level([{"spawns": [_wasps(1)]}], null, "story_b"), SRC)
+	_kill(1)
+	await wait_seconds(GAP_S + 0.1)
+	assert_eq(_requests(), [["comms_sequence_requested", &"story_b"]] as Array[Array], "outro requested on a retry")
+	_finish(&"story_b")
+	assert_eq(_events_named("level_cleared").size(), 1)
+
+
+func test_death_during_the_outro_never_clears() -> void:
+	_load_dialogue()
+	_director.start_level(_level([{"spawns": [_wasps(1)]}], null, "story_b"), SRC)
+	_kill(1)
+	await wait_seconds(GAP_S + 0.1)
+	Events.level_failed.emit(&"hearts")
+	_finish(&"story_b")
+	assert_eq(_events_named("level_cleared"), [] as Array[Array], "no level_cleared")
+	assert_false(_director.is_level_cleared())
+
+
+func test_death_reload_drops_a_chain_waiting_on_a_story() -> void:
+	_load_dialogue()
+	_start_chain([{"comms": "story_a"}, {"story_event": "e"}])
+	Events.level_failed.emit(&"hearts")
+	_root.queue_free()
+	await wait_process_frames(2)
+	assert_false(is_instance_valid(_director), "director freed")
+	_finish(&"story_a")
+	await wait_process_frames(2)
+	assert_eq(_story_events(), [] as Array[Array], "the freed chain runs nothing")
+
+
+func test_death_reload_drops_a_chain_in_a_wait() -> void:
+	_start_chain([{"wait": 0.1}, {"story_event": "e"}])
+	Events.level_failed.emit(&"hearts")
+	_root.queue_free()
+	await wait_process_frames(2)
+	assert_false(is_instance_valid(_director), "director freed")
+	await wait_seconds(0.25)
+	assert_eq(_story_events(), [] as Array[Array], "the elapsed wait runs nothing")
+
+
+func test_death_during_the_intro_starts_nothing() -> void:
+	_load_dialogue()
+	_director.start_level(_level([{"spawns": [_wasps(1)]}], "story_a"), SRC)
+	Events.level_failed.emit(&"hearts")
+	_finish(&"story_a")
+	assert_eq(_events_named("wave_started"), [] as Array[Array], "no wave_started")
+	assert_eq(_counted().size(), 0, "nothing counted")
+
+
+func test_death_reload_drops_a_waiting_intro() -> void:
+	_load_dialogue()
+	_director.start_level(_level([{"spawns": [_wasps(1)]}], "story_a"), SRC)
+	_root.queue_free()
+	await wait_process_frames(2)
+	assert_false(is_instance_valid(_director), "director freed")
+	_finish(&"story_a")
+	await wait_process_frames(2)
+	assert_eq(_events_named("wave_started"), [] as Array[Array], "the freed intro starts nothing")
+
+
+func test_wait_uses_a_pausable_child_timer() -> void:
+	_start_chain([{"wait": 0.1}, {"story_event": "e"}])
+	var timers: Array[Node] = _director.find_children("*", "Timer", false, false)
+	assert_eq(timers.size(), 1, "one Timer child")
+	if timers.size() == 1:
+		assert_eq(timers[0].process_mode, Node.PROCESS_MODE_PAUSABLE)
+	await wait_seconds(0.2)
+	assert_eq(_story_events().size(), 1, "the chain continued")
+	await wait_process_frames(1)
+	assert_eq(_director.find_children("*", "Timer", false, false).size(), 0, "timer freed")

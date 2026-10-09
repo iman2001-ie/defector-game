@@ -1006,3 +1006,50 @@ func test_combat_line_keeps_the_fight_running() -> void:
 	assert_eq(finished, [&"dev_combat_check"] as Array[StringName], "finished exactly once")
 	Input.action_release(&"fire_laser")
 	Events.comms_sequence_finished.disconnect(record)
+
+
+# --- Wave-triggered dialogue (Story 5.3) ----------------------------------------
+
+## Story 5.3 acceptance: the level's WaveDirector, restarted with an inline level
+## whose wave-1 wave_start chain is [comms dev_comms_check, story_event dev_evt],
+## pauses the tree with the story reason through the real CommsChannel and holds
+## dev_evt; clicking through the story fires dev_evt after the pause lifts.
+func test_wave_start_story_comms_holds_the_story_event() -> void:
+	_make_level()
+	_make_player_invincible()
+	var player: Player = _level.get_node("World/Player") as Player
+	player.warp_mouse = func(_at: Vector2) -> void: pass
+	var ship_at: Vector2 = player.global_position
+	var mouse_before: Vector2 = get_viewport().get_mouse_position()
+	var channel: CommsChannel = _level.get_node("Comms/CommsChannel") as CommsChannel
+	var director: WaveDirector = _level.get_node("WaveDirector") as WaveDirector
+	## [event name, tree paused when it fired] per story_event_requested.
+	var fired: Array[Array] = []
+	var record: Callable = func(event_name: StringName) -> void: fired.append([event_name, get_tree().paused])
+	Events.story_event_requested.connect(record)
+	await get_tree().physics_frame
+	director.start_level({"id": 0.0, "waves": [{
+		"spawns": [{"type": "wasp", "count": 1.0}],
+		"triggers": [{"when": "wave_start", "actions": [{"comms": "dev_comms_check"}, {"story_event": "dev_evt"}]}],
+	}]}, "res://tests/inline_level_5_3.json")
+	assert_true(get_tree().paused, "the tree pauses")
+	assert_true(PauseArbiter.has_reason(&"story"), "with the story reason")
+	assert_eq(channel.current_sequence(), &"dev_comms_check", "the story shows")
+	assert_eq(fired, [] as Array[Array], "dev_evt held by the story")
+	assert_eq(director.running_chains(), 1, "the chain waits")
+	var clicks: int = 0
+	while channel.is_showing() and clicks < 20:
+		assert_eq(fired, [] as Array[Array], "dev_evt not fired mid-story")
+		_real_click(true, ship_at)
+		await get_tree().physics_frame
+		_real_click(false, ship_at)
+		await get_tree().physics_frame
+		clicks += 1
+	assert_false(channel.is_showing(), "clicked through to the end")
+	assert_false(get_tree().paused, "the pause lifted")
+	assert_eq(fired, [[&"dev_evt", false]] as Array[Array], "dev_evt fired once, after the pause lifted")
+	assert_eq(director.running_chains(), 0, "the chain finished")
+	Events.story_event_requested.disconnect(record)
+	Input.action_release(&"fire_laser")
+	Input.action_release(&"comms_advance")
+	_parse_at(InputEventMouseMotion.new(), mouse_before)

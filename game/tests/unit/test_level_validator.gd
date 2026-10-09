@@ -273,8 +273,40 @@ func test_action_value_types() -> void:
 		data["waves"][0]["triggers"][0]["actions"].append(c[0])
 		_assert_one(data, "waves[0].triggers[0].actions[1].%s" % c[1])
 	var ok: Dictionary = _valid()
-	ok["waves"][0]["triggers"][0]["actions"].append_array([{"comms": "a"}, {"story_event": "b"}, {"music": "c"}, {"wait": 0.0}])
+	ok["waves"][0]["triggers"][0]["actions"].append_array([{"comms": "a"}, {"story_event": "b"}, {"music": "combat"}, {"wait": 0.0}])
 	assert_eq(_validate(ok), [] as Array[String], "valid action values")
+
+
+# --- Story 5.3: music values and intro/outro shape -----------------------------
+
+func test_music_action_must_be_stop_combat_or_boss() -> void:
+	for good: String in LevelValidator.MUSIC_ACTIONS:
+		var data: Dictionary = _valid()
+		data["waves"][0]["triggers"][0]["actions"].append({"music": good})
+		assert_eq(_validate(data), [] as Array[String], good)
+	assert_eq(LevelValidator.MUSIC_ACTIONS, ["stop", "combat", "boss"] as Array[String])
+	for bad: String in ["loud", "Combat", "calm"]:
+		var data: Dictionary = _valid()
+		data["waves"][0]["triggers"][0]["actions"].append({"music": bad})
+		_assert_one(data, "waves[0].triggers[0].actions[1].music")
+		var problems: Array[String] = _validate(data)
+		if problems.size() == 1:
+			assert_string_contains(problems[0], "must be one of stop, combat, boss")
+
+
+func test_intro_and_outro_sequence_shape() -> void:
+	for key: String in ["intro_sequence", "outro_sequence"]:
+		for good: Variant in [null, "story_a"]:
+			var data: Dictionary = _valid()
+			data[key] = good
+			assert_eq(_validate(data), [] as Array[String], "%s %s" % [key, good])
+		var absent: Dictionary = _valid()
+		absent.erase(key)
+		assert_eq(_validate(absent), [] as Array[String], "%s absent" % key)
+		for bad: Variant in ["", 3.0, ["a"], {}]:
+			var data: Dictionary = _valid()
+			data[key] = bad
+			_assert_one(data, key)
 
 
 func test_action_needs_exactly_one_known_key() -> void:

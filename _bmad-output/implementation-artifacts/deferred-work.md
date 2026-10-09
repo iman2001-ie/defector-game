@@ -715,3 +715,19 @@ source_spec: `spec-5-2-hear-combat-chatter-without-stopping-the-fight.md`
 severity: low
 reason: The verification-gap reviewer searched game/ for the "line length not checked" message and the _line_max_chars helper; only config.gd uses them, and every test loads the real tuning where both keys exist. Shipped tuning always has the keys. One test through _load_dialogue with a temp tuning lacking both keys would cover both kinds.
 status: open
+
+### DW-77: The WaveDirector's wave-clear gap still awaits a SceneTreeTimer, which outlives the director, so a death reload during the gap before the next wave or the outro resumes a coroutine on a freed
+origin: spec-deferred a59e24ebeb8d
+location: game/systems/waves/wave_director.gd _try_clear
+source_spec: `spec-5-3-trigger-dialogue-and-music-from-wave-events.md`
+severity: low
+reason: wave_director.gd _try_clear: `await get_tree().create_timer(_gap_s, false).timeout`, unchanged since Story 2.2 and kept on purpose by the Story 5.3 spec ("Leave the _try_clear gap timer as it is"). A level reload frees the director while the timer lives on the SceneTree; on timeout Godot may log "Resumed function after await, but class instance is gone". Not reproduced: a test that frees the director during the gap and checks the error output would settle it. The fix is the same child-Timer pattern used for `wait`.
+status: open
+
+### DW-78: Chains that keep running after a death (decision #39, DW-54) now also fire comms, story_event and music, so a chain resuming from a wait during the death beat can open a story pause over the death
+origin: spec-deferred 7ecef071415f
+location: game/systems/waves/wave_director.gd _run_chain
+source_spec: `spec-5-3-trigger-dialogue-and-music-from-wave-events.md`
+severity: medium
+reason: wave_director.gd _run_chain never checks _failed (by design: decision #39 says "running chains and group spawns still run" after level_failed, and the Story 5.3 intent says not to change the DW-54 failure rules). A level chain such as [wait 2, comms story_x] whose wait ends after the death but before the reload emits comms_sequence_requested; a story sequence then pauses the tree via PauseArbiter on top of the death beat. Not reachable with shipped data (no real level has beats until Epic 7). Settling it needs a human decision extending decision #39: should comms, story_event and music be dropped once _failed is set? The fix would be a `_failed` skip on those three actions plus a test.
+status: open
