@@ -255,3 +255,20 @@ func test_ability_shield_action_raises_the_shield() -> void:
 	Input.action_release(&"ability_shield")
 	assert_eq(GameState.energy, 10, "energy spent")
 	assert_true(_player.is_shielded(), "shield up")
+
+
+# --- Story 5.8: player_action ----------------------------------------------------
+
+func test_shield_raised_emits_player_action_shield() -> void:
+	_raise()
+	assert_signal_emit_count(Events, "player_action", 1)
+	assert_signal_emitted_with_parameters(Events, "player_action", [&"shield"])
+	assert_false(_player.try_shield(), "already up")
+	assert_signal_emit_count(Events, "player_action", 1, "an active shield emits nothing")
+
+
+func test_denied_shield_emits_no_player_action() -> void:
+	GameState.energy = 0
+	assert_false(_player.try_shield())
+	assert_signal_emit_count(Events, "ability_denied", 1)
+	assert_signal_not_emitted(Events, "player_action")

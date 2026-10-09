@@ -17,6 +17,10 @@ extends Node
 ## (it homes by itself), plays the whoosh and flashes the muzzle. The tick of the
 ## last launch also plays the LARGE impact feedback at the muzzle, once. The
 ## Player owns the energy, denial and death rules; it calls stop_barrage on death.
+##
+## Control hints (Story 5.8): a spawned laser bolt emits
+## Events.player_action(&"laser") and a spawned missile &"missile"; the barrage
+## volley's micro-missiles never emit.
 
 ## Absorbs float drift so whole multiples of the physics delta add up to one interval.
 const FIRE_EPS: float = 1e-6
@@ -28,6 +32,9 @@ const LASER_SFX: StringName = &"laser_zap"
 const MISSILE_SFX: StringName = &"missile_launch"
 const MICRO_TYPE: StringName = &"micro_missile"
 const WHOOSH_SFX: StringName = &"barrage_whoosh"
+## Events.player_action ids (Story 5.8).
+const ACTION_LASER: StringName = &"laser"
+const ACTION_MISSILE: StringName = &"missile"
 
 ## Where projectiles spawn (resolved once in _ready).
 @export var muzzle: NodePath
@@ -135,6 +142,7 @@ func _fire_bolt() -> void:
 	Audio.play_sfx(LASER_SFX, _laser_pitch_jitter)
 	_muzzle_flash.visible = true
 	_flash_left = _fire_interval * 0.5
+	Events.player_action.emit(ACTION_LASER)
 
 
 ## One missile tick. The cooldown is counted down first (emitting its ratio, the
@@ -160,6 +168,7 @@ func step_missile(pressed: bool, delta: float) -> void:
 	Audio.play_sfx(MISSILE_SFX)
 	_muzzle_flash.visible = true
 	_flash_left = maxf(_flash_left, MISSILE_FLASH_S)
+	Events.player_action.emit(ACTION_MISSILE)
 	if _missile_cooldown_s <= 0.0:
 		return
 	_missile_cooldown = _missile_cooldown_s

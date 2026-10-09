@@ -849,6 +849,34 @@ func test_dev_isolde_level_shape() -> void:
 	], "wave 2 paired surrender triggers")
 
 
+# --- Control hints (Story 5.8) ---------------------------------------------------
+
+func test_hint_pill_tuning() -> void:
+	var expected: Dictionary = {"center_y": 560.0, "h": 52.0, "padding_px": 24.0, "gap_px": 12.0,
+		"fade_in_s": 0.2, "fade_out_s": 0.2, "show_s": 5.0, "move_dismiss_px": 150.0}
+	for key: String in expected:
+		assert_almost_eq(Config.num("ui.hint_pill.%s" % key), float(expected[key]), 0.0001, "ui.hint_pill.%s" % key)
+
+
+## The dev level that exercises the hints: the level_dev key set, wave 1 asks
+## for move_fire and wave 2 for missile at wave start.
+func test_dev_hints_level_shape() -> void:
+	var data: Dictionary = Config.level("dev_hints")
+	assert_false(data.is_empty(), "level_dev_hints.json loads")
+	var dev: Dictionary = Config.level("dev")
+	assert_eq(data.keys().size(), dev.keys().size(), "same root keys as level_dev.json")
+	for key: Variant in dev.keys():
+		assert_true(data.has(key), "has root key %s" % key)
+	assert_null(data.get("intro_sequence"), "no intro")
+	assert_null(data.get("outro_sequence"), "no outro")
+	var waves: Array = data.get("waves", []) as Array
+	assert_eq(waves.size(), 2, "2 waves")
+	if waves.size() != 2:
+		return
+	assert_eq((waves[0] as Dictionary).get("triggers"), [{"when": "wave_start", "actions": [{"hint": "move_fire"}]}], "wave 1 hint")
+	assert_eq((waves[1] as Dictionary).get("triggers"), [{"when": "wave_start", "actions": [{"hint": "missile"}]}], "wave 2 hint")
+
+
 # --- The dialogue script (Story 5.7) ----------------------------------------------
 
 ## The campaign dialogue files (dev.json is not part of the script).

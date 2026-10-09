@@ -24,6 +24,10 @@ var highest_unlocked_level: int = 1
 ## Debug F7: every level counts as unlocked. In memory only: never saved and
 ## never reset by goto_title(); PLAY still continues the real progress.
 var all_levels_unlocked: bool = false
+## Story 5.8: control hints shown this session; never saved or reset. The HUD
+## HintPill adds a hint id when the hint starts showing and never queues a
+## recorded one again, so retries, restarts and the title don't repeat it.
+var shown_hints: Dictionary[StringName, bool] = {}
 
 
 ## True when level `n` may be started (Story 4.3's Level Select): the F7 debug

@@ -275,3 +275,22 @@ func test_ability_barrage_action_starts_the_volley() -> void:
 	_player.set_physics_process(false)
 	assert_eq(GameState.energy, 0, "energy spent")
 	assert_eq(_launched, 1, "one micro-missile")
+
+
+# --- Story 5.8: player_action ----------------------------------------------------
+
+func test_barrage_started_emits_player_action_once_not_per_micro_missile() -> void:
+	GameState.energy = 100
+	assert_true(_player.try_barrage())
+	for i: int in 130:
+		_player.step_barrage(DT)
+	assert_eq(_launched, Config.int_("abilities.barrage.missiles"), "the whole volley launched")
+	assert_signal_emit_count(Events, "player_action", 1, "one action for the barrage, none per micro-missile")
+	assert_signal_emitted_with_parameters(Events, "player_action", [&"barrage"])
+
+
+func test_denied_barrage_emits_no_player_action() -> void:
+	GameState.energy = 0
+	assert_false(_player.try_barrage())
+	assert_signal_emit_count(Events, "ability_denied", 1)
+	assert_signal_not_emitted(Events, "player_action")

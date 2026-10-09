@@ -267,13 +267,15 @@ func test_action_value_types() -> void:
 		[{"story_event": null}, "story_event"],
 		[{"music": []}, "music"],
 		[{"spawn_group": 5.0}, "spawn_group"],
+		[{"hint": 3.0}, "hint"],
+		[{"hint": ""}, "hint"],
 	]
 	for c: Array in cases:
 		var data: Dictionary = _valid()
 		data["waves"][0]["triggers"][0]["actions"].append(c[0])
 		_assert_one(data, "waves[0].triggers[0].actions[1].%s" % c[1])
 	var ok: Dictionary = _valid()
-	ok["waves"][0]["triggers"][0]["actions"].append_array([{"comms": "a"}, {"story_event": "b"}, {"music": "combat"}, {"wait": 0.0}])
+	ok["waves"][0]["triggers"][0]["actions"].append_array([{"comms": "a"}, {"story_event": "b"}, {"music": "combat"}, {"wait": 0.0}, {"hint": "move_fire"}])
 	assert_eq(_validate(ok), [] as Array[String], "valid action values")
 
 
@@ -292,6 +294,26 @@ func test_music_action_must_be_stop_combat_or_boss() -> void:
 		var problems: Array[String] = _validate(data)
 		if problems.size() == 1:
 			assert_string_contains(problems[0], "must be one of stop, combat, boss")
+
+
+# --- Story 5.8: hint values -----------------------------------------------------
+
+func test_hint_action_must_be_move_fire_or_missile() -> void:
+	assert_eq(LevelValidator.HINT_ACTIONS, ["move_fire", "missile"] as Array[String])
+	assert_true(LevelValidator.ACTION_KEYS.has("hint"), "hint is an action key")
+	for good: String in LevelValidator.HINT_ACTIONS:
+		var data: Dictionary = _valid()
+		data["waves"][0]["triggers"][0]["actions"].append({"hint": good})
+		assert_eq(_validate(data), [] as Array[String], good)
+	for bad: Variant in ["shield", "", 3]:
+		var data: Dictionary = _valid()
+		data["waves"][0]["triggers"][0]["actions"].append({"hint": bad})
+		_assert_one(data, "waves[0].triggers[0].actions[1].hint")
+	var data: Dictionary = _valid()
+	data["waves"][0]["triggers"][0]["actions"].append({"hint": "shield"})
+	var problems: Array[String] = _validate(data)
+	if problems.size() == 1:
+		assert_string_contains(problems[0], "must be one of move_fire, missile")
 
 
 func test_intro_and_outro_sequence_shape() -> void:

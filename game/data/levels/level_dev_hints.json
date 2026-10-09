@@ -1,0 +1,30 @@
+{
+	"id": 0,
+	"name": "Development: control hints",
+	"background": null,
+	"music": null,
+	"convoy": false,
+	"ally": null,
+	"intro_sequence": null,
+	"outro_sequence": null,
+	"waves": [
+		{
+			"spawns": [
+				{ "type": "wasp", "count": 4, "formation": "grid_4x1", "entry": "top" }
+			],
+			"asteroids": [],
+			"triggers": [
+				{ "when": "wave_start", "actions": [ { "hint": "move_fire" } ] }
+			]
+		},
+		{
+			"spawns": [
+				{ "type": "wasp", "count": 4, "formation": "grid_4x1", "entry": "top" }
+			],
+			"asteroids": [],
+			"triggers": [
+				{ "when": "wave_start", "actions": [ { "hint": "missile" } ] }
+			]
+		}
+	]
+}

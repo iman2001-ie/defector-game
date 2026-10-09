@@ -31,7 +31,8 @@ extends Node
 ## wait (a pausable one-shot Timer child), comms (requests the sequence; a story
 ## sequence holds the chain until its comms_sequence_finished arrives, even
 ## synchronously during the request; combat and unknown ids don't wait),
-## story_event (Events.story_event_requested) and music (Audio.apply_music_action).
+## story_event (Events.story_event_requested), music (Audio.apply_music_action)
+## and hint (Story 5.8: Events.hint_requested for the HUD HintPill; never waits).
 ## The level's intro_sequence plays before wave 1 (skipped on a retry) and its
 ## outro_sequence before level_cleared (also on a retry), each the same way as
 ## a comms action. Every await in a chain, the intro or the outro is on this
@@ -484,6 +485,10 @@ func _run_chain(trigger: BeatTrigger) -> void:
 			Events.story_event_requested.emit(event_name)
 		elif action.has("music"):
 			Audio.apply_music_action(StringName(str(action["music"])))
+		elif action.has("hint"):
+			var hint_id: StringName = StringName(str(action["hint"]))
+			Log.info("beat", "Level %d wave %d: hint '%s'" % [_level_id, _wave_index + 1, hint_id])
+			Events.hint_requested.emit(hint_id)
 		else:
 			Log.warn("beat", "%s waves[%d]: unknown action %s; skipped" % [_source, _wave_index, action])
 	_running_chains -= 1

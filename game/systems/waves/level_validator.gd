@@ -22,9 +22,10 @@ extends RefCounted
 ##   (required and >= 0 on boss_hp_le); `flag` is a string naming a flag in
 ##   `flags`, optionally negated with "!".
 ## - Actions: objects with exactly one of comms, spawn_group, story_event,
-##   music, wait. `wait` is a number >= 0, the rest non-empty strings; a
+##   music, wait, hint. `wait` is a number >= 0, the rest non-empty strings; a
 ##   spawn_group names a group in the same wave; a music value is one of
-##   MUSIC_ACTIONS (stop, combat, boss).
+##   MUSIC_ACTIONS (stop, combat, boss); a hint value is one of HINT_ACTIONS
+##   (move_fire, missile; Story 5.8).
 ## - Every group is named by some spawn_group action.
 ## - Reachability (mirrors WaveDirector counting): a type gated by `type_flags`
 ##   whose flag isn't `true` counts 0, a boss counts 1, and every group counts
@@ -39,8 +40,11 @@ extends RefCounted
 ##   problem (its counts are not known).
 
 const WHENS: Array[String] = ["wave_start", "progress", "wave_clear", "boss_phase", "boss_hp_le"]
-const ACTION_KEYS: Array[String] = ["comms", "spawn_group", "story_event", "music", "wait"]
+const ACTION_KEYS: Array[String] = ["comms", "spawn_group", "story_event", "music", "wait", "hint"]
 const MUSIC_ACTIONS: Array[String] = ["stop", "combat", "boss"]
+## The control-hint requests a `hint` action may make (Story 5.8). The energy
+## hints (shield, barrage) are never requested by data.
+const HINT_ACTIONS: Array[String] = ["move_fire", "missile"]
 const SEQUENCE_KEYS: Array[String] = ["intro_sequence", "outro_sequence"]
 const NEGATE_PREFIX: String = "!"
 
@@ -321,6 +325,9 @@ static func _check_trigger(trigger: Dictionary, ctx: Dictionary, path: String, g
 			continue
 		if key == "music" and not MUSIC_ACTIONS.has(value as String):
 			problems.append(_problem(source, action_path + ".music", "must be one of %s, not '%s'" % [", ".join(MUSIC_ACTIONS), value]))
+			continue
+		if key == "hint" and not HINT_ACTIONS.has(value as String):
+			problems.append(_problem(source, action_path + ".hint", "must be one of %s, not '%s'" % [", ".join(HINT_ACTIONS), value]))
 			continue
 		if key == "spawn_group":
 			var group_name: String = value

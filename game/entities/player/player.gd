@@ -69,6 +69,13 @@ extends Area2D
 ## enemies are still destroyed by contact); when it ends a still-overlapping
 ## hazard hits again, as with i-frames. The volley runs in PlayerWeapons, is
 ## never restarted, and death stops it (no more launches, no finish).
+##
+## Control-hint events (Story 5.8): step_lock emits Events.player_moved(distance)
+## whenever the confined position differs from the ship's previous one (no
+## allocation), except on the first lock tick, which only snaps the freshly
+## spawned ship onto the cursor. A raised shield or a started barrage emits
+## Events.player_action(&"shield" / &"barrage"); a denied or busy ability emits
+## nothing. PlayerWeapons emits &"laser" / &"missile".
 
 ## A mouse within this distance of its confined point is not warped: warp_mouse
 ## rounds to whole OS pixels, so under stretch the read-back can land a fraction of
@@ -116,6 +123,9 @@ var _dead: bool = false
 var _safe: bool = false
 
 var _barrage_cost: int = 0
+## False until the first lock tick (that tick snaps the spawned ship onto the
+## cursor and is not player movement).
+var _locked_once: bool = false
 
 @onready var _hurtbox: CollisionShape2D = $Hurtbox
 @onready var _sprite: Sprite2D = $Sprite
@@ -280,6 +290,7 @@ func try_shield() -> bool:
 	if not _spend(&"shield", _shield.is_active(), _shield.cost, line):
 		return false
 	_shield.raise()
+	Events.player_action.emit(&"shield")
 	return true
 
 
@@ -303,6 +314,7 @@ func try_barrage() -> bool:
 	if not _spend(&"barrage", _weapons.is_barraging(), _barrage_cost, "Barrage: -%d energy" % _barrage_cost):
 		return false
 	_weapons.start_barrage()
+	Events.player_action.emit(&"barrage")
 	return true
 
 
@@ -439,13 +451,19 @@ func step_missile(pressed: bool, delta: float) -> void:
 
 ## One lock tick: the ship sits exactly on the confined mouse point (viewport
 ## coordinates). A mouse more than WARP_EPS_PX outside the zone is warped back onto
-## the zone edge, but only while the gameplay mode is CONFINED_HIDDEN.
+## the zone edge, but only while the gameplay mode is CONFINED_HIDDEN. When the
+## ship moved (not on the first tick) it emits Events.player_moved (Story 5.8).
 func step_lock(mouse: Vector2) -> void:
 	var confined: Vector2 = confine(mouse, _bounds_min, _bounds_max)
 	var outside: bool = mouse.distance_squared_to(confined) > WARP_EPS_PX * WARP_EPS_PX
 	if outside and PauseArbiter.current_mouse_mode() == Input.MOUSE_MODE_CONFINED_HIDDEN:
 		warp_mouse.call(confined)
+	var previous: Vector2 = global_position
 	global_position = confined
+	if not _locked_once:
+		_locked_once = true
+	elif confined != previous:
+		Events.player_moved.emit(previous.distance_to(confined))
 
 
 ## Clamps the ship centre to x 0..Playfield width, y bounds_y.min..max.

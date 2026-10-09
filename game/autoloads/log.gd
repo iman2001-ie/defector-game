@@ -11,7 +11,7 @@ const LEVEL_ERROR: String = "ERROR"
 
 const CATEGORIES: Array[String] = [
 	"boot", "scene", "wave", "beat", "comms", "spawn",
-	"combat", "save", "audio", "data", "debug",
+	"combat", "save", "audio", "data", "debug", "hint",
 ]
 
 ## Injectable so tests can simulate a release build.

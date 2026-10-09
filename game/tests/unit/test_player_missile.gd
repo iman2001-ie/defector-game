@@ -276,3 +276,13 @@ func test_rmb_while_paused_fires_nothing() -> void:
 	Input.action_press(&"fire_missile")
 	await wait_physics_frames(10)
 	assert_eq(spawned[0], 0, "no missile while paused")
+
+
+# --- Story 5.8: player_action ----------------------------------------------------
+
+func test_a_missile_launch_emits_player_action_missile() -> void:
+	_ticks(true, 1)
+	assert_signal_emit_count(Events, "player_action", 1)
+	assert_signal_emitted_with_parameters(Events, "player_action", [&"missile"])
+	_ticks(true, 10)
+	assert_signal_emit_count(Events, "player_action", 1, "presses during the cooldown launch nothing")

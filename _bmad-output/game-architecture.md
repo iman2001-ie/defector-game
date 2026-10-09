@@ -340,13 +340,14 @@ The visual sprite may be shorter. No ray/shape casts are needed.
 ### UI Framework
 
 - Built-in `Control` nodes. One `Theme` at `res://ui/theme/defector_theme.tres` (fonts, panel styles, button styles). Don't set per-node style overrides except in the comms panel portrait frame.
-- The HUD reads state **only via `Events` signals** (`hearts_changed`, `energy_changed`, `wave_progress_changed`, `boss_hp_changed`, `convoy_hp_changed`, `missile_cooldown_changed`). The HUD never polls gameplay nodes.
+- The HUD reads state **only via `Events` signals** (`hearts_changed`, `energy_changed`, `wave_progress_changed`, `boss_hp_changed`, `convoy_hp_changed`, `missile_cooldown_changed`; the hint pill also reads `hint_requested`, `player_moved` and `player_action`, Story 5.8). The HUD never polls gameplay nodes.
 - There is no reticle: the ship is the cursor (GDD decision #29). The missile cooldown ring is a Player child, drawn above the ship sprite with `draw_arc` and driven only by `Events.missile_cooldown_changed`.
   - As built: `entities/player/missile_ring.gd` (`class_name MissileRing`), the `MissileRing` child of the Player with `z_index = 1`.
   - Data: `player.missile_ring.radius_px` / `stroke_px`. The radius is clamped to `player.sprite_px / 2` (with a `Log.warn`), so the ring is never bigger than the ship.
   - Colours: a `text` (#E8F4FF) stroke over a `background` (#05070F) outline. It sweeps clockwise from 12 o'clock and draws nothing when the ratio is 0 (ready).
 - The hearts display and hit vignette are built (Story 3.1): `ui/hud/hearts_display.gd` (`class_name HeartsDisplay`, `HUD/HeartsDisplay`) draws the heart icons in code, right-aligned to `hud.hearts.right_x`, and pops a lost heart; `ui/hud/hit_vignette.gd` (`class_name HitVignette`, `HUD/HitVignette`, the first HUD child so it draws under the meters) is a full-rect `ColorRect` with the `hit_vignette.gdshader` edge gradient, driven by `Events.player_hit`. Both are `PROCESS_MODE_PAUSABLE` and `MOUSE_FILTER_IGNORE`; colours are the theme's `HeartsDisplay` (`heart`, `empty`, `outline`) and `HitVignette` (`color`) items; layout and timing are `hud.hearts` / `hud.hit_vignette`.
 - The energy bar is built (Story 3.3): `ui/hud/energy_bar.gd` (`class_name EnergyBar`, `HUD/EnergyBar` right after `HeartsDisplay`, `PROCESS_MODE_PAUSABLE`, `MOUSE_FILTER_IGNORE`), driven only by `Events.energy_changed`. Rect from `hud.energy_bar` (`right_x − width`, `y`, `width × height`: 1568, 76, 320×16); theme type `EnergyBar` (`track` and `fill` styleboxes, `tick` colour); tick marks at `abilities.shield.cost` and `abilities.barrage.cost` of max, clamped inside the bar. Denied flash (Story 3.4): `Events.ability_denied` (any ability) starts or restarts a `hud.energy_bar.denied_flash_s` flash with `denied_flashes` on-phases (static `flash_lit(elapsed, duration, flashes)`), drawn as a full-rect theme `EnergyBar/colors/denied` (`danger`) overlay above the fill and ticks; `_process` runs only while flashing, so the flash freezes under pause.
+- The control-hint pill is built (Story 5.8): `ui/hud/hint_pill.gd` (`class_name HintPill`, `HUD/HintPill` right after `EnergyBar`, `PROCESS_MODE_PAUSABLE`, `MOUSE_FILTER_IGNORE`), driven only by `Events.hint_requested`, `energy_changed`, `player_moved` and `player_action`; it also reads and writes `GameState.shown_hints`. Theme type `HintPill`; layout and timing `ui.hint_pill`. See As-built 2026-10-08 (Story 5.8).
 - The wave bar is built: `ui/hud/wave_bar.gd` (`class_name WaveBar`), the `HUD/WaveBar` child of `level.tscn` (before `LevelClearBanner`, `PROCESS_MODE_PAUSABLE`). `defector_theme.tres` exists and holds the `WaveBar` type items (`track`, `fill`, `highlight` styleboxes, `separation` constant); rect and tween time are `tuning.json` → `hud.wave_bar`.
 
 ### Architecture Decision Records
@@ -428,7 +429,7 @@ func spawn_enemy(type_id: StringName, params: Dictionary) -> Enemy:
 | `INFO` | Milestones: scene change, level start and clear, wave start and clear, beat fired, save written | Logged |
 | `DEBUG` | Detailed diagnostics (spawn details, trigger evaluation) | **Dropped** (`OS.is_debug_build()` false) |
 
-- Categories (fixed list): `boot`, `scene`, `wave`, `beat`, `comms`, `spawn`, `combat`, `save`, `audio`, `data`, `debug`.
+- Categories (fixed list): `boot`, `scene`, `wave`, `beat`, `comms`, `spawn`, `combat`, `save`, `audio`, `data`, `debug`, `hint` (Story 5.8).
 - **No logging in per-frame paths** (`_process`, `_physics_process`, per-projectile hits). Log events, not frames.
 - Don't use bare `print()` anywhere except inside `Log`.
 
@@ -500,6 +501,8 @@ signal player_died
 signal energy_changed(current: int, max_energy: int)
 signal ability_denied(ability: StringName)          # &"shield" | &"barrage"
 signal missile_cooldown_changed(ratio: float)        # 0 = ready, 1 = just fired
+signal player_moved(distance_px: float)              # Story 5.8: the ship moved this tick
+signal player_action(action: StringName)            # Story 5.8: &"laser" | &"missile" | &"shield" | &"barrage"
 
 # Combat
 signal enemy_killed(enemy_type: StringName, position: Vector2, by_ally: bool)
@@ -525,6 +528,7 @@ signal comms_sequence_requested(sequence_id: StringName)
 signal comms_sequence_finished(sequence_id: StringName)
 signal final_choice_made(choice: StringName)         # &"surrender" | &"destroy"
 signal story_event_requested(event_name: StringName) # e.g. &"tarek_fall"
+signal hint_requested(hint_id: StringName)           # Story 5.8: &"move_fire" | &"missile"
 ```
 
 ### Debug Tools
@@ -567,7 +571,7 @@ Debug tools are available **only when `OS.is_debug_build()`** (editor runs and d
 
 ### Directory Structure
 
-This is the target tree. As of Story 5.6 the built parts are: `project.godot`, `export_presets.cfg` and `default_bus_layout.tres`; the autoloads `Log`, `Events`, `Config`, `GameState`, `SaveManager`, `PauseArbiter`, `Audio`, `Feedback`, `EntityRegistry`, `SceneRouter`; `core/` (with `loot.gd` and `health_component.gd`); `entities/player/` (with the shield, `player_shield`, `shield_bubble` and the barrage); `entities/projectiles/` laser, missile and `micro_missile`; `entities/enemies/wasp/`; `entities/asteroids/`; `entities/pickups/`; `entities/effects/`; `systems/camera/`; `systems/waves/`; `systems/comms/` (`comms_channel.gd`, `comms_panel.tscn` + `.gd`, `comms_box.tscn` + `.gd`, `dialogue_validator.gd`); `scenes/sandbox/`; `scenes/level/`; `scenes/boot/`; `scenes/title/title.tscn` + `.gd` and `level_select.tscn` + `.gd`; `scenes/story/` (`story.tscn` + `.gd`); `ui/debug/`; `ui/hud/level_clear_banner.gd`, `wave_bar.gd`, `hearts_display.gd`, `energy_bar.gd` and `hit_vignette.gd` (+ `.gdshader`); `ui/menus/retry_prompt.tscn` + `.gd` and `pause_menu.tscn` + `.gd`; `data/tuning.json`, `data/flags.json`, `data/levels/` (plus the dev levels `level_dev.json` and `level_dev_isolde.json`) and `data/dialogue/` (`dev.json`, `opening.json`, `level_1.json`, `level_2.json`, `level_3.json`); `assets/audio/sfx/`, `assets/sprites/player/` and `assets/CREDITS.md`; `addons/gut/`; `tests/unit/` (plus `tests/fixtures/`); and `tests/data/`. Everything else is planned.
+This is the target tree. As of Story 5.8 the built parts are: `project.godot`, `export_presets.cfg` and `default_bus_layout.tres`; the autoloads `Log`, `Events`, `Config`, `GameState`, `SaveManager`, `PauseArbiter`, `Audio`, `Feedback`, `EntityRegistry`, `SceneRouter`; `core/` (with `loot.gd` and `health_component.gd`); `entities/player/` (with the shield, `player_shield`, `shield_bubble` and the barrage); `entities/projectiles/` laser, missile and `micro_missile`; `entities/enemies/wasp/`; `entities/asteroids/`; `entities/pickups/`; `entities/effects/`; `systems/camera/`; `systems/waves/`; `systems/comms/` (`comms_channel.gd`, `comms_panel.tscn` + `.gd`, `comms_box.tscn` + `.gd`, `dialogue_validator.gd`); `scenes/sandbox/`; `scenes/level/`; `scenes/boot/`; `scenes/title/title.tscn` + `.gd` and `level_select.tscn` + `.gd`; `scenes/story/` (`story.tscn` + `.gd`); `ui/debug/`; `ui/hud/level_clear_banner.gd`, `wave_bar.gd`, `hearts_display.gd`, `energy_bar.gd`, `hint_pill.gd` (Story 5.8) and `hit_vignette.gd` (+ `.gdshader`); `ui/menus/retry_prompt.tscn` + `.gd` and `pause_menu.tscn` + `.gd`; `data/tuning.json`, `data/flags.json`, `data/levels/` (plus the dev levels `level_dev.json`, `level_dev_isolde.json` and `level_dev_hints.json`) and `data/dialogue/` (`dev.json`, `opening.json`, `level_1.json`, `level_2.json`, `level_3.json`); `assets/audio/sfx/`, `assets/sprites/player/` and `assets/CREDITS.md`; `addons/gut/`; `tests/unit/` (plus `tests/fixtures/`); and `tests/data/`. Everything else is planned.
 
 ```
 <repo root>/
@@ -718,7 +722,7 @@ This is the target tree. As of Story 5.6 the built parts are: `project.godot`, `
 
 - Enemy type ids: `wasp`, `lancer`, `needle`, `bastion`, `maul`, `hunter_wasp`, `flagship`.
 - Asteroid sizes: `small`, `medium`, `large`.
-- Dialogue sequence ids: `<scene>_<beat>`. For example: `opening_main`, `l1_w1_tutorial_move`, `l1_w3_isolde_interrupt`, `l1_w5_surrender`, `l2_w5_tarek_cutoff`, `l2_ryn_report`, `l3_final_choice`, `l3_isolde_refuse_surrender`, `l3_isolde_refuse_destroy`, `l3_isolde_final`.
+- Dialogue sequence ids: `<scene>_<beat>`. For example: `opening_main`, `l1_w3_isolde_interrupt`, `l1_w5_surrender`, `l2_w5_tarek_cutoff`, `l2_ryn_report`, `l3_final_choice`, `l3_isolde_refuse_surrender`, `l3_isolde_refuse_destroy`, `l3_isolde_final`.
 - Speaker ids: `vale`, `isolde`, `tarek`, `ryn`, `system`.
 
 ### Architectural Boundaries
@@ -750,7 +754,7 @@ These patterns keep the implementation consistent across all AI agents.
 | `WaveDirector` (node in `level.tscn`) | Loads the level JSON. Runs waves in order. Asks the `Spawner` to spawn. Counts resolved enemies. Evaluates triggers. Emits wave signals |
 | `WaveProgress` (pure `RefCounted`, unit-tested) | `total_counted`, `resolved`, `ratio()`, `is_complete()` |
 | `BeatTrigger` (pure `RefCounted`, unit-tested) | One trigger's condition (`when`, `at`, `flag`) + `has_fired`. `should_fire(event, ratio, flags) -> bool` |
-| Actions (handled inside `WaveDirector._run_actions`) | `comms`, `spawn_group`, `story_event`, `music`, `wait` |
+| Actions (handled inside `WaveDirector._run_actions`) | `comms`, `spawn_group`, `story_event`, `music`, `wait`, `hint` (Story 5.8) |
 
 **Level data shape (`data/levels/level_1.json`, abridged):**
 
@@ -771,7 +775,7 @@ These patterns keep the implementation consistent across all AI agents.
       ],
       "asteroids": [],
       "triggers": [
-        { "when": "wave_start", "actions": [ { "comms": "l1_w1_tutorial_move" } ] }
+        { "when": "wave_start", "actions": [ { "hint": "move_fire" } ] }
       ]
     },
     {
@@ -801,6 +805,7 @@ These patterns keep the implementation consistent across all AI agents.
 - **Resolved** means killed (by the player or an ally), *or* a Maul that ended its dive without hitting anything (it emits `resolved` without a kill). Wasps that leave the screen re-enter, so they don't resolve.
 - Each trigger fires **at most once** per level attempt. Triggers are checked in array order after every resolve.
 - Actions run **sequentially**: `comms` with a story-mode sequence `await`s `Events.comms_sequence_finished`, and combat-mode sequences don't block. A trigger whose actions are still running doesn't block other triggers. Built (Story 5.3): `comms`, `story_event` and `music` run as described below; the chain waits on a relay signal of the director itself (fed by an `Events.comms_sequence_finished` connection made in `_ready`), and a finished emitted synchronously during the request still releases it; unknown ids don't wait (the channel finishes them). `wait` uses a one-shot pausable `Timer` child. So every chain dies with the director on a reload. A `music` value must be `stop`, `combat` or `boss` (LevelValidator).
+- **`hint` (built, Story 5.8):** `{ "hint": "move_fire" | "missile" }` logs `[INFO][beat] Level <n> wave <w>: hint '<id>'`, emits `Events.hint_requested(id)` and never waits, so the next action runs in the same chain step. The HUD `HintPill` shows the hints; nothing goes through the comms channel and nothing pauses. Any other value is a LevelValidator problem (`HINT_ACTIONS`). The energy hints (`[E] SHIELD`, `[Q] BARRAGE`) are not data: the pill raises them from `Events.energy_changed`. Control tutorials are hints, never `comms` sequences (GDD).
 - **Intro and outro (built, Story 5.3):** `intro_sequence` plays before wave 1 the same way as a `comms` action (a story intro holds wave 1, a combat one doesn't) and is skipped when `GameState.is_retry` (INFO `intro '<id>' skipped (retry)`); `outro_sequence` plays before `level_cleared` the same way, also on a retry. A death, F6 or a new `start_level` during either await starts or clears nothing. Both are absent, `null` or a non-empty string (LevelValidator). The level-root `music` key is not read (see As-built Story 5.3).
 - **Wave clear** = `resolved == total_counted` **and** all of the wave's action chains have finished. Then `wave_clear` triggers fire, then a 2.0 s gap (`tuning.waves.gap_s`), then the next wave.
 - **Boss wave:** `{ "boss": "flagship", "triggers": [...] }`. The total is 1 (the Flagship). It resolves on `boss_defeated`. Boss-launched Wasps are **not** counted.
@@ -1766,6 +1771,20 @@ Status update (FR41, FR44, FR45). Content only: no code, `DialogueValidator`, `C
   - `level_3.json`: `l3_briefing` (story, 3 Ryn lines), `l3_w3_isolde_taunt` (combat), `l3_final_choice` (story, 2 Isolde lines, the lead-in, no `choice`), `l3_isolde_refuse_surrender` and `l3_isolde_refuse_destroy` (story, Vale's offer or vow, then Isolde; the surrender refusal echoes "Come home"), `l3_isolde_final` (story, 1 Isolde line).
   - Cast rules: Vale is gender-neutral and addressed as "General" (or "Arden"), speaks 4 lines in the campaign (2 in the opening, line 1 of each refusal); no narrator and no `system` speaker in the campaign files.
 - **Tests:** `tests/data/test_data_files.gd`: `test_campaign_script_layout` (the 15 ids: file, mode, line count, allowed speakers, loads through `Config`; no `system` speaker; no `choice` on `l1_w5_surrender` or `l3_final_choice`), `test_refusals_open_with_vale` (line 1 by Vale, then Isolde; the "come home" echo), `test_tarek_cutoff_is_final` (Tarek, combat, the exact `after`, the chars either side of `cut_off_at` are letters) and `test_cast_rules` (Vale at most 5 lines, no gendered term as a whole word, the opening self-introductions, Ryn names herself first, every campaign file has a non-Vale "General"), plus the `_is_letter` and `_gendered` self-checks. The every-referenced-sequence test (Story 5.3) is unchanged.
+
+## As-built 2026-10-08 (Story 5.8)
+
+Status update (FR66, NFR8). No GDD or UX decision changed. Record-only decisions (the docs are silent): the energy thresholds are the ability costs from tuning (`abilities.shield.cost` / `abilities.barrage.cost`, 50 / 100 today), and "reaching" means a value ≥ the cost; an action counts only while its hint is the one showing (a held LMB dismisses the fire pill on the next bolt, about 0.1 s, which still confirms the control); the fade-out mirrors the 0.2 s fade-in; the 5 s clock runs from the start of the fade-in and only while the tree is unpaused; hints aren't gated by a level (once per session, so the energy hints normally show in Level 1); the copy is UI text, a const in `hint_pill.gd`; the Player's first lock tick (the spawned ship snapping onto the cursor) is not movement, so it never counts toward the move hint.
+
+- **Events:** `player_moved(distance_px: float)` and `player_action(action: StringName)` (Player), `hint_requested(hint_id: StringName)` (Comms). See [Event System](#event-system).
+- **Player:** `step_lock` emits `player_moved` with the distance whenever the confined position differs from the previous one (no allocation), except on its first call. `try_shield` / `try_barrage` emit `player_action(&"shield" / &"barrage")` only on success (a denied or busy ability emits nothing). `PlayerWeapons` emits `&"laser"` after a spawned bolt and `&"missile"` after a spawned missile; the barrage's micro-missiles never emit.
+- **WaveDirector / LevelValidator:** the `hint` action (see the Wave Director rules); `LevelValidator.ACTION_KEYS` gains `hint`, `HINT_ACTIONS` = `move_fire`, `missile`.
+- **GameState:** `shown_hints: Dictionary[StringName, bool]`, the hints shown this session; never saved or reset.
+- **HintPill:** `ui/hud/hint_pill.gd` (`class_name HintPill extends Control`, built in code: a `Panel` holding the `Key` and `Action` Labels, plus a one-shot `ShowTimer`; `MOUSE_FILTER_IGNORE` on it and every child; `PROCESS_MODE_PAUSABLE`), `HUD/HintPill` in `level.tscn` right after `EnergyBar`. `hint_requested(&"move_fire")` queues `move` then `fire`, `&"missile"` queues `missile`; an unknown id logs `[WARN][hint] Unknown hint request '<id>'; nothing shown`. `energy_changed` ≥ the shield / barrage cost queues `shield` / `barrage` (shield first). A hint is never queued when it is in `GameState.shown_hints`, showing or queued. One pill at a time: the next queued hint shows (recorded in `shown_hints`, `[INFO][hint] Hint '<id>' shown`), fades in over `fade_in_s`, starts the `show_s` timer; its action (`move`: cumulative `player_moved` ≥ `move_dismiss_px`; `fire`: `&"laser"`; `missile` / `shield` / `barrage`: the same-named action) or the timer fades it out over `fade_out_s`, then the next queued hint shows. Tweens are created on the pill (default pause mode) and the timer inherits the pausable mode, so a pause freezes both. Layout: width = 2 × `padding_px` + key + `gap_px` (only with a key) + action (text widths from the font at the theme size), centred on `Playfield.SIZE.x`, vertical centre `center_y`, height `h`. Copy: `move` `MOVE THE MOUSE TO FLY` (no key), `fire` `[HOLD LMB]` `FIRE`, `missile` `[RMB]` `MISSILE`, `shield` `[E]` `SHIELD`, `barrage` `[Q]` `BARRAGE`. Read accessors `showing_hint()` (also while fading), `queued()`, `is_fading()`, `key_text()`, `action_text()`, `key_color()`, `action_color()`, `font_px()`, `time_left()`.
+- **Theme:** `HintPill/styles/panel` (`StyleBoxFlat_hint_pill`: surfaceAlt fill, corner radius 26, `shadow_color` energy at 0.35 alpha, `shadow_size` 6, the soft glow), `HintPill/colors/key` (#FFD23F), `HintPill/colors/text` (#E8F4FF), `HintPill/font_sizes/text` 28.
+- **Data:** `tuning.json` `ui.hint_pill` (`center_y` 560, `h` 52, `padding_px` 24, `gap_px` 12, `fade_in_s` 0.2, `fade_out_s` 0.2, `show_s` 5.0, `move_dismiss_px` 150). `data/levels/level_dev_hints.json` (`id` 0, `Development: control hints`, the `level_dev` key set): two waves of 4 Wasps (`grid_4x1`), wave 1 `wave_start` → `{ "hint": "move_fire" }`, wave 2 `wave_start` → `{ "hint": "missile" }`; play it with `"<GODOT_DIR>/Godot_v4.7.2-stable_win64.exe" --path game res://scenes/level/level.tscn -- --level=dev_hints`. No campaign level, dialogue file or `flags.json` changed: Story 7.1 places the hints in Level 1.
+- **Log:** the `hint` category.
+- **Tests:** `tests/unit/test_hint_pill.gd` (new: modes, mouse transparency, tuning, the copy and colours, theme items, the rect, move then fire, fade-in, each action, timeout, pause freeze, the 5 s clock, the queue, actions only for the showing hint, energy thresholds and costs, no energy events, once per session across a reload, a queued-only hint, duplicates, an unknown id, no pause or comms), `tests/unit/test_control_hints.gd` (new, the real `level.tscn` on `dev_hints`: the HUD node, wave 1 shows move without a pause or comms, 150 px swaps it for fire, no energy hints, a retry and a reload with the same `shown_hints` show neither), `test_wave_director.gd` (the `hint` action emits and never blocks), `test_level_validator.gd` (hint values), `test_player_movement.gd` / `test_player_laser.gd` / `test_player_missile.gd` / `test_player_shield.gd` / `test_player_barrage.gd` (emit / no-emit), `test_project_settings.gd` (the Events catalogue) and `tests/data/test_data_files.gd` (`ui.hint_pill`, the dev level's shape).
 
 ---
 

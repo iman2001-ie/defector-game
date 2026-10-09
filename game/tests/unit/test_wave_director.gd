@@ -26,6 +26,7 @@ func before_each() -> void:
 		"level_cleared": func(id: int) -> void: _events.append(["level_cleared", id]),
 		"comms_sequence_requested": func(id: StringName) -> void: _events.append(["comms_sequence_requested", id]),
 		"story_event_requested": func(event_name: StringName) -> void: _events.append(["story_event_requested", event_name]),
+		"hint_requested": func(hint_id: StringName) -> void: _events.append(["hint_requested", hint_id]),
 	}
 	for signal_name: String in _recorders:
 		Events.connect(signal_name, _recorders[signal_name])
@@ -851,6 +852,22 @@ func test_story_event_is_emitted_once() -> void:
 	_start_chain([{"story_event": "tarek_fall"}])
 	assert_eq(_story_events(), [["story_event_requested", &"tarek_fall"]] as Array[Array])
 	assert_eq(_lines_containing("[INFO][beat] Level 3 wave 1: story event 'tarek_fall'").size(), 1)
+
+
+func test_hint_action_emits_hint_requested() -> void:
+	_start_chain([{"hint": "move_fire"}])
+	assert_eq(_events_named("hint_requested"), [["hint_requested", &"move_fire"]] as Array[Array])
+	assert_eq(_lines_containing("[INFO][beat] Level 3 wave 1: hint 'move_fire'").size(), 1, "INFO beat line")
+	assert_eq(_lines_containing("unknown action").size(), 0, "hint is a known action")
+	assert_eq(_director.running_chains(), 0, "the chain finished at once")
+
+
+func test_hint_action_never_blocks_the_chain() -> void:
+	_start_chain([{"hint": "missile"}, {"story_event": "e"}])
+	assert_eq(_events_named("hint_requested"), [["hint_requested", &"missile"]] as Array[Array])
+	assert_eq(_story_events(), [["story_event_requested", &"e"]] as Array[Array], "e runs in the same chain step")
+	assert_eq(_director.running_chains(), 0, "nothing waits on a hint")
+	assert_false(get_tree().paused, "a hint never pauses")
 
 
 func _silent_wav() -> AudioStreamWAV:

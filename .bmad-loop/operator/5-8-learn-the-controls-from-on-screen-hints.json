@@ -1,0 +1,11 @@
+{
+  "actions": [
+    "Launch the level scene directly in a debug build with `-- --level=dev_hints` and confirm `MOVE THE MOUSE TO FLY` appears as a rounded pill centred at y 560, readable, with no clipping, then fades once you fly the ship a short way.",
+    "Confirm `[HOLD LMB] FIRE` follows with the key part in energy gold and the action in the text colour, and fades on your first shot; in wave 2 confirm `[RMB] MISSILE` appears and fades when you fire a missile.",
+    "Collect energy orbs until the bar passes 50, then 100, and confirm `[E] SHIELD` then `[Q] BARRAGE` appear one at a time and fade on use or after about 5 s; die, retry, and confirm no hint you already saw shows again."
+  ],
+  "parked_at": "2026-10-08",
+  "run_id": "20261007-173701-8906",
+  "spec_file": "_bmad-output/implementation-artifacts/spec-5-8-learn-the-controls-from-on-screen-hints.md",
+  "story_key": "5-8-learn-the-controls-from-on-screen-hints"
+}

@@ -214,3 +214,22 @@ func test_paused_tree_does_not_fire() -> void:
 	PauseArbiter.pop(&"menu")
 	await wait_physics_frames(10)
 	assert_gt(projectiles.get_child_count(), 0, "fires once unpaused")
+
+
+# --- Story 5.8: player_action ----------------------------------------------------
+
+func test_a_bolt_emits_player_action_laser() -> void:
+	watch_signals(Events)
+	_ticks(false, 3)
+	assert_signal_not_emitted(Events, "player_action", "not held: no bolt, no action")
+	_ticks(true, 1)
+	assert_eq(_projectiles.get_child_count(), 1)
+	assert_signal_emit_count(Events, "player_action", 1)
+	assert_signal_emitted_with_parameters(Events, "player_action", [&"laser"])
+
+
+func test_no_spawner_no_player_action() -> void:
+	_player.set_spawner(null)
+	watch_signals(Events)
+	_ticks(true, 10)
+	assert_signal_not_emitted(Events, "player_action")

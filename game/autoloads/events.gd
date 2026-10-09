@@ -8,6 +8,11 @@ signal player_died
 signal energy_changed(current: int, max_energy: int)
 signal ability_denied(ability: StringName)          # &"shield" | &"barrage"
 signal missile_cooldown_changed(ratio: float)        # 0 = ready, 1 = just fired
+## Story 5.8: the ship moved `distance_px` this physics tick (only when it moved).
+signal player_moved(distance_px: float)
+## Story 5.8: the player performed an action: a laser bolt, a missile launch, the
+## shield raised or a barrage started. Denied abilities and micro-missiles never emit.
+signal player_action(action: StringName)            # &"laser" | &"missile" | &"shield" | &"barrage"
 
 # Combat
 signal enemy_killed(enemy_type: StringName, position: Vector2, by_ally: bool)
@@ -33,3 +38,5 @@ signal comms_sequence_requested(sequence_id: StringName)
 signal comms_sequence_finished(sequence_id: StringName)
 signal final_choice_made(choice: StringName)         # &"surrender" | &"destroy"
 signal story_event_requested(event_name: StringName) # e.g. &"tarek_fall"
+## Story 5.8: a WaveDirector `hint` action asks the HUD HintPill for control hints.
+signal hint_requested(hint_id: StringName)           # &"move_fire" | &"missile"

@@ -356,3 +356,21 @@ func test_bad_sprite_px_warns_and_keeps_scale() -> void:
 		if line.begins_with("[WARN][data] Player hull"):
 			warns.append(line)
 	assert_eq(warns.size(), 1, "one hull data WARN")
+
+
+# --- Story 5.8: player_moved ------------------------------------------------------
+
+func test_player_moved_fires_on_movement_and_not_when_still() -> void:
+	watch_signals(Events)
+	_player.step_lock(Vector2(700, 600))
+	assert_signal_not_emitted(Events, "player_moved", "the first lock tick only snaps the spawned ship")
+	_player.step_lock(Vector2(800, 600))
+	assert_signal_emit_count(Events, "player_moved", 1, "moved 100 px")
+	assert_almost_eq(float(get_signal_parameters(Events, "player_moved", 0)[0]), 100.0, 0.001, "distance")
+	_player.step_lock(Vector2(800, 600))
+	assert_signal_emit_count(Events, "player_moved", 1, "still: no emit")
+	_player.step_lock(Vector2(800, 100))
+	assert_signal_emit_count(Events, "player_moved", 2, "confined distance")
+	assert_almost_eq(float(get_signal_parameters(Events, "player_moved", 1)[0]), 600.0 - Config.num("player.bounds_y.min"), 0.001, "600 -> the zone top")
+	_player.step_lock(Vector2(800, 50))
+	assert_signal_emit_count(Events, "player_moved", 2, "pushing against the edge is not movement")

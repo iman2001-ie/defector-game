@@ -35,6 +35,8 @@ const EVENTS: Dictionary = {
 	"energy_changed": [TYPE_INT, TYPE_INT],
 	"ability_denied": [TYPE_STRING_NAME],
 	"missile_cooldown_changed": [TYPE_FLOAT],
+	"player_moved": [TYPE_FLOAT],
+	"player_action": [TYPE_STRING_NAME],
 	"enemy_killed": [TYPE_STRING_NAME, TYPE_VECTOR2, TYPE_BOOL],
 	"asteroid_destroyed": [TYPE_STRING_NAME, TYPE_VECTOR2],
 	"level_started": [TYPE_INT],
@@ -52,6 +54,7 @@ const EVENTS: Dictionary = {
 	"comms_sequence_finished": [TYPE_STRING_NAME],
 	"final_choice_made": [TYPE_STRING_NAME],
 	"story_event_requested": [TYPE_STRING_NAME],
+	"hint_requested": [TYPE_STRING_NAME],
 }
 ## Project setting -> expected value (Story 1.1 project.godot task, the clear colour, the Story 4.1 boot main scene, and the Story 4.5 windowed size override).
 const SETTINGS: Dictionary = {
