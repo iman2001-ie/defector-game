@@ -226,6 +226,41 @@ func test_spawner_unregisters_on_exit() -> void:
 	_spawner = null
 
 
+# --- shake_tier() (Story 5.4) ------------------------------------------------
+
+func test_shake_tier_shakes_only() -> void:
+	_setup_listeners()
+	Audio.play_sfx(&"laser_zap")
+	var before: AudioStreamPlayer = Audio.newest_player()
+	Feedback.shake_tier(ImpactTier.LARGE)
+	assert_almost_eq(_camera.current_amplitude(), 8.0, 0.0001, "large shake_px")
+	assert_eq(_explosions().size(), 0, "no explosion")
+	assert_eq(Engine.time_scale, 1.0, "no hit-stop")
+	assert_false(Feedback.is_hit_stopped())
+	assert_eq(Audio.newest_player(), before, "no sound")
+
+
+func test_shake_tier_small_has_no_shake() -> void:
+	_setup_listeners()
+	Feedback.shake_tier(ImpactTier.SMALL)
+	assert_eq(_camera.current_amplitude(), 0.0, "small has shake_px 0")
+
+
+func test_shake_tier_bad_tier_logs_and_does_nothing() -> void:
+	_setup_listeners()
+	Feedback.shake_tier(99)
+	assert_push_error("Feedback.shake_tier: unknown tier 99")
+	assert_eq(_camera.current_amplitude(), 0.0, "nothing shakes")
+	Feedback.shake_tier(-1)
+	assert_push_error("Feedback.shake_tier: unknown tier -1")
+
+
+func test_shake_tier_without_camera_is_a_no_op() -> void:
+	Feedback.shake_tier(ImpactTier.LARGE)
+	assert_eq(Engine.time_scale, 1.0)
+	assert_false(Feedback.is_hit_stopped())
+
+
 # --- Hit-stop ----------------------------------------------------------------
 
 func test_hit_stop_zero_or_negative_ignored() -> void:

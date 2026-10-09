@@ -190,6 +190,44 @@ func test_typewriter_speed() -> void:
 	assert_eq(text.visible_characters, -1, "fully visible")
 
 
+## Story 5.4: a cut-off line types only to cut_off_at characters over
+## cut_off_at / chars_per_s and stays there (never -1).
+func test_cut_off_line_types_to_cut_off_at_and_stays() -> void:
+	var box: CommsBox = _make()
+	var line: String = "General, get behind me, I've got you cov—"
+	box.show_line(&"tarek", line, 39)
+	var text: Label = _label(box, "Box/Text")
+	assert_eq(text.text, line, "the whole text is set")
+	assert_eq(text.visible_characters, 0, "starts at 0")
+	assert_true(box.is_typing())
+	box._type_tween.custom_step(39.0 / 45.0 - 0.02)
+	assert_true(box.is_typing(), "still typing just before 39 / 45 s")
+	assert_lt(text.visible_characters, 39)
+	box._type_tween.custom_step(0.03)
+	assert_false(box.is_typing(), "done at 39 / 45 s")
+	assert_eq(text.visible_characters, 39, "stops at cut_off_at, never -1")
+	for i: int in 3:
+		await get_tree().process_frame
+	assert_eq(text.visible_characters, 39, "stays there")
+
+
+func test_cut_off_stops_the_typewriter() -> void:
+	var box: CommsBox = _make()
+	box.show_line(&"tarek", "a".repeat(41), 39)
+	box._type_tween.custom_step(0.2)
+	box.cut_off(39)
+	assert_false(box.is_typing(), "tween killed")
+	assert_eq(_label(box, "Box/Text").visible_characters, 39)
+	assert_true(box.visible, "still shown")
+
+
+func test_default_show_line_is_unchanged() -> void:
+	var box: CommsBox = _make()
+	box.show_line(&"isolde", "a".repeat(10), -1)
+	box._type_tween.custom_step(1.0)
+	assert_eq(_label(box, "Box/Text").visible_characters, -1, "-1 types the whole line")
+
+
 func test_tweens_freeze_while_paused() -> void:
 	var box: CommsBox = _make()
 	box.show_line(&"isolde", "a".repeat(45))

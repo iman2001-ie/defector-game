@@ -77,14 +77,21 @@ func impact(tier: int, position: Vector2) -> void:
 		return
 	var row: Dictionary = _tiers[tier]
 	_spawn_explosion(row, position)
-	var shake_px: float = row["shake_px"]
-	var shake_s: float = row["shake_s"]
-	if _camera != null and is_instance_valid(_camera) and shake_px > 0.0 and shake_s > 0.0:
-		_camera.shake(shake_px, shake_s)
+	_shake(row)
 	var stop_ms: float = row["hit_stop_ms"]
 	if stop_ms > 0.0:
 		hit_stop(stop_ms)
 	Audio.play_sfx(row["sfx"] as StringName, Audio.DEFAULT_PITCH_JITTER, row["sfx_volume_db"] as float, row["sfx_pitch"] as float)
+
+
+## Shakes the registered camera with the tier's shake_px / shake_s only: no
+## explosion, hit-stop or SFX (Story 5.4, a comms cut-off). An unknown tier logs
+## an error and does nothing; with no camera it does nothing.
+func shake_tier(tier: int) -> void:
+	if tier < 0 or tier >= _tiers.size():
+		Log.error("combat", "Feedback.shake_tier: unknown tier %d" % tier)
+		return
+	_shake(_tiers[tier])
 
 
 ## Freezes time for ms milliseconds. Overlapping stops keep the longest remaining
@@ -117,6 +124,15 @@ func reset() -> void:
 	_hit_stop_serial += 1
 	_hit_stop_end_usec = 0
 	Engine.time_scale = 1.0
+
+
+## Shakes the registered camera with the row's shake_px / shake_s when both are
+## above 0.
+func _shake(row: Dictionary) -> void:
+	var shake_px: float = row["shake_px"]
+	var shake_s: float = row["shake_s"]
+	if _camera != null and is_instance_valid(_camera) and shake_px > 0.0 and shake_s > 0.0:
+		_camera.shake(shake_px, shake_s)
 
 
 func _spawn_explosion(row: Dictionary, position: Vector2) -> void:

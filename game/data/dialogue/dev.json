@@ -20,6 +20,13 @@
 			"lines": [
 				{ "speaker": "vale", "text": "No portrait here. Box text runs the full width." }
 			]
+		},
+		"dev_tarek_cutoff": {
+			"mode": "combat",
+			"lines": [
+				{ "speaker": "tarek", "text": "General, get behind me, I've got you cov—",
+					"cut_off_at": 39, "after": { "silence": "until_wave_clear", "shake": "large", "sfx": "comms_static", "music": "stop" } }
+			]
 		}
 	}
 }

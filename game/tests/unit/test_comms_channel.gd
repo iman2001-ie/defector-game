@@ -8,6 +8,10 @@ extends GutTest
 ## combat_line_s of game time (driven with step_combat), freeze under a pause,
 ## ignore clicks, are preempted by a story (deferred `finished`), queue FIFO
 ## (max 3, oldest dropped with a deferred `finished`) and wait behind a story.
+## Story 5.4: a cut-off line types to cut_off_at, then (at its cut-off moment)
+## runs the `after` effects (comms_static, the shake tier, the music action,
+## silence) and hides comms.cutoff_hide_s later; silence drops combat until
+## Events.wave_cleared.
 ## Input goes through get_viewport().push_input like a real click. Under GUT
 ## the root viewport reports a mouse button as handled even when no node
 ## consumed it, so is_input_handled() can't tell who did: a Probe node added
@@ -31,6 +35,11 @@ const BOX_SCENE: PackedScene = preload("res://systems/comms/comms_box.tscn")
 const MENU_SCENE: PackedScene = preload("res://ui/menus/pause_menu.tscn")
 const CHANNEL_DIR: String = "res://tests/fixtures/dialogue/channel/"
 const CLICK_AT: Vector2 = Vector2(960, 900)
+## Music id the cut-off tests play (restored in after_each).
+const TEST_MUSIC: StringName = &"combat"
+## The cut-off moment of cut_a / cut_plain: 39 characters at 45 chars/s.
+const CUT_S: float = 39.0 / 45.0
+const HIDE_S: float = 0.6
 
 var _channel: CommsChannel
 var _panel: CommsPanel
@@ -42,6 +51,8 @@ var _lines: Array[String] = []
 var _probe: Probe
 ## The viewport mouse before the test, restored after it (other suites read it).
 var _mouse_before: Vector2 = Vector2.ZERO
+## A registered ShakeCamera for the cut-off shake (Story 5.4), freed per test.
+var _camera: ShakeCamera
 
 
 func before_each() -> void:
@@ -78,6 +89,10 @@ func after_each() -> void:
 	Config.load_data()
 	PauseArbiter.clear()
 	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	Audio.stop_music(0.0)
+	Audio.music_streams.erase(TEST_MUSIC)
+	Audio._warned_music.erase(TEST_MUSIC)
+	_camera = null
 
 
 func _on_finished(id: StringName) -> void:
@@ -561,3 +576,219 @@ func test_story_on_story_still_queues_with_combat_around() -> void:
 	_click_to_end()
 	assert_eq(_channel.current_combat(), &"combat_a", "combat after both stories")
 	assert_eq(_finished, [&"story_a", &"story_b"] as Array[StringName])
+
+
+# --- Cut-off and silence (Story 5.4) ---------------------------------------------------
+
+## A registered ShakeCamera whose frames don't decay the amplitude.
+func _add_camera() -> ShakeCamera:
+	_camera = ShakeCamera.new()
+	add_child_autofree(_camera)
+	_camera.set_process(false)
+	return _camera
+
+
+## Plays a silent looping track as `combat` music.
+func _play_music() -> void:
+	var wav: AudioStreamWAV = AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.mix_rate = 22050
+	var data: PackedByteArray = PackedByteArray()
+	data.resize(22050 * 2)
+	wav.data = data
+	wav.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	wav.loop_end = 22050
+	Audio.music_streams[TEST_MUSIC] = wav
+	Audio.play_music(TEST_MUSIC)
+
+
+func _newest_stream() -> AudioStream:
+	var player: AudioStreamPlayer = Audio.newest_player()
+	return player.stream if player != null else null
+
+
+## Runs cut_a to just past its cut-off moment (silence on).
+func _silence() -> void:
+	_request(&"cut_a")
+	_channel.step_combat(CUT_S + 0.01)
+	assert_true(_channel.is_silenced(), "silenced by cut_a")
+
+
+func test_cut_off_timeline() -> void:
+	_add_camera()
+	_play_music()
+	Audio.play_sfx(&"laser_zap")
+	var before: AudioStreamPlayer = Audio.newest_player()
+	_request(&"cut_a")
+	assert_true(_box.visible, "box shown")
+	assert_true(_box.is_typing(), "typing")
+	assert_eq(_box_text().text, "General, get behind me, I've got you cov—")
+	assert_eq(_channel.cut_phase(), CommsChannel.CutPhase.TYPING)
+	_channel.step_combat(CUT_S - 0.01)
+	assert_eq(Audio.newest_player(), before, "no SFX before the cut-off moment")
+	assert_eq(_camera.current_amplitude(), 0.0, "no shake yet")
+	assert_eq(Audio.current_music(), TEST_MUSIC, "music still on")
+	assert_false(_channel.is_silenced(), "not silenced yet")
+	_channel.step_combat(0.02)
+	assert_eq(_box_text().visible_characters, 39, "stopped at exactly cut_off_at")
+	assert_false(_box.is_typing(), "typewriter stopped")
+	assert_eq(_newest_stream(), Audio.SFX[&"comms_static"], "comms_static played")
+	assert_almost_eq(_camera.current_amplitude(), 8.0, 0.0001, "large shake")
+	assert_eq(Engine.time_scale, 1.0, "no hit-stop")
+	assert_eq(Audio.current_music(), &"", "music stopped")
+	assert_true(_channel.is_silenced(), "silenced")
+	assert_eq(_channel.cut_phase(), CommsChannel.CutPhase.HOLD)
+	assert_eq(_count_lines("[INFO][comms] Combat sequence 'cut_a' cut off at 39 characters"), 1)
+	assert_eq(_count_lines("[INFO][comms] Comms silenced until the wave clears (cut-off 'cut_a')"), 1)
+	_channel.step_combat(HIDE_S - 0.02)
+	assert_true(_box.visible, "still visible before +0.6 s")
+	assert_eq(_box_text().visible_characters, 39, "still at 39")
+	assert_eq(_finished, [] as Array[StringName], "not finished yet")
+	_channel.step_combat(0.02)
+	assert_false(_box.visible, "hidden at once at +0.6 s")
+	assert_eq(_finished, [&"cut_a"] as Array[StringName], "finished once")
+	assert_eq(_channel.current_combat(), &"")
+	assert_eq(_channel.cut_phase(), CommsChannel.CutPhase.NONE)
+	assert_eq(_count_lines("[INFO][comms] Combat sequence 'cut_a' finished"), 1)
+	_channel.step_combat(5.0)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(_finished, [&"cut_a"] as Array[StringName], "only once")
+
+
+func test_cut_off_without_after() -> void:
+	_add_camera()
+	Audio.play_sfx(&"laser_zap")
+	var before: AudioStreamPlayer = Audio.newest_player()
+	_request(&"cut_plain")
+	_channel.step_combat(CUT_S + 0.01)
+	assert_eq(_box_text().visible_characters, 39, "stops at cut_off_at")
+	assert_eq(Audio.newest_player(), before, "no SFX")
+	assert_eq(_camera.current_amplitude(), 0.0, "no shake")
+	assert_false(_channel.is_silenced(), "no silence")
+	assert_true(_box.visible)
+	_channel.step_combat(HIDE_S)
+	assert_false(_box.visible, "hidden 0.6 s later")
+	assert_eq(_finished, [&"cut_plain"] as Array[StringName], "finished")
+
+
+func test_silence_drops_combat_requests() -> void:
+	_silence()
+	_request(&"combat_a")
+	assert_eq(_channel.current_combat(), &"cut_a", "not shown")
+	assert_eq(_channel.combat_queued(), [] as Array[StringName], "not queued")
+	assert_eq(_count_lines("[DEBUG][comms] Comms silenced: dropped combat sequence 'combat_a'"), 1)
+	assert_eq(_finished, [] as Array[StringName], "finished deferred")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(_finished, [&"combat_a"] as Array[StringName], "finished once")
+	_channel.step_combat(HIDE_S)
+	assert_eq(_channel.current_combat(), &"", "nothing plays after the cut-off")
+	_request(&"combat_b")
+	assert_eq(_channel.current_combat(), &"", "still silenced")
+
+
+func test_silence_keeps_story() -> void:
+	_silence()
+	_channel.step_combat(HIDE_S)
+	_request(&"story_a")
+	assert_eq(_channel.current_sequence(), &"story_a", "story plays")
+	assert_true(PauseArbiter.has_reason(&"story"), "story pauses")
+	assert_true(_panel.visible)
+	assert_true(_channel.is_silenced(), "still silenced")
+	_click_to_end()
+	assert_eq(_finished, [&"cut_a", &"story_a"] as Array[StringName])
+	assert_false(get_tree().paused)
+
+
+func test_wave_cleared_lifts_the_silence() -> void:
+	_silence()
+	_channel.step_combat(HIDE_S)
+	Events.wave_cleared.emit(1)
+	assert_false(_channel.is_silenced(), "silence lifted")
+	assert_eq(_count_lines("[INFO][comms] Comms silence lifted (wave cleared)"), 1)
+	_request(&"combat_a")
+	assert_eq(_channel.current_combat(), &"combat_a", "the next combat plays")
+
+
+func test_silence_flushes_the_combat_queue() -> void:
+	_request(&"cut_a")
+	_request(&"combat_a")
+	_request(&"combat_b")
+	assert_eq(_channel.combat_queued(), [&"combat_a", &"combat_b"] as Array[StringName], "queued behind the cut-off")
+	_channel.step_combat(CUT_S + 0.01)
+	assert_eq(_channel.combat_queued(), [] as Array[StringName], "dropped at the cut-off moment")
+	assert_eq(_count_lines("[DEBUG][comms] Comms silenced: dropped queued combat sequence 'combat_a'"), 1)
+	assert_eq(_count_lines("[DEBUG][comms] Comms silenced: dropped queued combat sequence 'combat_b'"), 1)
+	assert_eq(_finished, [] as Array[StringName], "finished deferred")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(_finished, [&"combat_a", &"combat_b"] as Array[StringName], "each finished once")
+	_channel.step_combat(HIDE_S)
+	assert_eq(_channel.current_combat(), &"", "nothing queued plays")
+	assert_eq(_finished, [&"combat_a", &"combat_b", &"cut_a"] as Array[StringName])
+
+
+func test_wave_clear_before_the_cut_off_voids_the_silence() -> void:
+	_add_camera()
+	_request(&"cut_a")
+	_channel.step_combat(0.3)
+	Events.wave_cleared.emit(1)
+	_channel.step_combat(CUT_S)
+	assert_eq(_newest_stream(), Audio.SFX[&"comms_static"], "effects still run")
+	assert_almost_eq(_camera.current_amplitude(), 8.0, 0.0001, "shake still runs")
+	assert_false(_channel.is_silenced(), "no silence into the next wave")
+	assert_eq(_count_lines("[DEBUG][comms] Silence from 'cut_a' skipped: its wave already cleared"), 1)
+	_channel.step_combat(HIDE_S)
+	_request(&"combat_a")
+	assert_eq(_channel.current_combat(), &"combat_a", "combat plays")
+
+
+func test_story_preempting_before_the_cut_off_drops_the_effects() -> void:
+	_add_camera()
+	_play_music()
+	_request(&"cut_a")
+	_channel.step_combat(0.3)
+	_request(&"story_a")
+	assert_false(_box.visible, "box hidden")
+	assert_eq(_channel.current_combat(), &"")
+	assert_eq(_channel.cut_phase(), CommsChannel.CutPhase.NONE)
+	assert_eq(_newest_stream(), Audio.SFX[&"comms_open"], "only the story's comms_open, no static")
+	_channel.step_combat(5.0)
+	assert_eq(_camera.current_amplitude(), 0.0, "no shake")
+	assert_eq(Audio.current_music(), TEST_MUSIC, "music untouched")
+	assert_false(_channel.is_silenced(), "no silence")
+	assert_eq(_finished, [] as Array[StringName], "finished deferred")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(_finished, [&"cut_a"] as Array[StringName], "the cut-off finished once")
+
+
+func test_story_after_the_cut_off_just_hides_the_box() -> void:
+	_silence()
+	_request(&"story_b")
+	assert_false(_box.visible, "box hidden")
+	assert_true(_channel.is_silenced(), "the effects already ran")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(_finished, [&"cut_a"] as Array[StringName])
+
+
+func test_cut_off_freezes_under_a_pause() -> void:
+	_request(&"cut_a")
+	await get_tree().process_frame
+	PauseArbiter.push(&"menu")
+	var left: float = _channel._combat_left_s
+	var chars: int = _box_text().visible_characters
+	for i: int in 10:
+		await get_tree().process_frame
+	assert_eq(_channel._combat_left_s, left, "cut-off timer frozen")
+	assert_eq(_box_text().visible_characters, chars, "typewriter frozen")
+	assert_eq(_channel.cut_phase(), CommsChannel.CutPhase.TYPING, "still before the cut-off")
+	assert_false(_channel.is_silenced())
+	PauseArbiter.pop(&"menu")
+	for i: int in 2000:
+		await get_tree().process_frame
+		if _channel._combat_left_s < left:
+			break
+	assert_lt(_channel._combat_left_s, left, "resumes after the pause")

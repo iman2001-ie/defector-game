@@ -30,6 +30,7 @@
 				]
 			},
 			"triggers": [
+				{ "when": "progress", "at": 0.25, "actions": [ { "comms": "dev_tarek_cutoff" } ] },
 				{ "when": "progress", "at": 0.5, "actions": [ { "wait": 1.0 }, { "spawn_group": "reinforcements" } ] }
 			]
 		},

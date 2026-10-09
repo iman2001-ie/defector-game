@@ -1,0 +1,12 @@
+{
+  "actions": [
+    "Run the level scene in a debug build, kill enemies on level_dev wave 2 until the wave bar passes a quarter, and confirm the TAREK line in the top-left box stops mid-word (\"...you co\"), a static burst plays, the screen shakes and the box vanishes about 0.6 s later.",
+    "Listen to the placeholder `comms_static` sound and confirm it reads as a dead radio channel, not a glitch or an explosion.",
+    "Replay the same moment and press F3 instead; confirm the cut-off still fires and wave 3 starts normally.",
+    "Judge whether the cut-off hits hard as a sudden loss; automated tests cannot verify feel."
+  ],
+  "parked_at": "2026-10-08",
+  "run_id": "20261007-173701-8906",
+  "spec_file": "_bmad-output/implementation-artifacts/spec-5-4-cut-a-line-off-mid-sentence.md",
+  "story_key": "5-4-cut-a-line-off-mid-sentence"
+}

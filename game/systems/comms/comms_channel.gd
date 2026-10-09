@@ -1,6 +1,6 @@
 class_name CommsChannel
 extends Node
-## The single dialogue delivery path (Stories 5.1-5.2, architecture "Comms
+## The single dialogue delivery path (Stories 5.1-5.4, architecture "Comms
 ## Channel"). Listens to Events.comms_sequence_requested, owns the story and
 ## combat queues and the `story` pause reason, drives the CommsPanel (story)
 ## and CommsBox (combat) views and emits Events.comms_sequence_finished. Every
@@ -30,6 +30,20 @@ extends Node
 ##   line it logs and emits `finished`; the next queued story starts without
 ##   unpausing (with `comms_open` again: a new conversation), otherwise the
 ##   panel closes and `story` is popped before `finished` is emitted.
+## - Cut-off (Story 5.4): a combat line with `cut_off_at` (a combat sequence
+##   has one line, so it is the whole sequence) types to exactly `cut_off_at`
+##   characters over cut_off_at / chars_per_s s of game time. At that moment
+##   the box stops there and the `after` effects run in order: the sfx
+##   (Audio.play_sfx), the shake tier (Feedback.shake_tier), the music action
+##   (Audio.apply_music_action), then silence. comms.cutoff_hide_s later the
+##   box hides at once (no fade) and `finished` is emitted. Both phases count
+##   game time in step_combat, so a pause freezes them. A story that preempts
+##   the line before its cut-off moment drops it with no effects.
+## - Silence (`after.silence: until_wave_clear`): drops every queued combat
+##   sequence and every later combat request (DEBUG, deferred `finished`);
+##   story sequences still play. Events.wave_cleared lifts it. A wave_cleared
+##   between the cut-off line's start and its cut-off moment voids the
+##   silence, so it never carries into the next wave.
 
 const PAUSE_REASON: StringName = &"story"
 const MENU_REASON: StringName = &"menu"
@@ -38,6 +52,13 @@ const OPEN_SFX: StringName = &"comms_open"
 ## Slack for the combat line timer, so float steps that add up to the line
 ## time (1.9 + 0.1 s) end it.
 const COMBAT_EPSILON_S: float = 0.000001
+## Cut-off line keys (Story 5.4, see DialogueValidator).
+const CUT_OFF_KEY: String = DialogueValidator.CUT_OFF_KEY
+const AFTER_KEY: String = DialogueValidator.AFTER_KEY
+
+## Phases of the playing combat line: a plain line, a cut-off line typing
+## towards its cut-off moment, a cut-off line holding before it hides.
+enum CutPhase { NONE, TYPING, HOLD }
 
 @export var panel: CommsPanel
 @export var box: CommsBox
@@ -61,6 +82,16 @@ var _chars_per_s: float = 0.0
 var _combat_min_s: float = 0.0
 var _combat_extra_s: float = 0.0
 var _combat_queue_max: int = 0
+var _cutoff_hide_s: float = 0.0
+
+## Cut-off state of the playing combat line (Story 5.4); NONE for a plain line.
+var _cut_phase: CutPhase = CutPhase.NONE
+var _cut_at: int = -1
+var _cut_after: Dictionary = {}
+## Events.wave_cleared arrived while the cut-off line typed: no silence.
+var _cut_wave_cleared: bool = false
+## Combat sequences are dropped until the wave clears.
+var _silenced: bool = false
 
 
 func _init() -> void:
@@ -76,12 +107,16 @@ func _ready() -> void:
 	_combat_min_s = Config.num("comms.combat_line_min_s")
 	_combat_extra_s = Config.num("comms.combat_line_extra_s")
 	_combat_queue_max = maxi(Config.int_("comms.combat_queue_max"), 0)
+	_cutoff_hide_s = maxf(Config.num("comms.cutoff_hide_s"), 0.0)
 	Events.comms_sequence_requested.connect(_on_events_comms_sequence_requested)
+	Events.wave_cleared.connect(_on_events_wave_cleared)
 
 
 func _exit_tree() -> void:
 	if Events.comms_sequence_requested.is_connected(_on_events_comms_sequence_requested):
 		Events.comms_sequence_requested.disconnect(_on_events_comms_sequence_requested)
+	if Events.wave_cleared.is_connected(_on_events_wave_cleared):
+		Events.wave_cleared.disconnect(_on_events_wave_cleared)
 
 
 # --- Read accessors ----------------------------------------------------------------
@@ -119,6 +154,16 @@ func combat_queued() -> Array[StringName]:
 	return _combat_queue.duplicate()
 
 
+## True while combat sequences are dropped (a cut-off's `until_wave_clear`).
+func is_silenced() -> bool:
+	return _silenced
+
+
+## The phase of the playing combat line (CutPhase.NONE for a plain line).
+func cut_phase() -> CutPhase:
+	return _cut_phase
+
+
 ## How long a combat line of `chars` characters stays up:
 ## max(min_s, chars / chars_per_s + extra_s), or max(min_s, extra_s) when
 ## chars_per_s isn't positive.
@@ -136,6 +181,10 @@ func _on_events_comms_sequence_requested(sequence_id: StringName) -> void:
 		_emit_finished.call_deferred(sequence_id)
 		return
 	if not Config.dialogue_is_story(sequence_id):
+		if _silenced:
+			Log.debug("comms", "Comms silenced: dropped combat sequence '%s'" % sequence_id)
+			_emit_finished.call_deferred(sequence_id)
+			return
 		_request_combat(sequence_id)
 		return
 	if is_playing_combat():
@@ -241,21 +290,30 @@ func _process(delta: float) -> void:
 ## Counts the current combat line down by `delta` s of game time. At the end it
 ## shows the next line or, after the last, fades the box, logs, emits
 ## `finished` and starts the next queued combat if no story is showing and
-## nothing (a `finished` listener) started one.
+## nothing (a `finished` listener) started one. A cut-off line first reaches
+## its cut-off moment (see _cut_off), then holds for comms.cutoff_hide_s and
+## hides the box at once instead of fading it.
 func step_combat(delta: float) -> void:
 	if not is_playing_combat():
 		return
 	_combat_left_s -= delta
 	if _combat_left_s > COMBAT_EPSILON_S:
 		return
+	if _cut_phase == CutPhase.TYPING:
+		_cut_off()
+		return
+	var cut: bool = _cut_phase == CutPhase.HOLD
 	_combat_index += 1
-	if _combat_index < _combat_lines.size():
+	if not cut and _combat_index < _combat_lines.size():
 		_show_combat_line()
 		return
 	var finished_id: StringName = _combat
 	_clear_combat()
 	if box != null:
-		box.dismiss()
+		if cut:
+			box.hide_now()
+		else:
+			box.dismiss()
 	Log.info("comms", "Combat sequence '%s' finished" % finished_id)
 	Events.comms_sequence_finished.emit(finished_id)
 	if not is_showing() and not is_playing_combat():
@@ -289,13 +347,75 @@ func _start_combat(sequence_id: StringName) -> void:
 func _show_combat_line() -> void:
 	var speaker: StringName = &""
 	var text: String = ""
+	var line: Dictionary = {}
 	if _combat_index < _combat_lines.size() and _combat_lines[_combat_index] is Dictionary:
-		var line: Dictionary = _combat_lines[_combat_index]
+		line = _combat_lines[_combat_index]
 		speaker = StringName(str(line.get("speaker", "")))
 		text = str(line.get("text", ""))
-	_combat_left_s = combat_line_s(text.length(), _chars_per_s, _combat_min_s, _combat_extra_s)
+	_reset_cut()
+	var cut_raw: Variant = line.get(CUT_OFF_KEY)
+	if cut_raw is int or cut_raw is float:
+		_cut_phase = CutPhase.TYPING
+		_cut_at = clampi(int(cut_raw), 0, text.length())
+		var after_raw: Variant = line.get(AFTER_KEY)
+		_cut_after = after_raw if after_raw is Dictionary else {}
+		_combat_left_s = _cut_at / _chars_per_s if _chars_per_s > 0.0 else 0.0
+	else:
+		_combat_left_s = combat_line_s(text.length(), _chars_per_s, _combat_min_s, _combat_extra_s)
 	if box != null:
-		box.show_line(speaker, text)
+		box.show_line(speaker, text, _cut_at)
+
+
+## The cut-off moment: the box stops at `cut_off_at` characters, then the
+## `after` effects run in order (sfx, shake, music, silence) and the line holds
+## for comms.cutoff_hide_s more seconds of game time.
+func _cut_off() -> void:
+	_cut_phase = CutPhase.HOLD
+	_combat_left_s += _cutoff_hide_s
+	if box != null:
+		box.cut_off(_cut_at)
+	Log.info("comms", "Combat sequence '%s' cut off at %d characters" % [_combat, _cut_at])
+	var sfx: Variant = _cut_after.get(DialogueValidator.AFTER_SFX)
+	if sfx is String and not (sfx as String).is_empty():
+		Audio.play_sfx(StringName(sfx as String), 0.0)
+	var shake: Variant = _cut_after.get(DialogueValidator.AFTER_SHAKE)
+	if shake is String:
+		Feedback.shake_tier(ImpactTier.from_name(shake as String))
+	var music: Variant = _cut_after.get(DialogueValidator.AFTER_MUSIC)
+	if music is String:
+		Audio.apply_music_action(StringName(music as String))
+	var silence: Variant = _cut_after.get(DialogueValidator.AFTER_SILENCE)
+	if silence is String and (silence as String) == DialogueValidator.SILENCE_UNTIL_WAVE_CLEAR:
+		if _cut_wave_cleared:
+			Log.debug("comms", "Silence from '%s' skipped: its wave already cleared" % _combat)
+		else:
+			_silence_on()
+
+
+## Silences comms until the wave clears and drops every queued combat sequence
+## (a deferred `finished` each).
+func _silence_on() -> void:
+	_silenced = true
+	Log.info("comms", "Comms silenced until the wave clears (cut-off '%s')" % _combat)
+	for dropped: StringName in _combat_queue:
+		Log.debug("comms", "Comms silenced: dropped queued combat sequence '%s'" % dropped)
+		_emit_finished.call_deferred(dropped)
+	_combat_queue.clear()
+
+
+func _on_events_wave_cleared(_wave_index: int) -> void:
+	if _cut_phase == CutPhase.TYPING:
+		_cut_wave_cleared = true
+	if _silenced:
+		_silenced = false
+		Log.info("comms", "Comms silence lifted (wave cleared)")
+
+
+func _reset_cut() -> void:
+	_cut_phase = CutPhase.NONE
+	_cut_at = -1
+	_cut_after = {}
+	_cut_wave_cleared = false
 
 
 func _start_next_combat() -> void:
@@ -319,3 +439,4 @@ func _clear_combat() -> void:
 	_combat_lines = []
 	_combat_index = 0
 	_combat_left_s = 0.0
+	_reset_cut()

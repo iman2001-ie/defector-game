@@ -1053,3 +1053,129 @@ func test_wave_start_story_comms_holds_the_story_event() -> void:
 	Input.action_release(&"fire_laser")
 	Input.action_release(&"comms_advance")
 	_parse_at(InputEventMouseMotion.new(), mouse_before)
+
+
+# --- Cut-off (Story 5.4) --------------------------------------------------------
+
+## F3 on level_dev wave 1 and waits for wave 2 to start.
+func _advance_to_dev_wave_2(director: WaveDirector) -> void:
+	director.debug_resolve_wave()
+	var waited: float = 0.0
+	while director.wave_number() == 1 and waited < 3.0:
+		await wait_seconds(0.05)
+		waited += 0.05
+
+
+## Kills one counted enemy that is still alive; returns false when none is left.
+func _kill_one_counted() -> bool:
+	for child: Node in _level.get_node("World/Enemies").get_children():
+		var enemy: Enemy = child as Enemy
+		if enemy == null or not enemy.is_in_group(&"counted") or enemy.is_dead() or enemy.is_queued_for_deletion():
+			continue
+		enemy.apply_damage(maxi(enemy.hp, 1), null)
+		return true
+	return false
+
+
+## Story 5.4 acceptance 1: on level_dev wave 2, killing counted enemies one by
+## one until progress reaches 0.25 shows dev_tarek_cutoff in the real box; at
+## the cut-off moment the text shows exactly 39 characters, comms_static plays,
+## the level ShakeCamera shakes and the channel is silenced, so a combat
+## request is dropped; the box hides 0.6 s later; once the rest die,
+## wave_cleared lifts the silence and wave 3 starts.
+func test_dev_wave_2_cut_off_by_real_kills() -> void:
+	(Config.tuning["waves"] as Dictionary)["gap_s"] = 0.05
+	Log.sink = _capture
+	_make_level()
+	_make_player_invincible()
+	var director: WaveDirector = _level.get_node("WaveDirector") as WaveDirector
+	var channel: CommsChannel = _level.get_node("Comms/CommsChannel") as CommsChannel
+	var box: CommsBox = _level.get_node("Comms/CommsBox") as CommsBox
+	var camera: ShakeCamera = _level.get_node("ShakeCamera") as ShakeCamera
+	var text: Label = box.get_node("Box/Text") as Label
+	var finished: Array[StringName] = []
+	var record: Callable = func(id: StringName) -> void: finished.append(id)
+	Events.comms_sequence_finished.connect(record)
+	await _advance_to_dev_wave_2(director)
+	assert_eq(director.wave_number(), 2, "on wave 2")
+	var kills: int = 0
+	while channel.current_combat() != &"dev_tarek_cutoff" and kills < 10:
+		assert_true(_kill_one_counted(), "a counted enemy to kill")
+		kills += 1
+	assert_eq(channel.current_combat(), &"dev_tarek_cutoff", "the cut-off line plays")
+	assert_gte(float(director.resolved_count()) / float(director.total_count()), 0.25, "at progress 0.25")
+	assert_lt(float(director.resolved_count() - 1) / float(director.total_count()), 0.25, "not before 0.25")
+	assert_true(box.visible, "the real Comms/CommsBox shows it")
+	assert_eq((box.get_node("Box/Name") as Label).text, "TAREK")
+	assert_eq(text.text, "General, get behind me, I've got you cov—")
+	assert_true(box.is_typing(), "typing")
+	assert_false(channel.is_silenced(), "not silenced before the cut-off")
+	channel.step_combat(channel._combat_left_s + 0.001)
+	assert_eq(text.visible_characters, 39, "exactly 39 characters")
+	assert_eq(Audio.newest_player().stream, Audio.SFX[&"comms_static"], "comms_static plays")
+	assert_gt(camera.current_amplitude(), 0.0, "the level ShakeCamera shakes")
+	assert_true(channel.is_silenced(), "silenced")
+	assert_true(box.visible, "still shown at the cut-off moment")
+	Events.comms_sequence_requested.emit(&"dev_combat_check")
+	assert_eq(channel.current_combat(), &"dev_tarek_cutoff", "dev_combat_check not shown")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_true(finished.has(&"dev_combat_check"), "dev_combat_check dropped with finished")
+	assert_true(box.visible, "still shown before +0.6 s")
+	channel.step_combat(channel._combat_left_s + 0.001)
+	assert_false(box.visible, "hidden 0.6 s after the cut-off")
+	assert_true(finished.has(&"dev_tarek_cutoff"), "the cut-off finished")
+	var end_ms: int = Time.get_ticks_msec() + 10000
+	while director.wave_number() == 2 and Time.get_ticks_msec() < end_ms:
+		_kill_one_counted()
+		await wait_seconds(0.05)
+	assert_eq(director.wave_number(), 3, "wave 3 starts")
+	assert_false(channel.is_silenced(), "wave_cleared lifted the silence")
+	assert_eq(_lines.count("[INFO][comms] Comms silence lifted (wave cleared)"), 1, "lifted once")
+	Events.comms_sequence_requested.emit(&"dev_combat_check")
+	assert_eq(channel.current_combat(), &"dev_combat_check", "combat plays again in wave 3")
+	Events.comms_sequence_finished.disconnect(record)
+	Log.sink = Callable()
+
+
+## Story 5.4 acceptance 2: F3 on level_dev wave 2 still fires the cut-off (box
+## shown, then stopped at 39 characters with the static SFX), the wave clears,
+## wave 3 starts as usual and the channel isn't silenced during wave 3.
+func test_dev_wave_2_cut_off_under_f3() -> void:
+	(Config.tuning["waves"] as Dictionary)["gap_s"] = 0.05
+	Log.sink = _capture
+	_make_level()
+	_make_player_invincible()
+	var director: WaveDirector = _level.get_node("WaveDirector") as WaveDirector
+	var channel: CommsChannel = _level.get_node("Comms/CommsChannel") as CommsChannel
+	var box: CommsBox = _level.get_node("Comms/CommsBox") as CommsBox
+	var text: Label = box.get_node("Box/Text") as Label
+	await _advance_to_dev_wave_2(director)
+	assert_eq(director.wave_number(), 2, "on wave 2")
+	director.debug_resolve_wave()
+	assert_eq(channel.current_combat(), &"dev_tarek_cutoff", "the cut-off line plays")
+	assert_true(box.visible, "box shown")
+	var cut_seen: bool = false
+	var end_ms: int = Time.get_ticks_msec() + 5000
+	while not cut_seen and Time.get_ticks_msec() < end_ms:
+		await get_tree().process_frame
+		cut_seen = channel.cut_phase() == CommsChannel.CutPhase.HOLD
+	assert_true(cut_seen, "the cut-off fired")
+	assert_eq(text.visible_characters, 39, "stopped at 39 characters")
+	assert_true(box.visible, "still shown at the cut-off")
+	assert_eq(Audio.newest_player().stream, Audio.SFX[&"comms_static"], "static SFX")
+	end_ms = Time.get_ticks_msec() + 5000
+	while director.wave_number() == 2 and Time.get_ticks_msec() < end_ms:
+		await get_tree().process_frame
+	assert_eq(director.wave_number(), 3, "wave 3 starts")
+	assert_false(channel.is_silenced(), "not silenced during wave 3")
+	end_ms = Time.get_ticks_msec() + 3000
+	while channel.current_combat() != &"" and Time.get_ticks_msec() < end_ms:
+		await get_tree().process_frame
+	assert_eq(channel.current_combat(), &"", "the cut-off line is gone")
+	assert_false(box.visible, "box hidden")
+	assert_eq(director.wave_number(), 3, "still wave 3")
+	assert_false(channel.is_silenced(), "still not silenced later in wave 3")
+	Events.comms_sequence_requested.emit(&"dev_combat_check")
+	assert_eq(channel.current_combat(), &"dev_combat_check", "combat plays in wave 3")
+	Log.sink = Callable()

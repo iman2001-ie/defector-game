@@ -5,7 +5,8 @@ extends Control
 ## uppercase name and one short typed line. No dim, no cue, never pauses.
 ##
 ## A view only: it never reads dialogue data, and only CommsChannel calls it
-## (show_line, dismiss, hide_now, is_typing, is_open). Mouse-transparent
+## (show_line, cut_off, dismiss, hide_now, is_typing, is_open). A cut-off line
+## (Story 5.4) types only to its `cut_off_at` characters and stays there. Mouse-transparent
 ## (MOUSE_FILTER_IGNORE on it and every child), so clicks reach the game.
 ## The process mode is inherited (pausable in the level), and every tween is
 ## created on the box with the default pause mode, so the slide, the typewriter
@@ -105,8 +106,10 @@ func _ready() -> void:
 ## Shows one line: the uppercase name from comms.speakers in the speaker's
 ## accent, the accent edge, the portrait only when the speaker has one (the
 ## text block re-laid out for either variant). The box slides in from the left
-## edge of the screen and the text types from the first character.
-func show_line(speaker: StringName, text: String) -> void:
+## edge of the screen and the text types from the first character. With
+## `cut_off_at >= 0` (a cut-off line, Story 5.4) it types only to `cut_off_at`
+## characters over cut_off_at / chars_per_s and stays there (never -1).
+func show_line(speaker: StringName, text: String, cut_off_at: int = -1) -> void:
 	_kill_tweens()
 	_speaker = speaker
 	var raw: Variant = _speakers.get(String(speaker))
@@ -127,7 +130,7 @@ func show_line(speaker: StringName, text: String) -> void:
 	modulate.a = 1.0
 	visible = true
 	_slide_in()
-	_type()
+	_type(cut_off_at)
 
 
 ## Fades the box out over box_fade_out_s, then hides it.
@@ -142,6 +145,14 @@ func dismiss() -> void:
 	_fade_tween = create_tween()
 	_fade_tween.tween_property(self, ^"modulate:a", 0.0, _fade_s)
 	_fade_tween.finished.connect(_hide)
+
+
+## The cut-off moment (Story 5.4): stops the typewriter and shows exactly
+## `chars` characters.
+func cut_off(chars: int) -> void:
+	_kill_tween(_type_tween)
+	_type_tween = null
+	_text.visible_characters = maxi(chars, 0)
 
 
 ## Stops every tween and hides the box at once (a story line preempts it).
@@ -207,19 +218,29 @@ func _slide_in() -> void:
 
 ## Tweens visible_characters from 0 to the character count over
 ## count / chars_per_s seconds (default pause mode: freezes while paused).
-func _type() -> void:
-	var count: int = _text.text.length()
+## With `cut_off_at >= 0` it types only to that count and keeps it at the end
+## (a cut-off line never shows the whole text).
+func _type(cut_off_at: int = -1) -> void:
+	var cut: bool = cut_off_at >= 0
+	var count: int = mini(cut_off_at, _text.text.length()) if cut else _text.text.length()
 	if chars_per_s <= 0.0 or count == 0:
-		_text.visible_characters = -1
+		_text.visible_characters = count if cut else -1
 		return
 	_text.visible_characters = 0
 	_type_tween = create_tween()
 	_type_tween.tween_property(_text, ^"visible_characters", count, count / chars_per_s).from(0)
-	_type_tween.finished.connect(_on_typed)
+	if cut:
+		_type_tween.finished.connect(_on_cut_typed)
+	else:
+		_type_tween.finished.connect(_on_typed)
 
 
 func _on_typed() -> void:
 	_text.visible_characters = -1
+	_type_tween = null
+
+
+func _on_cut_typed() -> void:
 	_type_tween = null
 
 

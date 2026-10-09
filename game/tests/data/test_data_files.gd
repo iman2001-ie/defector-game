@@ -689,6 +689,44 @@ func test_referenced_sequence_collector_self_check() -> void:
 	assert_eq(_referenced_sequences({}).size(), 0, "nothing referenced")
 
 
+# --- Cut-off SFX (Story 5.4) ------------------------------------------------------
+
+## Every `after.sfx` value in `sequences` (id -> sequence), as
+## ["<id>.lines[<i>].after.sfx", value] pairs.
+static func _after_sfx(sequences: Dictionary) -> Array[Array]:
+	var out: Array[Array] = []
+	for id: Variant in sequences:
+		var seq: Variant = sequences[id]
+		var lines: Variant = (seq as Dictionary).get("lines") if seq is Dictionary else null
+		if not (lines is Array):
+			continue
+		for i: int in (lines as Array).size():
+			var line: Variant = (lines as Array)[i]
+			var after: Variant = (line as Dictionary).get(DialogueValidator.AFTER_KEY) if line is Dictionary else null
+			if after is Dictionary and (after as Dictionary).has(DialogueValidator.AFTER_SFX):
+				out.append(["%s.lines[%d].after.sfx" % [id, i], str((after as Dictionary)[DialogueValidator.AFTER_SFX])])
+	return out
+
+
+func test_every_after_sfx_is_registered() -> void:
+	var refs: Array[Array] = _after_sfx(_all_sequences())
+	assert_gt(refs.size(), 0, "dialogue has an after.sfx to check")
+	for ref: Array in refs:
+		assert_true(Audio.SFX.has(StringName(str(ref[1]))), "%s: sfx '%s' is in Audio.SFX" % [ref[0], ref[1]])
+
+
+func test_after_sfx_collector_self_check() -> void:
+	var sequences: Dictionary = {
+		"plain": {"mode": "combat", "lines": [{"speaker": "isolde", "text": "Hi."}]},
+		"cut": {"mode": "combat", "lines": [{"speaker": "tarek", "text": "General, cov-", "cut_off_at": 9, "after": {"shake": "large", "sfx": "comms_statc"}}]},
+		"no_sfx": {"mode": "combat", "lines": [{"speaker": "tarek", "text": "General, cov-", "cut_off_at": 9, "after": {"music": "stop"}}]},
+	}
+	var refs: Array[Array] = _after_sfx(sequences)
+	assert_eq(refs, [["cut.lines[0].after.sfx", "comms_statc"]] as Array[Array], "finds the one after.sfx")
+	assert_false(Audio.SFX.has(StringName(str(refs[0][1]))), "a typo is not registered (the data test would fail)")
+	assert_eq(_after_sfx({}).size(), 0, "nothing to find")
+
+
 func test_music_fade_out_tuning() -> void:
 	assert_almost_eq(Config.num("audio.music_fade_out_s"), 0.5, 0.0001, "audio.music_fade_out_s")
 

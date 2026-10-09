@@ -28,6 +28,7 @@ const SFX: Dictionary[StringName, AudioStream] = {
 	&"ability_denied": preload("res://assets/audio/sfx/sfx_ability_denied.wav"),
 	&"barrage_whoosh": preload("res://assets/audio/sfx/sfx_barrage_whoosh.wav"),
 	&"comms_open": preload("res://assets/audio/sfx/sfx_comms_open.wav"),
+	&"comms_static": preload("res://assets/audio/sfx/sfx_comms_static.wav"),
 }
 
 var _players: Array[AudioStreamPlayer] = []
