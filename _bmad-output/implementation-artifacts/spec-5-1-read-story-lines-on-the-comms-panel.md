@@ -2,7 +2,7 @@
 title: 'Story 5.1: Read Story Lines on the Comms Panel'
 type: 'feature'
 created: '2026-10-08'
-status: 'awaiting-operator'
+status: done
 operator_actions:
   - 'Run the level scene in a debug build with `-- --comms=dev_comms_check` and confirm the playfield dims, the HUD stays visible but frozen, and the centred panel matches the UX layout (portrait left, accent-coloured uppercase name, typing text, a readable `click to continue ▸` cue bottom-right, no buttons).'
   - "Confirm the comms-open sound plays when the panel opens and sounds like a radio channel opening, not a glitch."
@@ -222,3 +222,15 @@ Nothing was deferred. The other 21 were rejected; each reason is in the Review T
 - The `▸` glyph isn't in Godot's fallback font, so it relies on the Windows system font fallback.
 - The layout, dim, accent colours, typing feel and the placeholder `comms_open` sound are checked only as node state, not by eye or ear (see `operator_actions`).
 - Speaker names are first-name placeholders until Story 5.7.
+
+## Operator Confirmation
+
+Confirmed 2026-10-09: the external actions this story owed were carried out.
+
+- Run the level scene in a debug build with `-- --comms=dev_comms_check` and confirm the playfield dims, the HUD stays visible but frozen, and the centred panel matches the UX layout (portrait left, accent-coloured uppercase name, typing text, a readable `click to continue ▸` cue bottom-right, no buttons).
+- Confirm the comms-open sound plays when the panel opens and sounds like a radio channel opening, not a glitch.
+- Confirm the long Isolde line shows all of its text (nothing clipped at the bottom) and the Vale line uses the full-width, no-portrait layout.
+- Click while a line types to complete it, click again to advance, and confirm the final click closes the panel without firing a laser shot.
+- With a line showing, press Esc, then Esc again, and confirm the game stays paused on the story line with only one dim layer visible.
+
+_Appended by the bmad-loop orchestrator (`bmad-loop confirm`, #335): a human confirmed these external actions out of band, and the story was advanced from `awaiting-operator` to `done`._
