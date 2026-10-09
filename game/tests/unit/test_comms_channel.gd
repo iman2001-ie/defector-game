@@ -12,6 +12,8 @@ extends GutTest
 ## runs the `after` effects (comms_static, the shake tier, the music action,
 ## silence) and hides comms.cutoff_hide_s later; silence drops combat until
 ## Events.wave_cleared.
+## Decision #40: advancing a story line plays comms_click (same speaker) or
+## comms_handover (speaker change); completing or closing plays none.
 ## Input goes through get_viewport().push_input like a real click. Under GUT
 ## the root viewport reports a mouse button as handled even when no node
 ## consumed it, so is_input_handled() can't tell who did: a Probe node added
@@ -333,6 +335,48 @@ func test_second_story_queues_and_plays_without_unpausing() -> void:
 	assert_eq(_finished, [&"story_a", &"story_b"] as Array[StringName], "finished once each, in order")
 	assert_false(get_tree().paused)
 	assert_signal_emit_count(PauseArbiter, "resumed", 1)
+
+
+## Decision #40: advancing to a new line plays comms_click for the same
+## speaker and comms_handover for a speaker change.
+func test_line_cues_follow_the_speaker() -> void:
+	_request(&"story_c")
+	_panel.complete_line()
+	_click()
+	assert_eq(_channel.line_index(), 1)
+	assert_eq(_newest_stream(), Audio.SFX[&"comms_click"], "tarek -> tarek: click")
+	_panel.complete_line()
+	_click()
+	assert_eq(_channel.line_index(), 2)
+	assert_eq(_newest_stream(), Audio.SFX[&"comms_handover"], "tarek -> vale: handover")
+
+
+func test_completing_a_typing_line_plays_no_cue() -> void:
+	_request(&"story_c")
+	var open_player: AudioStreamPlayer = Audio.newest_player()
+	assert_true(_panel.is_typing())
+	_click()
+	assert_false(_panel.is_typing(), "line complete")
+	assert_eq(_channel.line_index(), 0)
+	assert_eq(Audio.newest_player(), open_player, "no new sfx")
+
+
+func test_closing_the_last_line_plays_no_cue() -> void:
+	_request(&"story_c")
+	_click_to_end_of_line(2)
+	var handover_player: AudioStreamPlayer = Audio.newest_player()
+	assert_eq(handover_player.stream, Audio.SFX[&"comms_handover"], "cue played on the last line")
+	_click_to_end()
+	assert_false(_channel.is_showing())
+	assert_eq(Audio.newest_player(), handover_player, "no cue on close")
+
+
+## Clicks (complete + advance) until the panel shows line `index`.
+func _click_to_end_of_line(index: int) -> void:
+	for i: int in 20:
+		if _channel.line_index() >= index:
+			return
+		_click()
 
 
 func _click_to_end_of(id: StringName) -> void:

@@ -30,6 +30,10 @@ extends Node
 ##   line it logs and emits `finished`; the next queued story starts without
 ##   unpausing (with `comms_open` again: a new conversation), otherwise the
 ##   panel closes and `story` is popped before `finished` is emitted.
+## - Line cues (GDD decision #40): showing the next line of a story plays
+##   `comms_handover` when its speaker differs from the previous line's, else
+##   `comms_click`. Completing a typing line and line 0 (it has `comms_open`)
+##   play none; combat lines never play one.
 ## - Cut-off (Story 5.4): a combat line with `cut_off_at` (a combat sequence
 ##   has one line, so it is the whole sequence) types to exactly `cut_off_at`
 ##   characters over cut_off_at / chars_per_s s of game time. At that moment
@@ -49,6 +53,8 @@ const PAUSE_REASON: StringName = &"story"
 const MENU_REASON: StringName = &"menu"
 const ADVANCE_ACTION: StringName = &"comms_advance"
 const OPEN_SFX: StringName = &"comms_open"
+const CLICK_SFX: StringName = &"comms_click"
+const HANDOVER_SFX: StringName = &"comms_handover"
 ## Slack for the combat line timer, so float steps that add up to the line
 ## time (1.9 + 0.1 s) end it.
 const COMBAT_EPSILON_S: float = 0.000001
@@ -253,9 +259,15 @@ func advance() -> void:
 		return
 	_index += 1
 	if _index < _lines.size():
+		Audio.play_sfx(HANDOVER_SFX if _speaker_at(_index) != _speaker_at(_index - 1) else CLICK_SFX, 0.0)
 		_show_line()
 		return
 	_finish()
+
+
+func _speaker_at(index: int) -> String:
+	var line: Variant = _lines[index]
+	return str((line as Dictionary).get("speaker", "")) if line is Dictionary else ""
 
 
 func _finish() -> void:

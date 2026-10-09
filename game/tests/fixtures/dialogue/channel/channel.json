@@ -26,6 +26,23 @@
 				}
 			]
 		},
+		"story_c": {
+			"mode": "story",
+			"lines": [
+				{
+					"speaker": "tarek",
+					"text": "Same speaker, first line."
+				},
+				{
+					"speaker": "tarek",
+					"text": "Same speaker, second line."
+				},
+				{
+					"speaker": "vale",
+					"text": "Speaker change."
+				}
+			]
+		},
 		"combat_a": {
 			"mode": "combat",
 			"lines": [

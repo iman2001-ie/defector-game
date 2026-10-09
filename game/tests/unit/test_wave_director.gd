@@ -758,7 +758,7 @@ func test_level_without_waves_starts_nothing() -> void:
 const CHANNEL_DIR: String = "res://tests/fixtures/dialogue/channel/"
 
 
-## Loads the channel fixture dialogue (story_a, story_b: story; combat_a: combat).
+## Loads the channel fixture dialogue (story_a, story_b, story_c: story; combat_a: combat).
 ## The fixture has no CommsChannel: tests emit comms_sequence_finished themselves.
 func _load_dialogue() -> void:
 	Config.load_data(Config.DEFAULT_TUNING_PATH, Config.DEFAULT_FLAGS_PATH, CHANNEL_DIR)

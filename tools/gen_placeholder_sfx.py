@@ -25,6 +25,10 @@ ABILITY_DENIED_SEED = 3401
 BARRAGE_WHOOSH_SEED = 3501
 COMMS_OPEN_SEED = 5101
 COMMS_STATIC_SEED = 5401
+COMMS_CLICK_SEED = 5102
+COMMS_HANDOVER_SEED = 5103
+# Normalisation peak per sound when it differs from the default 0.9: the line cues sit under comms_open.
+PEAKS = {"comms_click": 0.45, "comms_handover": 0.45}
 OUT_DIR = Path(__file__).resolve().parent.parent / "game" / "assets" / "audio" / "sfx"
 
 
@@ -211,13 +215,8 @@ def comms_open(rng: random.Random) -> list[float]:
     # The beep starts once the click has settled and ends before the carrier fades out.
     assert click_n + settle_n <= beep_start
     assert beep_start + beep_n <= n - tail_n
-    hp_a = _one_pole(300.0)
-    lp_a = _one_pole(3000.0)
-    out: list[float] = []
+    raw: list[float] = []
     phase = 0.0
-    hp_lp = 0.0
-    lp1 = 0.0
-    lp2 = 0.0
     for i in range(n):
         noise = rng.uniform(-1.0, 1.0)
         # Squelch click: 2 ms attack, held for 30 ms, then a 12 ms crossfade down to the carrier.
@@ -237,8 +236,55 @@ def comms_open(rng: random.Random) -> list[float]:
         if 0 <= k < beep_n:
             phase += 2.0 * math.pi * 1000.0 / RATE
             beep = (math.sin(phase) + 0.15 * math.sin(3.0 * phase)) * _fade(k, beep_n, int(0.005 * RATE))
-        x = noise * hiss + 0.3 * beep
-        # Voice band: one-pole high-pass at 300 Hz, two-pole low-pass at 3 kHz.
+        raw.append(noise * hiss + 0.3 * beep)
+    return _voice_band(raw)
+
+
+def _mic_click(rng: random.Random) -> list[float]:
+    """Raw 40 ms push-to-talk click: a noise tick with a 1 ms attack and a ~6 ms decay, plus a
+    damped 1.6 kHz ring for the switch body. Unfiltered; callers pass it through _voice_band."""
+    n = int(0.04 * RATE)
+    attack_n = int(0.001 * RATE)
+    decay_n = 0.006 * RATE
+    ring_decay_n = 0.004 * RATE
+    out: list[float] = []
+    for i in range(n):
+        attack = 0.5 - 0.5 * math.cos(math.pi * i / attack_n) if i < attack_n else 1.0
+        tick = rng.uniform(-1.0, 1.0) * math.exp(-i / decay_n)
+        ring = math.sin(2.0 * math.pi * 1600.0 * i / RATE) * math.exp(-i / ring_decay_n)
+        out.append(attack * (0.6 * tick + 0.4 * ring))
+    return out
+
+
+def comms_click(rng: random.Random) -> list[float]:
+    """Quiet 40 ms mic-click for the same speaker keying in again (next story line)."""
+    return _voice_band(_mic_click(rng))
+
+
+def comms_handover(rng: random.Random) -> list[float]:
+    """120 ms speaker change: an 80 ms squelch tail ("kssh", the last speaker releasing the mic)
+    that decays to silence, then the new speaker's mic-click. No beep: that stays comms_open's."""
+    tail_n = int(0.08 * RATE)
+    attack_n = int(0.002 * RATE)
+    raw: list[float] = []
+    for i in range(tail_n):
+        attack = 0.5 - 0.5 * math.cos(math.pi * i / attack_n) if i < attack_n else 1.0
+        # Decays from 0.5 and reaches exactly 0 at the end, so the click lands on silence.
+        level = 0.5 * (1.0 - i / (tail_n - 1)) ** 2
+        raw.append(rng.uniform(-1.0, 1.0) * attack * level)
+    raw.extend(_mic_click(rng))
+    return _voice_band(raw)
+
+
+def _voice_band(samples: list[float]) -> list[float]:
+    """Radio voice band: one-pole high-pass at 300 Hz, two-pole low-pass at 3 kHz, light saturation."""
+    hp_a = _one_pole(300.0)
+    lp_a = _one_pole(3000.0)
+    out: list[float] = []
+    hp_lp = 0.0
+    lp1 = 0.0
+    lp2 = 0.0
+    for x in samples:
         hp_lp += hp_a * (x - hp_lp)
         x -= hp_lp
         lp1 += lp_a * (x - lp1)
@@ -278,7 +324,8 @@ def _normalise(samples: list[float], peak: float = 0.9) -> list[float]:
 def _write(name: str, samples: list[float]) -> Path:
     path = OUT_DIR / f"sfx_{name}.wav"
     frames = b"".join(
-        struct.pack("<h", int(max(-1.0, min(1.0, s)) * 32767)) for s in _normalise(samples)
+        struct.pack("<h", int(max(-1.0, min(1.0, s)) * 32767))
+        for s in _normalise(samples, PEAKS.get(name, 0.9))
     )
     with wave.open(str(path), "wb") as wav:
         wav.setnchannels(1)
@@ -305,6 +352,8 @@ def main() -> None:
     sounds["barrage_whoosh"] = barrage_whoosh(random.Random(BARRAGE_WHOOSH_SEED))
     sounds["comms_open"] = comms_open(random.Random(COMMS_OPEN_SEED))
     sounds["comms_static"] = comms_static(random.Random(COMMS_STATIC_SEED))
+    sounds["comms_click"] = comms_click(random.Random(COMMS_CLICK_SEED))
+    sounds["comms_handover"] = comms_handover(random.Random(COMMS_HANDOVER_SEED))
     for name, samples in sounds.items():
         path = _write(name, samples)
         print(f"wrote {path.name} ({len(samples) / RATE:.2f} s)")
