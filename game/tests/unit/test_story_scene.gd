@@ -1,0 +1,280 @@
+extends GutTest
+## The comms-only story scene (Story 5.5, FR41, R15): story.tscn plays
+## SceneRouter.story_sequence() through its own Comms/CommsChannel on a panel
+## with no dim, with a visible cursor, no HUD and no PauseMenu (Esc does
+## nothing). When that sequence finishes (also the deferred finish of an
+## unknown id) it calls SceneRouter.finish_story() once, which loads the
+## pending level. Run with nothing pending it goes to the title.
+## The scene change is a recorder; input goes through
+## get_viewport().push_input like a real click.
+
+const STORY_SCENE: PackedScene = preload("res://scenes/story/story.tscn")
+const TITLE_SCENE: PackedScene = preload("res://scenes/title/title.tscn")
+const LEVEL_SELECT_SCENE: PackedScene = preload("res://scenes/title/level_select.tscn")
+const TEST_SAVE: String = "user://test_story_scene_save.cfg"
+const CLICK_AT: Vector2 = Vector2(960, 900)
+## More clicks than any 6-10 line story needs (two per line).
+const MAX_CLICKS: int = 40
+
+var _calls: Array[String] = []
+var _lines: Array[String] = []
+var _story: StoryScene
+## The viewport mouse before the test, restored after it (other suites read it).
+var _mouse_before: Vector2 = Vector2.ZERO
+
+
+func before_each() -> void:
+	_mouse_before = get_viewport().get_mouse_position()
+	_calls.clear()
+	_lines.clear()
+	_story = null
+	SaveManager.save_path = TEST_SAVE
+	_delete_save()
+	GameState.highest_unlocked_level = 1
+	GameState.all_levels_unlocked = false
+	SceneRouter.change_scene = _record
+	Log.sink = _capture
+	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_CONFINED_HIDDEN)
+
+
+func after_each() -> void:
+	Log.sink = Callable()
+	_story = null
+	var motion: InputEventMouseMotion = InputEventMouseMotion.new()
+	motion.position = _mouse_before
+	motion.global_position = _mouse_before
+	get_viewport().push_input(motion, true)
+	SceneRouter._story_id = &""
+	SceneRouter._story_next_level = 0
+	SceneRouter.change_scene = SceneRouter.default_change_scene()
+	_delete_save()
+	SaveManager.save_path = SaveManager.DEFAULT_SAVE_PATH
+	GameState.energy = 0
+	GameState.current_level_id = ""
+	GameState.is_retry = false
+	GameState.highest_unlocked_level = 1
+	GameState.all_levels_unlocked = false
+	Feedback.reset()
+	PauseArbiter.clear()
+	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+
+
+func _delete_save() -> void:
+	if FileAccess.file_exists(TEST_SAVE):
+		DirAccess.remove_absolute(TEST_SAVE)
+
+
+func _record(path: String) -> Error:
+	_calls.append(path)
+	return OK
+
+
+func _capture(level: String, category: String, msg: String) -> void:
+	_lines.append(Log.format(level, category, msg))
+
+
+func _count_starting(prefix: String) -> int:
+	var n: int = 0
+	for line: String in _lines:
+		if line.begins_with(prefix):
+			n += 1
+	return n
+
+
+## Instances story.tscn with whatever the router has pending.
+func _make() -> StoryScene:
+	_story = STORY_SCENE.instantiate() as StoryScene
+	add_child_autofree(_story)
+	return _story
+
+
+## The router's goto_story (recorded), then the scene it would load.
+func _make_with(id: StringName, next_level: int) -> StoryScene:
+	SceneRouter.goto_story(id, next_level)
+	return _make()
+
+
+func _channel() -> CommsChannel:
+	return _story.get_node("Comms/CommsChannel") as CommsChannel
+
+
+func _panel() -> CommsPanel:
+	return _story.get_node("Comms/CommsPanel") as CommsPanel
+
+
+func _mouse(pressed: bool) -> InputEventMouseButton:
+	var event: InputEventMouseButton = InputEventMouseButton.new()
+	event.button_index = MOUSE_BUTTON_LEFT
+	event.pressed = pressed
+	event.position = CLICK_AT
+	event.global_position = CLICK_AT
+	return event
+
+
+func _click() -> void:
+	get_viewport().push_input(_mouse(true), true)
+	get_viewport().push_input(_mouse(false), true)
+
+
+## Clicks until the channel shows nothing (or MAX_CLICKS); returns the clicks used.
+func _click_through() -> int:
+	var clicks: int = 0
+	while _channel().is_showing() and clicks < MAX_CLICKS:
+		_click()
+		clicks += 1
+	return clicks
+
+
+func _count(path: String) -> int:
+	return _calls.count(path)
+
+
+# --- Structure -------------------------------------------------------------------
+
+func test_scene_shape() -> void:
+	SceneRouter.goto_story(&"opening_main", 1)
+	var story: StoryScene = STORY_SCENE.instantiate() as StoryScene
+	assert_true(story is Control, "a Control root")
+	assert_not_null(story.theme, "the shared theme")
+	assert_eq(story.mouse_filter, Control.MOUSE_FILTER_IGNORE, "clicks pass to the channel")
+	var comms: CanvasLayer = story.get_node("Comms") as CanvasLayer
+	assert_eq(comms.layer, 20, "Comms layer 20")
+	var channel: CommsChannel = story.get_node("Comms/CommsChannel") as CommsChannel
+	var box: CommsBox = story.get_node("Comms/CommsBox") as CommsBox
+	var panel: CommsPanel = story.get_node("Comms/CommsPanel") as CommsPanel
+	assert_not_null(channel)
+	assert_not_null(box)
+	assert_not_null(panel)
+	assert_lt(box.get_index(), panel.get_index(), "the box before the panel, so the panel draws on top")
+	assert_false(panel.dim, "no dim on the story scene")
+	for name: String in ["HUD", "WaveDirector", "Overlay", "PauseMenu", "DebugTools", "World"]:
+		assert_null(story.find_child(name, true, false), "no %s" % name)
+	add_child_autofree(story)
+	_story = story
+	assert_eq(channel.panel, panel, "panel wired")
+	assert_eq(channel.box, box, "box wired")
+
+
+# --- I/O rows ----------------------------------------------------------------------
+
+func test_scene_plays_the_pending_story() -> void:
+	_make_with(&"opening_main", 1)
+	assert_eq(_story.sequence(), &"opening_main")
+	assert_eq(_channel().current_sequence(), &"opening_main", "the channel plays the opening")
+	assert_eq(_channel().line_index(), 0, "line 0")
+	assert_true(_panel().visible, "panel showing")
+	assert_false((_panel().get_node("Dim") as Control).visible, "dim hidden")
+	assert_eq(PauseArbiter.reasons(), [&"story"] as Array[StringName], "paused with story")
+	assert_true(get_tree().paused, "tree paused")
+	assert_eq(Input.mouse_mode, Input.MOUSE_MODE_VISIBLE, "cursor visible")
+	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH] as Array[String], "no level yet")
+
+
+func test_click_through_loads_level_1_once() -> void:
+	GameState.energy = 30
+	_make_with(&"opening_main", 1)
+	var clicks: int = _click_through()
+	assert_lt(clicks, MAX_CLICKS, "the story ended")
+	assert_false(PauseArbiter.has_reason(&"story"), "pause lifted")
+	assert_false(get_tree().paused)
+	assert_eq(PauseArbiter.current_mouse_mode(), Input.MOUSE_MODE_VISIBLE, "the scene declared a visible cursor")
+	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH, SceneRouter.LEVEL_SCENE_PATH] as Array[String], "the level path once")
+	assert_eq(GameState.current_level_id, "1")
+	assert_false(GameState.is_retry)
+	assert_eq(GameState.energy, 30, "energy kept")
+	assert_eq(SceneRouter.story_sequence(), &"", "pending story cleared")
+	# A late click and a repeated finish change nothing more.
+	_click()
+	Events.comms_sequence_finished.emit(&"opening_main")
+	assert_eq(_count(SceneRouter.LEVEL_SCENE_PATH), 1, "finish_story called once")
+	assert_eq(_count_starting("[WARN][scene]"), 0, "no warning")
+
+
+func test_other_ids_are_ignored() -> void:
+	_make_with(&"opening_main", 1)
+	Events.comms_sequence_finished.emit(&"dev_comms_check")
+	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH] as Array[String], "still on the story")
+	assert_true(_channel().is_showing())
+
+
+func test_unknown_id_still_loads_the_level() -> void:
+	_make_with(&"no_such_story", 1)
+	assert_false(PauseArbiter.is_paused(), "nothing to pause for")
+	await wait_process_frames(2)
+	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH, SceneRouter.LEVEL_SCENE_PATH] as Array[String], "no soft-lock")
+	assert_eq(GameState.current_level_id, "1")
+	assert_eq(_count_starting("[ERROR][comms] Unknown comms sequence 'no_such_story'"), 1, "the channel logs it")
+	assert_push_error("no_such_story")
+
+
+func test_esc_does_nothing() -> void:
+	_make_with(&"opening_main", 1)
+	_panel().complete_line()
+	var esc: InputEventAction = InputEventAction.new()
+	esc.action = &"pause"
+	esc.pressed = true
+	get_viewport().push_input(esc, true)
+	var release: InputEventAction = InputEventAction.new()
+	release.action = &"pause"
+	release.pressed = false
+	get_viewport().push_input(release, true)
+	assert_false(PauseArbiter.has_reason(&"menu"), "no menu reason")
+	assert_eq(PauseArbiter.reasons(), [&"story"] as Array[StringName], "still the story pause")
+	assert_eq(_channel().line_index(), 0, "line unchanged")
+	assert_eq(_channel().current_sequence(), &"opening_main")
+	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH] as Array[String], "no scene change")
+
+
+func test_no_pending_story_goes_to_the_title() -> void:
+	_make()
+	assert_eq(_story.sequence(), &"")
+	assert_eq(_calls, [SceneRouter.TITLE_SCENE_PATH] as Array[String], "the title")
+	assert_false(PauseArbiter.is_paused(), "nothing requested")
+	assert_eq(_count_starting("[WARN][scene] Story scene has no pending sequence"), 1)
+	assert_push_warning("no pending sequence")
+
+
+# --- Acceptance -------------------------------------------------------------------
+
+func test_title_play_opens_with_the_story_then_level_1() -> void:
+	GameState.energy = 10
+	var title: TitleScreen = TITLE_SCENE.instantiate() as TitleScreen
+	title.quit_game = func() -> void: pass
+	add_child_autofree(title)
+	(title.get_node("Buttons/Play") as Button).pressed.emit()
+	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH] as Array[String], "the story scene")
+	assert_eq(SceneRouter.story_sequence(), &"opening_main")
+	assert_eq(SceneRouter.story_next_level(), 1)
+	title.queue_free()
+	await wait_process_frames(1)
+	_make()
+	_click_through()
+	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH, SceneRouter.LEVEL_SCENE_PATH] as Array[String], "then the level")
+	assert_eq(GameState.current_level_id, "1")
+	assert_false(GameState.is_retry)
+	assert_eq(GameState.energy, 10, "energy kept")
+
+
+func test_level_select_card_1_opens_with_the_story_then_level_1() -> void:
+	GameState.highest_unlocked_level = 2
+	var screen: LevelSelectScreen = LEVEL_SELECT_SCENE.instantiate() as LevelSelectScreen
+	add_child_autofree(screen)
+	(screen.get_node("Cards/Card1") as Button).pressed.emit()
+	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH] as Array[String], "the story scene")
+	assert_eq(SceneRouter.story_sequence(), &"opening_main")
+	assert_eq(SceneRouter.story_next_level(), 1)
+	screen.queue_free()
+	await wait_process_frames(1)
+	_make()
+	_click_through()
+	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH, SceneRouter.LEVEL_SCENE_PATH] as Array[String], "then the level")
+	assert_eq(GameState.current_level_id, "1")
+	assert_false(GameState.is_retry)
+
+
+func test_retry_after_the_opening_never_replays_it() -> void:
+	_make_with(&"opening_main", 1)
+	_click_through()
+	SceneRouter.restart_level()
+	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH, SceneRouter.LEVEL_SCENE_PATH, SceneRouter.LEVEL_SCENE_PATH] as Array[String])
+	assert_true(GameState.is_retry)

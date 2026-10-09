@@ -2,7 +2,8 @@ extends GutTest
 ## Level Select (Story 4.3, FR56): one card per campaign level
 ## (progression.level_count) with its LEVEL n number and uppercased JSON name,
 ## locked cards disabled at ui.level_select.locked_alpha with LOCKED shown, and
-## BACK. An unlocked card -> SceneRouter.start_level(str(n)) (a recorder here),
+## BACK. An unlocked card -> SceneRouter.start_level(str(n)) (a recorder here;
+## card 1 goes through the opening story, Story 5.5),
 ## BACK -> SceneRouter.goto_title(); a second press does nothing. With
 ## Config.load_error set no card is built, no Config getter runs and only BACK
 ## works. The save is a test file and is never written.
@@ -31,6 +32,8 @@ func after_each() -> void:
 	Log.sink = Callable()
 	Config.assert_on_missing = true
 	Config.load_data()
+	SceneRouter._story_id = &""
+	SceneRouter._story_next_level = 0
 	SceneRouter.change_scene = SceneRouter.default_change_scene()
 	_delete_save()
 	SaveManager.save_path = SaveManager.DEFAULT_SAVE_PATH
@@ -331,7 +334,9 @@ func test_pick_locked_does_nothing() -> void:
 	assert_eq(_calls, [] as Array[String], "no scene change")
 	assert_eq(GameState.current_level_id, "", "no level id")
 	_card(screen, 1).pressed.emit()
-	assert_eq(_calls, [SceneRouter.LEVEL_SCENE_PATH] as Array[String], "a locked press doesn't block an unlocked one")
+	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH] as Array[String], "a locked press doesn't block an unlocked one (level 1 opens with the story)")
+	assert_eq(SceneRouter.story_sequence(), &"opening_main", "Story 5.5: the opening is pending")
+	assert_eq(SceneRouter.story_next_level(), 1)
 
 
 func test_back_goes_to_the_title() -> void:

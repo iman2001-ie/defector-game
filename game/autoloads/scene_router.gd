@@ -19,6 +19,17 @@ extends Node
 ##   title's goto_title() already restored energy and unlocks) and writes no save.
 ## - start_level(id): a fresh (non-retry) attempt of level `id` in level.tscn,
 ##   carrying the current energy. Refused (logged) while Config.load_error is set.
+##   Level OPENING_LEVEL_ID ("1") goes through the opening story first
+##   (goto_story(OPENING_SEQUENCE, 1), Story 5.5, R15): PLAY and Level Select
+##   both call start_level, so both get it.
+## - goto_story(id, next_level): the comms-only story scene
+##   (scenes/story/story.tscn) for sequence `id`, then level `next_level`. Stores
+##   the pending id and level (story_sequence(), story_next_level()), clears
+##   is_retry and keeps the energy. Refused (logged) while Config.load_error is set.
+## - finish_story(): the story scene calls it when its sequence finished. Starts
+##   the pending level as a fresh attempt straight into level.tscn (never the
+##   opening again) and clears the pending story; with none pending it warns and
+##   goes to the title.
 ## - restart_level(): retry is a scene reload (ADR-004). It wipes energy, marks
 ##   the attempt as a retry and reloads level.tscn, which reads
 ##   GameState.current_level_id, so the same level runs again from wave 1. There
@@ -38,6 +49,11 @@ extends Node
 const LEVEL_SCENE_PATH: String = "res://scenes/level/level.tscn"
 const TITLE_SCENE_PATH: String = "res://scenes/title/title.tscn"
 const LEVEL_SELECT_SCENE_PATH: String = "res://scenes/title/level_select.tscn"
+const STORY_SCENE_PATH: String = "res://scenes/story/story.tscn"
+## The opening comms sequence (data/dialogue/opening.json) and the level it
+## opens: scene-flow wiring like the paths above, not tuning (Story 5.5).
+const OPENING_SEQUENCE: StringName = &"opening_main"
+const OPENING_LEVEL_ID: String = "1"
 
 ## Changes the scene to a file path. Defaults to get_tree().change_scene_to_file
 ## in _ready; tests inject a recorder (calling the real one in GUT would replace
@@ -49,6 +65,11 @@ var get_window_mode: Callable
 ## Sets a DisplayServer.WindowMode. Defaults to DisplayServer.window_set_mode in
 ## _ready; tests inject a recorder so the real window never changes.
 var set_window_mode: Callable
+
+## The story the story scene plays (&"" when none is pending) and the level
+## finish_story() starts after it (0 when none).
+var _story_id: StringName = &""
+var _story_next_level: int = 0
 
 
 func _ready() -> void:
@@ -115,13 +136,54 @@ func restart_level() -> void:
 ## GameState.current_level_id, clears is_retry and keeps the current energy.
 ## While Config.load_error is set no level can start: logs an ERROR and changes
 ## nothing.
+## Level OPENING_LEVEL_ID plays the opening story first (goto_story); every
+## other id loads level.tscn at once.
 func start_level(id: String) -> void:
 	if not Config.load_error.is_empty():
 		Log.error("scene", "Cannot start level '%s': config failed to load (%s)" % [id, Config.load_error])
 		return
-	GameState.current_level_id = id
+	if id == OPENING_LEVEL_ID:
+		goto_story(OPENING_SEQUENCE, int(id))
+		return
+	_load_level(id)
+
+
+## The comms-only story scene for sequence `id`, followed by level
+## `next_level` (finish_story()). Clears is_retry and keeps the energy. While
+## Config.load_error is set it logs an ERROR and changes nothing.
+func goto_story(id: StringName, next_level: int) -> void:
+	if not Config.load_error.is_empty():
+		Log.error("scene", "Cannot play story '%s': config failed to load (%s)" % [id, Config.load_error])
+		return
+	_story_id = id
+	_story_next_level = next_level
 	GameState.is_retry = false
-	_change_to(LEVEL_SCENE_PATH, "Starting level '%s'" % id)
+	_change_to(STORY_SCENE_PATH, "Story '%s' before level %d" % [id, next_level])
+
+
+## The pending story sequence id (&"" when none).
+func story_sequence() -> StringName:
+	return _story_id
+
+
+## The level the pending story leads to (0 when none).
+func story_next_level() -> int:
+	return _story_next_level
+
+
+## The story scene's sequence finished: starts the pending level as a fresh
+## attempt (energy kept) straight into level.tscn, without the opening check,
+## and clears the pending story. With no pending story it warns and goes to
+## the title.
+func finish_story() -> void:
+	var next_level: int = _story_next_level
+	_story_id = &""
+	_story_next_level = 0
+	if next_level < 1:
+		Log.warn("scene", "No pending story to finish; going to the title")
+		goto_title()
+		return
+	_load_level(str(next_level))
 
 
 ## The title screen: progress restored from the save (restore_saved_progress()),
@@ -170,6 +232,13 @@ func complete_level(n: int) -> void:
 		start_level(str(n + 1))
 	else:
 		goto_title()
+
+
+## Sets the level id, clears is_retry and loads level.tscn (energy kept).
+func _load_level(id: String) -> void:
+	GameState.current_level_id = id
+	GameState.is_retry = false
+	_change_to(LEVEL_SCENE_PATH, "Starting level '%s'" % id)
 
 
 func _change_to(path: String, message: String) -> void:

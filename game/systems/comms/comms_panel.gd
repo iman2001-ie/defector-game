@@ -35,6 +35,10 @@ const RECT_NAME: StringName = &"name"
 const RECT_TEXT: StringName = &"text"
 const RECT_CUE: StringName = &"cue"
 
+## Whether open() shows the Dim over the playfield. The opening story scene
+## (Story 5.5, UX "Opening story scene": no dim) turns it off; the level keeps it.
+@export var dim: bool = true
+
 var chars_per_s: float = 0.0
 
 ## `ui.comms_panel` numbers.
@@ -97,8 +101,9 @@ func _ready() -> void:
 
 # --- Channel API ------------------------------------------------------------------
 
-## Shows the dim and the panel.
+## Shows the panel, and the dim only when `dim` is on.
 func open() -> void:
+	_dim.visible = dim
 	visible = true
 
 

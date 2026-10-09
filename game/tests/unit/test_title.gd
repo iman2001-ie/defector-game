@@ -3,9 +3,10 @@ extends GutTest
 ## QUIT (Story 4.3) at the ui.title layout; with Config.load_error set, the
 ## Error label replaces the buttons and no Config getter is called. PLAY ->
 ## SceneRouter.start_level(GameState.highest_unlocked_level) (Story 4.2; a
-## recorder here), LEVEL SELECT -> SceneRouter.goto_level_select() (GameState
-## untouched), QUIT -> the injected quit_game; a second press does nothing. The
-## title declares the VISIBLE mouse mode and logs its ready time.
+## recorder here; level 1 goes through the opening story, Story 5.5), LEVEL
+## SELECT -> SceneRouter.goto_level_select() (GameState untouched), QUIT ->
+## the injected quit_game; a second press does nothing. The title declares the
+## VISIBLE mouse mode and logs its ready time.
 
 const TITLE_SCENE: PackedScene = preload("res://scenes/title/title.tscn")
 const BAD_CONFIG: String = "res://data/tuning.json parse error at line 3: Expected '}'"
@@ -32,6 +33,8 @@ func after_each() -> void:
 	Log.sink = Callable()
 	Config.assert_on_missing = true
 	Config.load_data()
+	SceneRouter._story_id = &""
+	SceneRouter._story_next_level = 0
 	SceneRouter.change_scene = SceneRouter.default_change_scene()
 	_delete_save()
 	SaveManager.save_path = SaveManager.DEFAULT_SAVE_PATH
@@ -224,13 +227,16 @@ func test_mouse_mode_visible_and_ready_line() -> void:
 		assert_true(ready[0].ends_with(" ms after launch"), ready[0])
 
 
-func test_play_starts_level_1() -> void:
+## Story 5.5: level 1 starts through the opening story (the level loads when
+## the story finishes; see test_story_scene.gd).
+func test_play_starts_level_1_through_the_opening() -> void:
 	var title: TitleScreen = _make()
 	GameState.energy = 25
 	GameState.is_retry = true
 	_play(title).pressed.emit()
-	assert_eq(_calls, [SceneRouter.LEVEL_SCENE_PATH] as Array[String], "one change to the level")
-	assert_eq(GameState.current_level_id, "1")
+	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH] as Array[String], "one change to the story scene")
+	assert_eq(SceneRouter.story_sequence(), &"opening_main")
+	assert_eq(SceneRouter.story_next_level(), 1)
 	assert_false(GameState.is_retry)
 	assert_eq(GameState.energy, 25, "energy unchanged")
 

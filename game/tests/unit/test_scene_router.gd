@@ -7,7 +7,9 @@ extends GutTest
 ## unlock from the save (clamped), complete_level(n) unlocks, saves and moves
 ## on, and nothing else writes the save. Story 4.3: goto_level_select() changes
 ## to the Level Select screen and leaves GameState and the save alone. The save
-## is a test file here.
+## is a test file here. Story 5.5: start_level("1") goes through the opening
+## story scene (goto_story), finish_story() starts the pending level without the
+## opening check, and a retry never plays it.
 
 const TEST_SAVE: String = "user://test_scene_router_save.cfg"
 
@@ -35,6 +37,8 @@ func after_each() -> void:
 	if PauseArbiter.resumed.is_connected(_on_resumed):
 		PauseArbiter.resumed.disconnect(_on_resumed)
 	Log.sink = Callable()
+	SceneRouter._story_id = &""
+	SceneRouter._story_next_level = 0
 	SceneRouter.change_scene = SceneRouter.default_change_scene()
 	_delete_save()
 	SaveManager.save_path = SaveManager.DEFAULT_SAVE_PATH
@@ -421,3 +425,132 @@ func test_title_start_and_restart_write_no_save() -> void:
 	SceneRouter.goto_title()
 	assert_eq(_calls.size(), 3, "three scene changes")
 	assert_false(FileAccess.file_exists(TEST_SAVE), "no save file written")
+
+
+# --- Story 5.5: the opening story ------------------------------------------------------
+
+func _count_starting(prefix: String) -> int:
+	var n: int = 0
+	for line: String in _lines:
+		if line.begins_with(prefix):
+			n += 1
+	return n
+
+
+func test_story_scene_path_and_opening_constants() -> void:
+	assert_eq(SceneRouter.STORY_SCENE_PATH, "res://scenes/story/story.tscn")
+	assert_true(ResourceLoader.exists(SceneRouter.STORY_SCENE_PATH))
+	assert_eq(SceneRouter.OPENING_SEQUENCE, &"opening_main")
+	assert_eq(SceneRouter.OPENING_LEVEL_ID, "1")
+
+
+func test_nothing_pending_at_start() -> void:
+	assert_eq(SceneRouter.story_sequence(), &"")
+	assert_eq(SceneRouter.story_next_level(), 0)
+
+
+func test_start_level_1_plays_the_opening_first() -> void:
+	GameState.energy = 40
+	GameState.is_retry = true
+	GameState.current_level_id = ""
+	PauseArbiter.push(&"menu")
+	Feedback.hit_stop(500.0)
+	SceneRouter.start_level("1")
+	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH] as Array[String], "one change to the story scene")
+	assert_eq(SceneRouter.story_sequence(), &"opening_main", "pending opening")
+	assert_eq(SceneRouter.story_next_level(), 1, "then level 1")
+	assert_false(GameState.is_retry, "a fresh attempt")
+	assert_eq(GameState.energy, 40, "energy kept")
+	assert_false(PauseArbiter.is_paused(), "pause reasons cleared")
+	assert_eq(Engine.time_scale, 1.0, "hit-stop ended")
+	assert_eq(_scene_lines(), ["[INFO][scene] Story 'opening_main' before level 1"] as Array[String], "one INFO scene line")
+
+
+func test_start_other_levels_skip_the_opening() -> void:
+	for id: String in ["2", "3", "dev"]:
+		_calls.clear()
+		SceneRouter.start_level(id)
+		assert_eq(_calls, [SceneRouter.LEVEL_SCENE_PATH] as Array[String], "level '%s' loads at once" % id)
+		assert_eq(GameState.current_level_id, id)
+		assert_eq(SceneRouter.story_sequence(), &"", "no story pending for '%s'" % id)
+
+
+func test_goto_story_stores_the_pending_story() -> void:
+	GameState.is_retry = true
+	GameState.energy = 15
+	GameState.current_level_id = "x"
+	SceneRouter.goto_story(&"some_story", 3)
+	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH] as Array[String])
+	assert_eq(SceneRouter.story_sequence(), &"some_story")
+	assert_eq(SceneRouter.story_next_level(), 3)
+	assert_false(GameState.is_retry, "retry flag cleared")
+	assert_eq(GameState.energy, 15, "energy kept")
+	assert_eq(GameState.current_level_id, "x", "level id untouched until the level loads")
+	assert_has(_lines, "[INFO][scene] Story 'some_story' before level 3")
+
+
+func test_goto_story_clears_the_pauses_after_the_swap() -> void:
+	PauseArbiter.push(&"menu")
+	SceneRouter.goto_story(&"opening_main", 1)
+	assert_eq(_order, ["change paused=true", "resumed"] as Array[String], "paused at the call, resumed once after it")
+	assert_false(PauseArbiter.is_paused())
+
+
+func test_finish_story_starts_the_pending_level_once() -> void:
+	GameState.energy = 25
+	SceneRouter.start_level("1")
+	GameState.is_retry = true
+	SceneRouter.finish_story()
+	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH, SceneRouter.LEVEL_SCENE_PATH] as Array[String], "story, then the level, no second story")
+	assert_eq(GameState.current_level_id, "1")
+	assert_false(GameState.is_retry, "a fresh attempt")
+	assert_eq(GameState.energy, 25, "energy kept")
+	assert_eq(SceneRouter.story_sequence(), &"", "pending story cleared")
+	assert_eq(SceneRouter.story_next_level(), 0)
+	assert_eq(_scene_lines().back(), "[INFO][scene] Starting level '1'")
+
+
+func test_finish_story_with_nothing_pending_goes_to_the_title() -> void:
+	SceneRouter.finish_story()
+	assert_eq(_calls, [SceneRouter.TITLE_SCENE_PATH] as Array[String], "the title")
+	assert_eq(_count_starting("[WARN][scene] No pending story"), 1, "one WARN")
+	assert_push_warning("No pending story")
+
+
+func test_second_finish_story_goes_to_the_title() -> void:
+	SceneRouter.goto_story(&"opening_main", 1)
+	SceneRouter.finish_story()
+	SceneRouter.finish_story()
+	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH, SceneRouter.LEVEL_SCENE_PATH, SceneRouter.TITLE_SCENE_PATH] as Array[String])
+	assert_push_warning("No pending story")
+
+
+func test_restart_level_1_never_plays_the_opening() -> void:
+	GameState.current_level_id = "1"
+	SceneRouter.restart_level()
+	assert_eq(_calls, [SceneRouter.LEVEL_SCENE_PATH] as Array[String], "level.tscn, never the story")
+	assert_eq(SceneRouter.story_sequence(), &"")
+	assert_true(GameState.is_retry)
+
+
+func test_goto_story_with_a_config_error_changes_nothing() -> void:
+	var saved_error: String = Config.load_error
+	Config.load_error = "res://data/tuning.json parse error at line 1: test"
+	GameState.is_retry = true
+	SceneRouter.goto_story(&"opening_main", 1)
+	Config.load_error = saved_error
+	assert_eq(_calls, [] as Array[String], "no scene change")
+	assert_eq(SceneRouter.story_sequence(), &"", "nothing pending")
+	assert_true(GameState.is_retry, "is_retry untouched")
+	assert_eq(_count_starting("[ERROR][scene] Cannot play story 'opening_main'"), 1, "one ERROR scene line")
+	assert_push_error("Cannot play story 'opening_main'")
+
+
+func test_start_level_1_with_a_config_error_plays_no_story() -> void:
+	var saved_error: String = Config.load_error
+	Config.load_error = "res://data/tuning.json parse error at line 1: test"
+	SceneRouter.start_level("1")
+	Config.load_error = saved_error
+	assert_eq(_calls, [] as Array[String], "no scene change")
+	assert_eq(SceneRouter.story_sequence(), &"", "nothing pending")
+	assert_push_error("Cannot start level '1'")

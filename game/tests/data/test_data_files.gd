@@ -515,6 +515,41 @@ func test_dev_comms_check_is_a_story_with_both_panel_variants() -> void:
 	assert_between(longest, 180, 200, "one line near 200 characters for the wrap check")
 
 
+## Story 5.5 (FR41): the opening comms sequence. Story mode, 6-10 lines, only
+## Vale, Tarek and Isolde (no system, no narrator), Isolde exactly once, Tarek
+## briefing the convoy and Vale speaking at least once.
+func test_opening_main_is_the_story_opening() -> void:
+	var path: String = DIALOGUE_DIR + "opening.json"
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+	assert_true(parsed is Dictionary, "opening.json parses to an object")
+	if not (parsed is Dictionary):
+		return
+	var sequences: Variant = (parsed as Dictionary).get("sequences")
+	assert_true(sequences is Dictionary and (sequences as Dictionary).has("opening_main"), "opening_main lives in opening.json")
+	assert_eq(SceneRouter.OPENING_SEQUENCE, &"opening_main", "the router's opening id")
+	assert_true(Config.dialogue_is_story(&"opening_main"), "opening_main loads and is story")
+	var lines: Array = Config.sequence(&"opening_main").get("lines", []) as Array
+	assert_between(lines.size(), 6, 10, "6-10 lines")
+	var counts: Dictionary = {"vale": 0, "tarek": 0, "isolde": 0}
+	var tarek_convoy: bool = false
+	var tarek_welcome: bool = false
+	for line: Variant in lines:
+		var speaker: String = str((line as Dictionary).get("speaker"))
+		var text: String = str((line as Dictionary).get("text"))
+		assert_true(counts.has(speaker), "speaker '%s' is vale, tarek or isolde" % speaker)
+		counts[speaker] = int(counts.get(speaker, 0)) + 1
+		assert_lte(text.length(), Config.int_("comms.story_line_max_chars"), "line within the story limit")
+		if speaker == "tarek" and text.to_lower().contains("convoy"):
+			tarek_convoy = true
+		if speaker == "tarek" and text.to_lower().contains("general") and text.to_lower().contains("welcome"):
+			tarek_welcome = true
+	assert_eq(counts["isolde"], 1, "exactly one Isolde line")
+	assert_gte(counts["tarek"], 1, "Tarek speaks")
+	assert_gte(counts["vale"], 1, "Vale speaks")
+	assert_true(tarek_convoy, "Tarek briefs the convoy")
+	assert_true(tarek_welcome, "Tarek welcomes the General")
+
+
 func test_every_speaker_has_comms_tuning() -> void:
 	var speakers: Dictionary = Config.section("comms.speakers")
 	for speaker: StringName in DialogueValidator.SPEAKERS:

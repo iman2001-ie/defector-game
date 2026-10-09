@@ -1,0 +1,32 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scenes/story/story.gd" id="1_story"]
+[ext_resource type="Theme" path="res://ui/theme/defector_theme.tres" id="2_theme"]
+[ext_resource type="Script" path="res://systems/comms/comms_channel.gd" id="3_comms_channel"]
+[ext_resource type="PackedScene" path="res://systems/comms/comms_box.tscn" id="4_comms_box"]
+[ext_resource type="PackedScene" path="res://systems/comms/comms_panel.tscn" id="5_comms_panel"]
+
+[node name="Story" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_story")
+
+[node name="Comms" type="CanvasLayer" parent="."]
+layer = 20
+
+[node name="CommsChannel" type="Node" parent="Comms" node_paths=PackedStringArray("panel", "box")]
+process_mode = 3
+script = ExtResource("3_comms_channel")
+panel = NodePath("../CommsPanel")
+box = NodePath("../CommsBox")
+
+[node name="CommsBox" parent="Comms" instance=ExtResource("4_comms_box")]
+
+[node name="CommsPanel" parent="Comms" instance=ExtResource("5_comms_panel")]
+dim = false

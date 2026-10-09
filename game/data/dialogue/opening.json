@@ -1,0 +1,16 @@
+{
+	"sequences": {
+		"opening_main": {
+			"mode": "story",
+			"lines": [
+				{ "speaker": "tarek", "text": "Unknown Sovereignty fighter, this is Admiral Tarek Holt of the Free Worlds Coalition. Power down your weapons and state your intent." },
+				{ "speaker": "vale", "text": "This is General Arden Vale. I've left the Sovereignty. I'm not going back." },
+				{ "speaker": "tarek", "text": "Vale. Ten years your name has topped our threat reports. Welcome to the Coalition, General. I mean that." },
+				{ "speaker": "tarek", "text": "No time to settle in. A supply convoy runs the outer lanes tonight, and Sovereignty raiders are already hunting it." },
+				{ "speaker": "tarek", "text": "You fly escort with me. Keep those cargo ships alive, whatever comes at them." },
+				{ "speaker": "isolde", "text": "Arden. This is Isolde Varn, your Sovereign. You knelt to me once. Run to them if you like; I will bring you home in chains." },
+				{ "speaker": "vale", "text": "Let her come. Convoy's moving, Admiral. I'm on your wing." }
+			]
+		}
+	}
+}

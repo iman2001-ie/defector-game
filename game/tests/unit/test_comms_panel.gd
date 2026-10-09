@@ -150,6 +150,27 @@ func test_open_and_close() -> void:
 	assert_false(panel.is_typing(), "close kills the tween")
 
 
+## Story 5.5: the opening story scene turns the dim off; the default keeps it.
+func test_dim_on_by_default() -> void:
+	var panel: CommsPanel = _make()
+	assert_true(panel.dim, "dim on by default")
+	panel.open()
+	assert_true((panel.get_node("Dim") as Control).is_visible_in_tree(), "dim shown")
+
+
+func test_dim_off_keeps_the_dim_hidden() -> void:
+	var panel: CommsPanel = PANEL_SCENE.instantiate() as CommsPanel
+	panel.dim = false
+	add_child_autofree(panel)
+	panel.open()
+	assert_true(panel.visible, "panel open")
+	assert_false((panel.get_node("Dim") as Control).visible, "dim hidden")
+	assert_true((panel.get_node("Panel") as Control).is_visible_in_tree(), "panel shown")
+	panel.close()
+	panel.open()
+	assert_false((panel.get_node("Dim") as Control).visible, "still hidden on a second open")
+
+
 func test_portrait_speaker_line() -> void:
 	var panel: CommsPanel = _make()
 	panel.open()
