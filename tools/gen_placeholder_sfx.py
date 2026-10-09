@@ -177,30 +177,73 @@ def barrage_whoosh(rng: random.Random) -> list[float]:
     return out
 
 
+def _one_pole(cutoff_hz: float) -> float:
+    """Smoothing coefficient for a one-pole low-pass at cutoff_hz."""
+    return 1.0 - math.exp(-2.0 * math.pi * cutoff_hz / RATE)
+
+
+def _fade(k: int, n: int, edge: int) -> float:
+    """Raised-cosine fade in over the first `edge` samples and out over the last, so tones never click.
+    `edge` is clamped to [1, n // 2], so short tones still reach 0 at both ends."""
+    edge = max(1, min(edge, n // 2))
+    if k < edge:
+        return 0.5 - 0.5 * math.cos(math.pi * k / edge)
+    if k >= n - edge:
+        return 0.5 - 0.5 * math.cos(math.pi * (n - 1 - k) / edge)
+    return 1.0
+
+
 def comms_open(rng: random.Random) -> list[float]:
-    """Short 0.25 s radio-open blip: two quick rising sine chirps plus a little band-limited static."""
-    n = int(0.25 * RATE)
-    chirp_n = int(0.07 * RATE)
-    # The chirps start at 0 s and 0.09 s; the second is a fourth higher.
-    chirps = ((0, 900.0, 1500.0), (int(0.09 * RATE), 1200.0, 2000.0))
+    """0.30 s radio channel opening: a short soft squelch click that settles into a steady carrier
+    hiss, then a 1 kHz talk-permit beep as the main event, all through a 300 Hz - 3 kHz voice band
+    with light saturation. Steady pitch and a smooth, ungated carrier keep it apart from
+    comms_static's stuttering dead channel and from glitchy sci-fi chirps.
+    """
+    n = int(0.30 * RATE)
+    attack_n = int(0.002 * RATE)
+    click_n = int(0.03 * RATE)
+    settle_n = int(0.012 * RATE)
+    beep_start = int(0.045 * RATE)
+    beep_n = int(0.10 * RATE)
+    tail_n = int(0.08 * RATE)
+    click_level = 0.5
+    carrier_level = 0.2
+    # The beep starts once the click has settled and ends before the carrier fades out.
+    assert click_n + settle_n <= beep_start
+    assert beep_start + beep_n <= n - tail_n
+    hp_a = _one_pole(300.0)
+    lp_a = _one_pole(3000.0)
     out: list[float] = []
-    phases = [0.0, 0.0]
-    lp = 0.0
-    bp = 0.0
+    phase = 0.0
+    hp_lp = 0.0
+    lp1 = 0.0
+    lp2 = 0.0
     for i in range(n):
-        t = i / n
-        tone = 0.0
-        for c, (start, f0, f1) in enumerate(chirps):
-            k = i - start
-            if 0 <= k < chirp_n:
-                u = k / chirp_n
-                phases[c] += 2.0 * math.pi * (f0 * (f1 / f0) ** u) / RATE
-                tone += math.sin(phases[c]) * _envelope(k, chirp_n, 0.003, 1.4)
-        # Static: noise band-passed around ~2.5 kHz, fading out over the blip.
-        lp += 0.35 * (rng.uniform(-1.0, 1.0) - lp)
-        bp += 0.35 * (lp - bp)
-        static = (lp - bp) * (1.0 - t) ** 1.5
-        out.append(0.75 * tone + 0.5 * static)
+        noise = rng.uniform(-1.0, 1.0)
+        # Squelch click: 2 ms attack, held for 30 ms, then a 12 ms crossfade down to the carrier.
+        if i < attack_n:
+            hiss = click_level * (0.5 - 0.5 * math.cos(math.pi * i / attack_n))
+        elif i < click_n:
+            hiss = click_level
+        elif i < click_n + settle_n:
+            u = (i - click_n) / settle_n
+            hiss = carrier_level + (click_level - carrier_level) * (0.5 + 0.5 * math.cos(math.pi * u))
+        else:
+            hiss = carrier_level
+        # The carrier fades out over the last 80 ms.
+        hiss *= min(1.0, (n - 1 - i) / tail_n)
+        beep = 0.0
+        k = i - beep_start
+        if 0 <= k < beep_n:
+            phase += 2.0 * math.pi * 1000.0 / RATE
+            beep = (math.sin(phase) + 0.15 * math.sin(3.0 * phase)) * _fade(k, beep_n, int(0.005 * RATE))
+        x = noise * hiss + 0.3 * beep
+        # Voice band: one-pole high-pass at 300 Hz, two-pole low-pass at 3 kHz.
+        hp_lp += hp_a * (x - hp_lp)
+        x -= hp_lp
+        lp1 += lp_a * (x - lp1)
+        lp2 += lp_a * (lp1 - lp2)
+        out.append(math.tanh(1.8 * lp2))
     return out
 
 

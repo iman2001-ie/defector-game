@@ -731,3 +731,11 @@ source_spec: `spec-5-3-trigger-dialogue-and-music-from-wave-events.md`
 severity: medium
 reason: wave_director.gd _run_chain never checks _failed (by design: decision #39 says "running chains and group spawns still run" after level_failed, and the Story 5.3 intent says not to change the DW-54 failure rules). A level chain such as [wait 2, comms story_x] whose wait ends after the death but before the reload emits comms_sequence_requested; a story sequence then pauses the tree via PauseArbiter on top of the death beat. Not reachable with shipped data (no real level has beats until Epic 7). Settling it needs a human decision extending decision #39: should comms, story_event and music be dropped once _failed is set? The fix would be a `_failed` skip on those three actions plus a test.
 status: open
+
+### DW-79: test_shake_camera.test_process_drives_shake is frame-timing sensitive and failed once in a full run ("_process moves the offset": offset still Vector2.ZERO after 3 process frames), then passed on re-run.
+origin: quick-dev
+location: game/tests/unit/test_shake_camera.gd:90
+source_spec: `spec-5-1-comms-open-radio-sfx.md`
+severity: low
+reason: Pre-existing flake, not caused by the comms-open SFX change (shake_camera.gd and its test are untouched). Seen in the first full GUT run (1340/1341); the immediate full re-run passed. Likely a near-zero headless frame delta or a sampled offset of zero within 3 frames.
+status: open
