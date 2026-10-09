@@ -1,14 +1,23 @@
 class_name CommsChannel
 extends Node
-## The single dialogue delivery path (Story 5.1, architecture "Comms Channel").
-## Listens to Events.comms_sequence_requested, owns the story queue and the
-## `story` pause reason, drives the CommsPanel view and emits
-## Events.comms_sequence_finished.
+## The single dialogue delivery path (Stories 5.1-5.2, architecture "Comms
+## Channel"). Listens to Events.comms_sequence_requested, owns the story and
+## combat queues and the `story` pause reason, drives the CommsPanel (story)
+## and CommsBox (combat) views and emits Events.comms_sequence_finished. Every
+## requested known sequence finishes exactly once (played, preempted or
+## dropped).
 ##
 ## - Unknown id: Log.error, then a deferred `finished(id)` (never inside the
 ##   request, so a caller that emits and then awaits `finished` can't hang).
-## - Combat mode (Story 5.2 builds it): Log.warn and a deferred `finished`;
-##   no pause, nothing shown.
+## - Combat mode (Story 5.2): no pause, no SFX, input untouched. While idle the
+##   box shows line 0 and each line stays combat_line_s(...) seconds of game
+##   time (step_combat runs only while the tree isn't paused); after the last
+##   line the box fades and `finished` is emitted. A combat request while a
+##   combat plays or a story shows is queued FIFO (comms.combat_queue_max; the
+##   oldest is dropped with a deferred `finished`). Queued combat plays when
+##   neither a story nor a combat is showing.
+## - A story request while a combat plays preempts it: the box hides at once,
+##   the combat's `finished` is emitted deferred, the combat queue is kept.
 ## - Story mode while idle: push `story`, play `comms_open`, open the panel and
 ##   show line 0. Story mode while a story plays: queued FIFO, never dropped.
 ## - Input: `comms_advance` presses and releases are consumed while a story is
@@ -26,8 +35,12 @@ const PAUSE_REASON: StringName = &"story"
 const MENU_REASON: StringName = &"menu"
 const ADVANCE_ACTION: StringName = &"comms_advance"
 const OPEN_SFX: StringName = &"comms_open"
+## Slack for the combat line timer, so float steps that add up to the line
+## time (1.9 + 0.1 s) end it.
+const COMBAT_EPSILON_S: float = 0.000001
 
 @export var panel: CommsPanel
+@export var box: CommsBox
 
 ## Id of the story sequence on the panel; &"" while idle.
 var _current: StringName = &""
@@ -35,6 +48,19 @@ var _lines: Array = []
 var _index: int = 0
 var _armed: bool = false
 var _queue: Array[StringName] = []
+
+## Id of the combat sequence in the box; &"" while none plays.
+var _combat: StringName = &""
+var _combat_lines: Array = []
+var _combat_index: int = 0
+## Game time left on the current combat line.
+var _combat_left_s: float = 0.0
+var _combat_queue: Array[StringName] = []
+## `comms` tuning, cached in _ready.
+var _chars_per_s: float = 0.0
+var _combat_min_s: float = 0.0
+var _combat_extra_s: float = 0.0
+var _combat_queue_max: int = 0
 
 
 func _init() -> void:
@@ -44,6 +70,12 @@ func _init() -> void:
 func _ready() -> void:
 	if panel == null:
 		Log.error("comms", "CommsChannel has no panel; story lines are not shown")
+	if box == null:
+		Log.error("comms", "CommsChannel has no box; combat lines are not shown")
+	_chars_per_s = Config.num("comms.chars_per_s")
+	_combat_min_s = Config.num("comms.combat_line_min_s")
+	_combat_extra_s = Config.num("comms.combat_line_extra_s")
+	_combat_queue_max = maxi(Config.int_("comms.combat_queue_max"), 0)
 	Events.comms_sequence_requested.connect(_on_events_comms_sequence_requested)
 
 
@@ -73,6 +105,29 @@ func queued() -> Array[StringName]:
 	return _queue.duplicate()
 
 
+## The combat sequence in the box, &"" while none plays.
+func current_combat() -> StringName:
+	return _combat
+
+
+func is_playing_combat() -> bool:
+	return _combat != &""
+
+
+## Combat ids waiting to play, oldest first.
+func combat_queued() -> Array[StringName]:
+	return _combat_queue.duplicate()
+
+
+## How long a combat line of `chars` characters stays up:
+## max(min_s, chars / chars_per_s + extra_s), or max(min_s, extra_s) when
+## chars_per_s isn't positive.
+static func combat_line_s(chars: int, chars_per_s: float, min_s: float, extra_s: float) -> float:
+	if chars_per_s <= 0.0:
+		return maxf(min_s, extra_s)
+	return maxf(min_s, chars / chars_per_s + extra_s)
+
+
 # --- Requests ----------------------------------------------------------------------
 
 func _on_events_comms_sequence_requested(sequence_id: StringName) -> void:
@@ -81,9 +136,10 @@ func _on_events_comms_sequence_requested(sequence_id: StringName) -> void:
 		_emit_finished.call_deferred(sequence_id)
 		return
 	if not Config.dialogue_is_story(sequence_id):
-		Log.warn("comms", "Combat sequence '%s' not shown: combat comms arrive in Story 5.2" % sequence_id)
-		_emit_finished.call_deferred(sequence_id)
+		_request_combat(sequence_id)
 		return
+	if is_playing_combat():
+		_preempt_combat(sequence_id)
 	if is_showing():
 		_queue.append(sequence_id)
 		Log.debug("comms", "Story sequence '%s' queued behind '%s'" % [sequence_id, _current])
@@ -98,6 +154,9 @@ func _start(sequence_id: StringName) -> void:
 	_lines = seq.get("lines", []) as Array
 	_index = 0
 	_armed = false
+	if box != null:
+		# A combat line still fading out doesn't linger under the dim.
+		box.hide_now()
 	Audio.play_sfx(OPEN_SFX, 0.0)
 	if panel != null:
 		panel.open()
@@ -168,3 +227,95 @@ func _finish() -> void:
 		panel.close()
 	PauseArbiter.pop(PAUSE_REASON)
 	Events.comms_sequence_finished.emit(finished_id)
+	if not is_showing() and not is_playing_combat():
+		_start_next_combat()
+
+
+# --- Combat ------------------------------------------------------------------------
+
+func _process(delta: float) -> void:
+	if is_playing_combat() and not get_tree().paused:
+		step_combat(delta)
+
+
+## Counts the current combat line down by `delta` s of game time. At the end it
+## shows the next line or, after the last, fades the box, logs, emits
+## `finished` and starts the next queued combat if no story is showing and
+## nothing (a `finished` listener) started one.
+func step_combat(delta: float) -> void:
+	if not is_playing_combat():
+		return
+	_combat_left_s -= delta
+	if _combat_left_s > COMBAT_EPSILON_S:
+		return
+	_combat_index += 1
+	if _combat_index < _combat_lines.size():
+		_show_combat_line()
+		return
+	var finished_id: StringName = _combat
+	_clear_combat()
+	if box != null:
+		box.dismiss()
+	Log.info("comms", "Combat sequence '%s' finished" % finished_id)
+	Events.comms_sequence_finished.emit(finished_id)
+	if not is_showing() and not is_playing_combat():
+		_start_next_combat()
+
+
+## Plays a combat sequence at once when nothing is showing; otherwise queues
+## it, dropping the oldest queued one (deferred `finished`) past the max.
+func _request_combat(sequence_id: StringName) -> void:
+	# Only straight to the box when nothing waits: a request from inside a
+	# `finished` listener must not jump ahead of queued combat ids.
+	if not is_playing_combat() and not is_showing() and _combat_queue.is_empty():
+		_start_combat(sequence_id)
+		return
+	_combat_queue.append(sequence_id)
+	Log.debug("comms", "Combat sequence '%s' queued" % sequence_id)
+	if _combat_queue.size() > _combat_queue_max:
+		var dropped: StringName = _combat_queue.pop_front()
+		Log.debug("comms", "Combat queue full (max %d): dropped '%s'" % [_combat_queue_max, dropped])
+		_emit_finished.call_deferred(dropped)
+
+
+func _start_combat(sequence_id: StringName) -> void:
+	_combat = sequence_id
+	_combat_lines = Config.sequence(sequence_id).get("lines", []) as Array
+	_combat_index = 0
+	_show_combat_line()
+	Log.info("comms", "Combat sequence '%s' started" % sequence_id)
+
+
+func _show_combat_line() -> void:
+	var speaker: StringName = &""
+	var text: String = ""
+	if _combat_index < _combat_lines.size() and _combat_lines[_combat_index] is Dictionary:
+		var line: Dictionary = _combat_lines[_combat_index]
+		speaker = StringName(str(line.get("speaker", "")))
+		text = str(line.get("text", ""))
+	_combat_left_s = combat_line_s(text.length(), _chars_per_s, _combat_min_s, _combat_extra_s)
+	if box != null:
+		box.show_line(speaker, text)
+
+
+func _start_next_combat() -> void:
+	if not _combat_queue.is_empty():
+		_start_combat(_combat_queue.pop_front())
+
+
+## A story request drops the playing combat line: the box hides at once and
+## the combat's `finished` goes out deferred. Queued combat lines stay.
+func _preempt_combat(story_id: StringName) -> void:
+	var dropped: StringName = _combat
+	_clear_combat()
+	if box != null:
+		box.hide_now()
+	Log.info("comms", "Combat sequence '%s' preempted by story '%s'" % [dropped, story_id])
+	_emit_finished.call_deferred(dropped)
+
+
+func _clear_combat() -> void:
+	_combat = &""
+	_combat_lines = []
+	_combat_index = 0
+	_combat_left_s = 0.0

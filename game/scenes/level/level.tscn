@@ -1,4 +1,4 @@
-[gd_scene load_steps=19 format=3]
+[gd_scene load_steps=20 format=3]
 
 [ext_resource type="Script" path="res://scenes/level/level.gd" id="1_level"]
 [ext_resource type="PackedScene" path="res://entities/player/player.tscn" id="2_player"]
@@ -17,6 +17,7 @@
 [ext_resource type="PackedScene" path="res://ui/menus/pause_menu.tscn" id="15_pause_menu"]
 [ext_resource type="Script" path="res://systems/comms/comms_channel.gd" id="16_comms_channel"]
 [ext_resource type="PackedScene" path="res://systems/comms/comms_panel.tscn" id="17_comms_panel"]
+[ext_resource type="PackedScene" path="res://systems/comms/comms_box.tscn" id="18_comms_box"]
 
 [sub_resource type="Environment" id="Environment_glow"]
 background_mode = 3
@@ -131,10 +132,13 @@ script = ExtResource("6_banner")
 [node name="Comms" type="CanvasLayer" parent="."]
 layer = 20
 
-[node name="CommsChannel" type="Node" parent="Comms" node_paths=PackedStringArray("panel")]
+[node name="CommsChannel" type="Node" parent="Comms" node_paths=PackedStringArray("panel", "box")]
 process_mode = 3
 script = ExtResource("16_comms_channel")
 panel = NodePath("../CommsPanel")
+box = NodePath("../CommsBox")
+
+[node name="CommsBox" parent="Comms" instance=ExtResource("18_comms_box")]
 
 [node name="CommsPanel" parent="Comms" instance=ExtResource("17_comms_panel")]
 

@@ -2,8 +2,12 @@ extends GutTest
 ## CommsChannel (Story 5.1): story sequences push the `story` pause, play the
 ## comms-open SFX and drive the CommsPanel; LMB (`comms_advance`) presses and
 ## releases are consumed, a press arms and an armed release completes or
-## advances; after the last line the pause pops before `finished`. Unknown and
-## combat ids finish deferred with no pause; a second story queues.
+## advances; after the last line the pause pops before `finished`. Unknown ids
+## finish deferred with no pause; a second story queues.
+## Story 5.2: combat sequences show in the CommsBox without pausing, last
+## combat_line_s of game time (driven with step_combat), freeze under a pause,
+## ignore clicks, are preempted by a story (deferred `finished`), queue FIFO
+## (max 3, oldest dropped with a deferred `finished`) and wait behind a story.
 ## Input goes through get_viewport().push_input like a real click. Under GUT
 ## the root viewport reports a mouse button as handled even when no node
 ## consumed it, so is_input_handled() can't tell who did: a Probe node added
@@ -23,12 +27,14 @@ class Probe:
 			seen += 1
 
 const PANEL_SCENE: PackedScene = preload("res://systems/comms/comms_panel.tscn")
+const BOX_SCENE: PackedScene = preload("res://systems/comms/comms_box.tscn")
 const MENU_SCENE: PackedScene = preload("res://ui/menus/pause_menu.tscn")
 const CHANNEL_DIR: String = "res://tests/fixtures/dialogue/channel/"
 const CLICK_AT: Vector2 = Vector2(960, 900)
 
 var _channel: CommsChannel
 var _panel: CommsPanel
+var _box: CommsBox
 var _finished: Array[StringName] = []
 ## Snapshot taken inside each `finished` handler: [story active, panel visible].
 var _at_finish: Array = []
@@ -50,8 +56,11 @@ func before_each() -> void:
 	add_child_autofree(_probe)
 	_panel = PANEL_SCENE.instantiate() as CommsPanel
 	add_child_autofree(_panel)
+	_box = BOX_SCENE.instantiate() as CommsBox
+	add_child_autofree(_box)
 	_channel = CommsChannel.new()
 	_channel.panel = _panel
+	_channel.box = _box
 	add_child_autofree(_channel)
 
 
@@ -60,6 +69,7 @@ func after_each() -> void:
 	Log.sink = Callable()
 	_channel = null
 	_panel = null
+	_box = null
 	_probe = null
 	var motion: InputEventMouseMotion = InputEventMouseMotion.new()
 	motion.position = _mouse_before
@@ -288,18 +298,6 @@ func test_unknown_id_finishes_deferred() -> void:
 	assert_eq(_finished, [&"nope"] as Array[StringName], "finished on the next idle frame")
 
 
-func test_combat_id_finishes_deferred_without_pause() -> void:
-	_request(&"combat_a")
-	assert_false(PauseArbiter.is_paused(), "no pause")
-	assert_false(_panel.visible, "nothing shown")
-	assert_false(_channel.is_showing())
-	assert_eq(_finished, [] as Array[StringName])
-	assert_push_warning("combat_a")
-	await get_tree().process_frame
-	await get_tree().process_frame
-	assert_eq(_finished, [&"combat_a"] as Array[StringName])
-
-
 func test_second_story_queues_and_plays_without_unpausing() -> void:
 	_request(&"story_a")
 	watch_signals(PauseArbiter)
@@ -327,3 +325,239 @@ func _click_to_end_of(id: StringName) -> void:
 		if _channel.current_sequence() != id:
 			return
 		_click()
+
+
+# --- Combat (Story 5.2) ----------------------------------------------------------------
+
+func _box_text() -> Label:
+	return _box.get_node("Box/Text") as Label
+
+
+func _box_name() -> Label:
+	return _box.get_node("Box/Name") as Label
+
+
+## Steps the current combat line to its end (and a little past it).
+func _end_combat_line() -> void:
+	_channel.step_combat(_channel._combat_left_s + 0.01)
+
+
+func _assert_color(actual: Color, expected: Color, what: String) -> void:
+	assert_almost_eq(actual.r, expected.r, 0.002, what + " r")
+	assert_almost_eq(actual.g, expected.g, 0.002, what + " g")
+	assert_almost_eq(actual.b, expected.b, 0.002, what + " b")
+
+
+func test_combat_line_s() -> void:
+	assert_almost_eq(CommsChannel.combat_line_s(15, 45.0, 2.0, 1.2), 2.0, 0.0001, "short line: the minimum")
+	assert_almost_eq(CommsChannel.combat_line_s(50, 45.0, 2.0, 1.2), 50.0 / 45.0 + 1.2, 0.0001, "50 chars: 2.31 s")
+	assert_almost_eq(CommsChannel.combat_line_s(50, 0.0, 2.0, 1.2), 2.0, 0.0001, "no typing speed: max(min, extra)")
+	assert_almost_eq(CommsChannel.combat_line_s(50, -1.0, 1.0, 1.5), 1.5, 0.0001, "no typing speed: max(min, extra)")
+
+
+func test_combat_plays_without_pausing() -> void:
+	_request(&"combat_a")
+	assert_false(get_tree().paused, "not paused")
+	assert_false(PauseArbiter.has_reason(&"story"), "no story reason")
+	assert_false(_panel.visible, "no story panel")
+	assert_true(_box.visible, "box shown")
+	assert_true(_box.is_open())
+	assert_eq(_channel.current_combat(), &"combat_a")
+	assert_false(_channel.is_showing(), "not a story")
+	assert_eq(_box_name().text, "ISOLDE", "uppercase name")
+	_assert_color(_box_name().get_theme_color(&"font_color"), Color("#FF6AE3"), "name in the accent")
+	_assert_color((_box.get_node("Box/Edge") as ColorRect).color, Color("#FF6AE3"), "accent edge")
+	assert_eq(_box_text().text, "Combat chatter.")
+	assert_eq(_box_text().visible_characters, 0, "typing from 0")
+	assert_true(_box.is_typing(), "typing")
+	_box._slide_tween.custom_step(1.0)
+	assert_eq((_box.get_node("Box") as Control).get_rect(), Rect2(32, 24, 560, 96), "box at the UX rect")
+	assert_eq(_finished, [] as Array[StringName], "not finished yet")
+	assert_eq(_count_lines("[INFO][comms] Combat sequence 'combat_a' started"), 1)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(_finished, [] as Array[StringName], "still not finished a frame later")
+
+
+func test_combat_line_time_short_line() -> void:
+	_request(&"combat_a")
+	_channel.step_combat(1.9)
+	assert_eq(_finished, [] as Array[StringName], "not at 1.9 s")
+	assert_eq(_channel.current_combat(), &"combat_a")
+	_channel.step_combat(0.1)
+	assert_eq(_finished, [&"combat_a"] as Array[StringName], "finished once at 2.0 s")
+	assert_eq(_channel.current_combat(), &"")
+	assert_false(_box.is_open(), "box fading")
+	assert_eq(_count_lines("[INFO][comms] Combat sequence 'combat_a' finished"), 1)
+	_channel.step_combat(5.0)
+	assert_eq(_finished, [&"combat_a"] as Array[StringName], "only once")
+
+
+func test_combat_line_time_fifty_chars() -> void:
+	_request(&"combat_e")
+	assert_eq(_box_text().text.length(), 50)
+	_channel.step_combat(2.3)
+	assert_eq(_finished, [] as Array[StringName], "not at 2.3 s")
+	_channel.step_combat(0.012)
+	assert_eq(_finished, [&"combat_e"] as Array[StringName], "finished at 2.31 s")
+
+
+func test_combat_box_fades_and_hides() -> void:
+	_request(&"combat_a")
+	_end_combat_line()
+	assert_true(_box.visible, "still visible while fading")
+	assert_false(_box.is_open(), "not open while fading")
+	_box._fade_tween.custom_step(0.1)
+	assert_lt(_box.modulate.a, 1.0, "fading")
+	_box._fade_tween.custom_step(0.2)
+	assert_false(_box.visible, "hidden after the fade")
+
+
+func test_combat_freezes_under_a_pause() -> void:
+	_request(&"combat_e")
+	await get_tree().process_frame
+	PauseArbiter.push(&"menu")
+	var left: float = _channel._combat_left_s
+	var chars: int = _box_text().visible_characters
+	for i: int in 10:
+		await get_tree().process_frame
+	assert_eq(_channel._combat_left_s, left, "line timer frozen")
+	assert_eq(_box_text().visible_characters, chars, "typewriter frozen")
+	assert_true(_box.is_typing(), "still mid-line")
+	assert_eq(_finished, [] as Array[StringName])
+	PauseArbiter.pop(&"menu")
+	for i: int in 2000:
+		await get_tree().process_frame
+		if _channel._combat_left_s < left:
+			break
+	assert_lt(_channel._combat_left_s, left, "resumes after the pause")
+
+
+func test_combat_line_ignores_clicks() -> void:
+	_request(&"combat_a")
+	var handled: Array[bool] = _click()
+	assert_eq(handled, [false, false] as Array[bool], "press and release reach the probe")
+	assert_eq(_channel.current_combat(), &"combat_a", "nothing changed")
+	assert_true(_box.is_typing(), "still typing")
+	assert_eq(_finished, [] as Array[StringName])
+
+
+func test_story_preempts_a_combat_line() -> void:
+	_request(&"combat_a")
+	_request(&"story_a")
+	assert_false(_box.visible, "box hidden at once")
+	assert_eq(_channel.current_combat(), &"")
+	assert_eq(_channel.current_sequence(), &"story_a", "story plays")
+	assert_true(_panel.visible, "story panel")
+	assert_true(PauseArbiter.has_reason(&"story"), "story pause")
+	assert_true(get_tree().paused)
+	assert_eq(_finished, [] as Array[StringName], "finished deferred")
+	assert_eq(_count_lines("[INFO][comms] Combat sequence 'combat_a' preempted by story 'story_a'"), 1)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(_finished, [&"combat_a"] as Array[StringName], "finished once")
+	_click_to_end()
+	assert_eq(_finished, [&"combat_a", &"story_a"] as Array[StringName])
+	assert_eq(_channel.current_combat(), &"", "nothing replays")
+
+
+func test_combat_queue_drops_the_oldest() -> void:
+	_request(&"combat_a")
+	for id: StringName in [&"combat_b", &"combat_c", &"combat_d", &"combat_e"]:
+		_request(id)
+	assert_eq(_channel.current_combat(), &"combat_a", "the first keeps playing")
+	assert_eq(_channel.combat_queued(), [&"combat_c", &"combat_d", &"combat_e"] as Array[StringName], "max 3, oldest dropped")
+	assert_eq(_count_lines("[DEBUG][comms] Combat queue full (max 3): dropped 'combat_b'"), 1)
+	assert_eq(_finished, [] as Array[StringName], "drop finishes deferred")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(_finished, [&"combat_b"] as Array[StringName], "dropped one finished once")
+	for expected: StringName in [&"combat_c", &"combat_d", &"combat_e"]:
+		_end_combat_line()
+		assert_eq(_channel.current_combat(), expected, "FIFO: %s next" % expected)
+		assert_true(_box.is_open(), "box re-opened for %s" % expected)
+	_end_combat_line()
+	assert_eq(_finished, [&"combat_b", &"combat_a", &"combat_c", &"combat_d", &"combat_e"] as Array[StringName], "each once, in order")
+	assert_eq(_channel.current_combat(), &"")
+	assert_eq(_channel.combat_queued(), [] as Array[StringName])
+
+
+func test_vale_combat_line_has_no_portrait() -> void:
+	_request(&"combat_c")
+	assert_eq(_box_name().text, "VALE")
+	assert_false((_box.get_node("Box/Portrait") as Control).visible, "no portrait")
+	assert_eq(_box_text().get_rect(), Rect2(16, 34, 532, 56), "532 px text block")
+
+
+func test_combat_behind_a_story_waits_for_it() -> void:
+	_request(&"story_a")
+	_request(&"combat_a")
+	assert_eq(_channel.current_combat(), &"", "not while a story shows")
+	assert_false(_box.visible)
+	assert_eq(_channel.combat_queued(), [&"combat_a"] as Array[StringName], "queued")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(_finished, [] as Array[StringName], "not dropped")
+	assert_eq(_channel.current_combat(), &"", "doesn't play while paused")
+	_click_to_end()
+	assert_eq(_finished, [&"story_a"] as Array[StringName])
+	assert_false(get_tree().paused, "story popped")
+	assert_eq(_channel.current_combat(), &"combat_a", "plays after the story")
+	assert_true(_box.visible)
+	_end_combat_line()
+	assert_eq(_finished, [&"story_a", &"combat_a"] as Array[StringName])
+
+
+func test_queued_combat_survives_a_preempt() -> void:
+	_request(&"combat_a")
+	_request(&"combat_b")
+	_request(&"story_b")
+	assert_eq(_channel.current_combat(), &"", "playing one dropped")
+	assert_eq(_channel.combat_queued(), [&"combat_b"] as Array[StringName], "queue kept")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(_finished, [&"combat_a"] as Array[StringName])
+	_click_to_end()
+	assert_eq(_channel.current_combat(), &"combat_b", "queued combat plays after the story")
+	_end_combat_line()
+	assert_eq(_finished, [&"combat_a", &"story_b", &"combat_b"] as Array[StringName], "each once")
+
+
+func test_combat_requested_in_a_finished_listener_queues_behind_older_ones() -> void:
+	_request(&"story_a")
+	_request(&"combat_a")
+	var chain: Callable = func(id: StringName) -> void:
+		if id == &"story_a":
+			_request(&"combat_b")
+	Events.comms_sequence_finished.connect(chain)
+	_click_to_end()
+	Events.comms_sequence_finished.disconnect(chain)
+	assert_eq(_channel.current_combat(), &"combat_a", "the queued combat plays first")
+	assert_eq(_channel.combat_queued(), [&"combat_b"] as Array[StringName], "the listener's combat waits")
+	_end_combat_line()
+	assert_eq(_channel.current_combat(), &"combat_b", "then the listener's combat")
+	_end_combat_line()
+	assert_eq(_finished, [&"story_a", &"combat_a", &"combat_b"] as Array[StringName], "FIFO, each once")
+
+
+func test_story_hides_a_fading_combat_box() -> void:
+	_request(&"combat_a")
+	_end_combat_line()
+	assert_true(_box.visible, "box fading, still visible")
+	assert_false(_box.is_open())
+	_request(&"story_a")
+	assert_false(_box.visible, "hidden when the story starts")
+	assert_true(_panel.visible, "story panel up")
+
+
+func test_story_on_story_still_queues_with_combat_around() -> void:
+	_request(&"story_a")
+	_request(&"combat_a")
+	_request(&"story_b")
+	assert_eq(_channel.queued(), [&"story_b"] as Array[StringName], "story queued, never dropped")
+	_click_to_end_of(&"story_a")
+	assert_eq(_channel.current_sequence(), &"story_b", "next story before any combat")
+	assert_eq(_channel.current_combat(), &"")
+	_click_to_end()
+	assert_eq(_channel.current_combat(), &"combat_a", "combat after both stories")
+	assert_eq(_finished, [&"story_a", &"story_b"] as Array[StringName])

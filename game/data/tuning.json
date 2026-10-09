@@ -221,6 +221,9 @@
 		"combat_queue_max": 3,
 		"cutoff_hide_s": 0.6,
 		"story_line_max_chars": 200,
+		"combat_line_max_chars": 50,
+		"box_slide_in_s": 0.15,
+		"box_fade_out_s": 0.2,
 		"speakers": {
 			"vale": { "name": "VALE", "portrait": false },
 			"isolde": { "name": "ISOLDE", "portrait": true },
@@ -284,7 +287,8 @@
 		"title": { "logo_y": 300, "logo_px": 120, "button_w": 400, "button_h": 72, "button_gap_px": 24, "buttons_top_y": 560 },
 		"level_select": { "card_w": 480, "card_h": 280, "card_gap_px": 48, "cards_top_y": 360, "back_x": 32, "back_y": 984, "back_w": 240, "back_h": 64, "locked_alpha": 0.4 },
 		"pause_menu": { "panel_w": 520, "panel_padding_px": 40, "heading_px": 48, "heading_gap_px": 40, "button_w": 400, "button_h": 72, "button_gap_px": 24 },
-		"comms_panel": { "x": 410, "y": 300, "w": 1100, "h": 300, "padding_px": 32, "portrait_px": 200, "portrait_gap_px": 24, "name_h_px": 36, "name_gap_px": 8, "cue_h_px": 24 }
+		"comms_panel": { "x": 410, "y": 300, "w": 1100, "h": 300, "padding_px": 32, "portrait_px": 200, "portrait_gap_px": 24, "name_h_px": 36, "name_gap_px": 8, "cue_h_px": 24 },
+		"comms_box": { "x": 32, "y": 24, "w": 560, "h": 96, "edge_px": 4, "padding_px": 6, "portrait_px": 72, "portrait_gap_px": 12, "name_h_px": 28, "text_line_h_px": 28, "text_lines": 2 }
 	},
 	"render": {
 		"glow": { "intensity": 1.0, "bloom": 0.08, "hdr_threshold": 0.55 }

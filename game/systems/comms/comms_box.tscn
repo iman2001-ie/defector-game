@@ -1,0 +1,65 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://systems/comms/comms_box.gd" id="1_box"]
+[ext_resource type="Theme" path="res://ui/theme/defector_theme.tres" id="2_theme"]
+
+[node name="CommsBox" type="Control"]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_box")
+
+[node name="Box" type="Panel" parent="."]
+layout_mode = 0
+offset_left = 32.0
+offset_top = 24.0
+offset_right = 592.0
+offset_bottom = 120.0
+mouse_filter = 2
+
+[node name="Edge" type="ColorRect" parent="Box"]
+layout_mode = 0
+offset_right = 4.0
+offset_bottom = 96.0
+mouse_filter = 2
+
+[node name="Portrait" type="Panel" parent="Box"]
+layout_mode = 0
+offset_left = 16.0
+offset_top = 12.0
+offset_right = 88.0
+offset_bottom = 84.0
+mouse_filter = 2
+
+[node name="Initial" type="Label" parent="Box/Portrait"]
+layout_mode = 0
+offset_right = 72.0
+offset_bottom = 72.0
+mouse_filter = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Name" type="Label" parent="Box"]
+layout_mode = 0
+offset_left = 100.0
+offset_top = 6.0
+offset_right = 548.0
+offset_bottom = 34.0
+mouse_filter = 2
+
+[node name="Text" type="Label" parent="Box"]
+layout_mode = 0
+offset_left = 100.0
+offset_top = 34.0
+offset_right = 548.0
+offset_bottom = 90.0
+mouse_filter = 2
+autowrap_mode = 3
+clip_text = true
+visible_characters_behavior = 1

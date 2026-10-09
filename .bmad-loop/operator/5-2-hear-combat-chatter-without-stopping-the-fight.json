@@ -1,0 +1,12 @@
+{
+  "actions": [
+    "Run the level scene in a debug build with `-- --comms=dev_combat_check` and confirm the interruption box slides in top-left, shows the Isolde placeholder portrait, the pink accent edge, the uppercase name and two lines of typing text that fit the box and stay clear of the wave bar, and that the fight never pauses.",
+    "Run it again with `-- --comms=dev_combat_vale` and confirm the no-portrait variant: the text spans the full box width and the accent edge stays.",
+    "Confirm the two text lines read cleanly at the 28 px line height (descenders on the first line do not touch the second line) and the 28 px name does not overlap the text.",
+    "Confirm the box stays up about 2-3 s, then fades out, and that clicking during the line fires the laser normally."
+  ],
+  "parked_at": "2026-10-08",
+  "run_id": "20261007-173701-8906",
+  "spec_file": "_bmad-output/implementation-artifacts/spec-5-2-hear-combat-chatter-without-stopping-the-fight.md",
+  "story_key": "5-2-hear-combat-chatter-without-stopping-the-fight"
+}

@@ -707,3 +707,11 @@ source_spec: `spec-dw-54-level-ends-exactly-once.md`
 severity: low
 reason: ui/menus/retry_prompt.gd opens on the first Events.level_failed with no level_cleared check; events.gd documents a &"convoy" reason with no emitter yet. Today Player is the only emitter and is gated by _safe, so nothing is reachable now.
 status: open
+
+### DW-76: No Config test covers a missing comms.combat_line_max_chars (or comms.story_line_max_chars) tuning key: the single Log.error and the -1 fallback are untested.
+origin: spec-deferred 38eece5e1f8f
+location: game/autoloads/config.gd:253
+source_spec: `spec-5-2-hear-combat-chatter-without-stopping-the-fight.md`
+severity: low
+reason: The verification-gap reviewer searched game/ for the "line length not checked" message and the _line_max_chars helper; only config.gd uses them, and every test loads the real tuning where both keys exist. Shipped tuning always has the keys. One test through _load_dialogue with a temp tuning lacking both keys would cover both kinds.
+status: open

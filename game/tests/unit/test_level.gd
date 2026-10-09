@@ -938,3 +938,71 @@ func test_clicking_through_a_story_never_fires_the_laser() -> void:
 	# Other suites read the viewport mouse: put it back.
 	_parse_at(InputEventMouseMotion.new(), mouse_before)
 	assert_almost_eq(get_viewport().get_mouse_position(), mouse_before, Vector2.ONE, "mouse restored")
+
+
+# --- Combat comms (Story 5.2) ----------------------------------------------------
+
+func test_comms_box_in_the_comms_layer() -> void:
+	_make_level()
+	var channel: CommsChannel = _level.get_node("Comms/CommsChannel") as CommsChannel
+	var box: CommsBox = _level.get_node_or_null("Comms/CommsBox") as CommsBox
+	assert_not_null(box, "Comms/CommsBox is a CommsBox")
+	if box == null:
+		return
+	assert_true(is_instance_valid(channel.box), "the channel's box is wired")
+	assert_eq(channel.box, box, "wired to Comms/CommsBox")
+	assert_lt(box.get_index(), _level.get_node("Comms/CommsPanel").get_index(), "the story panel draws on top")
+	assert_false(box.visible, "hidden at start")
+	assert_eq(box.process_mode, Node.PROCESS_MODE_INHERIT, "inherits")
+	PauseArbiter.push(&"menu")
+	assert_false(box.can_process(), "freezes with the game")
+	PauseArbiter.pop(&"menu")
+
+
+## Story 5.2 acceptance: with the fire button held, a combat line shows in the
+## top-left box without pausing, laser bolts keep spawning, and after the line
+## time the box fades and `finished` is emitted once.
+func test_combat_line_keeps_the_fight_running() -> void:
+	_make_level()
+	_make_player_invincible()
+	var player: Player = _level.get_node("World/Player") as Player
+	player.warp_mouse = func(_at: Vector2) -> void: pass
+	var channel: CommsChannel = _level.get_node("Comms/CommsChannel") as CommsChannel
+	var box: CommsBox = _level.get_node("Comms/CommsBox") as CommsBox
+	var finished: Array[StringName] = []
+	var record: Callable = func(id: StringName) -> void: finished.append(id)
+	Events.comms_sequence_finished.connect(record)
+	var bolts: Array[int] = [0]
+	var count_bolt: Callable = func(node: Node) -> void:
+		if node is LaserBolt:
+			bolts[0] += 1
+	_level.get_node("World/Projectiles").child_entered_tree.connect(count_bolt)
+	await get_tree().physics_frame
+	Input.action_press(&"fire_laser")
+	Events.comms_sequence_requested.emit(&"dev_combat_check")
+	assert_false(get_tree().paused, "the game stays unpaused")
+	assert_false(PauseArbiter.has_reason(&"story"), "no story pause")
+	assert_true(box.visible, "the box shows")
+	assert_false((_level.get_node("Comms/CommsPanel") as CommsPanel).visible, "no story panel")
+	assert_eq((box.get_node("Box/Name") as Label).text, "ISOLDE", "uppercase name")
+	assert_true(box.is_typing(), "typing text")
+	var at_request: int = bolts[0]
+	var left_at_start: float = channel._combat_left_s
+	for i: int in 30:
+		await get_tree().physics_frame
+	assert_eq(channel.current_combat(), &"dev_combat_check", "still on the line")
+	assert_lt(channel._combat_left_s, left_at_start, "real frames drive the line timer")
+	assert_gt(bolts[0], at_request, "laser bolts keep spawning")
+	assert_eq((box.get_node("Box") as Control).get_rect(), Rect2(32, 24, 560, 96), "top-left at the UX rect")
+	assert_eq(finished, [] as Array[StringName], "not finished before the line time")
+	channel.step_combat(channel._combat_left_s + 0.01)
+	assert_eq(finished, [&"dev_combat_check"] as Array[StringName], "finished once after the line time")
+	assert_false(box.is_open(), "the box fades")
+	for i: int in 2000:
+		await get_tree().process_frame
+		if not box.visible:
+			break
+	assert_false(box.visible, "hidden after the fade")
+	assert_eq(finished, [&"dev_combat_check"] as Array[StringName], "finished exactly once")
+	Input.action_release(&"fire_laser")
+	Events.comms_sequence_finished.disconnect(record)

@@ -559,12 +559,14 @@ func test_bad_dialogue_files_are_logged_and_skipped() -> void:
 		"%sc_parse.json parse error" % BAD_DIALOGUE_DIR,
 		"%sd_no_sequences.json sequences: missing or not an object" % BAD_DIALOGUE_DIR,
 		"%s sequences.\" \": sequence id is empty" % a,
+		"%se_combat.json sequences.combat_two_lines.lines: combat sequence has 2 lines, exactly 1 allowed" % BAD_DIALOGUE_DIR,
+		"%se_combat.json sequences.combat_too_long.lines[0].text: combat line has 51 characters, more than 50" % BAD_DIALOGUE_DIR,
 	]:
 		assert_push_error(fragment)
-	assert_push_error_count(11)
+	assert_push_error_count(13)
 	assert_false(Config.has_sequence(&""), "no empty id")
 	assert_false(Config.has_sequence(&" "), "no blank id")
-	for id: StringName in [&"unknown_speaker", &"bad_mode", &"empty_lines", &"empty_text", &"too_long", &"non_object_line", &"not_an_object"]:
+	for id: StringName in [&"unknown_speaker", &"bad_mode", &"empty_lines", &"empty_text", &"too_long", &"non_object_line", &"not_an_object", &"combat_two_lines", &"combat_too_long"]:
 		assert_false(Config.has_sequence(id), "%s left out" % id)
 	assert_true(Config.dialogue_is_story(&"good_one"), "the good sequence loads")
 	assert_eq(((Config.sequence(&"good_one").lines as Array)[0] as Dictionary).get("text"), "First definition wins.", "first duplicate wins")

@@ -8,6 +8,18 @@
 				{ "speaker": "vale", "text": "No portrait on this one. The text spans the full width." },
 				{ "speaker": "isolde", "text": "Placeholder line. Click to close the channel." }
 			]
+		},
+		"dev_combat_check": {
+			"mode": "combat",
+			"lines": [
+				{ "speaker": "isolde", "text": "Still flying, General? Not for long, I promise." }
+			]
+		},
+		"dev_combat_vale": {
+			"mode": "combat",
+			"lines": [
+				{ "speaker": "vale", "text": "No portrait here. Box text runs the full width." }
+			]
 		}
 	}
 }

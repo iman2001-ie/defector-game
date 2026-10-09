@@ -1,0 +1,26 @@
+{
+	"sequences": {
+		"combat_two_lines": {
+			"mode": "combat",
+			"lines": [
+				{
+					"speaker": "isolde",
+					"text": "One."
+				},
+				{
+					"speaker": "tarek",
+					"text": "Two."
+				}
+			]
+		},
+		"combat_too_long": {
+			"mode": "combat",
+			"lines": [
+				{
+					"speaker": "isolde",
+					"text": "This combat line is exactly one character too long."
+				}
+			]
+		}
+	}
+}

@@ -34,6 +34,42 @@
 					"text": "Combat chatter."
 				}
 			]
+		},
+		"combat_b": {
+			"mode": "combat",
+			"lines": [
+				{
+					"speaker": "tarek",
+					"text": "Ambush on the left."
+				}
+			]
+		},
+		"combat_c": {
+			"mode": "combat",
+			"lines": [
+				{
+					"speaker": "vale",
+					"text": "Vale on comms."
+				}
+			]
+		},
+		"combat_d": {
+			"mode": "combat",
+			"lines": [
+				{
+					"speaker": "ryn",
+					"text": "Ryn checking in."
+				}
+			]
+		},
+		"combat_e": {
+			"mode": "combat",
+			"lines": [
+				{
+					"speaker": "isolde",
+					"text": "Fifty characters on the dot, General. Keep moving."
+				}
+			]
 		}
 	}
 }

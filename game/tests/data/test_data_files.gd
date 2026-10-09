@@ -6,7 +6,9 @@ extends GutTest
 ## is its drift box); Needle, Bastion and Hunter Wasp tuning is sane; every
 ## Needle wave brings cover; every flag-gated enemy type has its flag; the
 ## energy and drop tuning matches the GDD; the Shield cost and duration match
-## the GDD and its UX tuning exists.
+## the GDD and its UX tuning exists. Dialogue (Stories 5.1-5.2): every file
+## validates, every combat sequence is one line of at most 50 characters, and
+## every level has at most 2 interruptions (the cut-off line excluded).
 
 const LEVELS_DIR: String = "res://data/levels/"
 
@@ -481,13 +483,15 @@ func test_every_dialogue_file_is_valid() -> void:
 	assert_true(files.has(DIALOGUE_DIR + "dev.json"), "dev.json present")
 	var max_chars: int = Config.int_("comms.story_line_max_chars")
 	assert_eq(max_chars, 200, "comms.story_line_max_chars")
+	var combat_max_chars: int = Config.int_("comms.combat_line_max_chars")
+	assert_eq(combat_max_chars, 50, "comms.combat_line_max_chars")
 	var seen: Dictionary = {}
 	for path: String in files:
 		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
 		assert_true(parsed is Dictionary, "%s parses to an object" % path)
 		if not (parsed is Dictionary):
 			continue
-		assert_eq(DialogueValidator.validate(parsed as Dictionary, path, max_chars), [] as Array[String], "%s has no problems" % path)
+		assert_eq(DialogueValidator.validate(parsed as Dictionary, path, max_chars, combat_max_chars), [] as Array[String], "%s has no problems" % path)
 		var sequences: Variant = (parsed as Dictionary).get("sequences")
 		if sequences is Dictionary:
 			for id: Variant in sequences:
@@ -520,3 +524,113 @@ func test_every_speaker_has_comms_tuning() -> void:
 		assert_true(display_name is String and not (display_name as String).is_empty(), "comms.speakers.%s.name" % speaker)
 		assert_true((entry as Dictionary).get("portrait") is bool, "comms.speakers.%s.portrait is a bool" % speaker)
 	assert_gt(Config.num("comms.chars_per_s"), 0.0, "comms.chars_per_s")
+
+
+# --- Combat comms (Story 5.2) -------------------------------------------------
+
+## The UX caps interruptions at 2 per level (the Tarek cut-off excluded).
+const MAX_INTERRUPTIONS_PER_LEVEL: int = 2
+
+
+## Every sequence in res://data/dialogue/ (id String -> Dictionary).
+func _all_sequences() -> Dictionary:
+	var out: Dictionary = {}
+	for path: String in _dialogue_files():
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+		if parsed is Dictionary and (parsed as Dictionary).get("sequences") is Dictionary:
+			out.merge((parsed as Dictionary).get("sequences") as Dictionary)
+	return out
+
+
+## Counts the `comms` actions (waves[].triggers[].actions[]) of `level` whose
+## sequence in `sequences` is an interruption (DialogueValidator.is_interruption).
+static func _interruptions(level: Dictionary, sequences: Dictionary) -> int:
+	var n: int = 0
+	var waves: Variant = level.get("waves")
+	if not (waves is Array):
+		return 0
+	for wave: Variant in waves as Array:
+		var triggers: Variant = (wave as Dictionary).get("triggers") if wave is Dictionary else null
+		if not (triggers is Array):
+			continue
+		for trigger: Variant in triggers as Array:
+			var actions: Variant = (trigger as Dictionary).get("actions") if trigger is Dictionary else null
+			if not (actions is Array):
+				continue
+			for action: Variant in actions as Array:
+				if not (action is Dictionary and (action as Dictionary).has("comms")):
+					continue
+				var seq: Variant = sequences.get(str((action as Dictionary).get("comms")))
+				if seq is Dictionary and DialogueValidator.is_interruption(seq as Dictionary):
+					n += 1
+	return n
+
+
+func test_every_combat_sequence_is_one_short_line() -> void:
+	var limit: int = Config.int_("comms.combat_line_max_chars")
+	assert_eq(limit, 50)
+	var sequences: Dictionary = _all_sequences()
+	var combat: int = 0
+	for id: Variant in sequences:
+		var seq: Dictionary = sequences[id] as Dictionary
+		if seq.get("mode") != "combat":
+			continue
+		combat += 1
+		var lines: Array = seq.get("lines", []) as Array
+		assert_eq(lines.size(), 1, "combat '%s' has exactly 1 line" % id)
+		for line: Variant in lines:
+			var text: String = str((line as Dictionary).get("text", ""))
+			assert_lte(text.length(), limit, "combat '%s' line has %d characters" % [id, text.length()])
+	assert_gte(combat, 2, "the dev combat sequences exist")
+
+
+func test_dev_combat_sequences() -> void:
+	for id: StringName in [&"dev_combat_check", &"dev_combat_vale"]:
+		assert_true(Config.has_sequence(id), "%s loads" % id)
+		assert_false(Config.dialogue_is_story(id), "%s is combat" % id)
+	var check: Array = Config.sequence(&"dev_combat_check").get("lines", []) as Array
+	var vale: Array = Config.sequence(&"dev_combat_vale").get("lines", []) as Array
+	assert_eq(str((check[0] as Dictionary).get("speaker")), "isolde", "a portrait speaker")
+	assert_eq(str((vale[0] as Dictionary).get("speaker")), "vale", "the no-portrait variant")
+
+
+func test_every_level_has_at_most_two_interruptions() -> void:
+	var sequences: Dictionary = _all_sequences()
+	for path: String in _level_files():
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+		if not (parsed is Dictionary):
+			continue
+		var n: int = _interruptions(parsed as Dictionary, sequences)
+		assert_lte(n, MAX_INTERRUPTIONS_PER_LEVEL, "%s has %d interruptions" % [path, n])
+
+
+func test_interruption_counter_self_check() -> void:
+	var line: Dictionary = {"speaker": "isolde", "text": "Still alive?"}
+	var sequences: Dictionary = {
+		"c1": {"mode": "combat", "lines": [line]},
+		"c2": {"mode": "combat", "lines": [line]},
+		"c3": {"mode": "combat", "lines": [line]},
+		"cut": {"mode": "combat", "lines": [{"speaker": "tarek", "text": "General, get behind me, I've got you cov-", "cut_off_at": 39}]},
+		"story": {"mode": "story", "lines": [line]},
+	}
+	var with_cut: Dictionary = {"waves": [
+		{"triggers": [{"when": "wave_start", "actions": [{"comms": "c1"}, {"comms": "story"}]}]},
+		{"triggers": [{"when": "progress", "actions": [{"spawn_group": "x"}, {"comms": "cut"}]}, {"when": "wave_clear", "actions": [{"comms": "c2"}]}]},
+	]}
+	assert_eq(_interruptions(with_cut, sequences), 2, "3 combat actions, the cut-off excluded")
+	var three: Dictionary = {"waves": [
+		{"triggers": [{"when": "wave_start", "actions": [{"comms": "c1"}, {"comms": "c2"}]}]},
+		{"triggers": [{"when": "wave_start", "actions": [{"comms": "c3"}]}]},
+	]}
+	assert_eq(_interruptions(three, sequences), 3, "3 non-cut-off combat actions count 3 (the data test fails on > 2)")
+	assert_eq(_interruptions({}, sequences), 0, "no waves")
+
+
+func test_combat_comms_tuning_is_positive() -> void:
+	for key: String in ["comms.combat_line_max_chars", "comms.box_slide_in_s", "comms.box_fade_out_s",
+			"comms.combat_line_min_s", "comms.combat_line_extra_s", "comms.combat_queue_max"]:
+		assert_gt(Config.num(key), 0.0, key)
+	for key: String in ["x", "y"]:
+		assert_gte(Config.num("ui.comms_box.%s" % key), 0.0, "ui.comms_box.%s" % key)
+	for key: String in ["w", "h", "edge_px", "padding_px", "portrait_px", "portrait_gap_px", "name_h_px", "text_line_h_px", "text_lines"]:
+		assert_gt(Config.num("ui.comms_box.%s" % key), 0.0, "ui.comms_box.%s" % key)

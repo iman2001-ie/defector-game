@@ -14,6 +14,7 @@ const LEVEL_PATH_FORMAT: String = "res://data/levels/level_%s.json"
 const DEFAULT_DIALOGUE_DIR: String = "res://data/dialogue/"
 const DIALOGUE_EXTENSION: String = ".json"
 const STORY_MAX_CHARS_KEY: String = "comms.story_line_max_chars"
+const COMBAT_MAX_CHARS_KEY: String = "comms.combat_line_max_chars"
 
 var tuning: Dictionary = {}
 var flags: Dictionary = {}
@@ -186,12 +187,12 @@ func _enemy_flags() -> Dictionary:
 
 
 ## Reads every *.json in `dir` (sorted by name) and returns the valid sequences
-## (StringName id -> Dictionary). The story line limit comes from `tuning_data`
-## (comms.story_line_max_chars). A missing dir, or a file that is missing, fails
-## to parse or isn't an object, is Log.error'ed, skipped and appended to
-## `read_problems` (reload() rejects on those). Every validator problem is
-## Log.error'ed and a sequence with any problem is left out. A duplicate id
-## across files is Log.error'ed and the first one wins.
+## (StringName id -> Dictionary). The story and combat line limits come from
+## `tuning_data` (comms.story_line_max_chars, comms.combat_line_max_chars). A
+## missing dir, or a file that is missing, fails to parse or isn't an object,
+## is Log.error'ed, skipped and appended to `read_problems` (reload() rejects
+## on those). Every validator problem is Log.error'ed and a sequence with any
+## problem is left out. A duplicate id across files is Log.error'ed and the first one wins.
 func _load_dialogue(dir: String, tuning_data: Dictionary, read_problems: Array[String]) -> Dictionary:
 	var out: Dictionary = {}
 	if not DirAccess.dir_exists_absolute(dir):
@@ -200,6 +201,7 @@ func _load_dialogue(dir: String, tuning_data: Dictionary, read_problems: Array[S
 		read_problems.append(missing)
 		return out
 	var max_chars: int = _story_max_chars(tuning_data)
+	var combat_max_chars: int = _combat_max_chars(tuning_data)
 	var files: Array[String] = []
 	for file: String in DirAccess.get_files_at(dir):
 		if file.ends_with(DIALOGUE_EXTENSION):
@@ -216,13 +218,13 @@ func _load_dialogue(dir: String, tuning_data: Dictionary, read_problems: Array[S
 		var data: Dictionary = result.data
 		var sequences: Variant = data.get("sequences")
 		if not (sequences is Dictionary):
-			for problem: String in DialogueValidator.validate(data, path, max_chars):
+			for problem: String in DialogueValidator.validate(data, path, max_chars, combat_max_chars):
 				Log.error("data", problem)
 			continue
 		for key: Variant in sequences:
 			var id: StringName = StringName(str(key))
 			var seq: Variant = (sequences as Dictionary)[key]
-			var problems: Array[String] = DialogueValidator.validate_sequence(str(key), seq, path, max_chars)
+			var problems: Array[String] = DialogueValidator.validate_sequence(str(key), seq, path, max_chars, combat_max_chars)
 			for problem: String in problems:
 				Log.error("data", problem)
 			if not problems.is_empty():
@@ -239,11 +241,21 @@ func _load_dialogue(dir: String, tuning_data: Dictionary, read_problems: Array[S
 ## missing. That is an error only when tuning itself loaded (a failed tuning
 ## load is already reported and blocks every level).
 func _story_max_chars(tuning_data: Dictionary) -> int:
-	var v: Variant = _lookup(tuning_data, STORY_MAX_CHARS_KEY)
+	return _line_max_chars(tuning_data, STORY_MAX_CHARS_KEY, "story")
+
+
+## comms.combat_line_max_chars from `tuning_data` (Story 5.2), or -1 (no
+## limit) when it is missing; logged like the story key.
+func _combat_max_chars(tuning_data: Dictionary) -> int:
+	return _line_max_chars(tuning_data, COMBAT_MAX_CHARS_KEY, "combat")
+
+
+func _line_max_chars(tuning_data: Dictionary, key: String, kind: String) -> int:
+	var v: Variant = _lookup(tuning_data, key)
 	if v is int or v is float:
 		return int(v)
 	if not tuning_data.is_empty():
-		Log.error("data", "tuning.%s missing or not a number; story line length not checked" % STORY_MAX_CHARS_KEY)
+		Log.error("data", "tuning.%s missing or not a number; %s line length not checked" % [key, kind])
 	return -1
 
 
