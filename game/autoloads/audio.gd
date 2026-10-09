@@ -28,6 +28,7 @@ const SFX: Dictionary[StringName, AudioStream] = {
 	&"ability_denied": preload("res://assets/audio/sfx/sfx_ability_denied.wav"),
 	&"barrage_whoosh": preload("res://assets/audio/sfx/sfx_barrage_whoosh.wav"),
 	&"comms_open": preload("res://assets/audio/sfx/sfx_comms_open.wav"),
+	&"comms_open_nobeep": preload("res://assets/audio/sfx/sfx_comms_open_nobeep.wav"),
 	&"comms_static": preload("res://assets/audio/sfx/sfx_comms_static.wav"),
 	&"comms_click": preload("res://assets/audio/sfx/sfx_comms_click.wav"),
 	&"comms_handover": preload("res://assets/audio/sfx/sfx_comms_handover.wav"),

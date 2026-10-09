@@ -197,7 +197,7 @@ def _fade(k: int, n: int, edge: int) -> float:
     return 1.0
 
 
-def comms_open(rng: random.Random) -> list[float]:
+def comms_open(rng: random.Random, beep_on: bool = True) -> list[float]:
     """0.30 s radio channel opening: a short soft squelch click that settles into a steady carrier
     hiss, then a 1 kHz talk-permit beep as the main event, all through a 300 Hz - 3 kHz voice band
     with light saturation. Steady pitch and a smooth, ungated carrier keep it apart from
@@ -233,7 +233,7 @@ def comms_open(rng: random.Random) -> list[float]:
         hiss *= min(1.0, (n - 1 - i) / tail_n)
         beep = 0.0
         k = i - beep_start
-        if 0 <= k < beep_n:
+        if beep_on and 0 <= k < beep_n:
             phase += 2.0 * math.pi * 1000.0 / RATE
             beep = (math.sin(phase) + 0.15 * math.sin(3.0 * phase)) * _fade(k, beep_n, int(0.005 * RATE))
         raw.append(noise * hiss + 0.3 * beep)
@@ -357,6 +357,10 @@ def main() -> None:
     sounds["ability_denied"] = ability_denied(random.Random(ABILITY_DENIED_SEED))
     sounds["barrage_whoosh"] = barrage_whoosh(random.Random(BARRAGE_WHOOSH_SEED))
     sounds["comms_open"] = comms_open(random.Random(COMMS_OPEN_SEED))
+    # The combat box's channel-open: comms_open with the talk-permit beep left out (GDD #42),
+    # scaled by comms_open's own normalisation gain, so its click and carrier stay at the same level.
+    sounds["comms_open_nobeep"] = comms_open(random.Random(COMMS_OPEN_SEED), beep_on=False)
+    PEAKS["comms_open_nobeep"] = 0.9 * max(abs(s) for s in sounds["comms_open_nobeep"]) / max(abs(s) for s in sounds["comms_open"])
     sounds["comms_static"] = comms_static(random.Random(COMMS_STATIC_SEED))
     sounds["comms_click"] = comms_click(random.Random(COMMS_CLICK_SEED))
     sounds["comms_handover"] = comms_handover(random.Random(COMMS_HANDOVER_SEED))

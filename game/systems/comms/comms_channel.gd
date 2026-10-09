@@ -35,7 +35,7 @@ extends Node
 ##   `comms_click`. Completing a typing line and line 0 (it has `comms_open`)
 ##   play none.
 ## - Combat cues (GDD decisions #41, #42): every combat line (a cut-off line
-##   too) starts with a key-in cue, see combat_cue: `comms_open` when the box
+##   too) starts with a key-in cue, see combat_cue: `comms_open_nobeep` when the box
 ##   opens fresh, `comms_handover` / `comms_click` when it follows straight on
 ##   from another combat line (box still up or fading). All of them play
 ##   quieter than in a story (comms.combat_open_db / combat_line_cue_db); no
@@ -60,6 +60,8 @@ const MENU_REASON: StringName = &"menu"
 const ADVANCE_ACTION: StringName = &"comms_advance"
 const OPEN_SFX: StringName = &"comms_open"
 const CLICK_SFX: StringName = &"comms_click"
+## comms_open without the talk-permit beep: the combat box keys in, it never "opens a conversation".
+const COMBAT_OPEN_SFX: StringName = &"comms_open_nobeep"
 const HANDOVER_SFX: StringName = &"comms_handover"
 ## Slack for the combat line timer, so float steps that add up to the line
 ## time (4.9 + 0.1 s) end it.
@@ -387,16 +389,16 @@ func _show_combat_line() -> void:
 		_combat_left_s = combat_line_s(text.length(), _chars_per_s, _combat_min_s, _combat_extra_s)
 	if box != null:
 		var cue: StringName = combat_cue(box.visible, box.current_speaker(), speaker)
-		Audio.play_sfx(cue, 0.0, _combat_open_db if cue == OPEN_SFX else _combat_line_cue_db)
+		Audio.play_sfx(cue, 0.0, _combat_open_db if cue == COMBAT_OPEN_SFX else _combat_line_cue_db)
 		box.show_line(speaker, text, _cut_at)
 
 
-## The key-in cue for a combat line (GDD decisions #41, #42): `comms_open` when
+## The key-in cue for a combat line (GDD decisions #41, #42): `comms_open_nobeep` when
 ## the box opens fresh (hidden), else (still up or fading from the previous
 ## line) `comms_handover` for a new speaker and `comms_click` for the same one.
 static func combat_cue(box_visible: bool, previous_speaker: StringName, speaker: StringName) -> StringName:
 	if not box_visible:
-		return OPEN_SFX
+		return COMBAT_OPEN_SFX
 	return HANDOVER_SFX if speaker != previous_speaker else CLICK_SFX
 
 
