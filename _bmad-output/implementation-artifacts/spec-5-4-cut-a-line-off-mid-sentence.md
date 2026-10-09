@@ -3,7 +3,7 @@ title: 'Story 5.4: Cut a Line Off Mid-Sentence'
 type: 'feature'
 created: '2026-10-08'
 baseline_revision: '82bdd753fc4d036467cef5c0f6bc3e434b99cd82'
-status: 'awaiting-operator'
+status: done
 operator_actions:
   - 'Run the level scene in a debug build, kill enemies on level_dev wave 2 until the wave bar passes a quarter, and confirm the TAREK line in the top-left box stops mid-word ("...you co"), a static burst plays, the screen shakes and the box vanishes about 0.6 s later.'
   - 'Listen to the placeholder `comms_static` sound and confirm it reads as a dead radio channel, not a glitch or an explosion.'
@@ -243,3 +243,14 @@ Status: awaiting-operator
 - A cut-off that is queued behind combat lines, or requested after its wave clears, can silence the next wave. Epic 7 data should request the Tarek cut-off alone.
 - A story requested within about 0.9 s of a cut-off drops the cut-off's effects, including the silence and the music stop.
 - One isolated `test_feedback.gd` run printed an ObjectDB leak warning. It didn't recur in later runs.
+
+## Operator Confirmation
+
+Confirmed 2026-10-09: the external actions this story owed were carried out.
+
+- Run the level scene in a debug build, kill enemies on level_dev wave 2 until the wave bar passes a quarter, and confirm the TAREK line in the top-left box stops mid-word ("...you co"), a static burst plays, the screen shakes and the box vanishes about 0.6 s later.
+- Listen to the placeholder `comms_static` sound and confirm it reads as a dead radio channel, not a glitch or an explosion.
+- Replay the same moment and press F3 instead; confirm the cut-off still fires and wave 3 starts normally.
+- Judge whether the cut-off hits hard as a sudden loss; automated tests cannot verify feel.
+
+_Appended by the bmad-loop orchestrator (`bmad-loop confirm`, #335): a human confirmed these external actions out of band, and the story was advanced from `awaiting-operator` to `done`._
