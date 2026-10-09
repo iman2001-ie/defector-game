@@ -1,7 +1,7 @@
 extends GutTest
 ## CommsBox (Story 5.2): the combat interruption box view. Layout from
 ## ui.comms_box (UX: box 32,24 560x96; text block 448 px with a portrait at
-## x 100, 532 px without at x 16, y 34-90), theme items, mouse transparency,
+## x 100, 532 px without at x 16, y 32-92), theme items, mouse transparency,
 ## the speaker name / accent / edge / portrait, the slide-in, the typewriter
 ## (pausable), the fade-out, hide_now, and a 50-character line fitting two
 ## lines in both variants.
@@ -45,21 +45,21 @@ func _assert_color(actual: Color, expected: Color, what: String) -> void:
 
 
 func _layout(with_portrait: bool) -> Dictionary:
-	return CommsBox.layout(32.0, 24.0, 560.0, 96.0, 4.0, 6.0, 72.0, 12.0, 28.0, 28.0, 2, with_portrait)
+	return CommsBox.layout(32.0, 24.0, 560.0, 96.0, 4.0, 4.0, 72.0, 12.0, 28.0, 30.0, 2, with_portrait)
 
 
 # --- Data, layout and theme ---------------------------------------------------------
 
 func test_tuning() -> void:
 	var expected: Dictionary = {
-		"x": 32.0, "y": 24.0, "w": 560.0, "h": 96.0, "edge_px": 4.0, "padding_px": 6.0, "portrait_px": 72.0,
-		"portrait_gap_px": 12.0, "name_h_px": 28.0, "text_line_h_px": 28.0, "text_lines": 2.0,
+		"x": 32.0, "y": 24.0, "w": 560.0, "h": 96.0, "edge_px": 4.0, "padding_px": 4.0, "portrait_px": 72.0,
+		"portrait_gap_px": 12.0, "name_h_px": 28.0, "text_line_h_px": 30.0, "text_lines": 2.0,
 	}
 	for key: String in expected:
 		assert_eq(Config.num("ui.comms_box.%s" % key), expected[key], "ui.comms_box.%s" % key)
 	assert_eq(Config.int_("comms.combat_line_max_chars"), 50)
 	assert_eq(Config.num("comms.box_slide_in_s"), 0.15)
-	assert_eq(Config.num("comms.box_fade_out_s"), 0.2)
+	assert_eq(Config.num("comms.box_fade_out_s"), 0.6)
 
 
 func test_layout_math_with_portrait() -> void:
@@ -67,8 +67,8 @@ func test_layout_math_with_portrait() -> void:
 	assert_eq(rects[CommsBox.RECT_BOX], Rect2(32, 24, 560, 96), "UX box rect")
 	assert_eq(rects[CommsBox.RECT_EDGE], Rect2(0, 0, 4, 96), "4 px accent edge")
 	assert_eq(rects[CommsBox.RECT_PORTRAIT], Rect2(16, 12, 72, 72), "72 px portrait, centred vertically")
-	assert_eq(rects[CommsBox.RECT_NAME], Rect2(100, 6, 448, 28))
-	assert_eq(rects[CommsBox.RECT_TEXT], Rect2(100, 34, 448, 56), "448 px text block, y 34-90")
+	assert_eq(rects[CommsBox.RECT_NAME], Rect2(100, 4, 448, 28))
+	assert_eq(rects[CommsBox.RECT_TEXT], Rect2(100, 32, 448, 60), "448 px text block, y 32-92 (4 px inside the 96 px box)")
 	var box: Rect2 = rects[CommsBox.RECT_BOX] as Rect2
 	assert_eq(box.end.x, 592.0, "ends at x 592 (88 px before the wave bar)")
 
@@ -76,8 +76,8 @@ func test_layout_math_with_portrait() -> void:
 func test_layout_math_without_portrait() -> void:
 	var rects: Dictionary = _layout(false)
 	assert_eq(rects[CommsBox.RECT_BOX], Rect2(32, 24, 560, 96))
-	assert_eq(rects[CommsBox.RECT_NAME], Rect2(16, 6, 532, 28))
-	assert_eq(rects[CommsBox.RECT_TEXT], Rect2(16, 34, 532, 56), "532 px text block")
+	assert_eq(rects[CommsBox.RECT_NAME], Rect2(16, 4, 532, 28))
+	assert_eq(rects[CommsBox.RECT_TEXT], Rect2(16, 32, 532, 60), "532 px text block")
 
 
 func test_hidden_at_start_and_mouse_transparent() -> void:
@@ -103,7 +103,7 @@ func test_text_label_settings() -> void:
 
 func test_theme_items() -> void:
 	var theme: Theme = load(THEME_PATH) as Theme
-	assert_eq(theme.get_font_size(&"text", &"CommsBox"), 24)
+	assert_eq(theme.get_font_size(&"text", &"CommsBox"), 26)
 	assert_eq(theme.get_font_size(&"name", &"CommsBox"), 28)
 	assert_true(theme.has_constant(&"line_spacing", &"CommsBox"))
 	assert_eq(theme.get_stylebox(&"panel", &"CommsBox"), theme.get_stylebox(&"panel", &"CommsPanel"), "reuses the comms panel box")
@@ -112,7 +112,7 @@ func test_theme_items() -> void:
 func test_theme_applied_to_children() -> void:
 	var box: CommsBox = _make()
 	var theme: Theme = load(THEME_PATH) as Theme
-	assert_eq(_label(box, "Box/Text").get_theme_font_size(&"font_size"), 24)
+	assert_eq(_label(box, "Box/Text").get_theme_font_size(&"font_size"), 26)
 	assert_eq(_label(box, "Box/Name").get_theme_font_size(&"font_size"), 28)
 	assert_eq(_label(box, "Box/Text").get_theme_constant(&"line_spacing"), theme.get_constant(&"line_spacing", &"CommsBox"), "line spacing applied")
 	assert_true(theme.has_font(&"text", &"CommsBox"), "CommsBox text font")
@@ -144,7 +144,7 @@ func test_portrait_speaker_line() -> void:
 	if frame != null:
 		_assert_color(frame.border_color, Color("#3DF2FF"), "frame in the accent")
 	assert_eq(_label(box, "Box/Portrait/Initial").text, "T", "placeholder initial")
-	assert_eq(_label(box, "Box/Text").get_rect(), Rect2(100, 34, 448, 56), "448 px text block")
+	assert_eq(_label(box, "Box/Text").get_rect(), Rect2(100, 32, 448, 60), "448 px text block")
 	assert_eq(_label(box, "Box/Text").text, "Ambush on the left.")
 	assert_eq(box.current_speaker(), &"tarek")
 
@@ -156,7 +156,7 @@ func test_no_portrait_speaker_line() -> void:
 	assert_false(_node(box, "Box/Portrait").visible, "portrait hidden")
 	assert_eq(_label(box, "Box/Name").text, "VALE")
 	_assert_color((box.get_node("Box/Edge") as ColorRect).color, Color("#E8F4FF"), "vale edge")
-	assert_eq(_label(box, "Box/Text").get_rect(), Rect2(16, 34, 532, 56), "532 px text block")
+	assert_eq(_label(box, "Box/Text").get_rect(), Rect2(16, 32, 532, 60), "532 px text block")
 	box.show_line(&"ryn", "Back to a portrait.")
 	assert_true(_node(box, "Box/Portrait").visible)
 	assert_eq(_label(box, "Box/Text").get_rect().size.x, 448.0, "re-laid out for the portrait")
@@ -252,10 +252,14 @@ func test_dismiss_fades_then_hides() -> void:
 	box.dismiss()
 	assert_true(box.visible, "visible while fading")
 	assert_false(box.is_open(), "not open while fading")
-	box._fade_tween.custom_step(0.1)
-	assert_between(box.modulate.a, 0.3, 0.7, "half faded at 0.1 s")
-	box._fade_tween.custom_step(0.11)
-	assert_false(box.visible, "hidden after 0.2 s")
+	box._fade_tween.custom_step(0.3)
+	# Sine ease-out: at half the 0.6 s fade alpha is 1 - sin(pi/4) ~ 0.29, past linear's 0.5.
+	assert_between(box.modulate.a, 0.2, 0.4, "eased past half at 0.3 s")
+	box._fade_tween.custom_step(0.29)
+	assert_gt(box.modulate.a, 0.0, "still settling just before the end")
+	assert_true(box.visible, "visible until the fade ends")
+	box._fade_tween.custom_step(0.02)
+	assert_false(box.visible, "hidden after 0.6 s")
 	assert_false(box.is_open())
 
 
@@ -288,10 +292,10 @@ func test_fifty_char_lines_fit_two_lines_in_both_variants() -> void:
 	var box: CommsBox = _make()
 	var label: Label = _label(box, "Box/Text")
 	var dev_lines: Array[String] = []
-	for id: StringName in [&"dev_combat_check", &"dev_combat_vale"]:
+	for id: StringName in [&"dev_combat_check", &"dev_combat_isolde_2", &"dev_combat_vale"]:
 		for line: Variant in Config.sequence(id).get("lines", []) as Array:
 			dev_lines.append(str((line as Dictionary).get("text", "")))
-	assert_eq(dev_lines.size(), 2, "dev combat lines found")
+	assert_eq(dev_lines.size(), 3, "dev combat lines found")
 	for speaker: StringName in [&"isolde", &"vale"]:
 		for text: String in LINES_50 + dev_lines:
 			box.show_line(speaker, text)
@@ -306,17 +310,17 @@ func test_fifty_char_lines_fit_two_lines_in_both_variants() -> void:
 		assert_eq(text.length(), 50, "fixture '%s' is 50 characters" % text)
 
 
-## UX: 24 px text at a 28 px line height (line 2 top - line 1 top = font
-## height + line spacing), so two full lines fill the 56 px text rect.
-func test_text_line_pitch_is_28_px() -> void:
+## UX (decision #23): 26 px text at a 30 px line height (line 2 top - line 1
+## top = font height + line spacing), so two full lines fill the 60 px text rect.
+func test_text_line_pitch_is_30_px() -> void:
 	var box: CommsBox = _make()
 	var label: Label = _label(box, "Box/Text")
 	var font: Font = label.get_theme_font(&"font")
 	var font_px: int = label.get_theme_font_size(&"font_size")
 	var pitch: float = font.get_height(font_px) + label.get_theme_constant(&"line_spacing")
-	assert_eq(font_px, 24)
-	assert_eq(pitch, Config.num("ui.comms_box.text_line_h_px"), "28 px line pitch")
-	assert_eq(pitch, 28.0)
+	assert_eq(font_px, 26)
+	assert_eq(pitch, Config.num("ui.comms_box.text_line_h_px"), "30 px line pitch")
+	assert_eq(pitch, 30.0)
 	assert_lte(pitch * 2.0, label.size.y, "two lines inside the text rect")
 	for speaker: StringName in [&"isolde", &"vale"]:
 		box.show_line(speaker, LINES_50[0])
@@ -324,5 +328,5 @@ func test_text_line_pitch_is_28_px() -> void:
 		await get_tree().process_frame
 		assert_eq(label.get_line_count(), 2, "%s: wraps to two lines" % speaker)
 		assert_eq(label.get_visible_line_count(), 2, "%s: both lines fully visible" % speaker)
-		assert_eq(label.get_line_height(0), 28, "%s: line 1 is 28 px" % speaker)
-		assert_eq(label.get_line_height(1), 28, "%s: line 2 is 28 px" % speaker)
+		assert_eq(label.get_line_height(0), 30, "%s: line 1 is 30 px" % speaker)
+		assert_eq(label.get_line_height(1), 30, "%s: line 2 is 30 px" % speaker)

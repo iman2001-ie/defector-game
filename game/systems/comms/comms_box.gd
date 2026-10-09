@@ -29,8 +29,8 @@ const FONT_SIZE_TEXT: StringName = &"text"
 const FONT_SIZE_NAME: StringName = &"name"
 const CONSTANT_LINE_SPACING: StringName = &"line_spacing"
 ## The text font: a FontVariation of the default font whose spacing_top /
-## spacing_bottom trim the 24 px line box to the UX 28 px line height, so two
-## lines fill the 56 px text rect exactly.
+## spacing_bottom trim the 26 px line box to a 30 px line height, so two
+## lines fill the 60 px text rect exactly.
 const FONT_TEXT: StringName = &"text"
 ## Keys of the layout() result.
 const RECT_BOX: StringName = &"box"
@@ -133,7 +133,8 @@ func show_line(speaker: StringName, text: String, cut_off_at: int = -1) -> void:
 	_type(cut_off_at)
 
 
-## Fades the box out over box_fade_out_s, then hides it.
+## Fades the box out over box_fade_out_s with a sine ease-out (quick at first,
+## then settling softly into nothing), then hides it.
 func dismiss() -> void:
 	if not visible:
 		return
@@ -143,7 +144,7 @@ func dismiss() -> void:
 		_hide()
 		return
 	_fade_tween = create_tween()
-	_fade_tween.tween_property(self, ^"modulate:a", 0.0, _fade_s)
+	_fade_tween.tween_property(self, ^"modulate:a", 0.0, _fade_s).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	_fade_tween.finished.connect(_hide)
 
 

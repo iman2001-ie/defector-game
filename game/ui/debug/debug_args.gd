@@ -4,7 +4,9 @@ extends RefCounted
 ##   --stress          40-Wasp stress sandbox with ~200 live projectiles
 ##   --bench=<seconds> stress sandbox that holds fire, logs frame stats and quits
 ##   --no-prewarm      the sandbox skips Feedback.prewarm() (compare first-explosion cost)
-##   --comms=<id>      the level requests that comms sequence once it starts (Story 5.1)
+##   --comms=<id>[,<id>...]  the level requests those comms sequences, in order, once it
+##                     starts (Story 5.1; a list since the Story 5.2 follow-up, so queued
+##                     combat lines can be checked back-to-back)
 ##   --level=<id>      the level scene runs data/levels/level_<id>.json (Story 5.6); only
 ##                     when level.tscn is the launched scene (boot routes in via SceneRouter)
 ## Unknown args are ignored. Callers pass OS.get_cmdline_user_args() or an
@@ -17,19 +19,20 @@ const COMMS_PREFIX: String = "--comms="
 const LEVEL_PREFIX: String = "--level="
 
 
-## Returns {"stress": bool, "bench_s": float, "prewarm": bool, "comms": StringName,
-## "level": String}.
+## Returns {"stress": bool, "bench_s": float, "prewarm": bool,
+## "comms": Array[StringName], "level": String}.
 ## A positive bench implies stress; a malformed or non-positive bench value logs
 ## a warning and is ignored. prewarm is true unless --no-prewarm is present.
-## comms is the --comms=<id> sequence id (the last one wins), &"" when absent;
-## an empty id logs a warning and is ignored. level is the --level=<id> level
+## comms is the --comms= list of sequence ids in order (the last --comms wins),
+## empty when absent; empty items are skipped, and a list with no ids logs a
+## warning and is ignored. level is the --level=<id> level
 ## file key (the last one wins), "" when absent; an empty id logs a warning and
 ## is ignored.
 static func parse(args: PackedStringArray) -> Dictionary:
 	var stress: bool = false
 	var bench_s: float = 0.0
 	var prewarm: bool = true
-	var comms: StringName = &""
+	var comms: Array[StringName] = []
 	var level: String = ""
 	for arg: String in args:
 		if arg == STRESS_ARG:
@@ -37,11 +40,14 @@ static func parse(args: PackedStringArray) -> Dictionary:
 		elif arg == NO_PREWARM_ARG:
 			prewarm = false
 		elif arg.begins_with(COMMS_PREFIX):
-			var id: String = arg.substr(COMMS_PREFIX.length()).strip_edges()
-			if id.is_empty():
+			var ids: Array[StringName] = []
+			for item: String in arg.substr(COMMS_PREFIX.length()).split(","):
+				if not item.strip_edges().is_empty():
+					ids.append(StringName(item.strip_edges()))
+			if ids.is_empty():
 				Log.warn("debug", "Ignoring --comms with no sequence id")
 			else:
-				comms = StringName(id)
+				comms = ids
 		elif arg.begins_with(LEVEL_PREFIX):
 			var level_arg: String = arg.substr(LEVEL_PREFIX.length()).strip_edges()
 			if level_arg.is_empty():

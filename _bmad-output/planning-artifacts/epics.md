@@ -1261,7 +1261,7 @@ So that the story keeps moving without breaking the action.
 
 **Given** a combat sequence is requested
 **When** it plays
-**Then** the game is not paused, the line shows in the small top-left interruption box (layout per the UX spec), clicks are ignored by it, and each line stays for `max(2.0, chars / chars_per_s + 1.2)` seconds before advancing
+**Then** the game is not paused, the line shows in the small top-left interruption box (layout per the UX spec), clicks are ignored by it, and each line stays for `max(combat_line_min_s, chars / chars_per_s + combat_line_extra_s)` seconds (5.0 and 3.0 since GDD decision #41; first built as 2.0 and 1.2) before advancing
 
 **Given** a combat line is playing
 **When** a story sequence is requested

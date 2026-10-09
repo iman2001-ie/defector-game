@@ -63,7 +63,7 @@ The player learns one rule: **a centred panel with a dimmed screen means read th
 | Component | Behaviour |
 |---|---|
 | Story panel | Opens with the comms-open SFX and types at 45 chars/s. A click completes the current line; the next click advances. The click is consumed so it never fires the laser. Esc opens the pause menu on top; closing the menu returns to the story pause |
-| Interruption box | Types out at 45 chars/s like the story panel (so a cut-off can stop mid-word). One short line (≤ 50 chars), auto-wrapping to at most 2 lines at 24px and clipped to the box. Slides in from the left over 0.15 s and stays for `max(2.0, chars/45 + 1.2)` s, then fades. Click-through (it ignores the mouse). Story lines preempt it. At most 3 queued |
+| Interruption box | Types out at 45 chars/s like the story panel (so a cut-off can stop mid-word). One short line (≤ 50 chars), auto-wrapping to at most 2 lines at 26px and clipped to the box. Slides in from the left over 0.15 s and stays for `max(5.0, chars/45 + 3.0)` s, then fades out over 0.6 s (ease-out). Keys in with a quiet radio cue: `comms_chatter` when it opens fresh, `comms_handover` / `comms_click` when it follows straight on from another line (GDD decision #41). Click-through (it ignores the mouse). Story lines preempt it. At most 3 queued |
 | Cut-off | The text stops mid-word, a static burst plays, the box hides after 0.6 s, and further interruptions are silenced until the wave clears |
 | Control hint | Fades in over 0.2 s. Fades out once the action is performed or after 5 s. Each hint shows once per session; retries don't repeat it | Move and fire are two hints shown in sequence: `MOVE THE MOUSE TO FLY` (dismissed after 150 px of movement), then `[HOLD LMB] FIRE` (dismissed on first shot). Only one pill shows at a time; a newer hint waits for the current one to fade
 | Missile cooldown ring | Appears full when the missile fires and empties clockwise over 1.5 s; hidden when ready. Freezes with the game while paused |
@@ -112,11 +112,11 @@ Feel comes from the GDD size-scaled feedback table. The UI-specific additions ar
 - the convoy-damage flash
 - the wave-segment highlight between waves
 
-UI motion never exceeds 0.3 s, and the HUD freezes with the game (`PROCESS_MODE_PAUSABLE`).
+UI motion never exceeds 0.3 s, except the interruption box's 0.6 s ease-out fade (UX decision #23: a slow fade-out of a glance-only box, never in the way of input), and the HUD freezes with the game (`PROCESS_MODE_PAUSABLE`).
 
 ## Accessibility Floor
 
-- No text smaller than 20px at 1080p. Paused dialogue is 30px; interruptions are 24px.
+- No text smaller than 20px at 1080p. Paused dialogue is 30px; interruptions are 26px.
 - All text meets 4.5:1 contrast on panels (verified in DESIGN.md).
 - No information is carried by colour alone: hearts are counted icons, the convoy bar is labelled, and the loss reason is in words.
 - Paused dialogue waits for the player indefinitely, with no timed reading. Interruptions are optional flavour or warnings, and missing one never blocks progress.

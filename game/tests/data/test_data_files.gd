@@ -508,12 +508,20 @@ func test_every_dialogue_file_is_valid() -> void:
 func test_dev_comms_check_is_a_story_with_both_panel_variants() -> void:
 	assert_true(Config.dialogue_is_story(&"dev_comms_check"), "dev_comms_check loads and is story")
 	var lines: Array = Config.sequence(&"dev_comms_check").get("lines", []) as Array
-	assert_between(lines.size(), 3, 4, "3-4 lines")
+	assert_between(lines.size(), 3, 5, "3-5 lines")
 	var speakers: Array[String] = []
 	var longest: int = 0
 	for line: Variant in lines:
 		speakers.append(str((line as Dictionary).get("speaker")))
 		longest = maxi(longest, str((line as Dictionary).get("text")).length())
+	# Both line cues (GDD #40): one same-speaker advance (click) and one speaker change (handover).
+	var same: bool = false
+	var change: bool = false
+	for i: int in range(1, speakers.size()):
+		same = same or speakers[i] == speakers[i - 1]
+		change = change or speakers[i] != speakers[i - 1]
+	assert_true(same, "a same-speaker advance")
+	assert_true(change, "a speaker change")
 	assert_true(speakers.has("vale"), "a no-portrait speaker")
 	assert_true(speakers.has("tarek") or speakers.has("isolde"), "a portrait speaker")
 	assert_between(longest, 180, 200, "one line near 200 characters for the wrap check")
@@ -626,12 +634,15 @@ func test_every_combat_sequence_is_one_short_line() -> void:
 
 
 func test_dev_combat_sequences() -> void:
-	for id: StringName in [&"dev_combat_check", &"dev_combat_vale"]:
+	for id: StringName in [&"dev_combat_check", &"dev_combat_isolde_2", &"dev_combat_vale"]:
 		assert_true(Config.has_sequence(id), "%s loads" % id)
 		assert_false(Config.dialogue_is_story(id), "%s is combat" % id)
 	var check: Array = Config.sequence(&"dev_combat_check").get("lines", []) as Array
+	var again: Array = Config.sequence(&"dev_combat_isolde_2").get("lines", []) as Array
 	var vale: Array = Config.sequence(&"dev_combat_vale").get("lines", []) as Array
 	assert_eq(str((check[0] as Dictionary).get("speaker")), "isolde", "a portrait speaker")
+	# Queued right after dev_combat_check: the same-speaker click (GDD #41).
+	assert_eq(str((again[0] as Dictionary).get("speaker")), "isolde", "the same speaker again")
 	assert_eq(str((vale[0] as Dictionary).get("speaker")), "vale", "the no-portrait variant")
 
 

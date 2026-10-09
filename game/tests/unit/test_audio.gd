@@ -90,7 +90,7 @@ func test_process_mode_always() -> void:
 
 
 func test_registry_streams() -> void:
-	for id: StringName in [&"laser_zap", &"missile_launch", &"explosion_small", &"explosion_medium", &"explosion_large", &"player_hit", &"player_death", &"energy_pickup", &"ability_denied", &"barrage_whoosh", &"comms_open", &"comms_static", &"comms_click", &"comms_handover"]:
+	for id: StringName in [&"laser_zap", &"missile_launch", &"explosion_small", &"explosion_medium", &"explosion_large", &"player_hit", &"player_death", &"energy_pickup", &"ability_denied", &"barrage_whoosh", &"comms_open", &"comms_static", &"comms_click", &"comms_handover", &"comms_chatter"]:
 		assert_true(Audio.SFX.get(id) is AudioStream, "sfx %s" % id)
 
 

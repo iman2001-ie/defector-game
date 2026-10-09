@@ -523,7 +523,7 @@ func test_dev_comms_check_is_a_story_sequence() -> void:
 	assert_true(Config.dialogue_is_story(&"dev_comms_check"))
 	var seq: Dictionary = Config.sequence(&"dev_comms_check")
 	assert_eq(seq.get("mode"), "story")
-	assert_between((seq.get("lines", []) as Array).size(), 3, 4, "3-4 placeholder lines")
+	assert_between((seq.get("lines", []) as Array).size(), 3, 5, "3-5 placeholder lines")
 
 
 func test_sequence_returns_a_deep_copy() -> void:

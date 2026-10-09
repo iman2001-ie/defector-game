@@ -831,12 +831,30 @@ func test_comms_channel_and_panel_in_the_comms_layer() -> void:
 	assert_false(channel.is_showing())
 
 
-func test_debug_comms_id_only_in_debug_builds() -> void:
+func test_debug_comms_ids_only_in_debug_builds() -> void:
 	var args: Dictionary = DebugArgs.parse(PackedStringArray(["--comms=dev_comms_check"]))
 	var none: Dictionary = DebugArgs.parse(PackedStringArray())
-	assert_eq(LEVEL_SCRIPT.debug_comms_id(true, args), &"dev_comms_check", "debug build")
-	assert_eq(LEVEL_SCRIPT.debug_comms_id(false, args), &"", "release build ignores it")
-	assert_eq(LEVEL_SCRIPT.debug_comms_id(true, none), &"", "no arg")
+	assert_eq(LEVEL_SCRIPT.debug_comms_ids(true, args), [&"dev_comms_check"] as Array[StringName], "debug build")
+	assert_eq(LEVEL_SCRIPT.debug_comms_ids(false, args), [] as Array[StringName], "release build ignores it")
+	assert_eq(LEVEL_SCRIPT.debug_comms_ids(true, none), [] as Array[StringName], "no arg")
+
+
+## Story 5.2 follow-up: a --comms list is requested in order after the start,
+## so back-to-back combat lines queue (and play their cues) like real ones.
+func test_comms_list_requests_each_in_order() -> void:
+	var requested: Array[StringName] = []
+	var record: Callable = func(id: StringName) -> void: requested.append(id)
+	Events.comms_sequence_requested.connect(record)
+	_level_with_args(PackedStringArray(["--comms=dev_combat_check,dev_combat_isolde_2,dev_combat_vale"]))
+	assert_eq(requested, [] as Array[StringName], "requested deferred")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	Events.comms_sequence_requested.disconnect(record)
+	assert_eq(requested, [&"dev_combat_check", &"dev_combat_isolde_2", &"dev_combat_vale"] as Array[StringName])
+	var channel: CommsChannel = _level.get_node("Comms/CommsChannel") as CommsChannel
+	assert_eq(channel.current_combat(), &"dev_combat_check", "the first plays")
+	assert_eq(channel.combat_queued(), [&"dev_combat_isolde_2", &"dev_combat_vale"] as Array[StringName], "the rest queue")
+	assert_false(get_tree().paused, "combat never pauses")
 
 
 func test_comms_arg_requests_the_sequence_after_the_start() -> void:
@@ -926,7 +944,7 @@ func test_clicking_through_a_story_never_fires_the_laser() -> void:
 		assert_eq(_laser_bolts(), 0, "no bolt after click %d" % (clicks + 1))
 		clicks += 1
 	assert_false(channel.is_showing(), "clicked through to the end")
-	assert_between(clicks, 4, 8, "4 lines: complete (if still typing) + advance each")
+	assert_between(clicks, 5, 10, "5 lines: complete (if still typing) + advance each")
 	assert_false(get_tree().paused, "unpaused")
 	for i: int in 5:
 		await get_tree().physics_frame

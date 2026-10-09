@@ -4,6 +4,7 @@
 			"mode": "story",
 			"lines": [
 				{ "speaker": "tarek", "text": "Comms check, General. Tarek here, reading you loud and clear." },
+				{ "speaker": "tarek", "text": "Same speaker again: you should hear a quiet mic-click." },
 				{ "speaker": "isolde", "text": "Placeholder briefing, General. This line is long on purpose so a human can check the wrap: it should fill about four lines of the 812 px text block at 30 px and never spill out of the panel edge." },
 				{ "speaker": "vale", "text": "No portrait on this one. The text spans the full width." },
 				{ "speaker": "isolde", "text": "Placeholder line. Click to close the channel." }
@@ -13,6 +14,12 @@
 			"mode": "combat",
 			"lines": [
 				{ "speaker": "isolde", "text": "Still flying, General? Not for long, I promise." }
+			]
+		},
+		"dev_combat_isolde_2": {
+			"mode": "combat",
+			"lines": [
+				{ "speaker": "isolde", "text": "Me again, General. Same voice, just a click." }
 			]
 		},
 		"dev_combat_vale": {

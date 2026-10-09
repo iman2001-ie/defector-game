@@ -17,8 +17,8 @@ extends Node2D
 ## stress scene instead (the stress bench lives there). `-- --no-prewarm`
 ## (debug builds) skips Feedback.prewarm(), as in the sandbox. The args come
 ## from user_args and the redirect goes through change_scene (DW-46 seams).
-## `-- --comms=<id>` (debug builds, Story 5.1) requests that comms sequence
-## (deferred) once the level has started, so the comms panel can be checked
+## `-- --comms=<id>[,<id>...]` (debug builds, Story 5.1) requests those comms
+## sequences in order (deferred) once the level has started, so the comms panel can be checked
 ## before the wave triggers exist. `-- --level=<id>` (debug builds, Story 5.6)
 ## replaces the exported level_id before resolve_level_id, so a human can play
 ## a level the title doesn't reach (e.g. dev_isolde); a non-empty GameState id
@@ -34,7 +34,7 @@ const SANDBOX_SCENE_PATH: String = "res://scenes/sandbox/sandbox.tscn"
 @export var level_id: String = "dev"
 
 ## The user args _ready parses (`--stress`, `--bench=<s>`, `--no-prewarm`,
-## `--comms=<id>`, `--level=<id>`).
+## `--comms=<id>[,<id>...]`, `--level=<id>`).
 ## Tests override this before add_child.
 var user_args: PackedStringArray = OS.get_cmdline_user_args()
 ## Changes the scene to a file path (the debug `--stress` redirect, deferred).
@@ -87,8 +87,7 @@ func _ready() -> void:
 		Feedback.prewarm()
 	else:
 		Log.info("scene", "Feedback pre-warm skipped (--no-prewarm)")
-	var comms_id: StringName = debug_comms_id(OS.is_debug_build(), args)
-	if not comms_id.is_empty():
+	for comms_id: StringName in debug_comms_ids(OS.is_debug_build(), args):
 		Log.info("debug", "--comms: requesting comms sequence '%s'" % comms_id)
 		_request_comms.call_deferred(comms_id)
 
@@ -111,13 +110,18 @@ static func should_redirect_to_stress(debug_build: bool, args: Dictionary) -> bo
 	return debug_build and args.stress
 
 
-## The --comms=<id> sequence to request after the level starts: debug builds
-## only (&"" in release builds or without the arg).
-static func debug_comms_id(debug_build: bool, args: Dictionary) -> StringName:
+## The --comms= sequences to request, in order, after the level starts: debug
+## builds only (empty in release builds or without the arg).
+static func debug_comms_ids(debug_build: bool, args: Dictionary) -> Array[StringName]:
+	var ids: Array[StringName] = []
 	if not debug_build:
-		return &""
-	var id: Variant = args.get("comms", &"")
-	return StringName(id) if (id is StringName or id is String) else &""
+		return ids
+	var raw: Variant = args.get("comms", [])
+	if raw is Array:
+		for id: Variant in raw as Array:
+			if id is StringName or id is String:
+				ids.append(StringName(id))
+	return ids
 
 
 ## The --level=<id> level file key that replaces the exported level_id: debug

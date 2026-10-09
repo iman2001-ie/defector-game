@@ -9,7 +9,7 @@ extends Node
 ##
 ## - Unknown id: Log.error, then a deferred `finished(id)` (never inside the
 ##   request, so a caller that emits and then awaits `finished` can't hang).
-## - Combat mode (Story 5.2): no pause, no SFX, input untouched. While idle the
+## - Combat mode (Story 5.2): no pause, input untouched. While idle the
 ##   box shows line 0 and each line stays combat_line_s(...) seconds of game
 ##   time (step_combat runs only while the tree isn't paused); after the last
 ##   line the box fades and `finished` is emitted. A combat request while a
@@ -33,7 +33,12 @@ extends Node
 ## - Line cues (GDD decision #40): showing the next line of a story plays
 ##   `comms_handover` when its speaker differs from the previous line's, else
 ##   `comms_click`. Completing a typing line and line 0 (it has `comms_open`)
-##   play none; combat lines never play one.
+##   play none.
+## - Combat cues (GDD decision #41): every combat line (a cut-off line too)
+##   starts with a key-in cue, see combat_cue: `comms_chatter` when the box
+##   opens fresh, `comms_handover` / `comms_click` when it follows straight on
+##   from another combat line (box still up or fading). No beep (that stays
+##   `comms_open`'s) and no cue when the box fades or hides.
 ## - Cut-off (Story 5.4): a combat line with `cut_off_at` (a combat sequence
 ##   has one line, so it is the whole sequence) types to exactly `cut_off_at`
 ##   characters over cut_off_at / chars_per_s s of game time. At that moment
@@ -55,8 +60,9 @@ const ADVANCE_ACTION: StringName = &"comms_advance"
 const OPEN_SFX: StringName = &"comms_open"
 const CLICK_SFX: StringName = &"comms_click"
 const HANDOVER_SFX: StringName = &"comms_handover"
+const CHATTER_SFX: StringName = &"comms_chatter"
 ## Slack for the combat line timer, so float steps that add up to the line
-## time (1.9 + 0.1 s) end it.
+## time (4.9 + 0.1 s) end it.
 const COMBAT_EPSILON_S: float = 0.000001
 ## Cut-off line keys (Story 5.4, see DialogueValidator).
 const CUT_OFF_KEY: String = DialogueValidator.CUT_OFF_KEY
@@ -375,7 +381,17 @@ func _show_combat_line() -> void:
 	else:
 		_combat_left_s = combat_line_s(text.length(), _chars_per_s, _combat_min_s, _combat_extra_s)
 	if box != null:
+		Audio.play_sfx(combat_cue(box.visible, box.current_speaker(), speaker), 0.0)
 		box.show_line(speaker, text, _cut_at)
+
+
+## The key-in cue for a combat line (GDD decision #41): `comms_chatter` when
+## the box opens fresh (hidden), else (still up or fading from the previous
+## line) `comms_handover` for a new speaker and `comms_click` for the same one.
+static func combat_cue(box_visible: bool, previous_speaker: StringName, speaker: StringName) -> StringName:
+	if not box_visible:
+		return CHATTER_SFX
+	return HANDOVER_SFX if speaker != previous_speaker else CLICK_SFX
 
 
 ## The cut-off moment: the box stops at `cut_off_at` characters, then the

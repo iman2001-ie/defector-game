@@ -79,27 +79,42 @@ func test_no_prewarm_combines_with_bench() -> void:
 
 func test_comms_defaults_to_empty() -> void:
 	var parsed: Dictionary = DebugArgs.parse(PackedStringArray())
-	assert_eq(parsed.comms, &"")
-	assert_eq(typeof(parsed.comms), TYPE_STRING_NAME)
+	assert_eq(parsed.comms, [] as Array[StringName])
+	assert_true(parsed.comms is Array[StringName], "a typed StringName array")
 
 
 func test_comms_id() -> void:
 	var parsed: Dictionary = DebugArgs.parse(PackedStringArray(["--comms=dev_comms_check"]))
-	assert_eq(parsed.comms, &"dev_comms_check")
-	assert_eq(typeof(parsed.comms), TYPE_STRING_NAME)
+	assert_eq(parsed.comms, [&"dev_comms_check"] as Array[StringName])
+	assert_true(parsed.comms is Array[StringName], "a typed StringName array")
 	assert_false(parsed.stress, "does not imply stress")
 	assert_true(parsed.prewarm)
 
 
 func test_comms_combines_with_other_args() -> void:
 	var parsed: Dictionary = DebugArgs.parse(PackedStringArray(["--no-prewarm", "--comms=abc"]))
-	assert_eq(parsed.comms, &"abc")
+	assert_eq(parsed.comms, [&"abc"] as Array[StringName])
 	assert_false(parsed.prewarm)
+
+
+## Story 5.2 follow-up: a comma-separated list keeps its order; blank items
+## and surrounding spaces are dropped; the last --comms wins.
+func test_comms_list_in_order() -> void:
+	var parsed: Dictionary = DebugArgs.parse(PackedStringArray(["--comms=a, b,,c ,"]))
+	assert_eq(parsed.comms, [&"a", &"b", &"c"] as Array[StringName])
+	var last: Dictionary = DebugArgs.parse(PackedStringArray(["--comms=a,b", "--comms=c"]))
+	assert_eq(last.comms, [&"c"] as Array[StringName], "the last --comms wins")
+
+
+func test_comms_list_of_blanks_warns_and_is_ignored() -> void:
+	var parsed: Dictionary = DebugArgs.parse(PackedStringArray(["--comms= , ,"]))
+	assert_eq(parsed.comms, [] as Array[StringName])
+	assert_push_warning("--comms")
 
 
 func test_empty_comms_warns_and_is_ignored() -> void:
 	var parsed: Dictionary = DebugArgs.parse(PackedStringArray(["--comms="]))
-	assert_eq(parsed.comms, &"")
+	assert_eq(parsed.comms, [] as Array[StringName])
 	assert_push_warning("--comms")
 
 
@@ -117,13 +132,13 @@ func test_level_id() -> void:
 	assert_eq(typeof(parsed.level), TYPE_STRING)
 	assert_false(parsed.stress, "does not imply stress")
 	assert_true(parsed.prewarm)
-	assert_eq(parsed.comms, &"", "does not set comms")
+	assert_eq(parsed.comms, [] as Array[StringName], "does not set comms")
 
 
 func test_level_combines_with_other_args() -> void:
 	var parsed: Dictionary = DebugArgs.parse(PackedStringArray(["--comms=abc", "--level=dev", "--no-prewarm"]))
 	assert_eq(parsed.level, "dev")
-	assert_eq(parsed.comms, &"abc")
+	assert_eq(parsed.comms, [&"abc"] as Array[StringName])
 	assert_false(parsed.prewarm)
 
 
@@ -135,4 +150,4 @@ func test_empty_level_warns_and_is_ignored() -> void:
 
 func test_parse_returns_every_key() -> void:
 	var parsed: Dictionary = DebugArgs.parse(PackedStringArray())
-	assert_eq(parsed, {"stress": false, "bench_s": 0.0, "prewarm": true, "comms": &"", "level": ""})
+	assert_eq(parsed, {"stress": false, "bench_s": 0.0, "prewarm": true, "comms": [] as Array[StringName], "level": ""})

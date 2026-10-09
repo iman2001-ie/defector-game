@@ -440,11 +440,11 @@ func test_combat_plays_without_pausing() -> void:
 
 func test_combat_line_time_short_line() -> void:
 	_request(&"combat_a")
-	_channel.step_combat(1.9)
-	assert_eq(_finished, [] as Array[StringName], "not at 1.9 s")
+	_channel.step_combat(4.9)
+	assert_eq(_finished, [] as Array[StringName], "not at 4.9 s")
 	assert_eq(_channel.current_combat(), &"combat_a")
 	_channel.step_combat(0.1)
-	assert_eq(_finished, [&"combat_a"] as Array[StringName], "finished once at 2.0 s")
+	assert_eq(_finished, [&"combat_a"] as Array[StringName], "finished once at 5.0 s")
 	assert_eq(_channel.current_combat(), &"")
 	assert_false(_box.is_open(), "box fading")
 	assert_eq(_count_lines("[INFO][comms] Combat sequence 'combat_a' finished"), 1)
@@ -455,10 +455,11 @@ func test_combat_line_time_short_line() -> void:
 func test_combat_line_time_fifty_chars() -> void:
 	_request(&"combat_e")
 	assert_eq(_box_text().text.length(), 50)
-	_channel.step_combat(2.3)
-	assert_eq(_finished, [] as Array[StringName], "not at 2.3 s")
-	_channel.step_combat(0.012)
-	assert_eq(_finished, [&"combat_e"] as Array[StringName], "finished at 2.31 s")
+	# 50 / 45 + 3.0 = 4.11 s, under the 5.0 s minimum (GDD decision #41).
+	_channel.step_combat(4.9)
+	assert_eq(_finished, [] as Array[StringName], "not at 4.9 s")
+	_channel.step_combat(0.1)
+	assert_eq(_finished, [&"combat_e"] as Array[StringName], "finished at 5.0 s")
 
 
 func test_combat_box_fades_and_hides() -> void:
@@ -466,9 +467,10 @@ func test_combat_box_fades_and_hides() -> void:
 	_end_combat_line()
 	assert_true(_box.visible, "still visible while fading")
 	assert_false(_box.is_open(), "not open while fading")
-	_box._fade_tween.custom_step(0.1)
+	_box._fade_tween.custom_step(0.3)
 	assert_lt(_box.modulate.a, 1.0, "fading")
-	_box._fade_tween.custom_step(0.2)
+	assert_true(_box.visible, "still visible half way through the 0.6 s fade")
+	_box._fade_tween.custom_step(0.31)
 	assert_false(_box.visible, "hidden after the fade")
 
 
@@ -520,6 +522,19 @@ func test_story_preempts_a_combat_line() -> void:
 	assert_eq(_channel.current_combat(), &"", "nothing replays")
 
 
+## A combat line queued behind one that a story preempted keys in fresh: the
+## preempt hid the box at once (no fade left), so the cue is chatter, not handover.
+func test_combat_resumed_after_a_preempt_plays_chatter() -> void:
+	_request(&"combat_a")
+	_request(&"combat_b")
+	_request(&"story_a")
+	assert_false(_box.visible, "preempt hid the box")
+	assert_eq(_box.current_speaker(), &"", "speaker cleared by the hide")
+	_click_to_end()
+	assert_eq(_channel.current_combat(), &"combat_b", "queued combat resumes")
+	assert_eq(_newest_stream(), Audio.SFX[&"comms_chatter"], "fresh key-in after the story")
+
+
 func test_combat_queue_drops_the_oldest() -> void:
 	_request(&"combat_a")
 	for id: StringName in [&"combat_b", &"combat_c", &"combat_d", &"combat_e"]:
@@ -545,7 +560,7 @@ func test_vale_combat_line_has_no_portrait() -> void:
 	_request(&"combat_c")
 	assert_eq(_box_name().text, "VALE")
 	assert_false((_box.get_node("Box/Portrait") as Control).visible, "no portrait")
-	assert_eq(_box_text().get_rect(), Rect2(16, 34, 532, 56), "532 px text block")
+	assert_eq(_box_text().get_rect(), Rect2(16, 32, 532, 60), "532 px text block")
 
 
 func test_combat_behind_a_story_waits_for_it() -> void:
@@ -565,6 +580,62 @@ func test_combat_behind_a_story_waits_for_it() -> void:
 	assert_true(_box.visible)
 	_end_combat_line()
 	assert_eq(_finished, [&"story_a", &"combat_a"] as Array[StringName])
+
+
+# --- Combat cues (GDD decision #41) ---------------------------------------------------
+
+func test_combat_line_from_idle_plays_chatter() -> void:
+	_request(&"combat_a")
+	assert_eq(_newest_stream(), Audio.SFX[&"comms_chatter"], "key-in cue when the box opens fresh")
+	assert_eq(Audio.newest_player().pitch_scale, 1.0, "no pitch jitter")
+
+
+func test_back_to_back_new_speaker_plays_handover() -> void:
+	_request(&"combat_a")
+	_request(&"combat_b")
+	_end_combat_line()
+	assert_eq(_channel.current_combat(), &"combat_b", "queued line straight on")
+	assert_eq(_newest_stream(), Audio.SFX[&"comms_handover"], "isolde -> tarek: handover")
+
+
+func test_back_to_back_same_speaker_plays_click() -> void:
+	_request(&"combat_a")
+	_request(&"combat_e")
+	_end_combat_line()
+	assert_eq(_channel.current_combat(), &"combat_e")
+	assert_eq(_newest_stream(), Audio.SFX[&"comms_click"], "isolde -> isolde: click")
+
+
+func test_combat_after_a_story_plays_chatter() -> void:
+	_request(&"story_a")
+	_request(&"combat_a")
+	_click_to_end()
+	assert_eq(_channel.current_combat(), &"combat_a")
+	assert_eq(_newest_stream(), Audio.SFX[&"comms_chatter"], "the story hid the box: a fresh key-in")
+
+
+func test_combat_after_the_fade_plays_chatter() -> void:
+	_request(&"combat_a")
+	_end_combat_line()
+	_box._fade_tween.custom_step(1.0)
+	assert_false(_box.visible, "faded out")
+	_request(&"combat_e")
+	assert_eq(_newest_stream(), Audio.SFX[&"comms_chatter"], "same speaker, but the box was gone")
+
+
+func test_no_cue_when_the_box_fades() -> void:
+	_request(&"combat_a")
+	var key_in: AudioStreamPlayer = Audio.newest_player()
+	_end_combat_line()
+	_box._fade_tween.custom_step(1.0)
+	assert_eq(Audio.newest_player(), key_in, "no sound on the way out")
+
+
+func test_combat_cue_rule() -> void:
+	assert_eq(CommsChannel.combat_cue(false, &"isolde", &"isolde"), &"comms_chatter")
+	assert_eq(CommsChannel.combat_cue(false, &"", &"tarek"), &"comms_chatter")
+	assert_eq(CommsChannel.combat_cue(true, &"isolde", &"tarek"), &"comms_handover")
+	assert_eq(CommsChannel.combat_cue(true, &"isolde", &"isolde"), &"comms_click")
 
 
 func test_queued_combat_survives_a_preempt() -> void:
@@ -661,9 +732,9 @@ func _silence() -> void:
 func test_cut_off_timeline() -> void:
 	_add_camera()
 	_play_music()
-	Audio.play_sfx(&"laser_zap")
-	var before: AudioStreamPlayer = Audio.newest_player()
 	_request(&"cut_a")
+	assert_eq(_newest_stream(), Audio.SFX[&"comms_chatter"], "the cut-off line keys in like any other")
+	var before: AudioStreamPlayer = Audio.newest_player()
 	assert_true(_box.visible, "box shown")
 	assert_true(_box.is_typing(), "typing")
 	assert_eq(_box_text().text, "General, get behind me, I've got you cov—")
@@ -702,9 +773,8 @@ func test_cut_off_timeline() -> void:
 
 func test_cut_off_without_after() -> void:
 	_add_camera()
-	Audio.play_sfx(&"laser_zap")
-	var before: AudioStreamPlayer = Audio.newest_player()
 	_request(&"cut_plain")
+	var before: AudioStreamPlayer = Audio.newest_player()
 	_channel.step_combat(CUT_S + 0.01)
 	assert_eq(_box_text().visible_characters, 39, "stops at cut_off_at")
 	assert_eq(Audio.newest_player(), before, "no SFX")
