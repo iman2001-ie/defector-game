@@ -29,8 +29,8 @@ const FONT_SIZE_TEXT: StringName = &"text"
 const FONT_SIZE_NAME: StringName = &"name"
 const CONSTANT_LINE_SPACING: StringName = &"line_spacing"
 ## The text font: a FontVariation of the default font whose spacing_top /
-## spacing_bottom trim the 26 px line box to a 30 px line height, so two
-## lines fill the 60 px text rect exactly.
+## spacing_bottom trim the 22 px line box (31 px) to a 25 px line height, so two
+## lines fill the 50 px text rect exactly.
 const FONT_TEXT: StringName = &"text"
 ## Keys of the layout() result.
 const RECT_BOX: StringName = &"box"

@@ -34,11 +34,12 @@ extends Node
 ##   `comms_handover` when its speaker differs from the previous line's, else
 ##   `comms_click`. Completing a typing line and line 0 (it has `comms_open`)
 ##   play none.
-## - Combat cues (GDD decision #41): every combat line (a cut-off line too)
-##   starts with a key-in cue, see combat_cue: `comms_chatter` when the box
+## - Combat cues (GDD decisions #41, #42): every combat line (a cut-off line
+##   too) starts with a key-in cue, see combat_cue: `comms_open` when the box
 ##   opens fresh, `comms_handover` / `comms_click` when it follows straight on
-##   from another combat line (box still up or fading). No beep (that stays
-##   `comms_open`'s) and no cue when the box fades or hides.
+##   from another combat line (box still up or fading). All of them play
+##   quieter than in a story (comms.combat_open_db / combat_line_cue_db); no
+##   cue when the box fades or hides.
 ## - Cut-off (Story 5.4): a combat line with `cut_off_at` (a combat sequence
 ##   has one line, so it is the whole sequence) types to exactly `cut_off_at`
 ##   characters over cut_off_at / chars_per_s s of game time. At that moment
@@ -60,7 +61,6 @@ const ADVANCE_ACTION: StringName = &"comms_advance"
 const OPEN_SFX: StringName = &"comms_open"
 const CLICK_SFX: StringName = &"comms_click"
 const HANDOVER_SFX: StringName = &"comms_handover"
-const CHATTER_SFX: StringName = &"comms_chatter"
 ## Slack for the combat line timer, so float steps that add up to the line
 ## time (4.9 + 0.1 s) end it.
 const COMBAT_EPSILON_S: float = 0.000001
@@ -93,6 +93,9 @@ var _combat_queue: Array[StringName] = []
 var _chars_per_s: float = 0.0
 var _combat_min_s: float = 0.0
 var _combat_extra_s: float = 0.0
+## `comms.combat_open_db` / `combat_line_cue_db`: combat cue volumes.
+var _combat_open_db: float = 0.0
+var _combat_line_cue_db: float = 0.0
 var _combat_queue_max: int = 0
 var _cutoff_hide_s: float = 0.0
 
@@ -118,6 +121,8 @@ func _ready() -> void:
 	_chars_per_s = Config.num("comms.chars_per_s")
 	_combat_min_s = Config.num("comms.combat_line_min_s")
 	_combat_extra_s = Config.num("comms.combat_line_extra_s")
+	_combat_open_db = Config.num("comms.combat_open_db")
+	_combat_line_cue_db = Config.num("comms.combat_line_cue_db")
 	_combat_queue_max = maxi(Config.int_("comms.combat_queue_max"), 0)
 	_cutoff_hide_s = maxf(Config.num("comms.cutoff_hide_s"), 0.0)
 	Events.comms_sequence_requested.connect(_on_events_comms_sequence_requested)
@@ -381,16 +386,17 @@ func _show_combat_line() -> void:
 	else:
 		_combat_left_s = combat_line_s(text.length(), _chars_per_s, _combat_min_s, _combat_extra_s)
 	if box != null:
-		Audio.play_sfx(combat_cue(box.visible, box.current_speaker(), speaker), 0.0)
+		var cue: StringName = combat_cue(box.visible, box.current_speaker(), speaker)
+		Audio.play_sfx(cue, 0.0, _combat_open_db if cue == OPEN_SFX else _combat_line_cue_db)
 		box.show_line(speaker, text, _cut_at)
 
 
-## The key-in cue for a combat line (GDD decision #41): `comms_chatter` when
+## The key-in cue for a combat line (GDD decisions #41, #42): `comms_open` when
 ## the box opens fresh (hidden), else (still up or fading from the previous
 ## line) `comms_handover` for a new speaker and `comms_click` for the same one.
 static func combat_cue(box_visible: bool, previous_speaker: StringName, speaker: StringName) -> StringName:
 	if not box_visible:
-		return CHATTER_SFX
+		return OPEN_SFX
 	return HANDOVER_SFX if speaker != previous_speaker else CLICK_SFX
 
 

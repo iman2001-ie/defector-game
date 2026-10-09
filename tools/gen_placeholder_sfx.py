@@ -27,9 +27,8 @@ COMMS_OPEN_SEED = 5101
 COMMS_STATIC_SEED = 5401
 COMMS_CLICK_SEED = 5102
 COMMS_HANDOVER_SEED = 5103
-COMMS_CHATTER_SEED = 5201
-# Normalisation peak per sound when it differs from the default 0.9: the line and chatter cues sit under comms_open.
-PEAKS = {"comms_click": 0.45, "comms_handover": 0.7, "comms_chatter": 0.55}
+# Normalisation peak per sound when it differs from the default 0.9: the line cues sit under comms_open.
+PEAKS = {"comms_click": 0.45, "comms_handover": 0.7}
 OUT_DIR = Path(__file__).resolve().parent.parent / "game" / "assets" / "audio" / "sfx"
 
 
@@ -283,24 +282,6 @@ def comms_handover(rng: random.Random) -> list[float]:
     return _voice_band(raw)
 
 
-def comms_chatter(rng: random.Random) -> list[float]:
-    """~0.12 s combat-chatter key-in (Story 5.2): a 60 ms soft squelch burst ("tsch", the open
-    channel catching the carrier), a 20 ms gap, then the speaker's mic-click. Quieter than
-    comms_open and with no beep, so a glance-only line never sounds like "stop and read"."""
-    burst_n = int(0.06 * RATE)
-    attack_n = int(0.004 * RATE)
-    gap_n = int(0.02 * RATE)
-    raw: list[float] = []
-    for i in range(burst_n):
-        attack = 0.5 - 0.5 * math.cos(math.pi * i / attack_n) if i < attack_n else 1.0
-        # Decays to exactly 0 at the last sample, so the burst never clicks into the gap.
-        level = (1.0 - i / (burst_n - 1)) ** 1.5
-        raw.append(rng.uniform(-1.0, 1.0) * attack * level)
-    raw.extend([0.0] * gap_n)
-    raw.extend(0.7 * s for s in _mic_click(rng))
-    return _voice_band(raw)
-
-
 def _voice_band(samples: list[float]) -> list[float]:
     """Radio voice band: one-pole high-pass at 300 Hz, two-pole low-pass at 3 kHz, light saturation."""
     hp_a = _one_pole(300.0)
@@ -379,7 +360,6 @@ def main() -> None:
     sounds["comms_static"] = comms_static(random.Random(COMMS_STATIC_SEED))
     sounds["comms_click"] = comms_click(random.Random(COMMS_CLICK_SEED))
     sounds["comms_handover"] = comms_handover(random.Random(COMMS_HANDOVER_SEED))
-    sounds["comms_chatter"] = comms_chatter(random.Random(COMMS_CHATTER_SEED))
     for name, samples in sounds.items():
         path = _write(name, samples)
         print(f"wrote {path.name} ({len(samples) / RATE:.2f} s)")

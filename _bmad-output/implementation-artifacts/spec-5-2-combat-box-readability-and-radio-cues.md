@@ -144,3 +144,7 @@ context: []
 
 - The debug list is requested in order and queues without pausing.
   [`test_level.gd:844`](../../game/tests/unit/test_level.gd#L844)
+
+## Spec Change Log
+
+- **2026-10-09, after the in-engine check (user feedback, renegotiated with the user):** The box was always name 28 / body 24, so the original request had been misread as "make the body bigger". The user actually wanted the box smaller with a real gap. Now: box name 24, body 22 at a 25 px pitch, name row 32 px (text y 36-86). The story panel body goes 30 → 28 (name stays 30). `comms_chatter` was too short to read as a radio open, so it is removed: a fresh box plays `comms_open` at `comms.combat_open_db` -4 dB, and handover / click play at `comms.combat_line_cue_db` -4 dB. Recorded as GDD #42 and UX #24. KEEP: the 5 s hold, the 0.6 s ease-out fade, the cue-selection rule, and the `--comms=` list.

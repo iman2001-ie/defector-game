@@ -109,7 +109,7 @@ func test_theme_items() -> void:
 	_assert_color(theme.get_color(&"muted", &"CommsPanel"), Color("#93A7C2"), "muted")
 	for speaker: StringName in ACCENTS:
 		_assert_color(theme.get_color(speaker, &"CommsPanel"), Color(ACCENTS[speaker] as String), "%s accent" % speaker)
-	assert_eq(theme.get_font_size(&"text", &"CommsPanel"), 30)
+	assert_eq(theme.get_font_size(&"text", &"CommsPanel"), 28)
 	assert_eq(theme.get_font_size(&"name", &"CommsPanel"), 30)
 	assert_eq(theme.get_font_size(&"cue", &"CommsPanel"), 20)
 	var box: StyleBoxFlat = theme.get_stylebox(&"panel", &"CommsPanel") as StyleBoxFlat
@@ -124,7 +124,7 @@ func test_theme_items() -> void:
 func test_theme_applied_to_children() -> void:
 	var panel: CommsPanel = _make()
 	_assert_color((panel.get_node("Dim") as ColorRect).color, Color(0, 0, 0, 0.6), "dim colour")
-	assert_eq(_label(panel, "Panel/Text").get_theme_font_size(&"font_size"), 30)
+	assert_eq(_label(panel, "Panel/Text").get_theme_font_size(&"font_size"), 28)
 	assert_eq(_label(panel, "Panel/Name").get_theme_font_size(&"font_size"), 30)
 	# UX decision #22: the 30 px name still ends above the text block (36 px row + 8 px gap).
 	_label(panel, "Panel/Name").text = "ISOLDE"
