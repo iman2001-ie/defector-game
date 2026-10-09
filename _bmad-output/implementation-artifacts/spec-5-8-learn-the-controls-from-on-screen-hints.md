@@ -2,7 +2,7 @@
 title: 'Story 5.8: Learn the Controls from On-Screen Hints'
 type: 'feature'
 created: '2026-10-08'
-status: 'awaiting-operator'
+status: done
 operator_actions:
   - 'Launch the level scene directly in a debug build with `-- --level=dev_hints` and confirm `MOVE THE MOUSE TO FLY` appears as a rounded pill centred at y 560, readable, with no clipping, then fades once you fly the ship a short way.'
   - 'Confirm `[HOLD LMB] FIRE` follows with the key part in energy gold and the action in the text colour, and fades on your first shot; in wave 2 confirm `[RMB] MISSILE` appears and fades when you fire a missile.'
@@ -289,3 +289,13 @@ Status: awaiting-operator
 - The pill's width is measured with the default fallback font, so it will shift when the Epic 8 font lands. Its look on screen is unchecked (see `operator_actions`).
 - Hints aren't reachable in the campaign until Story 7.1 adds the `hint` actions to `level_1.json`. NFR8 (learnability) needs a human playtest then.
 - If a player starts a level already holding ≥ 50 energy without having seen the E/Q hints, those show before move/fire (queue order). This is spec-conforming but worth a playtest look.
+
+## Operator Confirmation
+
+Confirmed 2026-10-09: the external actions this story owed were carried out.
+
+- Launch the level scene directly in a debug build with `-- --level=dev_hints` and confirm `MOVE THE MOUSE TO FLY` appears as a rounded pill centred at y 560, readable, with no clipping, then fades once you fly the ship a short way.
+- Confirm `[HOLD LMB] FIRE` follows with the key part in energy gold and the action in the text colour, and fades on your first shot; in wave 2 confirm `[RMB] MISSILE` appears and fades when you fire a missile.
+- Collect energy orbs until the bar passes 50, then 100, and confirm `[E] SHIELD` then `[Q] BARRAGE` appear one at a time and fade on use or after about 5 s; die, retry, and confirm no hint you already saw shows again.
+
+_Appended by the bmad-loop orchestrator (`bmad-loop confirm`, #335): a human confirmed these external actions out of band, and the story was advanced from `awaiting-operator` to `done`._
