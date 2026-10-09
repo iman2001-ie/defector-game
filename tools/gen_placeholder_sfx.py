@@ -28,7 +28,7 @@ COMMS_STATIC_SEED = 5401
 COMMS_CLICK_SEED = 5102
 COMMS_HANDOVER_SEED = 5103
 # Normalisation peak per sound when it differs from the default 0.9: the line cues sit under comms_open.
-PEAKS = {"comms_click": 0.45, "comms_handover": 0.45}
+PEAKS = {"comms_click": 0.45, "comms_handover": 0.7}
 OUT_DIR = Path(__file__).resolve().parent.parent / "game" / "assets" / "audio" / "sfx"
 
 
@@ -262,17 +262,23 @@ def comms_click(rng: random.Random) -> list[float]:
 
 
 def comms_handover(rng: random.Random) -> list[float]:
-    """120 ms speaker change: an 80 ms squelch tail ("kssh", the last speaker releasing the mic)
-    that decays to silence, then the new speaker's mic-click. No beep: that stays comms_open's."""
-    tail_n = int(0.08 * RATE)
-    attack_n = int(0.002 * RATE)
+    """~0.22 s speaker change: a 150 ms squelch tail ("kssh", the last speaker releasing the mic),
+    a 25 ms gap, then the new speaker's quieter mic-click. No beep: that stays comms_open's."""
+    tail_n = int(0.15 * RATE)
+    hold_n = int(0.09 * RATE)
+    attack_n = int(0.003 * RATE)
+    gap_n = int(0.025 * RATE)
     raw: list[float] = []
     for i in range(tail_n):
         attack = 0.5 - 0.5 * math.cos(math.pi * i / attack_n) if i < attack_n else 1.0
-        # Decays from 0.5 and reaches exactly 0 at the end, so the click lands on silence.
-        level = 0.5 * (1.0 - i / (tail_n - 1)) ** 2
+        # Holds at full level, then a raised-cosine fade that reaches exactly 0 at the last sample.
+        if i < hold_n:
+            level = 1.0
+        else:
+            level = 0.5 + 0.5 * math.cos(math.pi * (i - hold_n) / (tail_n - 1 - hold_n))
         raw.append(rng.uniform(-1.0, 1.0) * attack * level)
-    raw.extend(_mic_click(rng))
+    raw.extend([0.0] * gap_n)
+    raw.extend(0.5 * s for s in _mic_click(rng))
     return _voice_band(raw)
 
 
