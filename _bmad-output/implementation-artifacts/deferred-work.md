@@ -306,14 +306,17 @@ location: game/core/projectile.gd:49
 source_spec: `spec-dw-2-dw-10-laser-mask-player-shots.md`
 severity: medium
 reason: game/core/projectile.gd:49-54 has no convoy check. FR7, GDD #23 and game-architecture.md:310 require player shots to be blocked by the convoy without damage. No convoy exists until Epic 6, so nothing breaks today. The Epic 6 convoy story must add the no-damage path, plus a test that a convoy-layer area stops a bolt without apply_damage.
-status: open
+status: resolved
+resolution: resolved by Story 6.1: Projectile._can_damage refuses convoy-layer areas (Projectile.is_convoy), so player and ally shots are blocked with no damage and a SMALL effect; tests in test_projectile.gd.
 
 ### DW-33: Missile._on_impact always runs apply_splash, so a missile stopped by a convoy ship (missile mask already includes CONVOY) would still splash enemies and asteroids near the convoy; whether a blocked
 origin: spec-deferred 27d4e4bd97cb
 location: game/entities/projectiles/missile.gd:27
 source_spec: `spec-dw-2-dw-10-laser-mask-player-shots.md`
 reason: game/entities/projectiles/missile.gd:27-29 calls apply_splash before super._on_impact for every hit. missile.tscn has masked CONVOY (84) since Story 1.5, so this predates DW-2/DW-10. epics.md:1409-1411 (Epic 6 convoy story) says missiles reaching a convoy ship are "stopped and free itself, the convoy takes no damage", but says nothing about splash on nearby enemies. Settle by a design ruling in the Epic 6 convoy story (detonate with splash vs. fizzle) and a test for it.
-status: open
+status: resolved
+resolution: resolved by Story 6.1: Missile._on_impact skips apply_splash on a convoy area (fizzle, GDD #46) and the base plays SMALL, not MEDIUM; tests in test_missile.gd and test_micro_missile.gd.
+decision: 2026-10-10 Fizzle — A player missile (or Barrage micro-missile) stopped by a convoy ship fizzles: no explosion, no splash, no convoy damage, same blocked-shot effect as a laser bolt (GDD decision #46). Story 6.1 implements it and adds a test.
 
 ### DW-34: The Bastion's y 80–400 drift range may let a large sprite overlap the 0–120 px HUD band and the wave bar.
 origin: spec-deferred c6c13658c554
@@ -706,7 +709,8 @@ location: game/ui/menus/retry_prompt.gd:125
 source_spec: `spec-dw-54-level-ends-exactly-once.md`
 severity: low
 reason: ui/menus/retry_prompt.gd opens on the first Events.level_failed with no level_cleared check; events.gd documents a &"convoy" reason with no emitter yet. Today Player is the only emitter and is gated by _safe, so nothing is reachable now.
-status: open
+status: resolved
+resolution: resolved by Story 6.1: RetryPrompt ignores level_failed after Events.level_cleared, and the Convoy ignores damage once any outcome is decided; tests in test_retry_prompt.gd and test_convoy.gd.
 
 ### DW-76: No Config test covers a missing comms.combat_line_max_chars (or comms.story_line_max_chars) tuning key: the single Log.error and the -1 fallback are untested.
 origin: spec-deferred 38eece5e1f8f
@@ -762,4 +766,11 @@ location: game/systems/comms/comms_channel.gd step_combat
 source_spec: `spec-5-4-cut-off-readability-and-impact.md`
 severity: low
 reason: A consequence of the user's 2.5 s hold (GDD #43, revised from 6.0 s and then 4.5 s). Level 2 Wave 6 data (Epic 7) should not open with combat chatter, or the hold should end early on wave_cleared; that needs a design call.
+status: open
+
+### DW-83: The Player's 64 px hull circle fits through the 72 px hitbox pocket between the flankers' front edges and the lead's rear edge, so the ship can slip vertically through the triangle.
+origin: spec-deferred b923c06c4a79
+location: game/entities/player/player.gd resolve_hull / game/entities/allies/convoy.gd ship_centre
+source_spec: `spec-6-1-protect-the-convoy.md`
+reason: Hitbox centres are 200 px apart in x (160 + 40 gap) and the hitboxes are 128 px wide, leaving 72 px; resolve_hull uses the hitbox rects (as the spec and the AC's HullArea-vs-convoy-layer mechanism prescribe). Whether slipping between formation ships is unwanted is not settled by GDD #25 (which forbids passing through hulls, not between them). Settle by an operator playtest of dev_convoy; if unwanted, close the pocket (resolve against drawn extents or add a gap rect).
 status: open

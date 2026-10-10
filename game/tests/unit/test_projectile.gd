@@ -153,3 +153,75 @@ func test_twin_visual_sprites() -> void:
 			xs.append((child as Sprite2D).position.x)
 	xs.sort()
 	assert_eq(xs, [-8.0, 8.0], "two sprites at x -8 and 8")
+
+
+# --- Convoy block (Story 6.1, DW-32) ----------------------------------------------
+
+const CONVOY_SCENE: PackedScene = preload("res://entities/allies/convoy.tscn")
+
+
+## A world with Effects (so Feedback spawns explosions) and its Spawner.
+func _effects_world() -> Node2D:
+	var world: Node2D = Node2D.new()
+	for container: String in ["Projectiles", "Enemies", "Asteroids", "Effects"]:
+		var node: Node2D = Node2D.new()
+		node.name = container
+		world.add_child(node)
+	add_child_autofree(world)
+	var spawner: Spawner = Spawner.new()
+	spawner.world = world
+	add_child_autofree(spawner)
+	return world
+
+
+func _explosion_scales(world: Node2D) -> Array[float]:
+	var out: Array[float] = []
+	for child: Node in world.get_node("Effects").get_children():
+		if child is Explosion:
+			out.append((child as Explosion).explosion_scale)
+	return out
+
+
+func test_is_convoy_tests_the_layer_bit() -> void:
+	var convoy_area: Area2D = _make_target()
+	convoy_area.collision_layer = CollisionLayers.CONVOY
+	var both: Area2D = _make_target()
+	both.collision_layer = CollisionLayers.CONVOY | CollisionLayers.ENEMIES
+	var enemy: Area2D = _make_target()
+	enemy.collision_layer = CollisionLayers.ENEMIES
+	assert_true(Projectile.is_convoy(convoy_area))
+	assert_true(Projectile.is_convoy(both))
+	assert_false(Projectile.is_convoy(enemy))
+	assert_false(Projectile.is_convoy(null))
+
+
+func test_bolt_blocked_by_a_convoy_area_without_damage() -> void:
+	var world: Node2D = _effects_world()
+	var bolt: Projectile = _make_bolt(Vector2(960, 500))
+	var convoy_area: Area2D = _make_target()
+	convoy_area.collision_layer = CollisionLayers.CONVOY
+	bolt._on_area_entered(convoy_area)
+	assert_eq(_calls(convoy_area).size(), 0, "no apply_damage on the convoy")
+	assert_true(bolt.is_queued_for_deletion(), "the shot is stopped and freed")
+	assert_eq(_explosion_scales(world), [Config.num("feedback.tiers.small.explosion_scale")] as Array[float], "SMALL blocked-shot effect")
+
+
+func test_bolt_still_damages_an_enemy_area() -> void:
+	var bolt: Projectile = _make_bolt(Vector2(960, 500))
+	var enemy: Area2D = _make_target()
+	enemy.collision_layer = CollisionLayers.ENEMIES
+	bolt._on_area_entered(enemy)
+	assert_eq(_calls(enemy).size(), 1)
+
+
+func test_real_bolt_into_a_real_convoy_ship_leaves_hp_unchanged() -> void:
+	var convoy: Convoy = CONVOY_SCENE.instantiate() as Convoy
+	add_child_autofree(convoy)
+	convoy.set_physics_process(false)
+	var ship: ConvoyShip = convoy.ships()[Convoy.FLANK_TOP]
+	var bolt: Projectile = BOLT_SCENE.instantiate() as Projectile
+	bolt.setup({"position": ship.global_position + Vector2(0, 120), "velocity": Vector2(0, -1800), "damage": 1})
+	add_child_autofree(bolt)
+	await wait_physics_frames(10)
+	assert_eq(convoy.hp(), convoy.max_hp(), "convoy HP unchanged")
+	assert_true(not is_instance_valid(bolt) or bolt.is_queued_for_deletion(), "bolt stopped by the hull")

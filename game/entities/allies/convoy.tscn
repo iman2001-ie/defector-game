@@ -1,0 +1,13 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://entities/allies/convoy.gd" id="1_convoy"]
+[ext_resource type="PackedScene" path="res://entities/allies/convoy_ship.tscn" id="2_ship"]
+
+[node name="Convoy" type="Node2D"]
+script = ExtResource("1_convoy")
+
+[node name="Lead" parent="." instance=ExtResource("2_ship")]
+
+[node name="FlankTop" parent="." instance=ExtResource("2_ship")]
+
+[node name="FlankBottom" parent="." instance=ExtResource("2_ship")]

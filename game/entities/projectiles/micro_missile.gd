@@ -5,8 +5,9 @@ extends Projectile
 ## if that finds nothing the missile flies on without scanning again. With no
 ## target it steers toward Vector2.UP. It turns at most abilities.barrage
 ## .turn_rate_deg_s, keeps its speed and frees itself (no impact) after
-## lifetime_s. Hits use the Projectile base: the first enemy, asteroid or convoy
-## area overlapped takes `damage`, so asteroids block it.
+## lifetime_s. Hits use the Projectile base: the first enemy or asteroid area
+## overlapped takes `damage`, so asteroids block it; a convoy ship blocks it with
+## no damage and the SMALL blocked-shot effect (Story 6.1, GDD #46).
 
 var turn_rate_deg_s: float = 0.0
 var lifetime_s: float = 0.0

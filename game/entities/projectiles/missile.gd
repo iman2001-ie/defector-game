@@ -4,6 +4,8 @@ extends Projectile
 ## every other enemy and asteroid within splash_radius of the impact point takes
 ## splash_damage once. Splash distance is centre to centre, found through the
 ## `enemies`/`asteroids` groups (no physics query: the space is locked in area_entered).
+## A missile stopped by a convoy ship fizzles (DW-33, GDD #46): no splash on
+## anything and no convoy damage, only the base SMALL blocked-shot effect.
 
 const SPLASH_GROUPS: Array[StringName] = [Groups.ENEMIES, Groups.ASTEROIDS]
 
@@ -25,7 +27,8 @@ func _ready() -> void:
 
 
 func _on_impact(area: Area2D) -> void:
-	apply_splash(area)
+	if not Projectile.is_convoy(area):
+		apply_splash(area)
 	super._on_impact(area)
 
 

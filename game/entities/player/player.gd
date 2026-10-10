@@ -16,8 +16,9 @@ extends Area2D
 ## so the ShakeCamera offset can't feed back into the ship.
 ##
 ## Cursor warps: the Player makes every gameplay warp_mouse call, and only while
-## PauseArbiter's mode is CONFINED_HIDDEN. When the cursor leaves the zone it is
-## warped back onto the zone edge (so moving back responds at once), and on
+## PauseArbiter's mode is CONFINED_HIDDEN. When the cursor leaves the zone, or a
+## convoy hull blocks or pushes the ship, it is warped onto the ship (so moving
+## back responds at once), and on
 ## PauseArbiter.resumed it is warped onto the ship (so the ship never jumps).
 ## PauseArbiter alone sets mouse_mode and tree.paused.
 ##
@@ -76,11 +77,26 @@ extends Area2D
 ## spawned ship onto the cursor. A raised shield or a started barrage emits
 ## Events.player_action(&"shield" / &"barrage"); a denied or busy ability emits
 ## nothing. PlayerWeapons emits &"laser" / &"missile".
+##
+## Convoy hulls (Story 6.1, GDD #25, #29): the HullArea child (layer 0, mask
+## convoy) holds the player.hull_diameter_px circle; the 24 px hurtbox and the
+## root mask are unchanged, so convoy contact never costs a heart. With a live
+## convoy injected through set_convoy, step_lock sweeps the move from the
+## previous position to the confined cursor point against the convoy's cached
+## hitbox rects (resolve_hull: sub-steps of at most radius / 2, pushed out of
+## every rect after each, so the ship stops on the side it came from and slides
+## along a hull), then confines it to the zone; a squeeze against the screen
+## edge is pushed out along y. The first lock tick only snaps and pushes out.
+## The cursor is then warped onto the final position whenever the mouse is more
+## than WARP_EPS_PX from it (this also covers the zone-edge warp).
 
 ## A mouse within this distance of its confined point is not warped: warp_mouse
 ## rounds to whole OS pixels, so under stretch the read-back can land a fraction of
 ## a viewport px past the edge and would otherwise warp on every tick.
 const WARP_EPS_PX: float = 1.0
+## Overlap tolerance for the hull push-out: a circle resting exactly on a hull
+## (or within float error of it) is not overlapping.
+const HULL_EPS_PX: float = 0.01
 
 ## Moves the OS cursor, in viewport coordinates. Defaults to the viewport's
 ## warp_mouse in _ready; tests inject a recorder.
@@ -126,6 +142,10 @@ var _barrage_cost: int = 0
 ## False until the first lock tick (that tick snaps the spawned ship onto the
 ## cursor and is not player movement).
 var _locked_once: bool = false
+## The level's convoy (set_convoy); null without one.
+var _convoy: Convoy = null
+## HullArea circle radius (player.hull_diameter_px / 2).
+var _hull_radius: float = 0.0
 
 @onready var _hurtbox: CollisionShape2D = $Hurtbox
 @onready var _sprite: Sprite2D = $Sprite
@@ -133,6 +153,7 @@ var _locked_once: bool = false
 @onready var _weapons: PlayerWeapons = $Weapons
 @onready var _health: HealthComponent = $Health
 @onready var _shield: PlayerShield = $Shield
+@onready var _hull_area: Area2D = $HullArea
 
 
 func _ready() -> void:
@@ -146,6 +167,10 @@ func _ready() -> void:
 	if hurtbox_circle != null:
 		hurtbox_circle.radius = Config.num("player.hurtbox_diameter_px") / 2.0
 	_fit_hull(Config.num("player.sprite_px"))
+	_hull_radius = maxf(Config.num("player.hull_diameter_px") / 2.0, 0.0)
+	var hull_shape: CollisionShape2D = _hull_area.get_node_or_null(^"HullShape") as CollisionShape2D
+	if hull_shape != null and hull_shape.shape is CircleShape2D:
+		(hull_shape.shape as CircleShape2D).radius = _hull_radius
 
 	_health.setup(Config.int_("player.hearts"), Config.num("player.iframes_s"),
 			Config.num("player.iframe_flicker_hz"), _sprite)
@@ -449,21 +474,128 @@ func step_missile(pressed: bool, delta: float) -> void:
 	_weapons.step_missile(pressed, delta)
 
 
-## One lock tick: the ship sits exactly on the confined mouse point (viewport
-## coordinates). A mouse more than WARP_EPS_PX outside the zone is warped back onto
-## the zone edge, but only while the gameplay mode is CONFINED_HIDDEN. When the
-## ship moved (not on the first tick) it emits Events.player_moved (Story 5.8).
+## Injected by the scene root when the level has a convoy (Story 6.1): its hulls
+## become solid to the ship. Null (or a freed convoy) turns that off.
+func set_convoy(convoy: Convoy) -> void:
+	_convoy = convoy
+
+
+## The HullArea circle radius (player.hull_diameter_px / 2).
+func hull_radius() -> float:
+	return _hull_radius
+
+
+## One lock tick: the ship sits on the confined mouse point (viewport
+## coordinates), or, with a live convoy, on that point resolved against the hulls
+## (resolve_hull from the previous position; the first tick only snaps and
+## pushes out). A mouse more than WARP_EPS_PX from the final position is warped
+## onto it, but only while the gameplay mode is CONFINED_HIDDEN. When the ship
+## moved (not on the first tick) it emits Events.player_moved (Story 5.8).
 func step_lock(mouse: Vector2) -> void:
 	var confined: Vector2 = confine(mouse, _bounds_min, _bounds_max)
-	var outside: bool = mouse.distance_squared_to(confined) > WARP_EPS_PX * WARP_EPS_PX
-	if outside and PauseArbiter.current_mouse_mode() == Input.MOUSE_MODE_CONFINED_HIDDEN:
-		warp_mouse.call(confined)
 	var previous: Vector2 = global_position
-	global_position = confined
+	var final: Vector2 = confined
+	if _has_live_convoy():
+		var start: Vector2 = previous if _locked_once else confined
+		final = resolve_hull(start, confined, _hull_radius, _convoy.hull_rects(), _bounds_min, _bounds_max)
+	var off: bool = mouse.distance_squared_to(final) > WARP_EPS_PX * WARP_EPS_PX
+	if off and PauseArbiter.current_mouse_mode() == Input.MOUSE_MODE_CONFINED_HIDDEN:
+		warp_mouse.call(final)
+	global_position = final
 	if not _locked_once:
 		_locked_once = true
-	elif confined != previous:
-		Events.player_moved.emit(previous.distance_to(confined))
+	elif final != previous:
+		Events.player_moved.emit(previous.distance_to(final))
+
+
+func _has_live_convoy() -> bool:
+	if _convoy == null or not is_instance_valid(_convoy):
+		return false
+	return _convoy.is_inside_tree() and not _convoy.is_queued_for_deletion()
+
+
+## The ship's position after moving from `from` toward `to` (both centres) past
+## the axis-aligned `rects`, for a hull circle of `radius`: sub-steps of at most
+## radius / 2, each pushed out of every rect (so the ship can't tunnel and slides
+## along a hull), then confined to bounds_min..bounds_max. If that confinement
+## leaves an overlap (a squeeze against the screen edge) the ship is pushed out
+## along y only, and y is not clamped again (the band +- radius fits the zone).
+## With from == to it only pushes out. No allocation.
+static func resolve_hull(from: Vector2, to: Vector2, radius: float, rects: Array[Rect2],
+		bounds_min: Vector2, bounds_max: Vector2) -> Vector2:
+	if rects.is_empty() or radius <= 0.0:
+		return confine(to, bounds_min, bounds_max)
+	var step_len: float = radius / 2.0
+	var steps: int = maxi(ceili(from.distance_to(to) / step_len), 1)
+	var p: Vector2 = from
+	for i: int in steps:
+		p = p.move_toward(to, step_len)
+		p = _push_out(p, radius, rects)
+	p = confine(p, bounds_min, bounds_max)
+	if overlaps_hull(p, radius, rects):
+		p = _push_out_y(p, radius, rects)
+	return p
+
+
+## True when a circle of `radius` at `p` overlaps any rect (resting on one is not
+## overlapping).
+static func overlaps_hull(p: Vector2, radius: float, rects: Array[Rect2]) -> bool:
+	for rect: Rect2 in rects:
+		if _rect_overlap(p, radius, rect):
+			return true
+	return false
+
+
+static func _rect_overlap(p: Vector2, radius: float, rect: Rect2) -> bool:
+	var q: Vector2 = p.clamp(rect.position, rect.end)
+	var r: float = radius - HULL_EPS_PX
+	return p.distance_squared_to(q) < r * r
+
+
+## Pushes `p` out of every rect it overlaps: to `radius` from the rect's closest
+## point, or, with the centre inside (or on the edge of) a rect, out through the
+## nearest side.
+static func _push_out(p: Vector2, radius: float, rects: Array[Rect2]) -> Vector2:
+	for rect: Rect2 in rects:
+		var q: Vector2 = p.clamp(rect.position, rect.end)
+		var d: Vector2 = p - q
+		var d2: float = d.length_squared()
+		if d2 >= radius * radius:
+			continue
+		if d2 > 0.0:
+			p = q + d / sqrt(d2) * radius
+			continue
+		var to_left: float = p.x - rect.position.x
+		var to_right: float = rect.end.x - p.x
+		var to_top: float = p.y - rect.position.y
+		var to_bottom: float = rect.end.y - p.y
+		var nearest: float = minf(minf(to_left, to_right), minf(to_top, to_bottom))
+		if nearest == to_top:
+			p.y = rect.position.y - radius
+		elif nearest == to_bottom:
+			p.y = rect.end.y + radius
+		elif nearest == to_left:
+			p.x = rect.position.x - radius
+		else:
+			p.x = rect.end.x + radius
+	return p
+
+
+## Moves `p` vertically to the nearest y just above or below a rect where the
+## circle overlaps no rect; unchanged if there is none.
+static func _push_out_y(p: Vector2, radius: float, rects: Array[Rect2]) -> Vector2:
+	var best_y: float = p.y
+	var best_d: float = INF
+	for rect: Rect2 in rects:
+		var above: float = rect.position.y - radius
+		var below: float = rect.end.y + radius
+		if absf(above - p.y) < best_d and not overlaps_hull(Vector2(p.x, above), radius, rects):
+			best_d = absf(above - p.y)
+			best_y = above
+		if absf(below - p.y) < best_d and not overlaps_hull(Vector2(p.x, below), radius, rects):
+			best_d = absf(below - p.y)
+			best_y = below
+	return Vector2(p.x, best_y)
 
 
 ## Clamps the ship centre to x 0..Playfield width, y bounds_y.min..max.

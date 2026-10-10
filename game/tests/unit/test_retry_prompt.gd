@@ -279,3 +279,25 @@ func test_buttons_do_nothing_while_hidden() -> void:
 	_retry(prompt).pressed.emit()
 	_quit(prompt).pressed.emit()
 	assert_eq(_calls, [] as Array[String])
+
+
+# --- First outcome wins at the consumer (DW-75, Story 6.1) ----------------------------
+
+func test_failure_after_a_clear_is_ignored() -> void:
+	var prompt: RetryPrompt = _make()
+	Events.level_cleared.emit(0)
+	Events.level_failed.emit(&"convoy")
+	assert_false(prompt.is_pending(), "no death beat after a clear")
+	await _wait_always(BEAT_S * 2.0)
+	assert_false(prompt.is_shown(), "no prompt")
+	assert_false(prompt.visible)
+	assert_false(PauseArbiter.is_paused(), "no death pause")
+
+
+func test_convoy_loss_shows_convoy_lost() -> void:
+	var prompt: RetryPrompt = _make()
+	Events.level_failed.emit(&"convoy")
+	assert_true(prompt.is_pending())
+	await _wait_always(BEAT_S * 2.0)
+	assert_true(prompt.is_shown())
+	assert_eq(prompt.reason_text(), "CONVOY LOST")

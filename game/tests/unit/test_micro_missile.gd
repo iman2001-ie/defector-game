@@ -253,3 +253,29 @@ func test_lifetime_frees_without_impact() -> void:
 	micro._physics_process(0.1)
 	assert_true(micro.is_queued_for_deletion(), "freed at lifetime_s")
 	assert_eq((world.get_node("Effects") as Node2D).get_child_count(), 0, "no impact feedback")
+
+
+# --- Convoy block (Story 6.1, GDD #46) ---------------------------------------------
+
+func test_convoy_blocks_without_damage_and_plays_small() -> void:
+	var world: Node2D = Node2D.new()
+	for container: String in ["Projectiles", "Enemies", "Asteroids", "Effects"]:
+		var node: Node2D = Node2D.new()
+		node.name = container
+		world.add_child(node)
+	add_child_autofree(world)
+	var spawner: Spawner = Spawner.new()
+	spawner.world = world
+	add_child_autofree(spawner)
+	var hull: Area2D = DamageTarget.new() as Area2D
+	hull.collision_layer = CollisionLayers.CONVOY
+	add_child_autofree(hull)
+	var micro: MicroMissile = _make()
+	micro._on_area_entered(hull)
+	assert_eq((hull.get("calls") as Array).size(), 0, "no convoy damage")
+	assert_true(micro.is_queued_for_deletion(), "freed")
+	var scales: Array[float] = []
+	for child: Node in world.get_node("Effects").get_children():
+		if child is Explosion:
+			scales.append((child as Explosion).explosion_scale)
+	assert_eq(scales, [Config.num("feedback.tiers.small.explosion_scale")] as Array[float], "SMALL blocked-shot effect")

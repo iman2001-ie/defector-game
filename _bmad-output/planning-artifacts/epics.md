@@ -104,7 +104,7 @@ FR31: Weapon feel: muzzle flash on every shot; short bright laser bolts with a l
 
 **Escort and allies**
 
-FR32: In Level 1, three medium cargo ships (~160×80 px, hitbox ~80% of the sprite) fly as a tight triangle (a lead ship plus two flankers). The group crosses the screen left to right at 40 px/s within y 760–920, then loops back. They share one 100 HP bar that carries across waves and refills only when the level restarts. The convoy is solid to the player's ship (push-out, no damage), so the player can body-block shots aimed at it (GDD decision #25). When the convoy pushes the ship, the cursor is moved with it (decision #29).
+FR32: In Level 1, three medium cargo ships (~160×80 px, hitbox ~80% of the sprite) fly as a tight triangle (a lead ship plus two flankers). The group crosses the screen left to right at 40 px/s within y 760–920, then loops back: it turns around at each edge before any hull leaves the screen (ping-pong, triangle mirrored so the lead still leads, never wrapping off-screen), starting fully on-screen at the left side heading right (GDD decision #45). They share one 100 HP bar that carries across waves and refills only when the level restarts. The convoy is solid to the player's ship (push-out, no damage), so the player can body-block shots aimed at it (GDD decision #25). When the convoy pushes the ship, the cursor is moved with it (decision #29).
 FR33: Convoy ships are solid to every projectile. Every enemy shot that touches one is stopped and damages the convoy: 5 if a Lancer aimed it at the convoy, 2 if stray. Maul dives deal 10. Bastions and Needles never aim at the convoy, but their strays can hit it. If the convoy bar reaches 0, the level restarts from wave 1.
 FR34: Ally ships (Tarek in Levels 1–2, Ryn in Level 3) patrol scripted horizontal paths at y 620–760 at 150 px/s and fire 1 damage every 0.5 s at the nearest enemy. They cannot be destroyed or damaged (except Tarek's scripted hit). They make roughly 10–15% of total kills.
 FR35: Tarek's fall (Level 2 Wave 5, at 50% of the wave destroyed): Tarek shields Vale, his comms line is cut off mid-sentence (combat line, no pause), a strong screen shake fires (the dedicated cut-off shake, 18 px for 0.9 s; was large-tier, GDD decision #43), his damaged ship trails fire and leaves, the comms channel goes silent until the wave clears, and the music drops out.
@@ -1447,6 +1447,7 @@ So that the escort mission adds a second thing to care about besides myself.
 **Given** a level JSON with `"convoy": true`
 **When** the level starts
 **Then** three medium cargo ships (~160×80 px, hitbox ~80% of the sprite) spawn in `World/Allies` in a tight triangle (lead + two flankers) and cross left to right as one group at 40 px/s within y 760–920, then loop back, on the `convoy` layer
+**And** the group starts fully on-screen at the left side of the band, heading right, clear of the player spawn (960, 900); at each screen edge it turns around before any hull leaves the screen and flies the other way (ping-pong, never wrapping off-screen), with the triangle mirrored so the lead ship still leads (GDD decision #45)
 
 **Given** the convoy
 **When** I check its health
@@ -1454,7 +1455,8 @@ So that the escort mission adds a second thing to care about besides myself.
 
 **Given** player lasers, missiles, Barrage micro-missiles or ally shots reach a convoy ship
 **When** they overlap it
-**Then** the shot is stopped and frees itself, the convoy takes no damage (`player_shots` masks `convoy` only to be blocked), 
+**Then** the shot is stopped and frees itself, the convoy takes no damage (`player_shots` masks `convoy` only to be blocked)
+**And** a player missile (or Barrage micro-missile) stopped by a convoy ship fizzles: no explosion and no splash on enemies or asteroids nearby, just the same blocked-shot effect as a laser bolt (GDD decision #46, DW-33)
 
 **Given** the player moves the ship into a convoy ship
 **When** they overlap

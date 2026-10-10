@@ -222,3 +222,44 @@ func test_spawned_asteroid_gets_the_spawner() -> void:
 		return
 	rock.set_physics_process(false)
 	assert_eq(rock.spawner, spawner)
+
+
+# --- Convoy (Story 6.1) --------------------------------------------------------------
+
+func test_registry_has_the_convoy() -> void:
+	assert_not_null(EntityRegistry.CONVOY)
+	var convoy: Node = EntityRegistry.CONVOY.instantiate()
+	assert_true(convoy is Convoy)
+	convoy.free()
+
+
+func test_spawn_convoy_parents_into_allies() -> void:
+	var allies: Node2D = _add_container("Allies")
+	var spawner: Spawner = _make_spawner(_world)
+	watch_signals(Events)
+	var convoy: Convoy = spawner.spawn_convoy({})
+	assert_not_null(convoy)
+	if convoy == null:
+		return
+	convoy.set_physics_process(false)
+	assert_eq(convoy.get_parent(), allies, "under World/Allies")
+	assert_true(convoy.is_in_group(&"convoy"))
+	assert_eq(convoy.ships().size(), 3)
+	assert_signal_emitted_with_parameters(Events, "convoy_hp_changed", [100, 100])
+
+
+func test_spawn_convoy_without_allies_returns_null() -> void:
+	_spawn_lines.clear()
+	var debug_was: bool = Log.debug_enabled
+	Log.debug_enabled = true
+	Log.sink = _capture_spawn
+	var spawner: Spawner = _make_spawner(_world)
+	var convoy: Convoy = spawner.spawn_convoy({})
+	Log.sink = Callable()
+	Log.debug_enabled = debug_was
+	assert_null(convoy)
+	var allies_lines: int = 0
+	for line: String in _spawn_lines:
+		if line.begins_with("[DEBUG][spawn]") and line.contains("Allies"):
+			allies_lines += 1
+	assert_eq(allies_lines, 2, "one DEBUG line for the missing container, one for the refused spawn")

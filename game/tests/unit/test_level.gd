@@ -1207,3 +1207,139 @@ func test_dev_wave_2_cut_off_under_f3() -> void:
 	Events.comms_sequence_requested.emit(&"dev_combat_check")
 	assert_eq(channel.current_combat(), &"dev_combat_check", "combat plays in wave 3")
 	Log.sink = Callable()
+
+
+# --- Convoy (Story 6.1) ---------------------------------------------------------------
+
+func _convoys() -> Array[Convoy]:
+	var out: Array[Convoy] = []
+	for child: Node in _level.get_node("World/Allies").get_children():
+		if child is Convoy:
+			out.append(child as Convoy)
+	return out
+
+
+func test_convoy_level_spawns_one_convoy_in_allies() -> void:
+	Log.sink = _capture
+	_make_level("dev_convoy")
+	Log.sink = Callable()
+	_make_player_invincible()
+	var convoys: Array[Convoy] = _convoys()
+	assert_eq(convoys.size(), 1, "one Convoy in World/Allies")
+	if convoys.size() != 1:
+		return
+	var convoy: Convoy = convoys[0]
+	assert_eq(_level.get_node("World/Allies").get_child_count(), 1)
+	assert_eq(convoy.ships().size(), 3)
+	for ship: ConvoyShip in convoy.ships():
+		assert_eq(ship.collision_layer, CollisionLayers.CONVOY)
+		assert_eq(ship.collision_mask, 0)
+		var r: Rect2 = Rect2(ship.global_position - ship.hull_size() / 2.0, ship.hull_size())
+		assert_true(r.position.y >= 760.0 and r.end.y <= 920.0, "%s within y 760-920" % ship.name)
+		assert_true(Playfield.RECT.encloses(r), "%s fully on-screen" % ship.name)
+		assert_false(r.has_point(Vector2(960, 900)), "%s clear of the player spawn" % ship.name)
+	var lead_x: float = convoy.ships()[Convoy.LEAD].global_position.x
+	assert_gt(lead_x, convoy.ships()[Convoy.FLANK_TOP].global_position.x, "lead ahead, heading right")
+	assert_eq(convoy.direction(), 1)
+	var player: Player = _level.get_node("World/Player") as Player
+	assert_eq(player.get("_convoy"), convoy, "injected into the Player")
+	assert_eq(_lines_containing("Convoy spawned").size(), 1, "spawn logged")
+	var start_x: float = convoy.left_x()
+	var before: Array[Vector2] = []
+	for ship: ConvoyShip in convoy.ships():
+		before.append(ship.global_position)
+	await wait_physics_frames(30)
+	var moved: float = convoy.left_x() - start_x
+	assert_almost_eq(moved, 40.0 * 30.0 / 60.0, 2.0, "about 40 px/s to the right")
+	for i: int in convoy.ships().size():
+		assert_almost_eq(convoy.ships()[i].global_position.x - before[i].x, moved, 0.001, "ship %d moves with the group" % i)
+
+
+func test_convoy_bar_full_on_a_convoy_level() -> void:
+	_make_level("dev_convoy")
+	_make_player_invincible()
+	var hud: Node = _level.get_node("HUD")
+	var bar: ConvoyBar = hud.get_node_or_null("ConvoyBar") as ConvoyBar
+	assert_not_null(bar, "HUD/ConvoyBar is a ConvoyBar")
+	if bar == null:
+		return
+	assert_gt(bar.get_index(), hud.get_node("EnergyBar").get_index(), "after the energy bar")
+	assert_lt(bar.get_index(), hud.get_node("LevelClearBanner").get_index(), "banner draws on top")
+	assert_eq(bar.process_mode, Node.PROCESS_MODE_PAUSABLE)
+	assert_eq(bar.mouse_filter, Control.MOUSE_FILTER_IGNORE)
+	assert_not_null(bar.theme)
+	if bar.theme != null:
+		assert_eq(bar.theme.resource_path, "res://ui/theme/defector_theme.tres")
+	assert_true(bar.visible, "visible on a convoy level")
+	assert_eq(bar.current(), 100, "full")
+	assert_eq(bar.max_hp(), 100)
+	assert_eq(bar.label().text, "CONVOY")
+	assert_eq(bar.get_rect(), Rect2(1568, 104, 320, 12))
+
+
+func test_no_convoy_on_a_level_without_one() -> void:
+	_make_level()
+	assert_eq(_convoys().size(), 0, "level_dev spawns no convoy")
+	assert_false((_level.get_node("HUD/ConvoyBar") as ConvoyBar).visible, "convoy bar stays hidden")
+
+
+func test_has_convoy_reads_only_a_true_bool() -> void:
+	var level_script: GDScript = load("res://scenes/level/level.gd") as GDScript
+	assert_true(level_script.call("has_convoy", {"convoy": true}))
+	assert_false(level_script.call("has_convoy", {"convoy": false}))
+	assert_false(level_script.call("has_convoy", {}), "missing key")
+	assert_false(level_script.call("has_convoy", {"convoy": 1.0}), "not a bool")
+	assert_false(level_script.call("has_convoy", {"convoy": null}))
+
+
+func test_convoy_hp_persists_across_a_wave_change() -> void:
+	(Config.tuning["waves"] as Dictionary)["gap_s"] = 0.05
+	_make_level("dev_convoy")
+	_make_player_invincible()
+	var convoy: Convoy = _convoys()[0]
+	var director: WaveDirector = _level.get_node("WaveDirector") as WaveDirector
+	convoy.ships()[Convoy.LEAD].apply_damage(30, null)
+	assert_eq(convoy.hp(), 70)
+	director.debug_resolve_wave()
+	var waited: float = 0.0
+	while director.wave_number() == 1 and waited < 3.0:
+		await wait_seconds(0.05)
+		waited += 0.05
+	assert_eq(director.wave_number(), 2, "on wave 2")
+	assert_eq(convoy.hp(), 70, "HP carried into wave 2")
+	assert_eq((_level.get_node("HUD/ConvoyBar") as ConvoyBar).current(), 70)
+
+
+## Acceptance: convoy HP reaches 0 on level.tscn -> level_failed(&"convoy")
+## once, the WaveDirector stops counting, CONVOY LOST after the beat, and
+## RETRY restarts the level (wave 1, energy reset).
+func test_convoy_loss_runs_the_retry_flow() -> void:
+	(Config.tuning["feedback"] as Dictionary)["player_death_pause_s"] = 0.2
+	SceneRouter.change_scene = _record_scene
+	GameState.energy = 40
+	_make_level("dev_convoy")
+	_make_player_invincible()
+	await wait_process_frames(1)
+	watch_signals(Events)
+	var convoy: Convoy = _convoys()[0]
+	var director: WaveDirector = _level.get_node("WaveDirector") as WaveDirector
+	var prompt: RetryPrompt = _level.get_node("Overlay/RetryPrompt") as RetryPrompt
+	convoy.ships()[Convoy.FLANK_TOP].apply_damage(convoy.max_hp(), null)
+	assert_true(convoy.is_lost())
+	assert_signal_emit_count(Events, "level_failed", 1)
+	assert_signal_emitted_with_parameters(Events, "level_failed", [&"convoy"])
+	var resolved: int = director.resolved_count()
+	assert_true(_kill_one_counted(), "an enemy to kill")
+	assert_eq(director.resolved_count(), resolved, "the WaveDirector stopped counting")
+	assert_true(prompt.is_pending(), "death beat running")
+	await get_tree().create_timer(0.6, true, false, true).timeout
+	assert_true(prompt.is_shown(), "prompt after the beat")
+	assert_eq(prompt.reason_text(), "CONVOY LOST")
+	assert_eq(PauseArbiter.reasons(), [&"death"] as Array[StringName])
+	convoy.apply_damage(10, null)
+	assert_signal_emit_count(Events, "level_failed", 1, "never a second failure")
+	(prompt.get_node("Retry") as Button).pressed.emit()
+	assert_eq(_scene_calls, [SceneRouter.LEVEL_SCENE_PATH] as Array[String], "level.tscn reloaded once")
+	assert_true(GameState.is_retry)
+	assert_eq(GameState.energy, 0, "energy reset")
+	assert_eq(GameState.current_level_id, "dev_convoy")

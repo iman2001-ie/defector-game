@@ -17,3 +17,5 @@ const PICKUPS: StringName = &"pickups"
 const COUNTED: StringName = &"counted"
 ## The scene's WaveDirector (found by DebugTools).
 const WAVE_DIRECTOR: StringName = &"wave_director"
+## The level's Convoy (joined in Convoy._ready, Story 6.1).
+const CONVOY: StringName = &"convoy"

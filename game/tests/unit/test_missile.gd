@@ -172,3 +172,67 @@ func test_registry_has_missile() -> void:
 	var missile: Node = (EntityRegistry.PROJECTILES[&"missile"] as PackedScene).instantiate()
 	assert_true(missile is Missile)
 	missile.free()
+
+
+# --- Convoy fizzle (Story 6.1, DW-33, GDD #46) -------------------------------------
+
+const CONVOY_SCENE: PackedScene = preload("res://entities/allies/convoy.tscn")
+
+
+func _effects_world() -> Node2D:
+	var world: Node2D = Node2D.new()
+	for container: String in ["Projectiles", "Enemies", "Asteroids", "Effects"]:
+		var node: Node2D = Node2D.new()
+		node.name = container
+		world.add_child(node)
+	add_child_autofree(world)
+	var spawner: Spawner = Spawner.new()
+	spawner.world = world
+	add_child_autofree(spawner)
+	return world
+
+
+func _explosion_scales(world: Node2D) -> Array[float]:
+	var out: Array[float] = []
+	for child: Node in world.get_node("Effects").get_children():
+		if child is Explosion:
+			out.append((child as Explosion).explosion_scale)
+	return out
+
+
+func test_missile_into_a_convoy_area_fizzles() -> void:
+	var world: Node2D = _effects_world()
+	var missile: Missile = _make_missile(IMPACT)
+	var hull: Area2D = _make_target(IMPACT)
+	hull.collision_layer = CollisionLayers.CONVOY
+	var enemy: Area2D = _make_target(IMPACT + Vector2(30, 0), &"enemies")
+	var rock: Area2D = _make_target(IMPACT + Vector2(0, -60), &"asteroids")
+	missile._on_area_entered(hull)
+	assert_eq(_amounts(hull), [], "no convoy damage")
+	assert_eq(_amounts(enemy), [], "no splash on a nearby enemy")
+	assert_eq(_amounts(rock), [], "no splash on a nearby asteroid")
+	assert_true(missile.is_queued_for_deletion(), "freed")
+	assert_eq(_explosion_scales(world), [Config.num("feedback.tiers.small.explosion_scale")] as Array[float], "SMALL, not MEDIUM")
+
+
+func test_missile_hit_on_an_enemy_still_plays_medium() -> void:
+	var world: Node2D = _effects_world()
+	var missile: Missile = _make_missile(IMPACT)
+	var a: Area2D = _make_target(IMPACT, &"enemies")
+	missile._on_area_entered(a)
+	assert_eq(_explosion_scales(world), [Config.num("feedback.tiers.medium.explosion_scale")] as Array[float])
+
+
+func test_real_missile_into_a_real_convoy_ship_fizzles() -> void:
+	var convoy: Convoy = CONVOY_SCENE.instantiate() as Convoy
+	add_child_autofree(convoy)
+	convoy.set_physics_process(false)
+	var ship: ConvoyShip = convoy.ships()[Convoy.FLANK_TOP]
+	var near: Area2D = _make_target(ship.global_position + Vector2(0, -60), &"enemies")
+	var missile: Missile = MISSILE_SCENE.instantiate() as Missile
+	missile.setup({"position": ship.global_position + Vector2(0, 120), "velocity": Vector2(0, -900), "damage": 8})
+	add_child_autofree(missile)
+	await wait_physics_frames(15)
+	assert_eq(convoy.hp(), convoy.max_hp(), "convoy HP unchanged")
+	assert_eq(_amounts(near), [], "no splash")
+	assert_true(not is_instance_valid(missile) or missile.is_queued_for_deletion(), "stopped by the hull")

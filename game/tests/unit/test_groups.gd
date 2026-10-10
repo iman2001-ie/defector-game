@@ -15,12 +15,13 @@ func test_constant_values() -> void:
 	assert_eq(Groups.PICKUPS, &"pickups")
 	assert_eq(Groups.COUNTED, &"counted")
 	assert_eq(Groups.WAVE_DIRECTOR, &"wave_director")
+	assert_eq(Groups.CONVOY, &"convoy")
 
 
 func test_constants_are_string_names() -> void:
 	for value: Variant in [
 		Groups.PLAYER, Groups.ENEMIES, Groups.ASTEROIDS, Groups.PROJECTILES,
-		Groups.PICKUPS, Groups.COUNTED, Groups.WAVE_DIRECTOR,
+		Groups.PICKUPS, Groups.COUNTED, Groups.WAVE_DIRECTOR, Groups.CONVOY,
 	]:
 		assert_eq(typeof(value), TYPE_STRING_NAME)
 

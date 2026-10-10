@@ -3,6 +3,13 @@ extends Area2D
 ## Base for every projectile: flies by velocity, frees itself off-screen and
 ## applies its damage to the first area it overlaps (one damage instance).
 ##
+## The convoy is solid to every projectile (Story 6.1, GDD #23, #46): a shot that
+## reaches a convoy-layer area stops and frees itself like any other hit. Player
+## and ally shots (this base, laser, missile, micro-missile) never damage it
+## (_can_damage, DW-32) and show the laser's SMALL blocked-shot effect whatever
+## their own impact_tier (_on_impact); the Missile also skips its splash (DW-33).
+## EnemyBullet overrides both hooks, so enemy shots do damage the convoy.
+##
 ## Created only by Spawner: setup(params) stores values before add_child, and
 ## _ready() applies them.
 
@@ -56,13 +63,21 @@ func _on_area_entered(area: Area2D) -> void:
 	queue_free()
 
 
+## True when `area` sits on the convoy collision layer (a ConvoyShip).
+static func is_convoy(area: Area2D) -> bool:
+	return area != null and (area.collision_layer & CollisionLayers.CONVOY) != 0
+
+
 ## Damage hook: false stops this projectile from damaging `area` (it still
-## stops and frees). EnemyBullet overrides it so enemy shots never chip asteroids.
-func _can_damage(_area: Area2D) -> bool:
-	return true
+## stops and frees). The base refuses convoy areas, so player and ally shots are
+## blocked with no friendly fire (DW-32). EnemyBullet overrides it so enemy shots
+## never chip asteroids but do damage the convoy.
+func _can_damage(area: Area2D) -> bool:
+	return not is_convoy(area)
 
 
-## Impact hook: plays the impact feedback. Missile overrides it for splash and
-## then calls this base version.
-func _on_impact(_area: Area2D) -> void:
-	Feedback.impact(impact_tier, global_position)
+## Impact hook: plays the impact feedback, SMALL (the laser's blocked-shot effect)
+## on a convoy area, else impact_tier. Missile overrides it for splash and then
+## calls this base version.
+func _on_impact(area: Area2D) -> void:
+	Feedback.impact(ImpactTier.SMALL if is_convoy(area) else impact_tier, global_position)

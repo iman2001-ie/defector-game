@@ -11,6 +11,7 @@ var _enemies: Node2D
 var _asteroids: Node2D
 var _effects: Node2D
 var _pickups: Node2D
+var _allies: Node2D
 
 
 func _ready() -> void:
@@ -30,6 +31,10 @@ func _ready() -> void:
 	_pickups = world.get_node_or_null(^"Pickups") as Node2D
 	if _pickups == null:
 		Log.debug("spawn", "World '%s' has no Pickups container; energy orbs disabled" % world.name)
+	# Allies is optional too (test worlds and the sandbox omit it); without it no convoy spawns.
+	_allies = world.get_node_or_null(^"Allies") as Node2D
+	if _allies == null:
+		Log.debug("spawn", "World '%s' has no Allies container; convoy disabled" % world.name)
 
 
 func _exit_tree() -> void:
@@ -127,6 +132,23 @@ func spawn_orb(params: Dictionary) -> EnergyOrb:
 	orb.setup(params)
 	_pickups.add_child(orb)
 	return orb
+
+
+## Returns the spawned convoy (Story 6.1), or null without an Allies container.
+## params: none yet (see Convoy.setup).
+func spawn_convoy(params: Dictionary) -> Convoy:
+	if _allies == null:
+		Log.debug("spawn", "No Allies container; convoy not spawned")
+		return null
+	var node: Node = EntityRegistry.CONVOY.instantiate()
+	var convoy: Convoy = node as Convoy
+	if convoy == null:
+		Log.error("spawn", "convoy scene is not a Convoy")
+		node.queue_free()
+		return null
+	convoy.setup(params)
+	_allies.add_child(convoy)
+	return convoy
 
 
 func _container(path: NodePath) -> Node2D:

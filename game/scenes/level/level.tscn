@@ -1,4 +1,4 @@
-[gd_scene load_steps=21 format=3]
+[gd_scene load_steps=22 format=3]
 
 [ext_resource type="Script" path="res://scenes/level/level.gd" id="1_level"]
 [ext_resource type="PackedScene" path="res://entities/player/player.tscn" id="2_player"]
@@ -19,6 +19,7 @@
 [ext_resource type="PackedScene" path="res://systems/comms/comms_panel.tscn" id="17_comms_panel"]
 [ext_resource type="PackedScene" path="res://systems/comms/comms_box.tscn" id="18_comms_box"]
 [ext_resource type="Script" path="res://ui/hud/hint_pill.gd" id="19_hint_pill"]
+[ext_resource type="Script" path="res://ui/hud/convoy_bar.gd" id="20_convoy_bar"]
 
 [sub_resource type="Environment" id="Environment_glow"]
 background_mode = 3
@@ -123,6 +124,19 @@ anchors_preset = 0
 mouse_filter = 2
 theme = ExtResource("9_theme")
 script = ExtResource("19_hint_pill")
+
+[node name="ConvoyBar" type="Control" parent="HUD"]
+process_mode = 1
+visible = false
+layout_mode = 3
+anchors_preset = 0
+offset_left = 1568.0
+offset_top = 104.0
+offset_right = 1888.0
+offset_bottom = 116.0
+mouse_filter = 2
+theme = ExtResource("9_theme")
+script = ExtResource("20_convoy_bar")
 
 [node name="LevelClearBanner" type="Label" parent="HUD"]
 anchors_preset = 15

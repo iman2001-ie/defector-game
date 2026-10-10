@@ -7,7 +7,9 @@ extends Control
 ## Events.level_failed it starts a pausable feedback.player_death_pause_s timer
 ## (the death beat: it freezes under any pause and stretches with hit-stop);
 ## when that fires, show_prompt() pushes the `death` pause reason and shows the
-## prompt with RETRY focused (focus ring hidden). Later failures are ignored. RETRY calls
+## prompt with RETRY focused (focus ring hidden). Later failures are ignored,
+## and so is any failure after Events.level_cleared (the first outcome wins,
+## DW-75: a convoy loss can't fail a cleared level). RETRY calls
 ## SceneRouter.restart_level(), QUIT TO TITLE SceneRouter.goto_title(); a
 ## second press does nothing.
 ##
@@ -40,6 +42,8 @@ var buttons_top_y: float = 0.0
 var _pending: bool = false
 var _shown: bool = false
 var _leaving: bool = false
+## Set by Events.level_cleared: later failures are ignored (DW-75).
+var _cleared: bool = false
 var _reason: StringName = &""
 
 @onready var _dim: ColorRect = $Dim
@@ -69,6 +73,7 @@ func _ready() -> void:
 	_retry.pressed.connect(_on_retry_pressed)
 	_quit.pressed.connect(_on_quit_pressed)
 	Events.level_failed.connect(_on_events_level_failed)
+	Events.level_cleared.connect(_on_events_level_cleared)
 
 
 # --- Read accessors (tests) ------------------------------------------------------
@@ -123,11 +128,15 @@ func show_prompt(reason: StringName) -> void:
 
 
 func _on_events_level_failed(reason: StringName) -> void:
-	if _pending or _shown:
+	if _pending or _shown or _cleared:
 		return
 	_pending = true
 	_reason = reason
 	get_tree().create_timer(beat_s, false).timeout.connect(_on_beat_timeout)
+
+
+func _on_events_level_cleared(_level_id: int) -> void:
+	_cleared = true
 
 
 func _on_beat_timeout() -> void:

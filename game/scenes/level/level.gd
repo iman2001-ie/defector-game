@@ -10,6 +10,11 @@ extends Node2D
 ## scene with the same id, ADR-004), else the exported level_id; the resolved
 ## id is written back to GameState. A retry adds " (retry)" to the start line.
 ##
+## Convoy (Story 6.1): when the level JSON has "convoy": true, the Spawner
+## spawns one Convoy into World/Allies and the level injects it into the Player
+## (set_convoy, for the solid hulls) before the WaveDirector starts. A missing
+## or false key spawns nothing (the HUD convoy bar stays hidden).
+##
 ## Events.level_cleared(id) -> SceneRouter.complete_level(id) (Story 4.2): a
 ## campaign level unlocks and saves, then the next level or the title loads.
 ##
@@ -81,6 +86,8 @@ func _ready() -> void:
 	GameState.emit_energy()
 	var retry_tag: String = " (retry)" if GameState.is_retry else ""
 	Log.info("scene", "Level %d '%s' started (%s)%s" % [id, str(data.get("name", "")), Config.LEVEL_PATH_FORMAT % level_id, retry_tag])
+	if has_convoy(data):
+		_spawn_convoy()
 	_director.start_level(data, Config.LEVEL_PATH_FORMAT % level_id)
 	# One explosion per tier off-screen, so the first real impact doesn't hitch.
 	if should_prewarm(OS.is_debug_build(), args):
@@ -92,12 +99,28 @@ func _ready() -> void:
 		_request_comms.call_deferred(comms_id)
 
 
+## Spawns the convoy through the Spawner and hands it to the Player.
+func _spawn_convoy() -> void:
+	var convoy: Convoy = _spawner.spawn_convoy({})
+	if convoy == null:
+		Log.warn("scene", "Level asks for a convoy but none could be spawned")
+		return
+	_player.set_convoy(convoy)
+	Log.info("scene", "Convoy spawned: %d ships, %d HP" % [convoy.ships().size(), convoy.max_hp()])
+
+
 func _request_comms(sequence_id: StringName) -> void:
 	Events.comms_sequence_requested.emit(sequence_id)
 
 
 func _on_events_level_cleared(cleared_id: int) -> void:
 	SceneRouter.complete_level(cleared_id)
+
+
+## True only when the level data's "convoy" is the boolean true.
+static func has_convoy(data: Dictionary) -> bool:
+	var value: Variant = data.get("convoy", false)
+	return value is bool and bool(value)
 
 
 ## The level file key to run: the GameState id when non-empty, else the exported one.

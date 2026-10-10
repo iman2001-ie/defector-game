@@ -1104,3 +1104,44 @@ func test_cast_rules() -> void:
 	if not report.is_empty():
 		assert_eq(str((report[0] as Dictionary).get("speaker")), "ryn", "Ryn speaks first")
 		assert_true(str((report[0] as Dictionary).get("text")).contains("Ryn"), "Ryn names herself")
+
+
+# --- Convoy (Story 6.1) ------------------------------------------------------------
+
+## The dev level that proves the convoy: the level_dev key set, convoy on, two
+## short waves of Wasps (Lancers allowed), no intro or outro.
+func test_dev_convoy_level_shape() -> void:
+	var data: Dictionary = Config.level("dev_convoy")
+	assert_false(data.is_empty(), "level_dev_convoy.json loads")
+	var dev: Dictionary = Config.level("dev")
+	var keys: Array = data.keys()
+	keys.sort()
+	var dev_keys: Array = dev.keys()
+	dev_keys.sort()
+	assert_eq(keys, dev_keys, "the level_dev key set")
+	assert_eq(data.get("id"), 0.0)
+	assert_eq(data.get("name"), "Development: convoy")
+	assert_eq(data.get("convoy"), true, "convoy on")
+	assert_null(data.get("intro_sequence"), "no intro")
+	assert_null(data.get("outro_sequence"), "no outro")
+	var waves: Array = data.get("waves", []) as Array
+	assert_eq(waves.size(), 2, "2 waves")
+	for w: int in waves.size():
+		var types: Array[String] = []
+		for entry: Variant in (waves[w] as Dictionary).get("spawns", []) as Array:
+			types.append(str((entry as Dictionary).get("type")))
+		assert_true(types.has("wasp"), "wave %d has Wasps" % w)
+		for t: String in types:
+			assert_true(t == "wasp" or t == "lancer", "wave %d is Wasps (and Lancers) only" % w)
+
+
+## Only dev levels turn the convoy on until Epic 7 (decision F12).
+func test_convoy_is_a_bool_and_only_on_in_dev_levels() -> void:
+	for path: String in _level_files():
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+		if not (parsed is Dictionary):
+			continue
+		var value: Variant = (parsed as Dictionary).get("convoy", false)
+		assert_true(value is bool, "%s convoy is a bool" % path)
+		if value is bool and bool(value):
+			assert_true(path.get_file().begins_with("level_dev"), "%s: only dev levels have a convoy before Epic 7" % path)

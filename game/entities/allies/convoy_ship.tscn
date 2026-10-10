@@ -1,0 +1,16 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://entities/allies/convoy_ship.gd" id="1_ship"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_hitbox"]
+resource_local_to_scene = true
+size = Vector2(128, 64)
+
+[node name="ConvoyShip" type="Area2D"]
+collision_layer = 64
+collision_mask = 0
+monitoring = false
+script = ExtResource("1_ship")
+
+[node name="Hitbox" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_hitbox")

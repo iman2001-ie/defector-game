@@ -33,6 +33,8 @@ const ASTEROID: PackedScene = preload("res://entities/asteroids/asteroid.tscn")
 const EXPLOSION: PackedScene = preload("res://entities/effects/explosion.tscn")
 ## The gold energy orb dropped by Loot (Story 3.3).
 const ENERGY_ORB: PackedScene = preload("res://entities/pickups/energy_orb.tscn")
+## The three-ship escort convoy (Story 6.1), spawned once by a level with "convoy": true.
+const CONVOY: PackedScene = preload("res://entities/allies/convoy.tscn")
 
 
 ## The known enemy type ids (Config validates level files against them).
