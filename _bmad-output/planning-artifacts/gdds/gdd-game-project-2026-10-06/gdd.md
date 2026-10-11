@@ -188,7 +188,7 @@ All values below are **initial tuning**, chosen to be easy to change. They are e
 | Needle shot | 1 heart | 2 (stray; Needles never aim at the convoy) |
 | Contact with small or medium enemy or asteroid | 1 heart (the enemy is destroyed; an asteroid is not, decision #48) | n/a |
 | Contact with large asteroid, Bastion, or Flagship hull | 2 hearts (the large asteroid survives, decision #48) | n/a |
-| Contact with a convoy ship | none (the ship is blocked and slides along the hull) | none |
+| Contact with the convoy | none (the formation is one solid shape, gaps included, so the ship can't pass between cargo ships; it is blocked and slides along the formation's outline, decisions #25, #51) | none |
 | Maul impact | 1 heart on contact (it never targets the player, but the player can body-block it; the Maul is destroyed) | 10 |
 
 **Size-scaled impact feedback** (Pillar 2)
@@ -206,9 +206,9 @@ All values below are **initial tuning**, chosen to be easy to change. They are e
 **Allies and escort**
 
 - **Convoy (Level 1):**
-  - Three medium cargo ships (~160×80 px sprites, hitbox ~80% of the sprite) fly as a **tight triangle**: a lead ship with two flankers. The group crosses the screen left to right at 40 px/s within y 760–920 (the lead ship about 40 px ahead of the flankers), then loops back. At each edge the group turns around before any hull leaves the screen and flies back the other way (ping-pong), with the triangle mirrored so the lead ship still leads; it never wraps off-screen. It starts fully on-screen at the left side, heading right, clear of the player spawn (decision #45). They share **one 100 HP bar**.
+  - Three medium cargo ships (~160×80 px sprites, hitbox ~80% of the sprite) fly **nose-up, side by side**, the middle (lead) ship raised, so the group forms a **shallow symmetric triangle** within y 760–920. The group slides left and right as one at 40 px/s: it crosses the screen left to right, then loops back. At each edge it turns around before any hull leaves the screen and flies back the other way (ping-pong) with the same layout (no mirroring); it never wraps off-screen. It starts fully on-screen at the left side, heading right, clear of the player spawn (decisions #45, #51). They share **one 100 HP bar**.
   - Convoy HP carries across waves within the level and refills only when the level restarts.
-  - Cargo ships are solid to projectiles. Every enemy shot that touches one is stopped and damages the convoy. Player and ally shots are stopped with no damage, so the player has to fire around the convoy. A player missile stopped by a cargo ship fizzles: no explosion, no splash on anything nearby, the same small blocked-shot effect as a laser bolt (decision #46). The convoy is solid to the player's ship too: the ship slides along the hulls, with no damage from the contact. That lets the player **body-block** shots aimed at the cargo, taking the hit (1 heart) instead of the convoy (decision #25).
+  - Cargo ships are solid to projectiles. Every enemy shot that touches one is stopped and damages the convoy. Player and ally shots are stopped with no damage, so the player has to fire around the convoy. A player missile stopped by a cargo ship fizzles: no explosion, no splash on anything nearby, the same small blocked-shot effect as a laser bolt (decision #46). The convoy is solid to the player's ship too, as one solid shape that includes the gaps between the cargo ships, so the ship can't pass between them: it slides along the formation's outline, with no damage from the contact (decision #51). That lets the player **body-block** shots aimed at the cargo, taking the hit (1 heart) instead of the convoy (decision #25).
   - Lancers aim at the convoy 50% of the time (5 damage per hit). Every other enemy shot that strays into a cargo ship deals 2. Mauls deal 10. Bastions and Needles never *aim* at the convoy, but their shots can hit it.
 - **Tarek (Levels 1–2) and Ryn (Level 3):**
   - Their allied ships patrol scripted horizontal paths at y 620–760, moving at 150 px/s.

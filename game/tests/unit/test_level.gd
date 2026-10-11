@@ -1240,8 +1240,11 @@ func test_convoy_level_spawns_one_convoy_in_allies() -> void:
 		assert_true(r.position.y >= 760.0 and r.end.y <= 920.0, "%s within y 760-920" % ship.name)
 		assert_true(Playfield.RECT.encloses(r), "%s fully on-screen" % ship.name)
 		assert_false(r.has_point(Vector2(960, 900)), "%s clear of the player spawn" % ship.name)
-	var lead_x: float = convoy.ships()[Convoy.LEAD].global_position.x
-	assert_gt(lead_x, convoy.ships()[Convoy.FLANK_TOP].global_position.x, "lead ahead, heading right")
+	var lead: Vector2 = convoy.ships()[Convoy.LEAD].global_position
+	var flank_left: Vector2 = convoy.ships()[Convoy.FLANK_LEFT].global_position
+	var flank_right: Vector2 = convoy.ships()[Convoy.FLANK_RIGHT].global_position
+	assert_true(flank_left.x < lead.x and lead.x < flank_right.x, "lead between the flankers")
+	assert_lt(lead.y, flank_left.y, "lead raised")
 	assert_eq(convoy.direction(), 1)
 	var player: Player = _level.get_node("World/Player") as Player
 	assert_eq(player.get("_convoy"), convoy, "injected into the Player")
@@ -1326,7 +1329,7 @@ func test_convoy_loss_runs_the_retry_flow() -> void:
 	var convoy: Convoy = _convoys()[0]
 	var director: WaveDirector = _level.get_node("WaveDirector") as WaveDirector
 	var prompt: RetryPrompt = _level.get_node("Overlay/RetryPrompt") as RetryPrompt
-	convoy.ships()[Convoy.FLANK_TOP].apply_damage(convoy.max_hp(), null)
+	convoy.ships()[Convoy.FLANK_LEFT].apply_damage(convoy.max_hp(), null)
 	assert_true(convoy.is_lost())
 	assert_signal_emit_count(Events, "level_failed", 1)
 	assert_signal_emitted_with_parameters(Events, "level_failed", [&"convoy"])
@@ -1400,9 +1403,18 @@ func test_dev_convoy_maul_wave_hits_the_convoy() -> void:
 	director.debug_resolve_wave()
 	await _wait_for_wave(director, 2, 3.0)
 	assert_eq(director.wave_number(), 2)
+	# The Mauls spawn in the wave_started call; record its physics tick, since a
+	# catch-up burst can run several ticks before the polls below see them.
+	var spawn_tick: Array[int] = [-1]
+	var on_wave: Callable = func(index: int, _count: int) -> void:
+		if index == 2 and spawn_tick[0] < 0:
+			spawn_tick[0] = Engine.get_physics_frames()
+	Events.wave_started.connect(on_wave)
 	director.debug_resolve_wave()
 	await _wait_for_wave(director, 3, 4.0)
+	Events.wave_started.disconnect(on_wave)
 	assert_eq(director.wave_number(), 3, "the Maul wave")
+	assert_gte(spawn_tick[0], 0, "wave 3 start seen")
 	Events.convoy_hp_changed.connect(_on_convoy_hp)
 	Events.enemy_killed.connect(_on_maul_killed)
 	var hp_before: int = convoy.hp()
@@ -1431,10 +1443,12 @@ func test_dev_convoy_maul_wave_hits_the_convoy() -> void:
 		headings.append(maul.heading())
 		assert_true((maul.get_node("Trail") as CanvasItem).visible, "trail shows")
 		assert_not_null(maul.target_ship(), "aimed at a convoy ship")
+	# At most one dive step per physics tick since the spawn tick (plus one).
+	var flown_ticks: int = maxi(detect_tick - spawn_tick[0] + 1, 2)
 	for i: int in mauls.size():
 		var p: Vector2 = starts[i]
 		assert_true(p.x < 0.0 or p.x > Playfield.SIZE.x, "Maul at %s starts off-screen on its side" % p)
-		assert_almost_eq(p.y, Config.num("waves.formation.top_y"), 2.0 * speed / 60.0 + 0.01, "at its slot's y")
+		assert_almost_eq(p.y, Config.num("waves.formation.top_y"), float(flown_ticks) * speed / 60.0 + 0.01, "at its slot's y (%d ticks since the spawn tick)" % flown_ticks)
 		var to_band: float = (band_top - p.y) / (headings[i].y * speed)
 		assert_gte(to_band, Config.num("weapons.enemy_bullet.min_telegraph_s"), "reaching the band takes >= the telegraph minimum")
 	await get_tree().physics_frame

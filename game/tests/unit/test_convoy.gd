@@ -1,8 +1,9 @@
 extends GutTest
-## Convoy + ConvoyShip (Story 6.1): the scene shape and layers, the triangle
-## layout in the band, the ping-pong path (step_span, mirrored triangle), the
-## shared HP pool and its loss (first outcome wins), the cached hull rects and
-## the code-drawn hull. Driven through step() with physics off.
+## Convoy + ConvoyShip (Story 6.1, DW-83): the scene shape and layers, the
+## nose-up side-by-side layout (lead raised in the middle) centred in the band,
+## the ping-pong path (step_span, no mirroring), the shared HP pool and its loss
+## (first outcome wins), the cached solid hull polygon and the code-drawn
+## nose-up hull. Driven through step() with physics off.
 
 const CONVOY_SCENE: PackedScene = preload("res://entities/allies/convoy.tscn")
 const SHIP_SCENE: PackedScene = preload("res://entities/allies/convoy_ship.tscn")
@@ -66,7 +67,9 @@ func test_tuning() -> void:
 	assert_eq(Config.num("convoy.speed_px_s"), 40.0)
 	assert_eq(Config.num("convoy.band_y.min"), 760.0)
 	assert_eq(Config.num("convoy.band_y.max"), 920.0)
-	assert_eq(Config.num("convoy.lead_offset_px"), 40.0)
+	assert_eq(Config.num("convoy.gap_px"), 8.0)
+	assert_eq(Config.num("convoy.lead_raise_px"), 20.0)
+	assert_false((Config.tuning["convoy"] as Dictionary).has("lead_offset_px"), "the old lead offset is gone")
 
 
 func test_scene_shape() -> void:
@@ -75,7 +78,7 @@ func test_scene_shape() -> void:
 	var names: Array[String] = []
 	for child: Node in convoy.get_children():
 		names.append(String(child.name))
-	assert_eq(names, ["Lead", "FlankTop", "FlankBottom"] as Array[String])
+	assert_eq(names, ["Lead", "FlankLeft", "FlankRight"] as Array[String])
 	assert_eq(convoy.ships().size(), 3)
 	for ship: ConvoyShip in convoy.ships():
 		assert_true(ship is Area2D)
@@ -107,7 +110,7 @@ func test_wrong_ship_count_warns() -> void:
 	(Config.tuning["convoy"] as Dictionary)["ships"] = 4
 	var convoy: Convoy = _make()
 	assert_eq(_logged("[WARN][data] convoy.ships").size(), 1, "one data WARN")
-	assert_eq(convoy.ships().size(), 3, "still the triangle")
+	assert_eq(convoy.ships().size(), 3, "still three ships")
 
 
 # --- Layout --------------------------------------------------------------------------
@@ -116,26 +119,49 @@ func test_start_layout_left_edge_heading_right() -> void:
 	var convoy: Convoy = _make()
 	assert_eq(convoy.left_x(), 0.0)
 	assert_eq(convoy.direction(), 1)
-	assert_eq(convoy.span(), 360.0, "2 x 160 + 40")
+	assert_eq(convoy.span(), 496.0, "3 x 160 + 2 x 8")
 	var ships: Array[ConvoyShip] = convoy.ships()
-	assert_eq(ships[Convoy.LEAD].global_position, Vector2(280, 840), "lead ahead, band centre")
-	assert_eq(ships[Convoy.FLANK_TOP].global_position, Vector2(80, 800))
-	assert_eq(ships[Convoy.FLANK_BOTTOM].global_position, Vector2(80, 880))
+	assert_eq(ships[Convoy.FLANK_LEFT].global_position, Vector2(80, 850))
+	assert_eq(ships[Convoy.LEAD].global_position, Vector2(248, 830), "lead in the middle, raised")
+	assert_eq(ships[Convoy.FLANK_RIGHT].global_position, Vector2(416, 850))
 	var group: Rect2 = _group_rect(convoy)
-	assert_eq(group, Rect2(0, 760, 360, 160), "the group fills the band from x 0")
+	assert_eq(group, Rect2(0, 790, 496, 100), "the group from x 0, centred in the band")
 	for ship: ConvoyShip in ships:
 		var r: Rect2 = _sprite_rect(ship)
 		assert_true(Playfield.RECT.encloses(r), "%s fully on-screen" % ship.name)
 		assert_true(r.position.y >= 760.0 and r.end.y <= 920.0, "%s inside y 760-920" % ship.name)
 		assert_false(r.has_point(PLAYER_SPAWN), "%s clear of the player spawn" % ship.name)
-		assert_eq(ship.facing, 1, "%s nose to the right" % ship.name)
 
 
-func test_lead_gap_is_lead_offset() -> void:
+func test_lead_is_raised_between_the_flankers() -> void:
 	var convoy: Convoy = _make()
+	var ships: Array[ConvoyShip] = convoy.ships()
+	var lead: Vector2 = ships[Convoy.LEAD].global_position
+	var left: Vector2 = ships[Convoy.FLANK_LEFT].global_position
+	var right: Vector2 = ships[Convoy.FLANK_RIGHT].global_position
+	assert_eq(left.y - lead.y, 20.0, "the lead sits lead_raise_px higher")
+	assert_eq(left.y, right.y, "flankers on one row")
+	assert_true(left.x < lead.x and lead.x < right.x, "lead between the flankers")
+	assert_eq(lead.x - left.x, right.x - lead.x, "symmetric about the lead")
+
+
+func test_hulls_are_gap_px_apart() -> void:
+	var convoy: Convoy = _make()
+	var left: Rect2 = _sprite_rect(convoy.ships()[Convoy.FLANK_LEFT])
 	var lead: Rect2 = _sprite_rect(convoy.ships()[Convoy.LEAD])
-	var flank: Rect2 = _sprite_rect(convoy.ships()[Convoy.FLANK_TOP])
-	assert_eq(lead.position.x - flank.end.x, 40.0, "40 px between the flank fronts and the lead's rear")
+	var right: Rect2 = _sprite_rect(convoy.ships()[Convoy.FLANK_RIGHT])
+	assert_eq(lead.position.x - left.end.x, 8.0, "8 px between flank-left and the lead")
+	assert_eq(right.position.x - lead.end.x, 8.0, "8 px between the lead and flank-right")
+
+
+func test_layout_tuning_is_clamped_at_zero() -> void:
+	var convoy_tuning: Dictionary = Config.tuning["convoy"]
+	convoy_tuning["gap_px"] = -10
+	convoy_tuning["lead_raise_px"] = -5
+	var convoy: Convoy = _make()
+	assert_eq(convoy.span(), 480.0, "a negative gap counts as 0")
+	var ships: Array[ConvoyShip] = convoy.ships()
+	assert_eq(ships[Convoy.LEAD].global_position.y, ships[Convoy.FLANK_LEFT].global_position.y, "a negative raise counts as 0")
 
 
 func test_hulls_never_overlap() -> void:
@@ -152,11 +178,12 @@ func test_hulls_never_overlap() -> void:
 
 
 func test_ship_centres_pure() -> void:
-	var right: Array[Vector2] = Convoy.ship_centres(100.0, 1, 160.0, 80.0, 40.0, 760.0, 920.0)
-	assert_eq(right, [Vector2(380, 840), Vector2(180, 800), Vector2(180, 880)] as Array[Vector2])
-	var left: Array[Vector2] = Convoy.ship_centres(100.0, -1, 160.0, 80.0, 40.0, 760.0, 920.0)
-	assert_eq(left, [Vector2(180, 840), Vector2(380, 800), Vector2(380, 880)] as Array[Vector2], "mirrored")
-	assert_eq(Convoy.ship_centre(Convoy.LEAD, 0.0, 1, 160.0, 80.0, 40.0, 760.0, 920.0), Vector2(280, 840))
+	var at_100: Array[Vector2] = Convoy.ship_centres(100.0, 160.0, 80.0, 8.0, 20.0, 760.0, 920.0)
+	assert_eq(at_100, [Vector2(348, 830), Vector2(180, 850), Vector2(516, 850)] as Array[Vector2])
+	assert_eq(Convoy.ship_centre(Convoy.LEAD, 0.0, 160.0, 80.0, 8.0, 20.0, 760.0, 920.0), Vector2(248, 830))
+	assert_eq(Convoy.ship_centre(Convoy.FLANK_LEFT, 0.0, 160.0, 80.0, 8.0, 20.0, 760.0, 920.0), Vector2(80, 850))
+	assert_eq(Convoy.ship_centre(Convoy.FLANK_RIGHT, 0.0, 160.0, 80.0, 8.0, 20.0, 760.0, 920.0), Vector2(416, 850))
+	assert_eq(Convoy.group_span(160.0, 8.0), 496.0)
 
 
 func test_moves_right_as_one_group_at_speed() -> void:
@@ -180,31 +207,41 @@ func test_physics_process_steps() -> void:
 
 
 func test_step_span_pure() -> void:
-	assert_eq(Convoy.step_span(0.0, 1, 10.0, 360.0, 1920.0), Vector2(10, 1), "moving right")
-	assert_eq(Convoy.step_span(1550.0, 1, 20.0, 360.0, 1920.0), Vector2(1560, -1), "clamped at the right edge and flipped")
-	assert_eq(Convoy.step_span(1560.0, -1, 10.0, 360.0, 1920.0), Vector2(1550, -1), "heading back left")
-	assert_eq(Convoy.step_span(5.0, -1, 20.0, 360.0, 1920.0), Vector2(0, 1), "clamped at the left edge and flipped")
-	assert_eq(Convoy.step_span(0.0, 1, 0.0, 360.0, 1920.0), Vector2(0, 1), "starting at 0 heading right doesn't flip")
-	assert_eq(Convoy.step_span(0.0, 1, 5000.0, 360.0, 1920.0), Vector2(1560, -1), "a huge step still clamps")
+	assert_eq(Convoy.step_span(0.0, 1, 10.0, 496.0, 1920.0), Vector2(10, 1), "moving right")
+	assert_eq(Convoy.step_span(1414.0, 1, 20.0, 496.0, 1920.0), Vector2(1424, -1), "clamped at the right edge and flipped")
+	assert_eq(Convoy.step_span(1424.0, -1, 10.0, 496.0, 1920.0), Vector2(1414, -1), "heading back left")
+	assert_eq(Convoy.step_span(5.0, -1, 20.0, 496.0, 1920.0), Vector2(0, 1), "clamped at the left edge and flipped")
+	assert_eq(Convoy.step_span(0.0, 1, 0.0, 496.0, 1920.0), Vector2(0, 1), "starting at 0 heading right doesn't flip")
+	assert_eq(Convoy.step_span(0.0, 1, 5000.0, 496.0, 1920.0), Vector2(1424, -1), "a huge step still clamps")
 
 
-func test_right_edge_mirrors_the_triangle() -> void:
+## Each ship's offset from the lead (the layout's shape, whatever left_x is).
+func _offsets(convoy: Convoy) -> Array[Vector2]:
+	var out: Array[Vector2] = []
+	var lead: Vector2 = convoy.ships()[Convoy.LEAD].global_position
+	for ship: ConvoyShip in convoy.ships():
+		out.append(ship.global_position - lead)
+	return out
+
+
+func test_right_edge_turns_without_mirroring() -> void:
 	var convoy: Convoy = _make()
-	convoy.step((1560.0 - 0.0) / 40.0)
-	assert_eq(convoy.left_x(), 1560.0)
+	var shape: Array[Vector2] = _offsets(convoy)
+	convoy.step(1424.0 / 40.0)
+	assert_eq(convoy.left_x(), 1424.0)
 	assert_eq(convoy.direction(), -1, "flipped at the right edge")
-	var ships: Array[ConvoyShip] = convoy.ships()
 	assert_eq(_group_rect(convoy).end.x, 1920.0, "right edge exactly on the screen edge")
-	assert_lt(ships[Convoy.LEAD].global_position.x, ships[Convoy.FLANK_TOP].global_position.x, "lead now on the left, leading")
-	for ship: ConvoyShip in ships:
-		assert_eq(ship.facing, -1, "%s nose to the left" % ship.name)
+	assert_eq(_offsets(convoy), shape, "the same layout heading left (no mirroring)")
+	var ships: Array[ConvoyShip] = convoy.ships()
+	assert_lt(ships[Convoy.FLANK_LEFT].global_position.x, ships[Convoy.LEAD].global_position.x, "flank-left still on the left")
 
 
-func test_two_crossings_stay_on_screen_and_lead_leads() -> void:
+func test_two_crossings_stay_on_screen_with_one_layout() -> void:
 	var convoy: Convoy = _make()
+	var shape: Array[Vector2] = _offsets(convoy)
 	var flips: int = 0
 	var last_dir: int = convoy.direction()
-	# 1560 px each way at 40 px/s is 39 s; run 90 s (two full crossings and more).
+	# 1424 px each way at 40 px/s is 35.6 s; run 90 s (two full crossings and more).
 	for i: int in 90 * 60:
 		convoy.step(DT)
 		for ship: ConvoyShip in convoy.ships():
@@ -212,28 +249,60 @@ func test_two_crossings_stay_on_screen_and_lead_leads() -> void:
 			if r.position.x < -0.001 or r.end.x > 1920.001:
 				fail_test("%s left x 0-1920 at tick %d: %s" % [ship.name, i, r])
 				return
-		var lead_x: float = convoy.ships()[Convoy.LEAD].global_position.x
-		var flank_x: float = convoy.ships()[Convoy.FLANK_TOP].global_position.x
-		if (lead_x - flank_x) * float(convoy.direction()) <= 0.0:
-			fail_test("lead not leading at tick %d" % i)
-			return
 		if convoy.direction() != last_dir:
 			flips += 1
 			last_dir = convoy.direction()
+			var now: Array[Vector2] = _offsets(convoy)
+			for j: int in now.size():
+				if not now[j].is_equal_approx(shape[j]):
+					fail_test("layout changed at tick %d: %s" % [i, now])
+					return
 	assert_gte(flips, 2, "reversed at both edges")
 
 
-# --- Hull rects ----------------------------------------------------------------------
+# --- Solid hull polygon (DW-83) -----------------------------------------------------------
 
-func test_hull_rects_are_cached_and_follow_the_ships() -> void:
+func test_hull_polygon_at_the_start() -> void:
 	var convoy: Convoy = _make()
-	var rects: Array[Rect2] = convoy.hull_rects()
-	assert_eq(rects.size(), 3)
-	assert_eq(rects[Convoy.FLANK_TOP], Rect2(16, 768, 128, 64), "global hitbox rect")
-	assert_eq(rects[Convoy.LEAD], convoy.ships()[Convoy.LEAD].hull_rect())
+	var poly: PackedVector2Array = convoy.hull_polygon()
+	assert_eq(poly, PackedVector2Array([Vector2(16, 882), Vector2(16, 818), Vector2(184, 798),
+		Vector2(312, 798), Vector2(480, 818), Vector2(480, 882)]), "the convex outline of the three hitboxes")
+
+
+func test_hull_polygon_is_built_from_the_hitboxes() -> void:
+	var convoy: Convoy = _make()
+	var poly: PackedVector2Array = convoy.hull_polygon()
+	var left: Rect2 = convoy.ships()[Convoy.FLANK_LEFT].hull_rect()
+	var lead: Rect2 = convoy.ships()[Convoy.LEAD].hull_rect()
+	var right: Rect2 = convoy.ships()[Convoy.FLANK_RIGHT].hull_rect()
+	assert_eq(poly[0], Vector2(left.position.x, left.end.y), "flank-left bottom-left")
+	assert_eq(poly[1], left.position, "flank-left top-left")
+	assert_eq(poly[2], lead.position, "lead top-left")
+	assert_eq(poly[3], Vector2(lead.end.x, lead.position.y), "lead top-right")
+	assert_eq(poly[4], Vector2(right.end.x, right.position.y), "flank-right top-right")
+	assert_eq(poly[5], right.end, "flank-right bottom-right")
+	for r: Rect2 in [left, lead, right]:
+		for corner: Vector2 in [r.position, r.end, Vector2(r.position.x, r.end.y), Vector2(r.end.x, r.position.y)]:
+			assert_true(Geometry2D.is_point_in_polygon(corner, poly) or _on_polygon(corner, poly), "%s inside the polygon" % corner)
+
+
+func _on_polygon(p: Vector2, poly: PackedVector2Array) -> bool:
+	for i: int in poly.size():
+		var q: Vector2 = Geometry2D.get_closest_point_to_segment(p, poly[i], poly[(i + 1) % poly.size()])
+		if q.distance_to(p) < 0.001:
+			return true
+	return false
+
+
+func test_hull_polygon_is_cached_and_refreshed_in_place() -> void:
+	var convoy: Convoy = _make()
+	var poly: PackedVector2Array = convoy.hull_polygon()
+	assert_eq(poly.size(), 6)
 	convoy.step(1.0)
-	assert_same(convoy.hull_rects(), rects, "the same cached array every tick")
-	assert_eq(rects[Convoy.FLANK_TOP], Rect2(56, 768, 128, 64), "refreshed in place")
+	var moved: PackedVector2Array = convoy.hull_polygon()
+	assert_eq(moved.size(), 6, "still 6 points")
+	assert_eq(moved[1], Vector2(56, 818), "refreshed after a step")
+	assert_eq(moved[5], Vector2(520, 882))
 
 
 # --- HP --------------------------------------------------------------------------------
@@ -266,7 +335,7 @@ func test_non_positive_damage_is_ignored() -> void:
 
 func test_ship_forwards_damage_to_the_pool() -> void:
 	var convoy: Convoy = _make()
-	convoy.ships()[Convoy.FLANK_BOTTOM].apply_damage(10, null)
+	convoy.ships()[Convoy.FLANK_RIGHT].apply_damage(10, null)
 	convoy.ships()[Convoy.LEAD].apply_damage(5, null)
 	assert_eq(convoy.hp(), 85, "one shared pool")
 
@@ -319,25 +388,29 @@ func test_no_failure_after_a_death() -> void:
 
 # --- Hull drawing ----------------------------------------------------------------------
 
-func test_hull_outline_faces_its_facing() -> void:
+func test_hull_outline_points_nose_up() -> void:
 	var ship: ConvoyShip = SHIP_SCENE.instantiate() as ConvoyShip
 	add_child_autofree(ship)
+	assert_false("facing" in ship, "no facing property any more")
 	var outline: PackedVector2Array = ship.outline()
 	assert_eq(outline.size(), 5)
 	var min_x: float = INF
 	var max_x: float = -INF
-	var nose: Vector2 = Vector2.ZERO
+	var min_y: float = INF
+	var max_y: float = -INF
+	var bottom: int = 0
 	for p: Vector2 in outline:
 		min_x = minf(min_x, p.x)
 		max_x = maxf(max_x, p.x)
-		if is_zero_approx(p.y):
-			nose = p
+		min_y = minf(min_y, p.y)
+		max_y = maxf(max_y, p.y)
+		if is_equal_approx(p.y, 40.0):
+			bottom += 1
 	assert_eq(max_x - min_x, 160.0, "ship_width_px wide")
-	assert_eq(nose, Vector2(80, 0), "nose on the right")
-	ship.facing = -1
-	for p: Vector2 in ship.outline():
-		if is_zero_approx(p.y):
-			assert_eq(p, Vector2(-80, 0), "nose on the left")
+	assert_eq(max_y - min_y, 80.0, "ship_height_px tall")
+	assert_eq(bottom, 2, "flat bottom")
+	assert_true(outline.has(Vector2(0, -40)), "nose at the top centre")
+	assert_true(outline.has(Vector2(-80, -20)) and outline.has(Vector2(80, -20)), "taper over the top quarter")
 
 
 func test_hull_colours_are_coalition_and_dim() -> void:
@@ -379,8 +452,8 @@ func test_aimed_enemy_bullet_costs_the_convoy_aimed_amount() -> void:
 
 func test_aimed_bullet_hitting_any_ship_costs_the_aimed_amount() -> void:
 	var convoy: Convoy = _make()
-	var ship: ConvoyShip = convoy.ships()[Convoy.FLANK_BOTTOM]
-	# From below, so FlankBottom (not FlankTop above it) is the ship hit.
+	var ship: ConvoyShip = convoy.ships()[Convoy.FLANK_RIGHT]
+	# From below, so FlankRight is the ship hit.
 	var bullet: EnemyBullet = _fire_bullet_at(ship, {"targets_convoy": true,
 		"position": ship.global_position + Vector2(0, 150), "velocity": Vector2(0, -450)})
 	await wait_physics_frames(40)

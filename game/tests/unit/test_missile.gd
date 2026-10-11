@@ -227,7 +227,7 @@ func test_real_missile_into_a_real_convoy_ship_fizzles() -> void:
 	var convoy: Convoy = CONVOY_SCENE.instantiate() as Convoy
 	add_child_autofree(convoy)
 	convoy.set_physics_process(false)
-	var ship: ConvoyShip = convoy.ships()[Convoy.FLANK_TOP]
+	var ship: ConvoyShip = convoy.ships()[Convoy.FLANK_LEFT]
 	var near: Area2D = _make_target(ship.global_position + Vector2(0, -60), &"enemies")
 	var missile: Missile = MISSILE_SCENE.instantiate() as Missile
 	missile.setup({"position": ship.global_position + Vector2(0, 120), "velocity": Vector2(0, -900), "damage": 8})

@@ -202,7 +202,7 @@ func test_needle_bolt_is_a_stray_on_the_convoy() -> void:
 	bolt.set_physics_process(false)
 	assert_true(bolt is NeedleBolt)
 	assert_false((bolt as EnemyBullet).targets_convoy, "never convoy-aimed")
-	bolt._on_area_entered(convoy.ships()[Convoy.FLANK_BOTTOM])
+	bolt._on_area_entered(convoy.ships()[Convoy.FLANK_RIGHT])
 	assert_eq(convoy.hp(), convoy.max_hp() - Config.int_("damage.convoy_stray"), "stray: 2")
 	assert_eq(convoy.hp(), 98)
 	assert_true(bolt.is_queued_for_deletion(), "the bolt stops and frees")

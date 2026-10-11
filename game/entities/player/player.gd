@@ -82,15 +82,17 @@ extends Area2D
 ## Events.player_action(&"shield" / &"barrage"); a denied or busy ability emits
 ## nothing. PlayerWeapons emits &"laser" / &"missile".
 ##
-## Convoy hulls (Story 6.1, GDD #25, #29): the HullArea child (layer 0, mask
-## convoy) holds the player.hull_diameter_px circle; the 24 px hurtbox and the
-## root mask are unchanged, so convoy contact never costs a heart. With a live
-## convoy injected through set_convoy, step_lock sweeps the move from the
+## Convoy hull (Story 6.1, DW-83, GDD #25, #29, #51): the HullArea child (layer
+## 0, mask convoy) holds the player.hull_diameter_px circle; the 24 px hurtbox
+## and the root mask are unchanged, so convoy contact never costs a heart. With
+## a live convoy injected through set_convoy, step_lock sweeps the move from the
 ## previous position to the confined cursor point against the convoy's cached
-## hitbox rects (resolve_hull: sub-steps of at most radius / 2, pushed out of
-## every rect after each, so the ship stops on the side it came from and slides
-## along a hull), then confines it to the zone; a squeeze against the screen
-## edge is pushed out along y. The first lock tick only snaps and pushes out.
+## formation polygon, one solid convex shape covering all three ships and the
+## gaps between them (resolve_hull: sub-steps of at most radius / 2, pushed out
+## of the polygon after each, so the ship stops on the side it came from, can't
+## slip between cargo ships and slides along the outline), then confines it to
+## the zone; a squeeze against the screen edge is pushed out along y. The first
+## lock tick only snaps and pushes out.
 ## The cursor is then warped onto the final position whenever the mouse is more
 ## than WARP_EPS_PX from it (this also covers the zone-edge warp).
 
@@ -98,9 +100,12 @@ extends Area2D
 ## rounds to whole OS pixels, so under stretch the read-back can land a fraction of
 ## a viewport px past the edge and would otherwise warp on every tick.
 const WARP_EPS_PX: float = 1.0
-## Overlap tolerance for the hull push-out: a circle resting exactly on a hull
+## Overlap tolerance for the hull push-out: a circle resting exactly on the hull
 ## (or within float error of it) is not overlapping.
 const HULL_EPS_PX: float = 0.01
+## Bisection steps for the screen-edge squeeze's y search (precision far below
+## HULL_EPS_PX over the band's height).
+const SQUEEZE_BISECT_STEPS: int = 24
 
 ## Moves the OS cursor, in viewport coordinates. Defaults to the viewport's
 ## warp_mouse in _ready; tests inject a recorder.
@@ -491,8 +496,8 @@ func step_missile(pressed: bool, delta: float) -> void:
 	_weapons.step_missile(pressed, delta)
 
 
-## Injected by the scene root when the level has a convoy (Story 6.1): its hulls
-## become solid to the ship. Null (or a freed convoy) turns that off.
+## Injected by the scene root when the level has a convoy (Story 6.1): its
+## formation becomes solid to the ship. Null (or a freed convoy) turns that off.
 func set_convoy(convoy: Convoy) -> void:
 	_convoy = convoy
 
@@ -503,15 +508,15 @@ func hull_radius() -> float:
 
 
 ## One lock tick: the ship sits on the confined mouse point (viewport
-## coordinates), or, with a live convoy, on that point resolved against the hulls
-## (resolve_hull from the previous position; the first tick only snaps and
-## pushes out). A mouse more than WARP_EPS_PX from the final position is warped
-## onto it, but only while the gameplay mode is CONFINED_HIDDEN. When the ship
-## moved (not on the first tick) it emits Events.player_moved (Story 5.8).
-## The first call after a resume warp uses the warp target instead of `mouse`
-## (the viewport may still report the pre-warp position) and disarms the guard,
-## so the ship ignores the mouse for that tick (a convoy hull can still push
-## it; DW-20).
+## coordinates), or, with a live convoy, on that point resolved against the
+## formation polygon (resolve_hull from the previous position; the first tick
+## only snaps and pushes out). A mouse more than WARP_EPS_PX from the final
+## position is warped onto it, but only while the gameplay mode is
+## CONFINED_HIDDEN. When the ship moved (not on the first tick) it emits
+## Events.player_moved (Story 5.8). The first call after a resume warp uses the
+## warp target instead of `mouse` (the viewport may still report the pre-warp
+## position) and disarms the guard, so the ship ignores the mouse for that tick
+## (the convoy can still push it; DW-20).
 func step_lock(mouse: Vector2) -> void:
 	if _resume_pending:
 		_resume_pending = false
@@ -521,7 +526,7 @@ func step_lock(mouse: Vector2) -> void:
 	var final: Vector2 = confined
 	if _has_live_convoy():
 		var start: Vector2 = previous if _locked_once else confined
-		final = resolve_hull(start, confined, _hull_radius, _convoy.hull_rects(), _bounds_min, _bounds_max)
+		final = resolve_hull(start, confined, _hull_radius, _convoy.hull_polygon(), _bounds_min, _bounds_max)
 	var off: bool = mouse.distance_squared_to(final) > WARP_EPS_PX * WARP_EPS_PX
 	if off and PauseArbiter.current_mouse_mode() == Input.MOUSE_MODE_CONFINED_HIDDEN:
 		warp_mouse.call(final)
@@ -539,87 +544,149 @@ func _has_live_convoy() -> bool:
 
 
 ## The ship's position after moving from `from` toward `to` (both centres) past
-## the axis-aligned `rects`, for a hull circle of `radius`: sub-steps of at most
-## radius / 2, each pushed out of every rect (so the ship can't tunnel and slides
-## along a hull), then confined to bounds_min..bounds_max. If that confinement
-## leaves an overlap (a squeeze against the screen edge) the ship is pushed out
-## along y only, and y is not clamped again (the band +- radius fits the zone).
-## With from == to it only pushes out. No allocation.
-static func resolve_hull(from: Vector2, to: Vector2, radius: float, rects: Array[Rect2],
+## the convex `polygon` (any winding), for a hull circle of `radius`: sub-steps
+## of at most radius / 2, each pushed out of the polygon (so the ship can't
+## tunnel and slides along the outline), then confined to
+## bounds_min..bounds_max. If that confinement leaves an overlap (a squeeze
+## against the screen edge) the ship moves along y only, to the nearest free y
+## above or below, and y is not clamped again (the band +- radius fits the
+## zone). With from == to it only pushes out. Fewer than 3 points or radius <= 0
+## is a plain confine. No allocation.
+static func resolve_hull(from: Vector2, to: Vector2, radius: float, polygon: PackedVector2Array,
 		bounds_min: Vector2, bounds_max: Vector2) -> Vector2:
-	if rects.is_empty() or radius <= 0.0:
+	if polygon.size() < 3 or radius <= 0.0:
 		return confine(to, bounds_min, bounds_max)
 	var step_len: float = radius / 2.0
 	var steps: int = maxi(ceili(from.distance_to(to) / step_len), 1)
 	var p: Vector2 = from
 	for i: int in steps:
 		p = p.move_toward(to, step_len)
-		p = _push_out(p, radius, rects)
+		p = _push_out(p, radius, polygon)
 	p = confine(p, bounds_min, bounds_max)
-	if overlaps_hull(p, radius, rects):
-		p = _push_out_y(p, radius, rects)
+	if overlaps_hull(p, radius, polygon):
+		p = _push_out_y(p, radius, polygon)
 	return p
 
 
-## True when a circle of `radius` at `p` overlaps any rect (resting on one is not
-## overlapping).
-static func overlaps_hull(p: Vector2, radius: float, rects: Array[Rect2]) -> bool:
-	for rect: Rect2 in rects:
-		if _rect_overlap(p, radius, rect):
-			return true
-	return false
+## True when a circle of `radius` at `p` overlaps the convex `polygon` (resting
+## on it, within HULL_EPS_PX, is not overlapping). Fewer than 3 points: false.
+static func overlaps_hull(p: Vector2, radius: float, polygon: PackedVector2Array) -> bool:
+	return _overlaps(p, radius - HULL_EPS_PX, polygon)
 
 
-static func _rect_overlap(p: Vector2, radius: float, rect: Rect2) -> bool:
-	var q: Vector2 = p.clamp(rect.position, rect.end)
-	var r: float = radius - HULL_EPS_PX
-	return p.distance_squared_to(q) < r * r
+## Strict overlap: the centre inside (or on) the polygon, or closer than `r` to
+## its boundary.
+static func _overlaps(p: Vector2, r: float, polygon: PackedVector2Array) -> bool:
+	if polygon.size() < 3:
+		return false
+	if _inside(p, polygon):
+		return true
+	if r <= 0.0:
+		return false
+	return p.distance_squared_to(_closest_point(p, polygon)) < r * r
 
 
-## Pushes `p` out of every rect it overlaps: to `radius` from the rect's closest
-## point, or, with the centre inside (or on the edge of) a rect, out through the
-## nearest side.
-static func _push_out(p: Vector2, radius: float, rects: Array[Rect2]) -> Vector2:
-	for rect: Rect2 in rects:
-		var q: Vector2 = p.clamp(rect.position, rect.end)
-		var d: Vector2 = p - q
-		var d2: float = d.length_squared()
-		if d2 >= radius * radius:
+## True when `p` is inside or on the convex `polygon`: every edge's cross
+## product has the same sign (or is 0), whatever the winding.
+static func _inside(p: Vector2, polygon: PackedVector2Array) -> bool:
+	var n: int = polygon.size()
+	var side: int = 0
+	for i: int in n:
+		var a: Vector2 = polygon[i]
+		var c: float = (polygon[(i + 1) % n] - a).cross(p - a)
+		if c > 0.0:
+			if side < 0:
+				return false
+			side = 1
+		elif c < 0.0:
+			if side > 0:
+				return false
+			side = -1
+	return side != 0
+
+
+## The closest point to `p` on the polygon's boundary.
+static func _closest_point(p: Vector2, polygon: PackedVector2Array) -> Vector2:
+	var n: int = polygon.size()
+	var best: Vector2 = polygon[0]
+	var best_d2: float = INF
+	for i: int in n:
+		var q: Vector2 = Geometry2D.get_closest_point_to_segment(p, polygon[i], polygon[(i + 1) % n])
+		var d2: float = p.distance_squared_to(q)
+		if d2 < best_d2:
+			best_d2 = d2
+			best = q
+	return best
+
+
+## Pushes `p` out of the polygon: with the centre inside (or on the boundary),
+## out through the nearest edge along its outward normal; then, if closer than
+## `radius` to the boundary, to `radius` from the closest boundary point.
+static func _push_out(p: Vector2, radius: float, polygon: PackedVector2Array) -> Vector2:
+	if _inside(p, polygon):
+		p = _exit_nearest_edge(p, radius, polygon)
+	var q: Vector2 = _closest_point(p, polygon)
+	var d: Vector2 = p - q
+	var d2: float = d.length_squared()
+	if d2 >= radius * radius or d2 <= 0.0:
+		return p
+	return q + d / sqrt(d2) * radius
+
+
+## Moves an inside `p` out through the polygon edge it is nearest to, to
+## `radius` beyond that edge's line along its outward normal. The normal's side
+## comes from the sign of the polygon's area, so either winding works.
+static func _exit_nearest_edge(p: Vector2, radius: float, polygon: PackedVector2Array) -> Vector2:
+	var n: int = polygon.size()
+	var area2: float = 0.0
+	for i: int in n:
+		area2 += polygon[i].cross(polygon[(i + 1) % n])
+	var orient: float = -1.0 if area2 < 0.0 else 1.0
+	var best_s: float = -INF
+	var best_n: Vector2 = Vector2.ZERO
+	for i: int in n:
+		var a: Vector2 = polygon[i]
+		var e: Vector2 = polygon[(i + 1) % n] - a
+		var length: float = e.length()
+		if length <= 0.0:
 			continue
-		if d2 > 0.0:
-			p = q + d / sqrt(d2) * radius
-			continue
-		var to_left: float = p.x - rect.position.x
-		var to_right: float = rect.end.x - p.x
-		var to_top: float = p.y - rect.position.y
-		var to_bottom: float = rect.end.y - p.y
-		var nearest: float = minf(minf(to_left, to_right), minf(to_top, to_bottom))
-		if nearest == to_top:
-			p.y = rect.position.y - radius
-		elif nearest == to_bottom:
-			p.y = rect.end.y + radius
-		elif nearest == to_left:
-			p.x = rect.position.x - radius
+		var normal: Vector2 = Vector2(e.y, -e.x) / length * orient
+		var s: float = (p - a).dot(normal)
+		if s > best_s:
+			best_s = s
+			best_n = normal
+	if best_n == Vector2.ZERO:
+		return p
+	return p + best_n * (radius - best_s)
+
+
+## Moves `p` vertically to the nearest y (above or below) where the circle no
+## longer overlaps the polygon. On a vertical line the overlapping ys form one
+## interval (the disc-inflated convex polygon is convex), so each side is a
+## bisection between `p` and a y a full radius past the polygon.
+static func _push_out_y(p: Vector2, radius: float, polygon: PackedVector2Array) -> Vector2:
+	var min_y: float = INF
+	var max_y: float = -INF
+	for v: Vector2 in polygon:
+		min_y = minf(min_y, v.y)
+		max_y = maxf(max_y, v.y)
+	var up: float = _free_y(p, radius, polygon, min_y - radius)
+	var down: float = _free_y(p, radius, polygon, max_y + radius)
+	return Vector2(p.x, up if absf(up - p.y) <= absf(down - p.y) else down)
+
+
+## Bisects between the overlapping `p` and the free y `free_y` (same x) and
+## returns the free end, at most a few micro-pixels from the overlap boundary.
+static func _free_y(p: Vector2, radius: float, polygon: PackedVector2Array, free_y: float) -> float:
+	var hit: float = p.y
+	var free: float = free_y
+	for i: int in SQUEEZE_BISECT_STEPS:
+		var mid: float = (hit + free) / 2.0
+		if _overlaps(Vector2(p.x, mid), radius, polygon):
+			hit = mid
 		else:
-			p.x = rect.end.x + radius
-	return p
-
-
-## Moves `p` vertically to the nearest y just above or below a rect where the
-## circle overlaps no rect; unchanged if there is none.
-static func _push_out_y(p: Vector2, radius: float, rects: Array[Rect2]) -> Vector2:
-	var best_y: float = p.y
-	var best_d: float = INF
-	for rect: Rect2 in rects:
-		var above: float = rect.position.y - radius
-		var below: float = rect.end.y + radius
-		if absf(above - p.y) < best_d and not overlaps_hull(Vector2(p.x, above), radius, rects):
-			best_d = absf(above - p.y)
-			best_y = above
-		if absf(below - p.y) < best_d and not overlaps_hull(Vector2(p.x, below), radius, rects):
-			best_d = absf(below - p.y)
-			best_y = below
-	return Vector2(p.x, best_y)
+			free = mid
+	return free
 
 
 ## Clamps the ship centre to x 0..Playfield width, y bounds_y.min..max.

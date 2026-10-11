@@ -218,7 +218,7 @@ func test_real_bolt_into_a_real_convoy_ship_leaves_hp_unchanged() -> void:
 	var convoy: Convoy = CONVOY_SCENE.instantiate() as Convoy
 	add_child_autofree(convoy)
 	convoy.set_physics_process(false)
-	var ship: ConvoyShip = convoy.ships()[Convoy.FLANK_TOP]
+	var ship: ConvoyShip = convoy.ships()[Convoy.FLANK_LEFT]
 	var bolt: Projectile = BOLT_SCENE.instantiate() as Projectile
 	bolt.setup({"position": ship.global_position + Vector2(0, 120), "velocity": Vector2(0, -1800), "damage": 1})
 	add_child_autofree(bolt)

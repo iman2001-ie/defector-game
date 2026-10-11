@@ -195,7 +195,8 @@
 		"hitbox_ratio": 0.8,
 		"speed_px_s": 40,
 		"band_y": { "min": 760, "max": 920 },
-		"lead_offset_px": 40
+		"gap_px": 8,
+		"lead_raise_px": 20
 	},
 	"allies": {
 		"patrol_band_y": { "min": 620, "max": 760 },

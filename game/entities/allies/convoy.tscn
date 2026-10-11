@@ -8,6 +8,6 @@ script = ExtResource("1_convoy")
 
 [node name="Lead" parent="." instance=ExtResource("2_ship")]
 
-[node name="FlankTop" parent="." instance=ExtResource("2_ship")]
+[node name="FlankLeft" parent="." instance=ExtResource("2_ship")]
 
-[node name="FlankBottom" parent="." instance=ExtResource("2_ship")]
+[node name="FlankRight" parent="." instance=ExtResource("2_ship")]

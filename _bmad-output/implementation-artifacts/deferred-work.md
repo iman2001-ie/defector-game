@@ -818,7 +818,9 @@ origin: spec-deferred b923c06c4a79
 location: game/entities/player/player.gd resolve_hull / game/entities/allies/convoy.gd ship_centre
 source_spec: `spec-6-1-protect-the-convoy.md`
 reason: Hitbox centres are 200 px apart in x (160 + 40 gap) and the hitboxes are 128 px wide, leaving 72 px; resolve_hull uses the hitbox rects (as the spec and the AC's HullArea-vs-convoy-layer mechanism prescribe). Whether slipping between formation ships is unwanted is not settled by GDD #25 (which forbids passing through hulls, not between them). Settle by an operator playtest of dev_convoy; if unwanted, close the pocket (resolve against drawn extents or add a gap rect).
-status: open
+status: done 2026-10-11
+resolution: resolved by sweep bundle dw-convoy-solid-triangle-formation
+resolution-undo: 4148b8ad8f610b4b2744f9b91979eed53fd79a44f1c339b47d52bbdbbd137634 2026-10-11 7374617475733a206f70656e
 decision: 2026-10-10 Nose-up mock formation with one solid triangle — Confirmed in operator playtest: the ship slips through. Change the convoy formation to the UX mock layout: three cargo ships nose-up (not facing the travel direction), side by side, the middle (lead) ship raised so the group forms a shallow symmetric triangle, all inside the y 760-920 band; the whole group slides left/right as one, ping-pong per #45 (no mirroring needed, the formation is symmetric), starting on-screen at the left clear of the player spawn. Replace the per-ship player push-out with ONE solid triangular collision shape covering the whole formation, including the gaps between ships, so the player can never pass between them (slides along it, no damage, per #25). Enemy shots and Mauls still hit and damage individual ships; player/ally shots are still blocked per ship (#23, #46). Add player-convoy tests (cannot pass between ships from any side; slides along the triangle) and update existing convoy layout tests. Amend the GDD convoy rules (formation wording, 'lead about 40 px ahead'), epics.md FR32/Story 6.1 AC, game-architecture.md convoy notes, and add a decision-log row (clarifies #25, revises #24/#45 geometry). Ship art stays as is (DW-86, Story 8.2).
 
 ### DW-84: One unidentified intermittent failure in test_level.gd (57/58), seen once while the implementer re-ran it after the review patches.
@@ -900,4 +902,12 @@ location: game/tests/data/test_data_files.gd:test_needle_tuning_ranges
 source_spec: `spec-dw-67-dw-68-level-validator-group-rules.md`
 severity: low
 reason: test_needle_tuning_ranges only checks that anchor_y_px is inside the enemy zone. If either tuning value changes, even a first-in-wave Needle stops lining up with row 0. Pre-existing tuning coupling; not introduced by this change.
+status: open
+
+### DW-94: The Player's 64 px hull circle can visibly overlap drawn cargo hulls (up to 16 px at the sides, about 8 px at the lead's top, more at the nose tips) because solidity uses the 80% hitboxes, not the
+origin: spec-deferred 433360990799
+location: game/entities/allies/convoy.gd _place_ships
+source_spec: `spec-dw-83-convoy-solid-triangle-formation.md`
+severity: low
+reason: hull_polygon() is built from ConvoyShip.hull_rect() (128x64 hitboxes) while hulls are drawn 160x80; Story 6.1 already resolved against the hitbox rects, so this predates DW-83. Settle by operator playtest of dev_convoy: if the overlap reads badly, build the polygon from the drawn extents (hull_size) instead.
 status: open

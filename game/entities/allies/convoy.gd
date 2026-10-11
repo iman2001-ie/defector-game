@@ -1,21 +1,24 @@
 class_name Convoy
 extends Node2D
-## The escort convoy (Story 6.1, FR32, FR33, GDD #24, #45): three ConvoyShip
-## hulls (Lead, FlankTop, FlankBottom) in a tight triangle that move as one group
-## and share one HP pool for the level attempt. Spawned only by
+## The escort convoy (Story 6.1, DW-83, FR32, FR33, GDD #24, #45, #51): three
+## nose-up ConvoyShip hulls (Lead, FlankLeft, FlankRight) side by side that move
+## as one group and share one HP pool for the level attempt. Spawned only by
 ## Spawner.spawn_convoy into World/Allies when the level JSON has "convoy": true.
 ##
-## Layout (all numbers from tuning `convoy`): the flankers are centred at y
-## band_y.min + h/2 and band_y.max - h/2, the lead at the band centre. The
-## lead's rear edge is lead_offset_px ahead of the flankers' front edges, so the
-## group spans 2 * ship_width_px + lead_offset_px. The group tracks its left
-## edge (left_x) and direction (dir). Heading right, the flankers are at
-## left_x + w/2 and the lead at left_x + w + gap + w/2; heading left the
-## triangle is mirrored (lead at left_x + w/2), so the lead always leads.
+## Layout (all numbers from tuning `convoy`; gap_px and lead_raise_px clamped to
+## >= 0): flank-left, lead, flank-right from left to right, gap_px apart between
+## the drawn hulls, the middle (lead) ship lead_raise_px higher, so the group is
+## a shallow symmetric triangle spanning 3 * ship_width_px + 2 * gap_px. For
+## left edge `left`, width w, height h, gap g and raise r: flank-left x =
+## left + w/2, lead x = left + 1.5w + g, flank-right x = left + 2.5w + 2g. The
+## group (height h + r) is centred vertically in band_y: top = band centre -
+## (h + r)/2, lead y = top + h/2, flank y = top + r + h/2. The layout never
+## mirrors.
 ##
 ## Path (GDD #45): it starts fully on-screen at left_x 0 heading right and moves
 ## at speed_px_s. step_span clamps left_x to [0, Playfield width - span] and
-## flips dir at each edge (ping-pong); it never wraps off-screen.
+## flips dir at each edge (ping-pong); it never wraps off-screen. direction() is
+## still reported but does not change the layout.
 ##
 ## HP: hp() starts at convoy.hp and is broadcast through
 ## Events.convoy_hp_changed (in _ready, then on every hit). It is never reset by
@@ -24,20 +27,29 @@ extends Node2D
 ## Events.level_failed(&"convoy") once. The first outcome wins: after
 ## level_cleared or any level_failed every hit is ignored (no HP change, no events).
 ##
-## hull_rects() returns the cached global hitbox rects (refreshed every physics
-## tick, no allocation), which the Player's hull resolution reads.
+## Solid hull (DW-83, GDD #51): hull_polygon() returns the cached formation
+## polygon, the convex outline of the three global hitbox rects with the gaps
+## included (6 points: flank-left bottom-left and top-left, lead top-left and
+## top-right, flank-right top-right and bottom-right). It is refreshed in place
+## every physics tick (no allocation), and the Player's hull resolution reads
+## it. The per-ship hitboxes still serve shots and Mauls.
 
-const SHIP_NAMES: Array[StringName] = [&"Lead", &"FlankTop", &"FlankBottom"]
-## Index of each ship in SHIP_NAMES, ship_centres() and hull_rects().
+const SHIP_NAMES: Array[StringName] = [&"Lead", &"FlankLeft", &"FlankRight"]
+## Index of each ship in SHIP_NAMES and ship_centres().
 const LEAD: int = 0
-const FLANK_TOP: int = 1
-const FLANK_BOTTOM: int = 2
-## The ship count the triangle layout supports.
+const FLANK_LEFT: int = 1
+const FLANK_RIGHT: int = 2
+## The ship count the layout supports.
 const LAYOUT_SHIPS: int = 3
+## Points in hull_polygon().
+const HULL_POINTS: int = 6
 
 var ship_width: float = 0.0
 var ship_height: float = 0.0
-var lead_gap: float = 0.0
+## convoy.gap_px: the horizontal gap between neighbouring drawn hulls.
+var gap: float = 0.0
+## convoy.lead_raise_px: how much higher the lead sits than the flankers.
+var lead_raise: float = 0.0
 var speed_px_s: float = 0.0
 var band_min: float = 0.0
 var band_max: float = 0.0
@@ -50,7 +62,7 @@ var _ended: bool = false
 var _left_x: float = 0.0
 var _dir: int = 1
 var _ships: Array[ConvoyShip] = []
-var _rects: Array[Rect2] = []
+var _polygon: PackedVector2Array = PackedVector2Array()
 
 
 ## Stores params before add_child; no keys yet (the layout and HP are tuning).
@@ -61,19 +73,20 @@ func setup(_params: Dictionary) -> void:
 func _ready() -> void:
 	ship_width = maxf(Config.num("convoy.ship_width_px"), 0.0)
 	ship_height = maxf(Config.num("convoy.ship_height_px"), 0.0)
-	lead_gap = maxf(Config.num("convoy.lead_offset_px"), 0.0)
+	gap = maxf(Config.num("convoy.gap_px"), 0.0)
+	lead_raise = maxf(Config.num("convoy.lead_raise_px"), 0.0)
 	speed_px_s = maxf(Config.num("convoy.speed_px_s"), 0.0)
 	band_min = Config.num("convoy.band_y.min")
 	band_max = Config.num("convoy.band_y.max")
 	var ships: int = Config.int_("convoy.ships")
 	if ships != LAYOUT_SHIPS:
-		Log.warn("data", "convoy.ships is %d but the triangle layout has %d ships; using %d" % [ships, LAYOUT_SHIPS, LAYOUT_SHIPS])
+		Log.warn("data", "convoy.ships is %d but the convoy layout has %d ships; using %d" % [ships, LAYOUT_SHIPS, LAYOUT_SHIPS])
 	add_to_group(Groups.CONVOY)
 	for ship_name: StringName in SHIP_NAMES:
 		var ship: ConvoyShip = get_node(NodePath(ship_name)) as ConvoyShip
 		ship.convoy = self
 		_ships.append(ship)
-		_rects.append(Rect2())
+	_polygon.resize(HULL_POINTS)
 	Events.level_cleared.connect(_on_events_level_cleared)
 	Events.level_failed.connect(_on_events_level_failed)
 	_left_x = 0.0
@@ -116,24 +129,25 @@ func left_x() -> float:
 	return _left_x
 
 
-## +1 heading right, -1 heading left.
+## +1 heading right, -1 heading left (the layout is the same either way).
 func direction() -> int:
 	return _dir
 
 
-## The group width: 2 * ship_width + lead_gap.
+## The group width: 3 * ship_width + 2 * gap.
 func span() -> float:
-	return group_span(ship_width, lead_gap)
+	return group_span(ship_width, gap)
 
 
-## The ships in SHIP_NAMES order (Lead, FlankTop, FlankBottom).
+## The ships in SHIP_NAMES order (Lead, FlankLeft, FlankRight).
 func ships() -> Array[ConvoyShip]:
 	return _ships
 
 
-## The cached global hitbox rects, in SHIP_NAMES order (refreshed each tick).
-func hull_rects() -> Array[Rect2]:
-	return _rects
+## The cached solid formation polygon (6 global points, see the class doc),
+## refreshed in place each tick.
+func hull_polygon() -> PackedVector2Array:
+	return _polygon
 
 
 # --- Damage -----------------------------------------------------------------------
@@ -162,19 +176,25 @@ func _on_events_level_failed(_reason: StringName) -> void:
 
 # --- Layout -----------------------------------------------------------------------
 
-## Positions every ship for the current left_x / dir, sets its facing and
-## refreshes the cached hull rects (no allocation).
+## Positions every ship for the current left_x and refreshes the cached hull
+## polygon in place (no allocation).
 func _place_ships() -> void:
 	for i: int in _ships.size():
-		var ship: ConvoyShip = _ships[i]
-		ship.global_position = ship_centre(i, _left_x, _dir, ship_width, ship_height, lead_gap, band_min, band_max)
-		ship.facing = _dir
-		_rects[i] = ship.hull_rect()
+		_ships[i].global_position = ship_centre(i, _left_x, ship_width, ship_height, gap, lead_raise, band_min, band_max)
+	var left: Rect2 = _ships[FLANK_LEFT].hull_rect()
+	var lead: Rect2 = _ships[LEAD].hull_rect()
+	var right: Rect2 = _ships[FLANK_RIGHT].hull_rect()
+	_polygon[0] = Vector2(left.position.x, left.end.y)
+	_polygon[1] = left.position
+	_polygon[2] = lead.position
+	_polygon[3] = Vector2(lead.end.x, lead.position.y)
+	_polygon[4] = Vector2(right.end.x, right.position.y)
+	_polygon[5] = right.end
 
 
-## The group width for hulls `w` wide with a `gap` between lead and flankers.
-static func group_span(w: float, gap: float) -> float:
-	return 2.0 * w + gap
+## The group width for three hulls `w` wide with `g` between neighbours.
+static func group_span(w: float, g: float) -> float:
+	return 3.0 * w + 2.0 * g
 
 
 ## Advances the group's left edge by `distance` in `dir` and clamps it to
@@ -191,23 +211,21 @@ static func step_span(left: float, dir: int, distance: float, group_width: float
 	return Vector2(clampf(next, 0.0, hi), float(d))
 
 
-## The centre of ship `index` (LEAD, FLANK_TOP, FLANK_BOTTOM) for a group whose
-## left edge is `left` heading `dir` (see the class doc for the layout).
-static func ship_centre(index: int, left: float, dir: int, w: float, h: float, gap: float, band_lo: float, band_hi: float) -> Vector2:
-	var front_x: float = left + w + gap + w / 2.0
-	var rear_x: float = left + w / 2.0
-	var lead_x: float = front_x if dir >= 0 else rear_x
-	var flank_x: float = rear_x if dir >= 0 else front_x
+## The centre of ship `index` (LEAD, FLANK_LEFT, FLANK_RIGHT) for a group whose
+## left edge is `left`: hulls w x h, `g` apart, the lead raised by `raise`, the
+## group centred in band_lo..band_hi (see the class doc for the layout).
+static func ship_centre(index: int, left: float, w: float, h: float, g: float, raise: float, band_lo: float, band_hi: float) -> Vector2:
+	var top: float = (band_lo + band_hi) / 2.0 - (h + raise) / 2.0
 	if index == LEAD:
-		return Vector2(lead_x, (band_lo + band_hi) / 2.0)
-	if index == FLANK_TOP:
-		return Vector2(flank_x, band_lo + h / 2.0)
-	return Vector2(flank_x, band_hi - h / 2.0)
+		return Vector2(left + 1.5 * w + g, top + h / 2.0)
+	if index == FLANK_LEFT:
+		return Vector2(left + w / 2.0, top + raise + h / 2.0)
+	return Vector2(left + 2.5 * w + 2.0 * g, top + raise + h / 2.0)
 
 
 ## Every ship centre, in SHIP_NAMES order (allocates; the tick uses ship_centre).
-static func ship_centres(left: float, dir: int, w: float, h: float, gap: float, band_lo: float, band_hi: float) -> Array[Vector2]:
+static func ship_centres(left: float, w: float, h: float, g: float, raise: float, band_lo: float, band_hi: float) -> Array[Vector2]:
 	var out: Array[Vector2] = []
 	for i: int in LAYOUT_SHIPS:
-		out.append(ship_centre(i, left, dir, w, h, gap, band_lo, band_hi))
+		out.append(ship_centre(i, left, w, h, g, raise, band_lo, band_hi))
 	return out

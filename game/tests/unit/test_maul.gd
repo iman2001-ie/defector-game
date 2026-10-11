@@ -43,7 +43,8 @@ func _logged(prefix: String) -> Array[String]:
 	return out
 
 
-## A still convoy (physics off) at its start layout: flankers at x 80, lead at x 280.
+## A still convoy (physics off) at its start layout: flank-left (80, 850), lead
+## (248, 830), flank-right (416, 850).
 func _make_convoy() -> Convoy:
 	var convoy: Convoy = CONVOY_SCENE.instantiate() as Convoy
 	add_child_autofree(convoy)
@@ -201,11 +202,11 @@ func test_right_side_spawn_starts_past_the_right_edge() -> void:
 
 func test_nearest_ship_depends_on_the_start() -> void:
 	var convoy: Convoy = _make_convoy()
-	# The lead (x 280, y 840) is nearest from the right; a flanker from the far left low.
+	# Flank-right (416, 850) is nearest from the right; flank-left (80, 850) from the far left low.
 	var right: Maul = _make({"position": Vector2(1500, 840), "slot": Vector2(1500, 840), "entry": &"sides"})
-	assert_eq(right.target_ship(), convoy.ships()[Convoy.LEAD])
+	assert_eq(right.target_ship(), convoy.ships()[Convoy.FLANK_RIGHT])
 	var low_left: Maul = _make({"position": Vector2(100, 900)})
-	assert_eq(low_left.target_ship(), convoy.ships()[Convoy.FLANK_BOTTOM])
+	assert_eq(low_left.target_ship(), convoy.ships()[Convoy.FLANK_LEFT])
 
 
 func test_top_entry_starts_above_the_slot() -> void:
