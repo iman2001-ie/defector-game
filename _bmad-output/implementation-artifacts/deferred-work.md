@@ -188,9 +188,8 @@ origin: spec-deferred c9296c5c0ffe
 location: game/entities/player/player.gd _on_resumed / step_lock
 source_spec: `spec-1-8-lock-the-ship-to-the-cursor-and-fire-missiles-straight-up.md`
 reason: Unverified (maybe-false). Depends on whether Viewport.get_mouse_position() queries the OS cursor (immediate after SetCursorPos) or the last motion event. Settle with a live pause/resume test once Story 4.4 adds the pause menu; tests only use a recorder Callable.
-status: done 2026-10-10
-resolution: closed by human decision: No ship jump was seen in the Story 4.4 pause/resume operator check; closed as unobserved.
-decision: 2026-10-10 Close: not observed in pause playtests — No ship jump was seen in the Story 4.4 pause/resume operator check; closed as unobserved.
+status: open
+decision: 2026-10-10 Add a defensive one-tick guard — On the first physics tick after Player._on_resumed warps the cursor, ignore the viewport mouse position and use the warp target (the ship's position) instead, so a stale pre-warp position can never move the ship; add a unit test using the injected warp recorder. Not observed in play; this is a harmless guard (operator decision 2026-10-10 replaces the earlier close).
 
 ### DW-21: The bench's final `Stress bench:` log line is often missing from stdout and godot.log although the run completes and exits 0.
 origin: spec-deferred 15ca91c1d4c8
@@ -560,7 +559,7 @@ source_spec: `_bmad-output/implementation-artifacts/epic-3-retro-2026-10-08.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 3; owner Developer; sprint-status status open)
 status: open
-decision: 2026-10-08 Review each deviation first
+decision: 2026-10-10 Record all three as built — Record the Epic 3 deviations in the GDD decision log as built: (S1) asteroids survive player contact (the enemy is destroyed, the asteroid is not); amend the GDD contact table to match. (S2) Reword DESIGN.md:100 to "headline top at y 440" to match retry_prompt.gd. (S3) Record the new tuning values (orb magnet 600, orb size 24, orb spread 32, micro-missile speed 800, turn rate 540 deg/s, lifetime 3.0, F4 +100) and the top-level `ui` tuning section as decision-log rows. Docs only; no code or tuning change.
 
 ### DW-58: Playtest the Epic 3 manual checks listed in specs 3-1 to 3-5
 origin: retro action item epic-3-retro-item-28-playtest-the-epic-3-manual-checks-listed
@@ -782,7 +781,7 @@ location: game/entities/player/player.gd resolve_hull / game/entities/allies/con
 source_spec: `spec-6-1-protect-the-convoy.md`
 reason: Hitbox centres are 200 px apart in x (160 + 40 gap) and the hitboxes are 128 px wide, leaving 72 px; resolve_hull uses the hitbox rects (as the spec and the AC's HullArea-vs-convoy-layer mechanism prescribe). Whether slipping between formation ships is unwanted is not settled by GDD #25 (which forbids passing through hulls, not between them). Settle by an operator playtest of dev_convoy; if unwanted, close the pocket (resolve against drawn extents or add a gap rect).
 status: open
-decision: 2026-10-10 Close the pocket — Make the convoy formation block the gap between flankers and lead (resolve the player hull against drawn extents or add a gap blocker rect in convoy.gd), with a player-convoy test that the ship can't pass between the ships, and record the rule as a #25 clarification.
+decision: 2026-10-10 Nose-up mock formation with one solid triangle — Confirmed in operator playtest: the ship slips through. Change the convoy formation to the UX mock layout: three cargo ships nose-up (not facing the travel direction), side by side, the middle (lead) ship raised so the group forms a shallow symmetric triangle, all inside the y 760-920 band; the whole group slides left/right as one, ping-pong per #45 (no mirroring needed, the formation is symmetric), starting on-screen at the left clear of the player spawn. Replace the per-ship player push-out with ONE solid triangular collision shape covering the whole formation, including the gaps between ships, so the player can never pass between them (slides along it, no damage, per #25). Enemy shots and Mauls still hit and damage individual ships; player/ally shots are still blocked per ship (#23, #46). Add player-convoy tests (cannot pass between ships from any side; slides along the triangle) and update existing convoy layout tests. Amend the GDD convoy rules (formation wording, 'lead about 40 px ahead'), epics.md FR32/Story 6.1 AC, game-architecture.md convoy notes, and add a decision-log row (clarifies #25, revises #24/#45 geometry). Ship art stays as is (DW-86, Story 8.2).
 
 ### DW-84: One unidentified intermittent failure in test_level.gd (57/58), seen once while the implementer re-ran it after the review patches.
 origin: spec-deferred 978bd41bfe2f
