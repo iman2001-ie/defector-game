@@ -156,7 +156,9 @@ func test_entries_stack_on_the_next_free_rows() -> void:
 	for enemy: Enemy in _counted():
 		ys[(enemy as Wasp).formation_slot().y] = true
 	assert_eq(ys.keys().size(), 2, "two rows")
-	assert_true(ys.has(160.0) and ys.has(280.0), "second entry starts on row 1")
+	var top_y: float = Config.num("waves.formation.top_y")
+	var row_1: float = top_y + Config.num("waves.formation.spacing_px.y")
+	assert_true(ys.has(top_y) and ys.has(row_1), "second entry starts on row 1")
 
 
 ## DW-37 (R5): Hunter Wasps never hold their slot, so they don't advance the
@@ -193,7 +195,7 @@ func test_needles_take_a_row() -> void:
 			assert_ne(slot.y, anchor_y, "no Wasp slot on the Needle anchor row")
 		elif enemy is Needle:
 			needles += 1
-	assert_eq(row_1, 280.0, "row 1 is y 280 with the shipped tuning")
+	assert_eq(row_1, 250.0, "row 1 is y 250 with the shipped tuning (decision #53)")
 	assert_eq(wasps, 4, "four Wasps after the Needles")
 	assert_eq(needles, 2, "two Needles spawned")
 

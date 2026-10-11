@@ -219,7 +219,7 @@
 	"waves": {
 		"gap_s": 2.0,
 		"formation": {
-			"spacing_px": { "x": 160, "y": 120 },
+			"spacing_px": { "x": 160, "y": 90 },
 			"top_y": 160
 		}
 	},

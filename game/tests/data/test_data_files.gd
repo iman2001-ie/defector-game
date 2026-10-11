@@ -18,9 +18,12 @@ extends GutTest
 ## open with Vale; Tarek's cut-off is final and cuts mid-word; the cast rules
 ## (Vale's line cap, no gendered terms, self-introductions, "General"). Story
 ## 7.1: level_1.json is the GDD Cargo Ambush (root values, per-wave counts by
-## type, asteroids, reinforcements, exact triggers); levels 2 and 3 stay the
-## Wasp-only placeholders; Mauls, the convoy and the ally are allowed in
-## level_1 but not yet in levels 2 and 3.
+## type, asteroids, reinforcements, exact triggers). Story 7.2: level_2.json is
+## the GDD Blockade (root values, per-wave counted totals by type, exact spawn
+## order and formations, asteroids, exact triggers) and the formation rows are
+## 90 px apart (decision #53); level 3 stays the Wasp-only placeholder; Mauls
+## and the convoy are allowed in level_1 but not in levels 2 and 3; Tarek flies
+## in levels 1 and 2 and level 3 has no ally yet.
 
 const LEVELS_DIR: String = "res://data/levels/"
 
@@ -50,20 +53,23 @@ func test_every_campaign_level_has_a_file() -> void:
 		assert_eq(data.get("id"), float(i), "level_%d.json id" % i)
 
 
-## The campaign levels: GDD names, ids 1..3 and the level_dev key set. Levels 2
-## and 3 are still the placeholders (Story 4.1, replaced in Epic 7, decision
-## F12): no convoy and 1-2 Wasp-only waves. Level 1 is the real Cargo Ambush
-## since Story 7.1 (test_level_1_cargo_ambush_shape).
+## The campaign levels: GDD names, ids 1..3 and the level_dev key set. Level 3
+## is still the placeholder (Story 4.1, replaced in Epic 7, decision F12): no
+## convoy and 1-2 Wasp-only waves. Level 1 is the real Cargo Ambush since Story
+## 7.1 (test_level_1_cargo_ambush_shape) and level 2 the real Blockade since
+## Story 7.2 (test_level_2_blockade_shape).
 const LEVEL_NAMES: Dictionary = {
 	1: "Cargo Ambush",
 	2: "The Blockade",
 	3: "Siege of the Throne World",
 }
 ## The campaign levels that are still Story 4.1 placeholders.
-const PLACEHOLDER_LEVELS: Array[int] = [2, 3]
+const PLACEHOLDER_LEVELS: Array[int] = [3]
+## The campaign levels the GDD gives no Mauls and no convoy (escort is Level 1 only).
+const NO_MAUL_NO_CONVOY_LEVELS: Array[int] = [2, 3]
 
 
-func test_placeholder_levels_have_their_names_and_wasp_waves() -> void:
+func test_campaign_levels_have_their_names_and_placeholder_wasp_waves() -> void:
 	var dev: Variant = JSON.parse_string(FileAccess.get_file_as_string(LEVELS_DIR + "level_dev.json"))
 	assert_true(dev is Dictionary, "level_dev.json parses")
 	if not (dev is Dictionary):
@@ -186,6 +192,98 @@ func test_level_1_cargo_ambush_shape() -> void:
 	]
 	for w: int in 5:
 		assert_eq((waves[w] as Dictionary).get("triggers"), expected_triggers[w], "wave %d triggers" % (w + 1))
+
+
+## Story 7.2: Level 2 is the GDD's Blockade. Root values (no convoy, Tarek
+## flying, the l2_briefing story as the intro, Ryn's report story as the
+## outro), the per-wave counted totals by type, each wave's exact spawn order
+## and formations (a Needle entry first, decision #53 / DW-68; wave 5 is
+## Needles, Bastions, Lancers so the rows sit at y 160 / 250 / 340), the exact
+## asteroids, no groups and every wave's exact trigger list: wave 1 also starts
+## the music (the level-root `music` key is not read); the wave 3 Isolde line is
+## gated by isolde_interruptions at 0.25; the wave 5 fall is one tarek_fall
+## trigger at 0.5 (story event, then the cut-off line) with no !tarek_fall pair.
+## The formation rows are 90 px apart (decision #53).
+func test_level_2_blockade_shape() -> void:
+	assert_eq(Config.num("waves.formation.spacing_px.y"), 90.0, "formation rows 90 px apart (decision #53)")
+	var data: Dictionary = Config.level("2")
+	assert_false(data.is_empty(), "level_2.json loads")
+	var keys: Array = data.keys()
+	keys.sort()
+	var dev_keys: Array = Config.level("dev").keys()
+	dev_keys.sort()
+	assert_eq(keys, dev_keys, "the level_dev key set")
+	assert_eq(data.get("id"), 2.0, "id 2")
+	assert_eq(data.get("name"), "The Blockade")
+	assert_eq(data.get("background"), "space_2")
+	assert_eq(data.get("music"), "combat")
+	assert_eq(data.get("convoy"), false, "no convoy")
+	assert_eq(data.get("ally"), "tarek", "Tarek flies")
+	assert_eq(data.get("intro_sequence"), "l2_briefing", "Tarek's briefing is the intro")
+	assert_true(Config.dialogue_is_story(&"l2_briefing"), "the intro is a story sequence")
+	assert_eq(data.get("outro_sequence"), "l2_ryn_report", "Ryn's report is the outro")
+	assert_true(Config.dialogue_is_story(&"l2_ryn_report"), "the outro is a story sequence")
+	var waves: Array = data.get("waves", []) as Array
+	assert_eq(waves.size(), 5, "5 waves")
+	if waves.size() != 5:
+		return
+	var expected_totals: Array[Dictionary] = [
+		{"needle": 2, "wasp": 6},
+		{"bastion": 1, "wasp": 8},
+		{"needle": 3, "lancer": 3},
+		{"bastion": 2, "wasp": 10},
+		{"needle": 2, "bastion": 2, "lancer": 4},
+	]
+	var expected_counted: Array[int] = [8, 9, 6, 12, 8]
+	var expected_spawns: Array = [
+		[
+			{"type": "needle", "count": 2.0, "formation": "grid_2x1", "entry": "top"},
+			{"type": "wasp", "count": 6.0, "formation": "grid_3x2", "entry": "top"},
+		],
+		[
+			{"type": "bastion", "count": 1.0, "formation": "grid_1x1", "entry": "top"},
+			{"type": "wasp", "count": 8.0, "formation": "grid_4x2", "entry": "top"},
+		],
+		[
+			{"type": "needle", "count": 3.0, "formation": "grid_3x1", "entry": "top"},
+			{"type": "lancer", "count": 3.0, "formation": "grid_3x1", "entry": "sides"},
+		],
+		[
+			{"type": "bastion", "count": 2.0, "formation": "grid_2x1", "entry": "top"},
+			{"type": "wasp", "count": 10.0, "formation": "grid_5x2", "entry": "top"},
+		],
+		[
+			{"type": "needle", "count": 2.0, "formation": "grid_2x1", "entry": "top"},
+			{"type": "bastion", "count": 2.0, "formation": "grid_2x1", "entry": "top"},
+			{"type": "lancer", "count": 4.0, "formation": "grid_4x1", "entry": "sides"},
+		],
+	]
+	var expected_asteroids: Array = [
+		[{"size": "medium", "count": 2.0}, {"size": "large", "count": 1.0}],
+		[],
+		[{"size": "medium", "count": 2.0}],
+		[{"size": "large", "count": 1.0}],
+		[{"size": "medium", "count": 2.0}],
+	]
+	var expected_triggers: Array = [
+		[{"when": "wave_start", "actions": [{"music": "combat"}]}],
+		[],
+		[{"when": "progress", "at": 0.25, "flag": "isolde_interruptions", "actions": [{"comms": "l2_w3_isolde_interrupt"}]}],
+		[],
+		[{"when": "progress", "at": 0.5, "flag": "tarek_fall", "actions": [{"story_event": "tarek_fall"}, {"comms": "l2_w5_tarek_cutoff"}]}],
+	]
+	for w: int in 5:
+		var wave: Dictionary = waves[w] as Dictionary
+		var totals: Dictionary = _wave_type_totals(wave)
+		assert_eq(totals, expected_totals[w], "wave %d counted by type" % (w + 1))
+		var sum: int = 0
+		for type_id: Variant in totals:
+			sum += int(totals[type_id])
+		assert_eq(sum, expected_counted[w], "wave %d counts %d" % [w + 1, expected_counted[w]])
+		assert_eq(wave.get("spawns"), expected_spawns[w], "wave %d spawn order and formations" % (w + 1))
+		assert_eq(wave.get("asteroids"), expected_asteroids[w], "wave %d asteroids" % (w + 1))
+		assert_false(wave.has("groups"), "wave %d has no groups" % (w + 1))
+		assert_eq(wave.get("triggers"), expected_triggers[w], "wave %d triggers" % (w + 1))
 
 
 func test_every_level_file_is_valid() -> void:
@@ -1291,7 +1389,7 @@ func test_mauls_only_in_dev_levels_and_level_1() -> void:
 			var file: String = path.get_file()
 			assert_true(file.begins_with("level_dev") or file == "level_1.json", "%s: Mauls only in dev levels and level_1" % path)
 	assert_true(FileAccess.get_file_as_string(LEVELS_DIR + "level_1.json").contains("\"maul\""), "level_1 has Mauls")
-	for i: int in PLACEHOLDER_LEVELS:
+	for i: int in NO_MAUL_NO_CONVOY_LEVELS:
 		assert_false(FileAccess.get_file_as_string(LEVELS_DIR + "level_%d.json" % i).contains("\"maul\""), "level_%d has no Mauls" % i)
 
 
@@ -1319,7 +1417,7 @@ func test_convoy_is_a_bool_and_only_on_in_dev_levels_and_level_1() -> void:
 			var file: String = path.get_file()
 			assert_true(file.begins_with("level_dev") or file == "level_1.json", "%s: only dev levels and level_1 have a convoy" % path)
 	assert_eq(Config.level("1").get("convoy"), true, "level_1 has the convoy")
-	for i: int in PLACEHOLDER_LEVELS:
+	for i: int in NO_MAUL_NO_CONVOY_LEVELS:
 		assert_eq(Config.level(str(i)).get("convoy"), false, "level_%d has no convoy" % i)
 
 
@@ -1358,13 +1456,13 @@ func test_dev_ally_level_shape() -> void:
 	assert_true(needle_with_rocks, "a Needle wave with asteroids")
 
 
-## level_dev keeps no ally; level_1 flies Tarek (Story 7.1); levels 2 and 3
-## keep "ally": null until Stories 7.2 and 7.6.
-func test_ally_tarek_in_level_1_and_off_in_dev_and_levels_2_3() -> void:
+## level_dev keeps no ally; levels 1 and 2 fly Tarek (Stories 7.1 and 7.2);
+## level 3 keeps "ally": null until Story 7.6.
+func test_ally_tarek_in_levels_1_2_and_off_in_dev_and_level_3() -> void:
 	assert_null(Config.level("dev").get("ally"), "level_dev has no ally")
 	assert_eq(Config.level("1").get("ally"), "tarek", "level_1 flies Tarek")
-	for i: int in PLACEHOLDER_LEVELS:
-		assert_null(Config.level(str(i)).get("ally"), "level_%d has no ally yet" % i)
+	assert_eq(Config.level("2").get("ally"), "tarek", "level_2 flies Tarek")
+	assert_null(Config.level("3").get("ally"), "level_3 has no ally yet")
 
 
 func test_allies_tuning_ranges() -> void:

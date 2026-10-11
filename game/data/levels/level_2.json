@@ -1,29 +1,68 @@
 {
 	"id": 2,
 	"name": "The Blockade",
-	"background": null,
-	"music": null,
+	"background": "space_2",
+	"music": "combat",
 	"convoy": false,
-	"ally": null,
-	"intro_sequence": null,
-	"outro_sequence": null,
+	"ally": "tarek",
+	"intro_sequence": "l2_briefing",
+	"outro_sequence": "l2_ryn_report",
 	"waves": [
 		{
 			"spawns": [
-				{ "type": "wasp", "count": 8, "formation": "grid_4x2", "entry": "top" }
+				{ "type": "needle", "count": 2, "formation": "grid_2x1", "entry": "top" },
+				{ "type": "wasp", "count": 6, "formation": "grid_3x2", "entry": "top" }
 			],
-			"asteroids": [],
+			"asteroids": [
+				{ "size": "medium", "count": 2 },
+				{ "size": "large", "count": 1 }
+			],
 			"triggers": [
-				{ "when": "wave_start", "actions": [ { "wait": 0.5 } ] }
+				{ "when": "wave_start", "actions": [ { "music": "combat" } ] }
 			]
 		},
 		{
 			"spawns": [
+				{ "type": "bastion", "count": 1, "formation": "grid_1x1", "entry": "top" },
 				{ "type": "wasp", "count": 8, "formation": "grid_4x2", "entry": "top" }
 			],
 			"asteroids": [],
+			"triggers": []
+		},
+		{
+			"spawns": [
+				{ "type": "needle", "count": 3, "formation": "grid_3x1", "entry": "top" },
+				{ "type": "lancer", "count": 3, "formation": "grid_3x1", "entry": "sides" }
+			],
+			"asteroids": [
+				{ "size": "medium", "count": 2 }
+			],
 			"triggers": [
-				{ "when": "wave_clear", "actions": [ { "wait": 0.5 } ] }
+				{ "when": "progress", "at": 0.25, "flag": "isolde_interruptions", "actions": [ { "comms": "l2_w3_isolde_interrupt" } ] }
+			]
+		},
+		{
+			"spawns": [
+				{ "type": "bastion", "count": 2, "formation": "grid_2x1", "entry": "top" },
+				{ "type": "wasp", "count": 10, "formation": "grid_5x2", "entry": "top" }
+			],
+			"asteroids": [
+				{ "size": "large", "count": 1 }
+			],
+			"triggers": []
+		},
+		{
+			"spawns": [
+				{ "type": "needle", "count": 2, "formation": "grid_2x1", "entry": "top" },
+				{ "type": "bastion", "count": 2, "formation": "grid_2x1", "entry": "top" },
+				{ "type": "lancer", "count": 4, "formation": "grid_4x1", "entry": "sides" }
+			],
+			"asteroids": [
+				{ "size": "medium", "count": 2 }
+			],
+			"triggers": [
+				{ "when": "progress", "at": 0.5, "flag": "tarek_fall",
+					"actions": [ { "story_event": "tarek_fall" }, { "comms": "l2_w5_tarek_cutoff" } ] }
 			]
 		}
 	]

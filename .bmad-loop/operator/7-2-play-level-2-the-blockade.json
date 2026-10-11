@@ -1,0 +1,12 @@
+{
+  "actions": [
+    "Play Level 2 from the title in a debug build (\"<GODOT_DIR>/Godot_v4.7.2-stable_win64.exe\" --path game) with the F1 overlay on, from the briefing to the clear, and confirm that no wave soft-locks and that the level takes about 3-4 minutes plus dialogue.",
+    "During that run, judge whether the asteroids give usable cover against the Needles, and whether in wave 5 the Bastions (row y 250, same columns as the Needles at y 160) hide the Needles too much; if so, raise a layout or design change rather than editing code silently.",
+    "Confirm Tarek's fall at 50 % of wave 5 lands as the beat: the shield glide, the line cut mid-word, the static, shake and music stop, the fire trail and the exit, then Ryn's report after the clear. Watch for the cut-off being delayed behind another combat line.",
+    "Play Level 1 again and judge whether the tighter 90 px formation rows still read well, and whether missiles are now too strong against formations (a hit on a back-row Wasp now usually also splash-kills the Wasp in front of it); any retune goes in game/data/tuning.json with a GDD decision-log entry."
+  ],
+  "parked_at": "2026-10-11",
+  "run_id": "20261007-173701-8906",
+  "spec_file": "_bmad-output/implementation-artifacts/spec-7-2-play-level-2-the-blockade.md",
+  "story_key": "7-2-play-level-2-the-blockade"
+}

@@ -939,3 +939,10 @@ source_spec: `spec-7-1-play-level-1-cargo-ambush.md`
 severity: low
 reason: Pre-existing since Story 5.3 (architecture As-built 5.3: "Story 8.1 or Epic 7 can wire it"). Stories 7.2 and 7.6 will copy the duplicated pattern, and a later edit to one copy can silently disagree with the other. Wiring it is a WaveDirector change, which is outside this data-only story.
 status: open
+
+### DW-98: Level 2 wave 5 puts the 160 px Bastions (row y 250) in the same columns as the Needles (y 160), so each Needle can start shielded from below; Bastions in waves 2 and 4 also overlap the next Wasp row
+origin: spec-deferred f397e13c8a49
+location: game/data/levels/level_2.json
+source_spec: `spec-7-2-play-level-2-the-blockade.md`
+reason: Maybe-false: both entries are grid_2x1 from the top, so they share x slots, and the Bastion hull spans y 170-330 against the Needle's 120-200. Whether this hurts play depends on the Bastion drift and the Needle reposition (every 8 s), so it is settled by the operator playtest in operator_actions; a fix would be a layout change in level_2.json.
+status: open
