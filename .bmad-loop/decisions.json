@@ -7,5 +7,14 @@
     "key": "2",
     "label": "Review each deviation first",
     "resolution": ""
+  },
+  "DW-68": {
+    "answered_at": "2026-10-10",
+    "bundle_name": "",
+    "effect": "build",
+    "intent": "Make LevelValidator reject a needle entry that follows another row-taking entry in the same wave, with a test, and document the rule in the wave-data notes.",
+    "key": "1",
+    "label": "Validator: Needle must be first row-taker",
+    "resolution": ""
   }
 }
