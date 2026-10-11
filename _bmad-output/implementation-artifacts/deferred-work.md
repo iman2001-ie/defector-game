@@ -188,7 +188,9 @@ origin: spec-deferred c9296c5c0ffe
 location: game/entities/player/player.gd _on_resumed / step_lock
 source_spec: `spec-1-8-lock-the-ship-to-the-cursor-and-fire-missiles-straight-up.md`
 reason: Unverified (maybe-false). Depends on whether Viewport.get_mouse_position() queries the OS cursor (immediate after SetCursorPos) or the last motion event. Settle with a live pause/resume test once Story 4.4 adds the pause menu; tests only use a recorder Callable.
-status: open
+status: done 2026-10-10
+resolution: closed by human decision: No ship jump was seen in the Story 4.4 pause/resume operator check; closed as unobserved.
+decision: 2026-10-10 Close: not observed in pause playtests — No ship jump was seen in the Story 4.4 pause/resume operator check; closed as unobserved.
 
 ### DW-21: The bench's final `Stress bench:` log line is often missing from stdout and godot.log although the run completes and exits 0.
 origin: spec-deferred 15ca91c1d4c8
@@ -655,6 +657,7 @@ source_spec: `spec-dw-37-wave-data-validation-hardening.md`
 severity: low
 reason: needle.gd anchors at enemies.needle.anchor_y_px (160 = waves.formation.top_y) whatever its slot y, but WaveDirector._spawn_entry gives it the next free row. Only a first-in-wave Needle (as in level_dev.json wave 4) lines up. Pre-existing: before DW-37 every type advanced the row. Neither LevelValidator nor test_zoned_formations_fit_their_top_zone detects it, and no shipped wave hits it.
 status: open
+decision: 2026-10-10 Validator: Needle must be first row-taker — Make LevelValidator reject a needle entry that follows another row-taking entry in the same wave, with a test, and document the rule in the wave-data notes.
 
 ### DW-69: Decision #38 covers only Lancer and Bastion; the boss timers (boss.turrets fire_interval_s/telegraph_s, desperate aimed/radial interval plus glow) still have unstated cadence semantics, and the Wasp
 origin: spec-deferred c9bb03f74898
@@ -781,4 +784,20 @@ origin: spec-deferred 978bd41bfe2f
 location: game/tests/unit/test_level.gd
 source_spec: `spec-6-3-defend-the-convoy-from-lancer-fire.md`
 reason: The failing run's log wasn't captured. The next 12 implementer runs, 6 further runs and two full suites all passed (58/58, 1515/1515). It may be one of the two new real-time Lancer tests (test_dev_convoy_lancer_shots_hit_the_convoy_for_five, test_dev_lancer_shots_aim_at_the_player_without_a_convoy) or an older timing-sensitive test. Capturing the failing test's name from a failing run would settle it.
+status: open
+
+### DW-85: Wasps fly straight through asteroids, so asteroids can't be used as cover against diving Wasps; a Wasp that hits an asteroid should be destroyed.
+origin: operator playtest 2026-10-10 (raised while deciding DW-57)
+location: game/entities/enemies/wasp/wasp.gd / game/entities/hazards (asteroid) / CollisionLayers enemy masks
+source_spec: n/a (operator request)
+severity: medium
+reason: The user wants asteroids to shield the player from Wasps as well as from projectiles (GDD pillar "cover gives the player an answer to every attack"; gdd.md:141 and :300 cover projectiles only and say nothing about enemy ships, so this is a design change and needs a decision-log entry). Open points for the decision: which enemies it covers (Wasp only, or also Hunter Wasp and Maul); whether the asteroid takes damage or breaks; whether a Wasp destroyed by an asteroid counts toward the wave clear, drops energy and counts as a player kill; the impact feedback tier.
+status: open
+
+### DW-86: Convoy ships are plain code-drawn pentagons; the UX mock shows detailed nose-up freighters (central hull, side cargo pods, engine glow).
+origin: operator playtest 2026-10-10 (raised while deciding DW-83)
+location: game/entities/allies/convoy.gd (_draw)
+source_spec: `_bmad-output/planning-artifacts/ux-designs/ux-defector-game-2026-10-06/mockups` (convoy in the HUD mock)
+severity: low
+reason: Art only, for the Story 8.2 art pass: match the mock's freighter look (DESIGN.md: ~160x80 cargo hulls recoloured `coalition` with a dimmer body). The formation and collision shape are settled separately by DW-83 (nose-up, middle ship raised, one solid triangle); this entry is only the ship drawing.
 status: open
