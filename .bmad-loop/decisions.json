@@ -52,5 +52,14 @@
     "key": "2",
     "label": "Reserve a dedicated comms player",
     "resolution": ""
+  },
+  "DW-83": {
+    "answered_at": "2026-10-10",
+    "bundle_name": "",
+    "effect": "build",
+    "intent": "Make the convoy formation block the gap between flankers and lead (resolve the player hull against drawn extents or add a gap blocker rect in convoy.gd), with a player-convoy test that the ship can't pass between the ships, and record the rule as a #25 clarification.",
+    "key": "2",
+    "label": "Close the pocket",
+    "resolution": ""
   }
 }
