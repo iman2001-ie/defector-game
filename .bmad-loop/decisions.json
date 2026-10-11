@@ -25,5 +25,14 @@
     "key": "1",
     "label": "Extend #38 to all enemy and boss timers",
     "resolution": ""
+  },
+  "DW-70": {
+    "answered_at": "2026-10-10",
+    "bundle_name": "",
+    "effect": "build",
+    "intent": "Reword the Story 2.5 AC in epics.md to say the Lancer fires every 2.0 s start-to-start, with the 0.3 s glow inside that period (per decision #38), and note the amendment in the #38 decision-log row; check the Bastion AC (Story 2.7) for the same wording.",
+    "key": "1",
+    "label": "Amend the AC wording",
+    "resolution": ""
   }
 }
