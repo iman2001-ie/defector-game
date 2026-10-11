@@ -2,7 +2,7 @@
 title: 'Story 6.4: Fly Alongside Tarek and Ryn'
 type: 'feature'
 created: '2026-10-10'
-status: 'awaiting-operator'
+status: done
 operator_actions:
   - 'Launch the level scene directly in a debug build with `-- --level=dev_ally` ("<GODOT_DIR>/Godot_v4.7.2-stable_win64.exe" --path game res://scenes/level/level.tscn -- --level=dev_ally), play it through to the clear, and read the `[INFO][combat] Kills: N total, ally M (P%); target 10-15%` line in the log.'
   - 'If the ally share is outside roughly 10-15 %, retune `allies.fire_interval_s` (or `allies.damage`) in `game/data/tuning.json`, never code, replay to confirm, and record the change in the GDD decision log (`_bmad-output/planning-artifacts/gdds/gdd-game-project-2026-10-06/decision-log.md`).'
@@ -189,3 +189,13 @@ Status: awaiting-operator
 - Not checked by tests: the kill share itself, the feel, and whether Tarek reads as a squadmate (see `operator_actions`).
 - Tarek and Ryn are the same placeholder ship until Epic 8 art.
 - `level_1/2/3.json` keep `"ally": null` until Epic 7.
+
+## Operator Confirmation
+
+Confirmed 2026-10-10: the external actions this story owed were carried out.
+
+- Launch the level scene directly in a debug build with `-- --level=dev_ally` ("<GODOT_DIR>/Godot_v4.7.2-stable_win64.exe" --path game res://scenes/level/level.tscn -- --level=dev_ally), play it through to the clear, and read the `[INFO][combat] Kills: N total, ally M (P%); target 10-15%` line in the log.
+- If the ally share is outside roughly 10-15 %, retune `allies.fire_interval_s` (or `allies.damage`) in `game/data/tuning.json`, never code, replay to confirm, and record the change in the GDD decision log (`_bmad-output/planning-artifacts/gdds/gdd-game-project-2026-10-06/decision-log.md`).
+- While playing, confirm Tarek reads as a cyan squadmate patrolling at y 690 above the player, that his shots visibly pick off enemies without carrying the fight, and that his ship never blocks or hurts you.
+
+_Appended by the bmad-loop orchestrator (`bmad-loop confirm`, #335): a human confirmed these external actions out of band, and the story was advanced from `awaiting-operator` to `done`._
