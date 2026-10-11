@@ -693,7 +693,8 @@ origin: spec-deferred aa9a4085355f
 location: game/tests/unit/test_player_barrage.gd:201
 source_spec: `spec-dw-55-player-split-health-shield.md`
 reason: Reported by the implementation subagent: the six existing player scripts run together fail it at line 201 (0 launches, expected 1) on baseline 4cb60cd too; it passes alone and in the full-suite run (913/913). Suspected leaked simulated Q press; unconfirmed.
-status: open
+status: done 2026-10-10
+resolution: already resolved: Player tests moved onto the shared fixture in d1f3fdc (sweep dw-player-test-fixture: DW-56, right after the DW-55 split a0e67e9); a 2026-10-10 headless GUT run of all 14 test_player*.gd scripts together passed 191/191 including test_player_barrage.gd::test_physics_process_steps_before_reading_q (now at line 163, after_each releases ability_barrage at line 40).
 
 ### DW-74: test_feedback.test_hit_stop_overlap_keeps_longest is wall-clock sensitive and failed once in a full run ("resumed promptly": 356 ms, expected < 250 ms), then passed on re-run.
 origin: spec-deferred 6bef7359b27c
