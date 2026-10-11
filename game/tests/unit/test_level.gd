@@ -1350,11 +1350,14 @@ func test_convoy_loss_runs_the_retry_flow() -> void:
 # --- Maul wave (Story 6.2) -------------------------------------------------------------
 
 var _hp_values: Array[int] = []
+## Engine.get_physics_frames() at each _hp_values entry (same index).
+var _hp_ticks: Array[int] = []
 var _maul_kills: int = 0
 
 
 func _on_convoy_hp(current: int, _max_hp: int) -> void:
 	_hp_values.append(current)
+	_hp_ticks.append(Engine.get_physics_frames())
 
 
 func _on_maul_killed(enemy_type: StringName, _p: Vector2, _a: bool) -> void:
@@ -1385,6 +1388,7 @@ func _wait_for_wave(director: WaveDirector, wave: int, seconds: float) -> void:
 func test_dev_convoy_maul_wave_hits_the_convoy() -> void:
 	(Config.tuning["waves"] as Dictionary)["gap_s"] = 0.05
 	_hp_values.clear()
+	_hp_ticks.clear()
 	_maul_kills = 0
 	_make_level("dev_convoy")
 	var player: Player = _level.get_node("World/Player") as Player
@@ -1408,7 +1412,9 @@ func test_dev_convoy_maul_wave_hits_the_convoy() -> void:
 		await get_tree().physics_frame
 		mauls = _mauls()
 	assert_eq(mauls.size(), 4, "4 Mauls spawned")
-	var spawn_ms: int = Time.get_ticks_msec()
+	# Measured in physics ticks, not wall time: a catch-up burst advances game
+	# time without wall time.
+	var detect_tick: int = Engine.get_physics_frames()
 	var speed: float = Config.num("enemies.maul.dive_speed_px_s")
 	var band_top: float = Config.num("convoy.band_y.min")
 	var alarm: bool = false
@@ -1442,7 +1448,12 @@ func test_dev_convoy_maul_wave_hits_the_convoy() -> void:
 	assert_false(_hp_values.is_empty(), "a Maul reached the convoy")
 	if not _hp_values.is_empty():
 		assert_eq(hp_before - _hp_values[0], 10, "convoy HP drops by exactly 10")
-		assert_gte(Time.get_ticks_msec() - spawn_ms, 300, "no sooner than the telegraph minimum")
+		# One tick of slack: the Mauls may have spawned a tick before the poll saw them.
+		var hit_tick: int = _hp_ticks[0]
+		var tps: int = Engine.physics_ticks_per_second
+		var min_telegraph: float = Config.num("weapons.enemy_bullet.min_telegraph_s")
+		var flight_s: float = float(hit_tick - detect_tick + 1) / float(tps)
+		assert_gte(flight_s, min_telegraph, "no sooner than the telegraph minimum (detected at tick %d, hit at tick %d, %.3f s at %d ticks/s, min %.3f s)" % [detect_tick, hit_tick, flight_s, tps, min_telegraph])
 	end_ms = Time.get_ticks_msec() + 5000
 	while not _mauls().is_empty() and Time.get_ticks_msec() < end_ms:
 		await get_tree().physics_frame
@@ -1483,6 +1494,7 @@ func test_dev_convoy_lancer_shots_hit_the_convoy_for_five() -> void:
 	(Config.tuning["waves"] as Dictionary)["gap_s"] = 0.05
 	((Config.tuning["enemies"] as Dictionary)["lancer"] as Dictionary)["convoy_aim_chance"] = 1.0
 	_hp_values.clear()
+	_hp_ticks.clear()
 	_make_level("dev_convoy")
 	var player: Player = _level.get_node("World/Player") as Player
 	player.debug_invincible = true
@@ -1496,9 +1508,20 @@ func test_dev_convoy_lancer_shots_hit_the_convoy_for_five() -> void:
 	Events.convoy_hp_changed.connect(_on_convoy_hp)
 	var hp_before: int = convoy.hp()
 	var seen: Dictionary = {}
+	var drift_px_s: float = Config.num("convoy.speed_px_s")
+	var tps: int = Engine.physics_ticks_per_second
+	var last_tick: int = Engine.get_physics_frames()
 	var end_ms: int = Time.get_ticks_msec() + 12000
 	while _hp_values.size() < 2 and Time.get_ticks_msec() < end_ms:
 		await get_tree().physics_frame
+		var tick: int = Engine.get_physics_frames()
+		var ticks_since: int = tick - last_tick
+		last_tick = tick
+		# The Lancer aims with no lead, so the convoy drifts after the shot. The loop
+		# polls every physics tick (catch-up bursts included), so ticks_since is
+		# normally 1 and only grows if a poll is missed; the +1 covers the shot's own
+		# tick, and the 0.5 px absorbs float error in _ray_miss_px and ship placement.
+		var tolerance: float = drift_px_s * float(ticks_since + 1) / float(tps) + 0.5
 		for bullet: EnemyBullet in _live_enemy_bullets():
 			if seen.has(bullet.get_instance_id()):
 				continue
@@ -1507,14 +1530,13 @@ func test_dev_convoy_lancer_shots_hit_the_convoy_for_five() -> void:
 			var best: float = INF
 			for ship: ConvoyShip in convoy.ships():
 				best = minf(best, _ray_miss_px(bullet.global_position, bullet.velocity, ship.global_position))
-			# The convoy drifts at 40 px/s, so allow a frame or two of motion since the shot.
-			assert_lt(best, 2.0, "the shot points at a ship centre")
+			assert_lt(best, tolerance, "the shot points at a ship centre (miss %.3f px, tolerance %.3f px, %d ticks since the last poll)" % [best, tolerance, ticks_since])
 	Events.convoy_hp_changed.disconnect(_on_convoy_hp)
-	assert_gt(seen.size(), 0, "the Lancers fired")
+	assert_gt(seen.size(), 0, "the Lancers fired (%d shots seen)" % seen.size())
 	assert_false(_hp_values.is_empty(), "a Lancer shot reached the convoy")
 	var previous: int = hp_before
 	for v: int in _hp_values:
-		assert_eq(previous - v, Config.int_("damage.convoy_aimed"), "each hit costs exactly 5")
+		assert_eq(previous - v, Config.int_("damage.convoy_aimed"), "each hit costs exactly 5 (HP %d -> %d)" % [previous, v])
 		previous = v
 
 
@@ -1542,8 +1564,9 @@ func test_dev_lancer_shots_aim_at_the_player_without_a_convoy() -> void:
 				continue
 			seen[bullet.get_instance_id()] = true
 			assert_false(bullet.targets_convoy, "never convoy-aimed")
-			assert_lt(_ray_miss_px(bullet.global_position, bullet.velocity, player.global_position), 0.01, "aimed at the player")
-	assert_gte(seen.size(), 3, "the Lancers fired")
+			var miss: float = _ray_miss_px(bullet.global_position, bullet.velocity, player.global_position)
+			assert_lt(miss, 0.01, "aimed at the player (miss %.4f px)" % miss)
+	assert_gte(seen.size(), 3, "the Lancers fired (%d shots seen)" % seen.size())
 
 
 # --- Ally (Story 6.4) ------------------------------------------------------------------

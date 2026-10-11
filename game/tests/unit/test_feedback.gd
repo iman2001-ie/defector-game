@@ -54,12 +54,39 @@ func _ms_since(start_usec: int) -> float:
 	return (Time.get_ticks_usec() - start_usec) / 1000.0
 
 
+## A frame gap above this counts as a stall. The hit-stop timer is seen at most
+## one gap after its deadline (it ticks whole frame deltas, and process_frame is
+## emitted before that frame's timers run), so deadline + two gaps of <= 60 ms
+## (100 + 120 = 220 ms) stays under the 250 ms "resumed promptly" margin; a late
+## resume with a larger gap is a slow headless frame, not a stuck hit-stop.
+const STALL_GAP_MS: float = 60.0
+
+## Largest gap (ms) between observations in the last _await_resume, counting the
+## time already elapsed since start_usec before polling began.
+var _max_gap_ms: float = 0.0
+
+
 ## Awaits process frames until time_scale is back to 1 (or limit_ms passes);
-## returns the elapsed ms since start_usec at that moment.
+## returns the elapsed ms since start_usec at that moment. Records the largest
+## gap between observations in _max_gap_ms.
 func _await_resume(start_usec: int, limit_ms: float) -> float:
-	while Engine.time_scale < 0.5 and _ms_since(start_usec) < limit_ms:
+	var last_ms: float = _ms_since(start_usec)
+	_max_gap_ms = last_ms
+	while Engine.time_scale < 0.5 and last_ms < limit_ms:
 		await get_tree().process_frame
+		var now_ms: float = _ms_since(start_usec)
+		_max_gap_ms = maxf(_max_gap_ms, now_ms - last_ms)
+		last_ms = now_ms
 	return _ms_since(start_usec)
+
+
+## Asserts resumed_ms < bound_ms, unless it was missed while a frame stalled
+## (largest gap > STALL_GAP_MS), which is reported as pending instead.
+func _assert_resumed_promptly(resumed_ms: float, bound_ms: float) -> void:
+	if resumed_ms >= bound_ms and _max_gap_ms > STALL_GAP_MS:
+		pending("resume seen at %.1f ms (bound %.1f ms) after a %.1f ms frame stall" % [resumed_ms, bound_ms, _max_gap_ms])
+		return
+	assert_lt(resumed_ms, bound_ms, "resumed promptly (at %.1f ms, largest frame gap %.1f ms)" % [resumed_ms, _max_gap_ms])
 
 
 # --- Tier data ---------------------------------------------------------------
@@ -321,14 +348,14 @@ func test_hit_stop_overlap_keeps_longest() -> void:
 	var second_ms: float = _ms_since(start)
 	Feedback.hit_stop(40.0)
 	var resumed_ms: float = await _await_resume(start, 400.0)
-	assert_eq(Engine.time_scale, 1.0, "resumed")
+	assert_eq(Engine.time_scale, 1.0, "resumed (at %.1f ms)" % resumed_ms)
 	assert_false(Feedback.is_hit_stopped())
 	# Ending with the shorter second stop would resume near second_ms + 40 (~60 ms).
 	if second_ms + 40.0 < 70.0:
 		assert_gte(resumed_ms, 80.0, "held for the longest stop (second at %.1f ms)" % second_ms)
 	else:
 		pending("second hit_stop came too late (%.1f ms) to tell the stops apart" % second_ms)
-	assert_lt(resumed_ms, 250.0, "resumed promptly")
+	_assert_resumed_promptly(resumed_ms, 250.0)
 
 
 func test_hit_stop_extend() -> void:
@@ -339,13 +366,13 @@ func test_hit_stop_extend() -> void:
 	var second_ms: float = _ms_since(start)
 	Feedback.hit_stop(100.0)
 	var resumed_ms: float = await _await_resume(start, 500.0)
-	assert_eq(Engine.time_scale, 1.0, "resumed")
+	assert_eq(Engine.time_scale, 1.0, "resumed (at %.1f ms)" % resumed_ms)
 	# The first (stale) 40 ms timer must not end the extended freeze (~second_ms + 100).
 	if second_ms > 50.0:
 		pending("second hit_stop came too late (%.1f ms) to tell the stops apart" % second_ms)
 		return
 	assert_gte(resumed_ms, maxf(80.0, second_ms + 70.0), "extended (second at %.1f ms)" % second_ms)
-	assert_lt(resumed_ms, second_ms + 250.0, "resumed promptly")
+	_assert_resumed_promptly(resumed_ms, second_ms + 250.0)
 
 
 func test_reset_ends_hit_stop_and_ignores_stale_timer() -> void:

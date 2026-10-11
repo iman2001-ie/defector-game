@@ -83,12 +83,22 @@ func test_paused_holds_still_and_keeps_remaining() -> void:
 	assert_ne(_camera.offset, Vector2.ZERO, "resumes")
 
 
+## A long shake so a few slow headless frames can't decay it to 0; the loop
+## stops as soon as a frame with a non-zero delta has decayed it.
 func test_process_drives_shake() -> void:
+	const FRAME_BUDGET: int = 60
 	_camera.set_process(true)
-	_camera.shake(8.0, 0.25)
-	await wait_process_frames(3)
-	assert_ne(_camera.offset, Vector2.ZERO, "_process moves the offset")
-	assert_lt(_camera.current_amplitude(), 8.0, "_process decays the shake")
+	_camera.shake(8.0, 1000.0)
+	var frames: int = 0
+	while _camera.current_amplitude() >= 8.0 and frames < FRAME_BUDGET:
+		await get_tree().process_frame
+		frames += 1
+	var amp: float = _camera.current_amplitude()
+	var off: Vector2 = _camera.offset
+	assert_lt(amp, 8.0, "_process decays the shake (amplitude %.4f after %d frames, time_scale %.2f, paused %s)" % [amp, frames, Engine.time_scale, PauseArbiter.is_paused()])
+	assert_ne(off, Vector2.ZERO, "_process moves the offset (offset %s, amplitude %.4f, %d frames)" % [off, amp, frames])
+	assert_lte(absf(off.x), amp + 0.0001, "offset x inside the square (offset %s, amplitude %.4f)" % [off, amp])
+	assert_lte(absf(off.y), amp + 0.0001, "offset y inside the square (offset %s, amplitude %.4f)" % [off, amp])
 
 
 func test_registers_and_unregisters_with_tree() -> void:

@@ -732,7 +732,9 @@ location: game/tests/unit/test_feedback.gd:262
 source_spec: `spec-4-2-unlock-the-next-level-and-save-progress.md`
 severity: low
 reason: Pre-existing flake, not caused by Story 4.2 (feedback.gd and test_feedback.gd are untouched). Seen in the first full GUT run of this story's verification; the immediate re-run and the post-patch run were 973/973 and 977/977. The same test also flips to Pending ("second hit_stop came too late").
-status: open
+status: done 2026-10-11
+resolution: resolved by sweep bundle dw-timing-test-flake-hardening
+resolution-undo: 324a3f451d2eae5eb6c77955191b77f0dd5da2251e0e4af797eab07487d0a99d 2026-10-11 7374617475733a206f70656e
 
 ### DW-75: "First outcome wins" is enforced at the only current emitter (Player); RetryPrompt still reacts to any level_failed, so a future emitter (convoy, Epic 6) must not fail a cleared level.
 origin: spec-deferred f1a1e137a1cd
@@ -778,7 +780,9 @@ location: game/tests/unit/test_shake_camera.gd:90
 source_spec: `spec-5-1-comms-open-radio-sfx.md`
 severity: low
 reason: Pre-existing flake, not caused by the comms-open SFX change (shake_camera.gd and its test are untouched). Seen in the first full GUT run (1340/1341); the immediate full re-run passed. Likely a near-zero headless frame delta or a sampled offset of zero within 3 frames.
-status: open
+status: done 2026-10-11
+resolution: resolved by sweep bundle dw-timing-test-flake-hardening
+resolution-undo: 324a3f451d2eae5eb6c77955191b77f0dd5da2251e0e4af797eab07487d0a99d 2026-10-11 7374617475733a206f70656e
 
 ### DW-80: A long SFX (the 6.0 s comms_static) is the first player Audio steals once all pool players are busy, so heavy combat during the cut-off hold can stop the static early.
 origin: quick-dev
@@ -818,7 +822,9 @@ origin: spec-deferred 978bd41bfe2f
 location: game/tests/unit/test_level.gd
 source_spec: `spec-6-3-defend-the-convoy-from-lancer-fire.md`
 reason: The failing run's log wasn't captured. The next 12 implementer runs, 6 further runs and two full suites all passed (58/58, 1515/1515). It may be one of the two new real-time Lancer tests (test_dev_convoy_lancer_shots_hit_the_convoy_for_five, test_dev_lancer_shots_aim_at_the_player_without_a_convoy) or an older timing-sensitive test. Capturing the failing test's name from a failing run would settle it.
-status: open
+status: done 2026-10-11
+resolution: resolved by sweep bundle dw-timing-test-flake-hardening
+resolution-undo: 324a3f451d2eae5eb6c77955191b77f0dd5da2251e0e4af797eab07487d0a99d 2026-10-11 7374617475733a206f70656e
 
 ### DW-85: Wasps fly straight through asteroids, so asteroids can't be used as cover against diving Wasps; a Wasp that hits an asteroid should be destroyed.
 origin: operator playtest 2026-10-10 (raised while deciding DW-57)
