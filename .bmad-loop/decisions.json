@@ -34,5 +34,14 @@
     "key": "1",
     "label": "Amend the AC wording",
     "resolution": ""
+  },
+  "DW-78": {
+    "answered_at": "2026-10-10",
+    "bundle_name": "",
+    "effect": "build",
+    "intent": "Abort running chains when level_failed fires (all actions, including spawn_group), with tests, and amend decision #39 accordingly.",
+    "key": "2",
+    "label": "Stop the whole chain after a fail",
+    "resolution": ""
   }
 }
