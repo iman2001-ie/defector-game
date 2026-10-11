@@ -675,6 +675,7 @@ source_spec: `spec-dw-40-enemy-fire-cadence-full-period.md`
 severity: low
 reason: epics.md:785-787. FR20 ("every 2.0 s") and decision #38 match the new behaviour, and the architecture note explains it. The DW-40 decision lists only tests, the architecture notes and a decision-log row as the docs to update, and AGENTS.md says to ask the user before changing planning docs, so amending a done story's AC (as #34/#35 did) is left for the user to decide.
 status: open
+decision: 2026-10-10 Amend the AC wording — Reword the Story 2.5 AC in epics.md to say the Lancer fires every 2.0 s start-to-start, with the 0.3 s glow inside that period (per decision #38), and note the amendment in the #38 decision-log row; check the Bastion AC (Story 2.7) for the same wording.
 
 ### DW-71: PlayerShield's missing-bubble degradation path (Log.error plus null-safe raise/step/drop) has no test.
 origin: spec-deferred 64f10899a665
