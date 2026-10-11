@@ -886,7 +886,8 @@ location: game/tests/unit/test_level.gd (test_dev_convoy_maul_wave_hits_the_conv
 source_spec: `spec-dw-57-dw-69-dw-70-epic-docs-decision-log-sync.md`
 severity: medium
 reason: Failed in 2 of 3 full headless runs and 1 of 3 isolated runs of test_level.gd during this bundle; passed in the others. The bundle touches no runtime code, only docs and one data test. Likely frame-timing sensitive, like DW-79 (test_shake_camera, which also flaked once in this run).
-status: open
+status: done 2026-10-11
+resolution: already resolved: f304e95 (after the b395276 bundle that filed DW-91) replaced the fixed 2-tick tolerance (2*speed/60 = 13.3 px, the failing bound) with a physics-tick-scaled one: spawn_tick captured on Events.wave_started and flown_ticks = detect_tick - spawn_tick + 1 at game/tests/unit/test_level.gd:1408-1411,1446-1450; the isolated test passed 5 of 5 headless runs on 2026-10-11 (it failed 1 of 3 before).
 
 ### DW-92: A single needle entry that spans more than one formation row (count above max_columns, or a grid_CxR with R > 1) reserves rows 1..n that stay empty, and Needles in the same column overlap on row 0.
 origin: spec-deferred 719efcc1047a
