@@ -782,6 +782,7 @@ location: game/entities/player/player.gd resolve_hull / game/entities/allies/con
 source_spec: `spec-6-1-protect-the-convoy.md`
 reason: Hitbox centres are 200 px apart in x (160 + 40 gap) and the hitboxes are 128 px wide, leaving 72 px; resolve_hull uses the hitbox rects (as the spec and the AC's HullArea-vs-convoy-layer mechanism prescribe). Whether slipping between formation ships is unwanted is not settled by GDD #25 (which forbids passing through hulls, not between them). Settle by an operator playtest of dev_convoy; if unwanted, close the pocket (resolve against drawn extents or add a gap rect).
 status: open
+decision: 2026-10-10 Close the pocket — Make the convoy formation block the gap between flankers and lead (resolve the player hull against drawn extents or add a gap blocker rect in convoy.gd), with a player-convoy test that the ship can't pass between the ships, and record the rule as a #25 clarification.
 
 ### DW-84: One unidentified intermittent failure in test_level.gd (57/58), seen once while the implementer re-ran it after the review patches.
 origin: spec-deferred 978bd41bfe2f
