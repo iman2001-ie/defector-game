@@ -16,5 +16,14 @@
     "key": "1",
     "label": "Validator: Needle must be first row-taker",
     "resolution": ""
+  },
+  "DW-69": {
+    "answered_at": "2026-10-10",
+    "bundle_name": "",
+    "effect": "build",
+    "intent": "Add a decision-log row extending #38 (fire_interval_s is the start-to-start period including the telegraph) to boss.turrets and boss.desperate and the Wasp, add a data test requiring telegraph/glow <= interval for those keys, and note the rule in the architecture's boss section; reconcile the boss.turrets tuning with FR51 or record the difference.",
+    "key": "1",
+    "label": "Extend #38 to all enemy and boss timers",
+    "resolution": ""
   }
 }
