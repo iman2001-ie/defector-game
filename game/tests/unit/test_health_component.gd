@@ -1,7 +1,8 @@
 extends GutTest
 ## HealthComponent (DW-55): hearts floored at 0, i-frames counted from step(delta)
 ## with the flicker target toggled at flicker_hz, and the damaged / died /
-## iframes_ended signals in order. Driven on a bare node with a Sprite2D target.
+## iframes_ended signals in order, and the max clamped to at least 1 (DW-72).
+## Driven on a bare node with a Sprite2D target.
 
 const IFRAMES_S: float = 1.0
 const FLICKER_HZ: float = 10.0
@@ -129,3 +130,27 @@ func test_stop_iframes() -> void:
 	assert_false(_health.is_iframing())
 	assert_true(_sprite.visible, "target restored")
 	assert_signal_not_emitted(_health, "iframes_ended", "stopping is not an expiry")
+
+
+## DW-72: a max below 1 would leave the owner silently unhittable; it logs a data
+## error naming the value and counts as 1.
+func test_zero_max_clamps_to_one_and_logs() -> void:
+	_health.setup(0, IFRAMES_S, FLICKER_HZ, _sprite)
+	assert_push_error("got max hearts 0")
+	assert_eq(_health.max_value, 1)
+	assert_eq(_health.current, 1)
+	assert_true(_health.can_take(1), "hittable")
+
+
+func test_negative_max_clamps_to_one_and_logs() -> void:
+	_health.setup(-3, IFRAMES_S, FLICKER_HZ, _sprite)
+	assert_push_error("got max hearts -3")
+	assert_eq(_health.max_value, 1)
+	assert_eq(_health.current, 1)
+	assert_true(_health.can_take(1), "hittable")
+
+
+func test_positive_max_logs_nothing() -> void:
+	_health.setup(1, IFRAMES_S, FLICKER_HZ, _sprite)
+	assert_push_error_count(0, "a max of 1 is valid")
+	assert_eq(_health.max_value, 1)

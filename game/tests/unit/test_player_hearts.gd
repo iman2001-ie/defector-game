@@ -3,11 +3,18 @@ extends "res://tests/fixtures/player_test_base.gd"
 ## flicker, contact costs by enemy tier and asteroid size, the persistent-overlap
 ## re-check, debug_invincible, the 0-heart floor (now death, Story 3.2; see
 ## test_player_death.gd) and the deferred first hearts_changed. Driven through
-## step_iframes / on_contact with physics processing off.
+## step_iframes / on_contact with physics processing off. A non-positive
+## player.hearts is clamped to 1 with an error (DW-72).
 
 const LANCER_SCENE: PackedScene = preload("res://entities/enemies/lancer/lancer.tscn")
 const ENEMY_BULLET_SCENE: PackedScene = preload("res://entities/projectiles/enemy_bullet.tscn")
 const NEEDLE_BOLT_SCENE: PackedScene = preload("res://entities/projectiles/needle_bolt.tscn")
+
+
+## A test changes Config.tuning; reload the shipped data after every test.
+func after_each() -> void:
+	super()
+	Config.load_data()
 
 
 func _sprite() -> Sprite2D:
@@ -41,6 +48,26 @@ func test_initial_hearts_changed_is_deferred() -> void:
 	await wait_process_frames(1)
 	assert_signal_emit_count(Events, "hearts_changed", 1)
 	assert_signal_emitted_with_parameters(Events, "hearts_changed", [5, 5])
+
+
+## DW-72: shipped tuning (player.hearts 5) logs no data error.
+func test_shipped_hearts_log_no_error() -> void:
+	assert_eq(_player.max_hearts, 5)
+	assert_eq(_logged("[ERROR][data]"), [] as Array[String])
+
+
+## DW-72: a non-positive player.hearts no longer makes the ship unhittable; it
+## logs an error and the ship gets 1 heart, so one hit kills it.
+func test_zero_tuned_hearts_clamp_to_one_and_the_ship_can_die() -> void:
+	(Config.tuning["player"] as Dictionary)["hearts"] = 0
+	var player: Player = _make_player(Vector2(400, 900))
+	assert_push_error("got max hearts 0")
+	assert_eq(_logged("[ERROR][data]").size(), 1, "one data error line")
+	assert_eq(player.max_hearts, 1)
+	assert_eq(player.hearts, 1)
+	player.apply_damage(1, null)
+	assert_true(player.is_dead(), "one hit kills it")
+	assert_signal_emit_count(Events, "player_died", 1)
 
 
 # --- apply_damage -----------------------------------------------------------------

@@ -1,7 +1,8 @@
 extends GutTest
 ## PlayerShield (DW-55): the shield state and countdown on a bare node with a
 ## ShieldBubble. raise() shows the bubble for duration_s, step(delta) counts it
-## down and emits `ended` once on expiry, drop() clears it silently.
+## down and emits `ended` once on expiry, drop() clears it silently. A missing
+## bubble logs an error and the shield still works (DW-71).
 
 const DT: float = 1.0 / 60.0
 ## Fixed duration for the countdown tests (above 1 s and the bubble blink window).
@@ -80,3 +81,34 @@ func test_drop_clears_silently() -> void:
 	assert_eq(_shield.remaining(), 0.0)
 	assert_false(_bubble.visible, "bubble hidden")
 	assert_signal_not_emitted(_shield, "ended", "dropping is not an expiry")
+
+
+## DW-71: a bubble path that resolves to nothing logs one error in _ready; the
+## shield still raises, counts down, ends once and drops without a crash.
+func test_missing_bubble_logs_and_still_works() -> void:
+	var root: Node = Node.new()
+	var shield: PlayerShield = PlayerShield.new()
+	shield.name = "BubblelessShield"
+	shield.bubble = NodePath("../NoSuchBubble")
+	root.add_child(shield)
+	add_child_autofree(root)
+	assert_push_error("[ERROR][combat] PlayerShield 'BubblelessShield' is missing its bubble")
+	shield.duration_s = DURATION_S
+	watch_signals(shield)
+	shield.raise()
+	assert_true(shield.is_active(), "raised without a bubble")
+	shield.step(1.0)
+	assert_almost_eq(shield.remaining(), DURATION_S - 1.0, 0.0001, "counts down")
+	var t: float = 1.0
+	while t < DURATION_S + DT:
+		shield.step(DT)
+		t += DT
+	assert_false(shield.is_active())
+	assert_signal_emit_count(shield, "ended", 1)
+	shield.step(DT)
+	assert_signal_emit_count(shield, "ended", 1, "only once")
+	shield.raise()
+	shield.drop()
+	assert_false(shield.is_active(), "dropped without a bubble")
+	assert_eq(shield.remaining(), 0.0)
+	assert_signal_emit_count(shield, "ended", 1, "drop is not an expiry")

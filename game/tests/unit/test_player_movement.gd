@@ -1,6 +1,7 @@
 extends GutTest
 ## Player: zero-delay cursor lock, zone confinement, cursor warps (zone edge and
-## resume), the hurtbox scene shape and the hull sprite (Story 4.0).
+## resume, with the one-tick resume guard, DW-20), the hurtbox scene shape and
+## the hull sprite (Story 4.0).
 
 const PLAYER_SCENE: PackedScene = preload("res://entities/player/player.tscn")
 const DT: float = 1.0 / 60.0
@@ -203,6 +204,46 @@ func test_resume_in_visible_mode_no_warp() -> void:
 	PauseArbiter.set_gameplay_mouse_mode(VISIBLE)
 	PauseArbiter.push(&"menu")
 	PauseArbiter.pop(&"menu")
+	assert_eq(_warps, [] as Array[Vector2])
+
+
+## DW-20: the tick after the resume warp may still read the pre-warp viewport
+## mouse; the guard holds the ship on the warp target for that one tick.
+func test_stale_tick_after_resume_warp_holds_the_ship() -> void:
+	PauseArbiter.set_gameplay_mouse_mode(HIDDEN)
+	_player.global_position = Vector2(800, 900)
+	_player.step_lock(Vector2(800, 900))
+	PauseArbiter.push(&"menu")
+	PauseArbiter.pop(&"menu")
+	assert_eq(_warps, [Vector2(800, 900)] as Array[Vector2], "fixture: one resume warp")
+	watch_signals(Events)
+	_player.step_lock(Vector2(100, 500))
+	assert_eq(_player.global_position, Vector2(800, 900), "the stale mouse is ignored")
+	assert_eq(_warps, [Vector2(800, 900)] as Array[Vector2], "no further warp")
+	assert_signal_not_emitted(Events, "player_moved", "the ship did not move")
+
+
+func test_tick_after_the_guard_tick_moves_normally() -> void:
+	PauseArbiter.set_gameplay_mouse_mode(HIDDEN)
+	_player.global_position = Vector2(800, 900)
+	_player.step_lock(Vector2(800, 900))
+	PauseArbiter.push(&"menu")
+	PauseArbiter.pop(&"menu")
+	_player.step_lock(Vector2(100, 500))
+	watch_signals(Events)
+	_player.step_lock(Vector2(100, 500))
+	assert_eq(_player.global_position, Vector2(100, 500), "the guard is spent after one tick")
+	assert_eq(_warps, [Vector2(800, 900)] as Array[Vector2], "only the resume warp")
+	assert_signal_emit_count(Events, "player_moved", 1)
+
+
+func test_resume_without_warp_arms_no_guard() -> void:
+	PauseArbiter.set_gameplay_mouse_mode(VISIBLE)
+	_player.global_position = Vector2(800, 900)
+	PauseArbiter.push(&"menu")
+	PauseArbiter.pop(&"menu")
+	_player.step_lock(Vector2(100, 500))
+	assert_eq(_player.global_position, Vector2(100, 500), "no guard without a warp")
 	assert_eq(_warps, [] as Array[Vector2])
 
 

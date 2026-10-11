@@ -188,7 +188,9 @@ origin: spec-deferred c9296c5c0ffe
 location: game/entities/player/player.gd _on_resumed / step_lock
 source_spec: `spec-1-8-lock-the-ship-to-the-cursor-and-fire-missiles-straight-up.md`
 reason: Unverified (maybe-false). Depends on whether Viewport.get_mouse_position() queries the OS cursor (immediate after SetCursorPos) or the last motion event. Settle with a live pause/resume test once Story 4.4 adds the pause menu; tests only use a recorder Callable.
-status: open
+status: done 2026-10-11
+resolution: resolved by sweep bundle dw-player-guard-hardening
+resolution-undo: 49e34bcf451130f577254cace2c37b5df00effc4e7846f3dc864a7f489b79373 2026-10-11 7374617475733a206f70656e
 decision: 2026-10-10 Add a defensive one-tick guard — On the first physics tick after Player._on_resumed warps the cursor, ignore the viewport mouse position and use the warp target (the ship's position) instead, so a stale pre-warp position can never move the ship; add a unit test using the injected warp recorder. Not observed in play; this is a harmless guard (operator decision 2026-10-10 replaces the earlier close).
 
 ### DW-21: The bench's final `Stress bench:` log line is often missing from stdout and godot.log although the run completes and exits 0.
@@ -702,7 +704,9 @@ location: game/entities/player/player_shield.gd:29
 source_spec: `spec-dw-55-player-split-health-shield.md`
 severity: low
 reason: grep for "missing its bubble" hits only player_shield.gd; every test wires a real ShieldBubble. Only consumer player.tscn wires it correctly today.
-status: open
+status: done 2026-10-11
+resolution: resolved by sweep bundle dw-player-guard-hardening
+resolution-undo: 49e34bcf451130f577254cace2c37b5df00effc4e7846f3dc864a7f489b79373 2026-10-11 7374617475733a206f70656e
 
 ### DW-72: Pre-existing: player.hearts tuning is used unclamped, so a negative value makes the ship unhittable with no warning.
 origin: spec-deferred dab8b901182c
@@ -710,7 +714,9 @@ location: game/core/health_component.gd:36
 source_spec: `spec-dw-55-player-split-health-shield.md`
 severity: low
 reason: HealthComponent.setup copies p_max_value as given, exactly as the old Player._ready did (max_hearts = Config.int_("player.hearts")). Not caused by DW-55; clamping would change behaviour.
-status: open
+status: done 2026-10-11
+resolution: resolved by sweep bundle dw-player-guard-hardening
+resolution-undo: 49e34bcf451130f577254cace2c37b5df00effc4e7846f3dc864a7f489b79373 2026-10-11 7374617475733a206f70656e
 
 ### DW-73: Pre-existing order-dependent test: test_player_barrage.gd::test_physics_process_steps_before_reading_q fails when run in one session with the other player test scripts.
 origin: spec-deferred aa9a4085355f

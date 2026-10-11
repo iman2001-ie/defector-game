@@ -2,13 +2,14 @@ class_name HealthComponent
 extends Node
 ## Hearts and i-frames for one owner (DW-55; the Player's `Health` child).
 ##
-## setup() fills `current` to `max_value`. take(amount) floors `current` at 0,
-## emits `damaged`, then either emits `died` (at 0) or starts `iframes_s` of
-## i-frames. I-frame time accumulates from step(delta), so it freezes whenever
-## the owner stops ticking it; meanwhile only the flicker target blinks at
-## `flicker_hz` (visible for the first half of each cycle). On the tick they run
-## out the target is restored and `iframes_ended` fires once. The owner keeps
-## every other invulnerability rule and all global events; this node has none.
+## setup() fills `current` to `max_value` (a max below 1 logs an error and counts
+## as 1, so the owner is never silently unhittable; DW-72). take(amount) floors
+## `current` at 0, emits `damaged`, then either emits `died` (at 0) or starts
+## `iframes_s` of i-frames. I-frame time accumulates from step(delta), so it
+## freezes whenever the owner stops ticking it; meanwhile only the flicker target
+## blinks at `flicker_hz` (visible for the first half of each cycle). On the tick
+## they run out the target is restored and `iframes_ended` fires once. The owner
+## keeps every other invulnerability rule and all global events; this node has none.
 
 ## A hit landed: `current` after the hit (0 on the lethal one), out of max_value.
 signal damaged(current: int, max_value: int)
@@ -30,10 +31,15 @@ var _iframe_elapsed: float = 0.0
 
 
 ## Sets the hearts to `p_max_value` and the i-frame tuning; negative times and
-## rates count as 0. `flicker_target` may be null (no flicker).
+## rates count as 0. A `p_max_value` below 1 logs a data error and is used as 1.
+## `flicker_target` may be null (no flicker).
 func setup(p_max_value: int, iframes_s: float, flicker_hz: float, flicker_target: CanvasItem) -> void:
-	max_value = p_max_value
-	current = p_max_value
+	var hearts: int = p_max_value
+	if hearts < 1:
+		Log.error("data", "HealthComponent '%s' got max hearts %d (must be at least 1); using 1" % [name, p_max_value])
+		hearts = 1
+	max_value = hearts
+	current = hearts
 	_iframes_s = maxf(iframes_s, 0.0)
 	_flicker_hz = maxf(flicker_hz, 0.0)
 	_flicker_target = flicker_target

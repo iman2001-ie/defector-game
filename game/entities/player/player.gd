@@ -20,6 +20,9 @@ extends Area2D
 ## convoy hull blocks or pushes the ship, it is warped onto the ship (so moving
 ## back responds at once), and on
 ## PauseArbiter.resumed it is warped onto the ship (so the ship never jumps).
+## That resume warp arms a one-tick guard (DW-20): the next step_lock uses the
+## warp target instead of the passed mouse, because the viewport can still report
+## the pre-warp position for one physics tick. No warp, no guard.
 ## PauseArbiter alone sets mouse_mode and tree.paused.
 ##
 ## Weapons: the laser and missile live in the Weapons child (PlayerWeapons).
@@ -149,6 +152,11 @@ var _locked_once: bool = false
 var _convoy: Convoy = null
 ## HullArea circle radius (player.hull_diameter_px / 2).
 var _hull_radius: float = 0.0
+## Set by the resume warp (_on_resumed), cleared by the next step_lock, which
+## uses _resume_target instead of its mouse argument (DW-20).
+var _resume_pending: bool = false
+## Where the resume warp put the cursor (the ship's position at resume).
+var _resume_target: Vector2 = Vector2.ZERO
 
 @onready var _hurtbox: CollisionShape2D = $Hurtbox
 @onready var _sprite: Sprite2D = $Sprite
@@ -500,7 +508,14 @@ func hull_radius() -> float:
 ## pushes out). A mouse more than WARP_EPS_PX from the final position is warped
 ## onto it, but only while the gameplay mode is CONFINED_HIDDEN. When the ship
 ## moved (not on the first tick) it emits Events.player_moved (Story 5.8).
+## The first call after a resume warp uses the warp target instead of `mouse`
+## (the viewport may still report the pre-warp position) and disarms the guard,
+## so the ship ignores the mouse for that tick (a convoy hull can still push
+## it; DW-20).
 func step_lock(mouse: Vector2) -> void:
+	if _resume_pending:
+		_resume_pending = false
+		mouse = _resume_target
 	var confined: Vector2 = confine(mouse, _bounds_min, _bounds_max)
 	var previous: Vector2 = global_position
 	var final: Vector2 = confined
@@ -621,9 +636,12 @@ static func confine(mouse: Vector2, bounds_min: Vector2, bounds_max: Vector2) ->
 ## reads the ship's own position and the ship does not jump. Ignored outside the
 ## tree: the outgoing Player of a scene change (or F5 restart) is still connected
 ## until it is freed at the end of the frame, and SceneRouter clears the pauses
-## after the swap removed it (DW-61).
+## after the swap removed it (DW-61). A warp arms the one-tick guard that makes
+## the next step_lock use the warp target (DW-20); no warp arms nothing.
 func _on_resumed() -> void:
 	if not is_inside_tree():
 		return
 	if PauseArbiter.current_mouse_mode() == Input.MOUSE_MODE_CONFINED_HIDDEN:
-		warp_mouse.call(global_position)
+		_resume_target = global_position
+		_resume_pending = true
+		warp_mouse.call(_resume_target)
