@@ -654,3 +654,61 @@ func test_reload_only_logs_validator_problems() -> void:
 	assert_push_error("sequences.broken.lines[0].speaker")
 	assert_push_error_count(1)
 	_clear_temp_dialogue()
+
+
+## Real tuning with both comms line-max keys erased: non-empty, so a missing
+## key is logged (DW-76).
+func _tuning_without_line_max() -> Dictionary:
+	var data: Dictionary = _real(Config.DEFAULT_TUNING_PATH)
+	var comms: Dictionary = data["comms"]
+	comms.erase("story_line_max_chars")
+	comms.erase("combat_line_max_chars")
+	return data
+
+
+func _line_max_error(key: String, kind: String) -> String:
+	return "[ERROR][data] tuning.%s missing or not a number; %s line length not checked" % [key, kind]
+
+
+## DW-76: with both line-max keys missing, _load_dialogue logs one error per key
+## and checks no line length (-1), so over-long story and combat lines load.
+func test_load_dialogue_without_line_max_keys_skips_length_checks() -> void:
+	var comms: Dictionary = _real(Config.DEFAULT_TUNING_PATH)["comms"]
+	var story_len: int = int(comms[Config.STORY_MAX_CHARS_KEY.get_slice(".", 1)]) + 1
+	var combat_len: int = int(comms[Config.COMBAT_MAX_CHARS_KEY.get_slice(".", 1)]) + 1
+	_clear_temp_dialogue()
+	_write_dialogue("a.json", _story("long_story", "s".repeat(story_len)))
+	_write_dialogue("b.json", JSON.stringify({"sequences": {"long_combat": {
+		"mode": "combat", "lines": [{"speaker": "isolde", "text": "c".repeat(combat_len)}],
+	}}}))
+	var read_problems: Array[String] = []
+	var out: Dictionary = Config._load_dialogue(TEMP_DIALOGUE_DIR, _tuning_without_line_max(), read_problems)
+	_clear_temp_dialogue()
+	assert_eq(out.size(), 2, "both sequences returned: %s" % [out.keys()])
+	assert_true(out.has(&"long_story"), "%d-char story line accepted" % story_len)
+	assert_true(out.has(&"long_combat"), "%d-char combat line accepted" % combat_len)
+	assert_eq(read_problems, [] as Array[String], "no read problems")
+	assert_push_error(_line_max_error(Config.STORY_MAX_CHARS_KEY, "story"))
+	assert_push_error(_line_max_error(Config.COMBAT_MAX_CHARS_KEY, "combat"))
+	assert_push_error_count(2)
+
+
+## DW-76: _line_max_chars returns -1 for a missing or non-number key (one error
+## each).
+func test_line_max_chars_falls_back_to_no_limit() -> void:
+	var tuning: Dictionary = _tuning_without_line_max()
+	assert_eq(Config._line_max_chars(tuning, Config.STORY_MAX_CHARS_KEY, "story"), -1, "missing story key")
+	assert_eq(Config._line_max_chars(tuning, Config.COMBAT_MAX_CHARS_KEY, "combat"), -1, "missing combat key")
+	(tuning["comms"] as Dictionary)["story_line_max_chars"] = "200"
+	assert_eq(Config._line_max_chars(tuning, Config.STORY_MAX_CHARS_KEY, "story"), -1, "string value")
+	assert_push_error(_line_max_error(Config.STORY_MAX_CHARS_KEY, "story"))
+	assert_push_error(_line_max_error(Config.COMBAT_MAX_CHARS_KEY, "combat"))
+	assert_push_error(_line_max_error(Config.STORY_MAX_CHARS_KEY, "story"))
+	assert_push_error_count(3)
+
+
+## DW-76: _line_max_chars returns -1 for empty tuning (a failed tuning load, no error).
+func test_line_max_chars_on_empty_tuning_returns_minus_one_silently() -> void:
+	assert_eq(Config._line_max_chars({}, Config.STORY_MAX_CHARS_KEY, "story"), -1, "story")
+	assert_eq(Config._line_max_chars({}, Config.COMBAT_MAX_CHARS_KEY, "combat"), -1, "combat")
+	assert_push_error_count(0)

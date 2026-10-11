@@ -751,7 +751,9 @@ location: game/autoloads/config.gd:253
 source_spec: `spec-5-2-hear-combat-chatter-without-stopping-the-fight.md`
 severity: low
 reason: The verification-gap reviewer searched game/ for the "line length not checked" message and the _line_max_chars helper; only config.gd uses them, and every test loads the real tuning where both keys exist. Shipped tuning always has the keys. One test through _load_dialogue with a temp tuning lacking both keys would cover both kinds.
-status: open
+status: done 2026-10-11
+resolution: resolved by sweep bundle dw-config-line-max-missing-key-test
+resolution-undo: 7419951b1ea4858cced7e6c748234f7153bebdf6df6ebfea3e80707c6293e2b9 2026-10-11 7374617475733a206f70656e
 
 ### DW-77: The WaveDirector's wave-clear gap still awaits a SceneTreeTimer, which outlives the director, so a death reload during the gap before the next wave or the outro resumes a coroutine on a freed
 origin: spec-deferred a59e24ebeb8d
