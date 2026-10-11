@@ -1450,3 +1450,95 @@ func test_dev_convoy_maul_wave_hits_the_convoy() -> void:
 		assert_eq((hp_before - v) % 10, 0, "only Maul hits (10 each)")
 	Events.convoy_hp_changed.disconnect(_on_convoy_hp)
 	Events.enemy_killed.disconnect(_on_maul_killed)
+
+
+# --- Lancer convoy targeting (Story 6.3) -------------------------------------------------
+
+func _live_enemy_bullets() -> Array[EnemyBullet]:
+	var out: Array[EnemyBullet] = []
+	for child: Node in _level.get_node("World/Projectiles").get_children():
+		var bullet: EnemyBullet = child as EnemyBullet
+		if bullet != null and not bullet.is_queued_for_deletion():
+			out.append(bullet)
+	return out
+
+
+## Perpendicular distance from `point` to the ray from `origin` along `dir`
+## (INF when the point lies behind the origin).
+func _ray_miss_px(origin: Vector2, dir: Vector2, point: Vector2) -> float:
+	var d: Vector2 = dir.normalized()
+	var along: float = (point - origin).dot(d)
+	if along < 0.0:
+		return INF
+	return (point - (origin + d * along)).length()
+
+
+## Acceptance (Story 6.3): dev_convoy wave 2 on the real level.tscn with
+## convoy_aim_chance forced to 1 and the Player parked. Every Lancer shot is
+## convoy-aimed and points at a ship centre, and each one that lands lowers the
+## convoy HP by exactly damage.convoy_aimed (5).
+func test_dev_convoy_lancer_shots_hit_the_convoy_for_five() -> void:
+	(Config.tuning["waves"] as Dictionary)["gap_s"] = 0.05
+	((Config.tuning["enemies"] as Dictionary)["lancer"] as Dictionary)["convoy_aim_chance"] = 1.0
+	_hp_values.clear()
+	_make_level("dev_convoy")
+	var player: Player = _level.get_node("World/Player") as Player
+	player.debug_invincible = true
+	# Park the ship out of the physics world so no shot is body-blocked.
+	player.process_mode = Node.PROCESS_MODE_DISABLED
+	var convoy: Convoy = _convoys()[0]
+	var director: WaveDirector = _level.get_node("WaveDirector") as WaveDirector
+	director.debug_resolve_wave()
+	await _wait_for_wave(director, 2, 3.0)
+	assert_eq(director.wave_number(), 2, "the Lancer wave")
+	Events.convoy_hp_changed.connect(_on_convoy_hp)
+	var hp_before: int = convoy.hp()
+	var seen: Dictionary = {}
+	var end_ms: int = Time.get_ticks_msec() + 12000
+	while _hp_values.size() < 2 and Time.get_ticks_msec() < end_ms:
+		await get_tree().physics_frame
+		for bullet: EnemyBullet in _live_enemy_bullets():
+			if seen.has(bullet.get_instance_id()):
+				continue
+			seen[bullet.get_instance_id()] = true
+			assert_true(bullet.targets_convoy, "a Lancer shot marked targets_convoy")
+			var best: float = INF
+			for ship: ConvoyShip in convoy.ships():
+				best = minf(best, _ray_miss_px(bullet.global_position, bullet.velocity, ship.global_position))
+			# The convoy drifts at 40 px/s, so allow a frame or two of motion since the shot.
+			assert_lt(best, 2.0, "the shot points at a ship centre")
+	Events.convoy_hp_changed.disconnect(_on_convoy_hp)
+	assert_gt(seen.size(), 0, "the Lancers fired")
+	assert_false(_hp_values.is_empty(), "a Lancer shot reached the convoy")
+	var previous: int = hp_before
+	for v: int in _hp_values:
+		assert_eq(previous - v, Config.int_("damage.convoy_aimed"), "each hit costs exactly 5")
+		previous = v
+
+
+## Acceptance (Story 6.3): on dev (no convoy) with convoy_aim_chance at 1, every
+## Lancer bullet aims at the player and is not convoy-aimed.
+func test_dev_lancer_shots_aim_at_the_player_without_a_convoy() -> void:
+	(Config.tuning["waves"] as Dictionary)["gap_s"] = 0.05
+	((Config.tuning["enemies"] as Dictionary)["lancer"] as Dictionary)["convoy_aim_chance"] = 1.0
+	_make_level("dev")
+	var player: Player = _level.get_node("World/Player") as Player
+	player.debug_invincible = true
+	player.process_mode = Node.PROCESS_MODE_DISABLED
+	assert_eq(_convoys().size(), 0, "no convoy")
+	var director: WaveDirector = _level.get_node("WaveDirector") as WaveDirector
+	for wave: int in [2, 3]:
+		director.debug_resolve_wave()
+		await _wait_for_wave(director, wave, 4.0)
+	assert_eq(director.wave_number(), 3, "the Lancer wave")
+	var seen: Dictionary = {}
+	var end_ms: int = Time.get_ticks_msec() + 12000
+	while seen.size() < 3 and Time.get_ticks_msec() < end_ms:
+		await get_tree().physics_frame
+		for bullet: EnemyBullet in _live_enemy_bullets():
+			if seen.has(bullet.get_instance_id()):
+				continue
+			seen[bullet.get_instance_id()] = true
+			assert_false(bullet.targets_convoy, "never convoy-aimed")
+			assert_lt(_ray_miss_px(bullet.global_position, bullet.velocity, player.global_position), 0.01, "aimed at the player")
+	assert_gte(seen.size(), 3, "the Lancers fired")

@@ -225,3 +225,20 @@ func test_real_bolt_into_a_real_convoy_ship_leaves_hp_unchanged() -> void:
 	await wait_physics_frames(10)
 	assert_eq(convoy.hp(), convoy.max_hp(), "convoy HP unchanged")
 	assert_true(not is_instance_valid(bolt) or bolt.is_queued_for_deletion(), "bolt stopped by the hull")
+
+
+## Story 6.3: the base damage-amount hook returns the projectile's own damage
+## for any area (EnemyBullet overrides it for the convoy).
+func test_base_damage_for_returns_damage() -> void:
+	var bolt: Projectile = _make_bolt(Vector2(960, 500), Vector2(0, -1800), 3)
+	var enemy: Area2D = _make_target()
+	enemy.collision_layer = CollisionLayers.ENEMIES
+	var convoy_area: Area2D = _make_target()
+	convoy_area.collision_layer = CollisionLayers.CONVOY
+	assert_eq(bolt._damage_for(enemy), 3)
+	assert_eq(bolt._damage_for(convoy_area), 3)
+	bolt._on_area_entered(enemy)
+	var calls: Array = _calls(enemy)
+	assert_eq(calls.size(), 1)
+	if calls.size() == 1:
+		assert_eq(calls[0].amount, 3, "_on_area_entered applies _damage_for")

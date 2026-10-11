@@ -8,8 +8,15 @@ extends Enemy
 ## edges, never changing y. Shots are fire_interval_s apart, start to start
 ## (DW-40, decision #38): the Lancer strafes for fire_interval_s - telegraph_s
 ## (at least 0), then the muzzle glows for telegraph_s (still strafing), then
-## one enemy_bullet is fired at bullet_speed_px_s toward where the player is at
-## that moment (straight down with no player), and the cycle restarts.
+## one enemy_bullet is fired at bullet_speed_px_s, and the cycle restarts.
+##
+## Aim (FR20, Story 6.3): with a live convoy (a Groups.CONVOY node that is not
+## lost and has ships), each shot rolls `rng.randf() < convoy_aim_chance`; on a
+## hit it aims at the centre of a convoy ship picked by `rng.randi_range` (no
+## lead, straight down if the muzzle sits on it) and marks the bullet
+## `targets_convoy`. Otherwise, and always without a convoy (no roll), it aims
+## at where the player is at that moment (straight down with no player). The
+## convoy is looked up once per shot.
 ##
 ## Bullets are requested through `spawner` (injected by Spawner). Without one
 ## the Lancer runs its cycle but never fires.
@@ -37,6 +44,10 @@ var _telegraph_s: float = 0.0
 var _bullet_speed: float = 0.0
 var _glow_energy: float = 1.0
 var _bullet_damage: int = 1
+var _convoy_aim_chance: float = 0.0
+
+## Drives the convoy-aim roll and ship pick; randomized in _ready, tests seed it.
+var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 var _muzzle: Node2D = null
 var _glow: CanvasItem = null
@@ -48,6 +59,7 @@ func _init() -> void:
 
 func _ready() -> void:
 	super()
+	rng.randomize()
 	_strafe_speed = Config.num(_tuning_key("strafe_speed_px_s"))
 	_zone_height_ratio = Config.num(_tuning_key("zone_height_ratio"))
 	_telegraph_s = Config.num(_tuning_key("telegraph_s"))
@@ -55,6 +67,7 @@ func _ready() -> void:
 	_bullet_speed = Config.num(_tuning_key("bullet_speed_px_s"))
 	_glow_energy = Config.num(_tuning_key("muzzle_glow_energy"))
 	_bullet_damage = Config.int_("damage.bullet_hearts")
+	_convoy_aim_chance = Config.num(_tuning_key("convoy_aim_chance"))
 	_muzzle = get_node_or_null(^"Muzzle") as Node2D
 	_glow = get_node_or_null(^"Muzzle/MuzzleGlow") as CanvasItem
 	if _glow != null:
@@ -147,8 +160,36 @@ func _fire() -> void:
 	if not _can_fire():
 		return
 	var origin: Vector2 = _muzzle.global_position if _muzzle != null else global_position
+	var ship: ConvoyShip = _pick_convoy_ship()
+	var dir: Vector2 = _aim_from(origin) if ship == null else _aim_at(origin, ship.global_position)
 	spawner.spawn_projectile(BULLET_ID, {
 		"position": origin,
-		"velocity": _aim_from(origin) * _bullet_speed,
+		"velocity": dir * _bullet_speed,
 		"damage": _bullet_damage,
+		"targets_convoy": ship != null,
 	})
+
+
+## The convoy ship this shot aims at, or null to aim at the player. Null without
+## a live convoy (no Groups.CONVOY node, lost, or no ships; no roll consumed),
+## else rolls rng.randf() < convoy_aim_chance and picks a ship with
+## rng.randi_range on a hit.
+func _pick_convoy_ship() -> ConvoyShip:
+	var convoy: Convoy = get_tree().get_first_node_in_group(Groups.CONVOY) as Convoy
+	if convoy == null or convoy.is_lost():
+		return null
+	var ships: Array[ConvoyShip] = convoy.ships()
+	if ships.is_empty():
+		return null
+	if rng.randf() >= _convoy_aim_chance:
+		return null
+	return ships[rng.randi_range(0, ships.size() - 1)]
+
+
+## Unit direction from `origin` to `target`; straight down on a zero vector
+## (the same fallback as _aim_from).
+static func _aim_at(origin: Vector2, target: Vector2) -> Vector2:
+	var to_target: Vector2 = target - origin
+	if to_target.is_zero_approx():
+		return Vector2.DOWN
+	return to_target.normalized()

@@ -6,6 +6,7 @@ extends GutTest
 
 const BOLT_SCENE: PackedScene = preload("res://entities/projectiles/needle_bolt.tscn")
 const DamageTarget: GDScript = preload("res://tests/fixtures/damage_target.gd")
+const CONVOY_SCENE: PackedScene = preload("res://entities/allies/convoy.tscn")
 const ENEMY_COLOR: Color = Color("#FF2BD6")
 const DT: float = 1.0 / 60.0
 
@@ -184,3 +185,24 @@ func test_bolt_does_not_tunnel_through_the_player() -> void:
 		assert_eq(calls[0].amount, 1)
 		assert_true(is_same(calls[0].source, bolt), "the bolt is the source")
 	assert_eq(_projectiles.get_child_count(), 0, "bolt freed")
+
+
+# --- Convoy (Story 6.3) -------------------------------------------------------------
+
+## A Needle bolt is a stray: it never carries targets_convoy, and one that
+## reaches a convoy ship stops, frees itself and costs damage.convoy_stray.
+func test_needle_bolt_is_a_stray_on_the_convoy() -> void:
+	_make_world()
+	var convoy: Convoy = CONVOY_SCENE.instantiate() as Convoy
+	add_child_autofree(convoy)
+	convoy.set_physics_process(false)
+	var bolt: Projectile = _fire_needle()
+	if bolt == null:
+		return
+	bolt.set_physics_process(false)
+	assert_true(bolt is NeedleBolt)
+	assert_false((bolt as EnemyBullet).targets_convoy, "never convoy-aimed")
+	bolt._on_area_entered(convoy.ships()[Convoy.FLANK_BOTTOM])
+	assert_eq(convoy.hp(), convoy.max_hp() - Config.int_("damage.convoy_stray"), "stray: 2")
+	assert_eq(convoy.hp(), 98)
+	assert_true(bolt.is_queued_for_deletion(), "the bolt stops and frees")

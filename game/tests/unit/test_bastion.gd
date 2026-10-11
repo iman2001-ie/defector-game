@@ -7,6 +7,7 @@ extends GutTest
 const BASTION_SCENE: PackedScene = preload("res://entities/enemies/bastion/bastion.tscn")
 const WASP_SCENE: PackedScene = preload("res://entities/enemies/wasp/wasp.tscn")
 const BASTION_SCRIPT_PATH: String = "res://entities/enemies/bastion/bastion.gd"
+const CONVOY_SCENE: PackedScene = preload("res://entities/allies/convoy.tscn")
 const DT: float = 1.0 / 60.0
 const EPS: float = 0.001
 
@@ -582,3 +583,32 @@ func test_paused_tree_freezes_the_bastion() -> void:
 	PauseArbiter.pop(&"menu")
 	await wait_physics_frames(10)
 	assert_ne(bastion.global_position, before, "Bastion moves again")
+
+
+# --- Convoy (Story 6.3) -------------------------------------------------------------
+
+## Bastion shots are strays: even with a live convoy they never carry
+## targets_convoy, and one that reaches a convoy ship costs damage.convoy_stray.
+func test_bastion_bullet_is_a_stray_on_the_convoy() -> void:
+	_make_world()
+	var convoy: Convoy = CONVOY_SCENE.instantiate() as Convoy
+	add_child_autofree(convoy)
+	convoy.set_physics_process(false)
+	var bastion: Bastion = _spawn({"position": Vector2(960, 240)})
+	if bastion == null:
+		return
+	_step_until(bastion, Bastion.State.TELEGRAPH, 4.0)
+	_step_until(bastion, Bastion.State.DRIFT, 2.0)
+	var bullets: Array[Projectile] = _bullets()
+	assert_eq(bullets.size(), 6, "one volley")
+	if bullets.is_empty():
+		return
+	for bullet: Projectile in bullets:
+		bullet.set_physics_process(false)
+		assert_true(bullet is EnemyBullet)
+		assert_false((bullet as EnemyBullet).targets_convoy, "never convoy-aimed")
+	var shot: Projectile = bullets[0]
+	shot._on_area_entered(convoy.ships()[Convoy.LEAD])
+	assert_eq(convoy.hp(), convoy.max_hp() - Config.int_("damage.convoy_stray"), "stray: 2")
+	assert_eq(convoy.hp(), 98)
+	assert_true(shot.is_queued_for_deletion(), "the shot stops and frees")

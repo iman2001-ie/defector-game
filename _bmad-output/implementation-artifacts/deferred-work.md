@@ -774,3 +774,10 @@ location: game/entities/player/player.gd resolve_hull / game/entities/allies/con
 source_spec: `spec-6-1-protect-the-convoy.md`
 reason: Hitbox centres are 200 px apart in x (160 + 40 gap) and the hitboxes are 128 px wide, leaving 72 px; resolve_hull uses the hitbox rects (as the spec and the AC's HullArea-vs-convoy-layer mechanism prescribe). Whether slipping between formation ships is unwanted is not settled by GDD #25 (which forbids passing through hulls, not between them). Settle by an operator playtest of dev_convoy; if unwanted, close the pocket (resolve against drawn extents or add a gap rect).
 status: open
+
+### DW-84: One unidentified intermittent failure in test_level.gd (57/58), seen once while the implementer re-ran it after the review patches.
+origin: spec-deferred 978bd41bfe2f
+location: game/tests/unit/test_level.gd
+source_spec: `spec-6-3-defend-the-convoy-from-lancer-fire.md`
+reason: The failing run's log wasn't captured. The next 12 implementer runs, 6 further runs and two full suites all passed (58/58, 1515/1515). It may be one of the two new real-time Lancer tests (test_dev_convoy_lancer_shots_hit_the_convoy_for_five, test_dev_lancer_shots_aim_at_the_player_without_a_convoy) or an older timing-sensitive test. Capturing the failing test's name from a failing run would settle it.
+status: open

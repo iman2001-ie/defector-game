@@ -8,7 +8,8 @@ extends Area2D
 ## and ally shots (this base, laser, missile, micro-missile) never damage it
 ## (_can_damage, DW-32) and show the laser's SMALL blocked-shot effect whatever
 ## their own impact_tier (_on_impact); the Missile also skips its splash (DW-33).
-## EnemyBullet overrides both hooks, so enemy shots do damage the convoy.
+## EnemyBullet overrides _can_damage and _on_impact, so enemy shots do damage
+## the convoy, and _damage_for, so they apply the convoy amounts (Story 6.3).
 ##
 ## Created only by Spawner: setup(params) stores values before add_child, and
 ## _ready() applies them.
@@ -58,7 +59,7 @@ func _on_area_entered(area: Area2D) -> void:
 		return
 	_spent = true
 	if area.has_method(&"apply_damage") and _can_damage(area):
-		area.call(&"apply_damage", damage, self)
+		area.call(&"apply_damage", _damage_for(area), self)
 	_on_impact(area)
 	queue_free()
 
@@ -74,6 +75,13 @@ static func is_convoy(area: Area2D) -> bool:
 ## never chip asteroids but do damage the convoy.
 func _can_damage(area: Area2D) -> bool:
 	return not is_convoy(area)
+
+
+## Damage-amount hook: how much this projectile applies to `area` once
+## _can_damage allowed it. The base returns `damage`. EnemyBullet overrides it
+## for the convoy's aimed / stray amounts (Story 6.3, GDD #23).
+func _damage_for(_area: Area2D) -> int:
+	return damage
 
 
 ## Impact hook: plays the impact feedback, SMALL (the laser's blocked-shot effect)

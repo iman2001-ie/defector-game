@@ -1,7 +1,8 @@
 extends GutTest
 ## EnemyBullet (Story 2.5): layers, round magenta visual with a white core,
 ## travel-aligned anti-tunnelling capsule, damage only on non-asteroid targets
-## with apply_damage, asteroids stop it without damage, no impact feedback.
+## with apply_damage, asteroids stop it without damage, no impact feedback;
+## the targets_convoy flag and the convoy aimed / stray amounts (Story 6.3).
 
 const BULLET_SCENE: PackedScene = preload("res://entities/projectiles/enemy_bullet.tscn")
 const DamageTarget: GDScript = preload("res://tests/fixtures/damage_target.gd")
@@ -13,13 +14,17 @@ var _spawner: Spawner = null
 
 func after_each() -> void:
 	Feedback.reset()
+	Config.load_data()
 	_world = null
 	_spawner = null
 
 
-func _make(pos: Vector2, velocity: Vector2 = Vector2(0, 450), damage: int = 1, manual: bool = true) -> EnemyBullet:
+func _make(pos: Vector2, velocity: Vector2 = Vector2(0, 450), damage: int = 1, manual: bool = true, targets_convoy: bool = false) -> EnemyBullet:
 	var bullet: EnemyBullet = BULLET_SCENE.instantiate() as EnemyBullet
-	bullet.setup({"position": pos, "velocity": velocity, "damage": damage})
+	var params: Dictionary = {"position": pos, "velocity": velocity, "damage": damage}
+	if targets_convoy:
+		params["targets_convoy"] = true
+	bullet.setup(params)
 	add_child_autofree(bullet)
 	if manual:
 		bullet.set_physics_process(false)
@@ -180,6 +185,11 @@ func test_can_damage_rejects_asteroid_layer_only() -> void:
 	var convoy: Area2D = _make_target(CollisionLayers.CONVOY)
 	convoy_bullet._on_area_entered(convoy)
 	assert_eq(_calls(convoy).size(), 1, "other layers are damaged")
+	var aimed: EnemyBullet = _make(Vector2(960, 540), Vector2(0, 450), 1, true, true)
+	var rock: Area2D = _make_target(CollisionLayers.ASTEROIDS)
+	aimed._on_area_entered(rock)
+	assert_eq(_calls(rock).size(), 0, "a convoy-aimed bullet still never damages an asteroid")
+	assert_true(aimed.is_queued_for_deletion())
 
 
 func test_real_overlap_with_a_player_stand_in_through_physics() -> void:
@@ -208,3 +218,82 @@ func test_real_asteroid_stops_the_bullet_without_damage() -> void:
 	assert_eq(rock.hp, hp_before, "asteroid HP unchanged")
 	assert_false(rock.is_queued_for_deletion())
 	assert_eq(_world.get_node("Projectiles").get_child_count(), 0, "bullet stopped and freed")
+
+
+# --- Convoy amounts (Story 6.3) ----------------------------------------------------
+
+func test_targets_convoy_defaults_false_and_reads_the_setup_key() -> void:
+	var plain: EnemyBullet = _make(Vector2(960, 540))
+	assert_false(plain.targets_convoy, "default false")
+	var aimed: EnemyBullet = _make(Vector2(960, 540), Vector2(0, 450), 1, true, true)
+	assert_true(aimed.targets_convoy, "setup key")
+	assert_eq(aimed.velocity, Vector2(0, 450), "the base keys still apply")
+	assert_eq(aimed.damage, 1)
+	var kept: EnemyBullet = BULLET_SCENE.instantiate() as EnemyBullet
+	kept.targets_convoy = true
+	kept.setup({"damage": 2})
+	assert_true(kept.targets_convoy, "a missing key keeps the current value")
+	autofree(kept)
+
+
+func test_aimed_bullet_applies_convoy_aimed_to_a_convoy_area_once() -> void:
+	var bullet: EnemyBullet = _make(Vector2(960, 540), Vector2(0, 450), 1, true, true)
+	var convoy: Area2D = _make_target(CollisionLayers.CONVOY)
+	var other: Area2D = _make_target(CollisionLayers.CONVOY)
+	bullet._on_area_entered(convoy)
+	bullet._on_area_entered(other)
+	var calls: Array = _calls(convoy)
+	assert_eq(calls.size(), 1, "one damage instance")
+	if calls.size() == 1:
+		assert_eq(calls[0].amount, Config.int_("damage.convoy_aimed"), "aimed: 5")
+		assert_eq(calls[0].amount, 5)
+		assert_eq(calls[0].source, bullet)
+	assert_eq(_calls(other).size(), 0)
+	assert_true(bullet.is_queued_for_deletion(), "freed")
+
+
+func test_stray_bullet_applies_convoy_stray_to_a_convoy_area() -> void:
+	var bullet: EnemyBullet = _make(Vector2(960, 540), Vector2(0, 450), 3)
+	var convoy: Area2D = _make_target(CollisionLayers.CONVOY)
+	bullet._on_area_entered(convoy)
+	var calls: Array = _calls(convoy)
+	assert_eq(calls.size(), 1)
+	if calls.size() == 1:
+		assert_eq(calls[0].amount, Config.int_("damage.convoy_stray"), "stray: 2, not its own damage")
+		assert_eq(calls[0].amount, 2)
+	assert_true(bullet.is_queued_for_deletion(), "freed")
+
+
+func test_aimed_bullet_still_costs_the_player_its_own_damage() -> void:
+	var bullet: EnemyBullet = _make(Vector2(960, 540), Vector2(0, 450), 1, true, true)
+	var player: Area2D = _make_target(CollisionLayers.PLAYER)
+	bullet._on_area_entered(player)
+	var calls: Array = _calls(player)
+	assert_eq(calls.size(), 1)
+	if calls.size() == 1:
+		assert_eq(calls[0].amount, 1, "damage (bullet hearts), not the convoy amount")
+	var heavy: EnemyBullet = _make(Vector2(960, 540), Vector2(0, 450), 2)
+	var player2: Area2D = _make_target(CollisionLayers.PLAYER)
+	heavy._on_area_entered(player2)
+	assert_eq((_calls(player2)[0] as Dictionary).amount, 2, "a stray's own damage on the player")
+
+
+func test_convoy_amounts_come_from_tuning() -> void:
+	var damage_tuning: Dictionary = Config.tuning["damage"] as Dictionary
+	damage_tuning["convoy_aimed"] = 7
+	damage_tuning["convoy_stray"] = 3
+	var aimed: EnemyBullet = _make(Vector2(960, 540), Vector2(0, 450), 1, true, true)
+	var stray: EnemyBullet = _make(Vector2(960, 540))
+	assert_eq(aimed._damage_for(_make_target(CollisionLayers.CONVOY)), 7)
+	assert_eq(stray._damage_for(_make_target(CollisionLayers.CONVOY)), 3)
+	assert_eq(aimed._damage_for(_make_target(CollisionLayers.PLAYER)), 1)
+
+
+func test_spawned_bullet_carries_targets_convoy() -> void:
+	_make_world()
+	var bullet: Projectile = _spawner.spawn_projectile(&"enemy_bullet",
+		{"position": Vector2(960, 540), "velocity": Vector2(0, 450), "damage": 1, "targets_convoy": true})
+	assert_true(bullet is EnemyBullet)
+	if bullet is EnemyBullet:
+		bullet.set_physics_process(false)
+		assert_true((bullet as EnemyBullet).targets_convoy)

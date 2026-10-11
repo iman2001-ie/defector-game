@@ -1,10 +1,12 @@
 extends GutTest
 ## Lancer state machine (Story 2.5): entry, strafe, muzzle-glow telegraph, aimed
-## shot through a real Spawner, no-spawner path, tuning reads, pause. Driven
-## through step(delta) with physics processing off, so every move is deterministic.
+## shot through a real Spawner, no-spawner path, tuning reads, pause, the convoy
+## aim roll and ship pick (Story 6.3). Driven through step(delta) with physics
+## processing off, so every move is deterministic.
 
 const LANCER_SCENE: PackedScene = preload("res://entities/enemies/lancer/lancer.tscn")
 const LANCER_SCRIPT_PATH: String = "res://entities/enemies/lancer/lancer.gd"
+const CONVOY_SCENE: PackedScene = preload("res://entities/allies/convoy.tscn")
 const DT: float = 1.0 / 60.0
 
 var _lines: Array[String] = []
@@ -506,3 +508,238 @@ func test_paused_tree_freezes_the_lancer_and_its_bullets() -> void:
 	await wait_physics_frames(3)
 	assert_gt(lancer.global_position.x, lancer_before.x, "Lancer moves again")
 	assert_gt(bullet.global_position.y, bullet_before.y, "bullet moves again")
+
+
+# --- Convoy targeting (Story 6.3) ------------------------------------------------
+
+func _lancer_tuning() -> Dictionary:
+	return (Config.tuning["enemies"] as Dictionary)["lancer"] as Dictionary
+
+
+## A real Convoy (joins Groups.CONVOY), physics off so its ships stay put.
+func _make_convoy() -> Convoy:
+	var convoy: Convoy = CONVOY_SCENE.instantiate() as Convoy
+	convoy.setup({})
+	add_child_autofree(convoy)
+	convoy.set_physics_process(false)
+	return convoy
+
+
+## Calls the Lancer's _fire() once and returns the bullet it spawned (physics off).
+func _fire_once(lancer: Lancer) -> EnemyBullet:
+	var before: int = _bullets().size()
+	lancer._fire()
+	var bullets: Array[Projectile] = _bullets()
+	assert_eq(bullets.size(), before + 1, "one bullet per _fire")
+	if bullets.size() != before + 1:
+		return null
+	var bullet: EnemyBullet = bullets[bullets.size() - 1] as EnemyBullet
+	bullet.set_physics_process(false)
+	return bullet
+
+
+## The convoy ship whose centre `bullet` aims at exactly, or null.
+func _aimed_ship(bullet: EnemyBullet, convoy: Convoy) -> ConvoyShip:
+	for ship: ConvoyShip in convoy.ships():
+		var expected: Vector2 = (ship.global_position - bullet.global_position).normalized()
+		if bullet.velocity.normalized().dot(expected) > 0.99999:
+			return ship
+	return null
+
+
+func _aims_at_player(bullet: EnemyBullet) -> bool:
+	var expected: Vector2 = (_player.global_position - bullet.global_position).normalized()
+	return bullet.velocity.normalized().dot(expected) > 0.99999
+
+
+func test_convoy_aim_chance_from_tuning() -> void:
+	assert_eq(Config.num("enemies.lancer.convoy_aim_chance"), 0.5)
+	assert_eq(Config.int_("damage.convoy_aimed"), 5)
+	assert_eq(Config.int_("damage.convoy_stray"), 2)
+
+
+func test_rng_is_a_seedable_member() -> void:
+	var a: Lancer = _make({"position": Vector2(700, 160)})
+	assert_true(a.rng is RandomNumberGenerator)
+	var b: Lancer = _make({"position": Vector2(900, 160)})
+	assert_ne(a.rng.seed, b.rng.seed, "randomized in _ready")
+
+
+func test_chance_one_always_aims_at_a_convoy_ship() -> void:
+	_lancer_tuning()["convoy_aim_chance"] = 1.0
+	_make_world()
+	_make_player(Vector2(960, 600))
+	var convoy: Convoy = _make_convoy()
+	var lancer: Lancer = _spawn({"position": Vector2(700, 160)})
+	if lancer == null:
+		return
+	lancer.rng.seed = 42
+	var hit: Dictionary = {}
+	for i: int in 60:
+		var bullet: EnemyBullet = _fire_once(lancer)
+		if bullet == null:
+			return
+		assert_true(bullet.targets_convoy, "shot %d marked targets_convoy" % i)
+		var ship: ConvoyShip = _aimed_ship(bullet, convoy)
+		assert_not_null(ship, "shot %d points at a ship centre" % i)
+		if ship != null:
+			hit[ship.name] = true
+		assert_almost_eq(bullet.velocity.length(), 450.0, 0.001, "bullet_speed_px_s")
+		assert_eq(bullet.damage, Config.int_("damage.bullet_hearts"), "its own heart damage is unchanged")
+	assert_eq(hit.size(), 3, "every ship can be picked")
+
+
+func test_chance_zero_never_aims_at_the_convoy() -> void:
+	_lancer_tuning()["convoy_aim_chance"] = 0.0
+	_make_world()
+	_make_player(Vector2(960, 600))
+	_make_convoy()
+	var lancer: Lancer = _spawn({"position": Vector2(700, 160)})
+	if lancer == null:
+		return
+	for i: int in 50:
+		var bullet: EnemyBullet = _fire_once(lancer)
+		if bullet == null:
+			return
+		assert_false(bullet.targets_convoy, "shot %d not convoy-aimed" % i)
+		assert_true(_aims_at_player(bullet), "shot %d aims at the player" % i)
+
+
+func test_roll_and_pick_use_the_lancer_rng() -> void:
+	_lancer_tuning()["convoy_aim_chance"] = 0.5
+	_make_world()
+	_make_player(Vector2(960, 600))
+	var convoy: Convoy = _make_convoy()
+	var lancer: Lancer = _spawn({"position": Vector2(700, 160)})
+	if lancer == null:
+		return
+	lancer.rng.seed = 1234
+	var mirror: RandomNumberGenerator = RandomNumberGenerator.new()
+	mirror.seed = 1234
+	for i: int in 40:
+		var expected: ConvoyShip = null
+		if mirror.randf() < 0.5:
+			expected = convoy.ships()[mirror.randi_range(0, convoy.ships().size() - 1)]
+		var bullet: EnemyBullet = _fire_once(lancer)
+		if bullet == null:
+			return
+		assert_eq(bullet.targets_convoy, expected != null, "shot %d roll" % i)
+		if expected != null:
+			assert_eq(_aimed_ship(bullet, convoy), expected, "shot %d pick" % i)
+		else:
+			assert_true(_aims_at_player(bullet), "shot %d aims at the player" % i)
+
+
+func test_seeded_odds_over_1000_shots() -> void:
+	_lancer_tuning()["convoy_aim_chance"] = 0.5
+	_make_world()
+	_make_convoy()
+	var lancer: Lancer = _spawn({"position": Vector2(700, 160)})
+	if lancer == null:
+		return
+	lancer.rng.seed = 6303
+	var convoy_shots: int = 0
+	for i: int in 1000:
+		if lancer._pick_convoy_ship() != null:
+			convoy_shots += 1
+	assert_between(convoy_shots, 450, 550, "about half the shots aim at the convoy")
+
+
+func test_no_convoy_always_aims_at_the_player_without_a_roll() -> void:
+	_lancer_tuning()["convoy_aim_chance"] = 1.0
+	_make_world()
+	_make_player(Vector2(960, 600))
+	var lancer: Lancer = _spawn({"position": Vector2(700, 160)})
+	if lancer == null:
+		return
+	var state_before: int = lancer.rng.state
+	for i: int in 10:
+		var bullet: EnemyBullet = _fire_once(lancer)
+		if bullet == null:
+			return
+		assert_false(bullet.targets_convoy)
+		assert_true(_aims_at_player(bullet), "aims at the player")
+	assert_eq(lancer.rng.state, state_before, "no roll consumed")
+
+
+func test_lost_convoy_counts_as_no_convoy() -> void:
+	_lancer_tuning()["convoy_aim_chance"] = 1.0
+	_make_world()
+	_make_player(Vector2(960, 600))
+	var convoy: Convoy = _make_convoy()
+	convoy.apply_damage(convoy.max_hp(), null)
+	assert_true(convoy.is_lost())
+	var lancer: Lancer = _spawn({"position": Vector2(700, 160)})
+	if lancer == null:
+		return
+	var state_before: int = lancer.rng.state
+	var bullet: EnemyBullet = _fire_once(lancer)
+	if bullet == null:
+		return
+	assert_false(bullet.targets_convoy)
+	assert_true(_aims_at_player(bullet))
+	assert_eq(lancer.rng.state, state_before, "no roll consumed")
+
+
+func test_convoy_without_ships_counts_as_no_convoy() -> void:
+	_lancer_tuning()["convoy_aim_chance"] = 1.0
+	_make_world()
+	_make_player(Vector2(960, 600))
+	var convoy: Convoy = _make_convoy()
+	convoy.ships().clear()
+	var lancer: Lancer = _spawn({"position": Vector2(700, 160)})
+	if lancer == null:
+		return
+	var state_before: int = lancer.rng.state
+	var bullet: EnemyBullet = _fire_once(lancer)
+	if bullet == null:
+		return
+	assert_false(bullet.targets_convoy)
+	assert_true(_aims_at_player(bullet))
+	assert_eq(lancer.rng.state, state_before, "no roll consumed")
+
+
+func test_convoy_shot_with_the_muzzle_on_the_ship_centre_goes_straight_down() -> void:
+	_lancer_tuning()["convoy_aim_chance"] = 1.0
+	_lancer_tuning()["strafe_speed_px_s"] = 0.0
+	_make_world()
+	var convoy: Convoy = _make_convoy()
+	var lancer: Lancer = _spawn({"position": Vector2(700, 160)})
+	if lancer == null:
+		return
+	# Every ship centre on the muzzle, so whichever ship is picked the vector is zero.
+	var muzzle: Vector2 = (lancer.get_node("Muzzle") as Node2D).global_position
+	for ship: ConvoyShip in convoy.ships():
+		ship.global_position = muzzle
+	var bullet: EnemyBullet = _fire_once(lancer)
+	if bullet == null:
+		return
+	assert_true(bullet.targets_convoy)
+	assert_almost_eq(bullet.velocity, Vector2(0, 450), Vector2(0.0001, 0.0001))
+	assert_eq(Lancer._aim_at(Vector2(5, 5), Vector2(5, 5)), Vector2.DOWN)
+	assert_almost_eq(Lancer._aim_at(Vector2(0, 0), Vector2(3, 4)), Vector2(0.6, 0.8), Vector2(0.0001, 0.0001))
+
+
+func test_roll_happens_once_at_fire_time_after_the_telegraph() -> void:
+	_lancer_tuning()["convoy_aim_chance"] = 1.0
+	_make_world()
+	_make_player(Vector2(960, 600))
+	var convoy: Convoy = _make_convoy()
+	var lancer: Lancer = _spawn({"position": Vector2(700, 160)})
+	if lancer == null:
+		return
+	var state_before: int = lancer.rng.state
+	_step_until(lancer, Lancer.State.TELEGRAPH, 3.0)
+	assert_eq(lancer.rng.state, state_before, "no roll while strafing")
+	while lancer.state() == Lancer.State.TELEGRAPH:
+		assert_eq(lancer.rng.state, state_before, "no roll during the telegraph")
+		lancer.step(DT)
+	var bullets: Array[Projectile] = _bullets()
+	assert_eq(bullets.size(), 1, "one shot")
+	assert_ne(lancer.rng.state, state_before, "rolled at the shot")
+	if bullets.size() != 1:
+		return
+	var bullet: EnemyBullet = bullets[0] as EnemyBullet
+	bullet.set_physics_process(false)
+	assert_true(bullet.targets_convoy)
+	assert_not_null(_aimed_ship(bullet, convoy), "aimed at a ship centre at fire time")
