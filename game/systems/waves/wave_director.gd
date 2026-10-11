@@ -11,14 +11,18 @@ extends Node
 ## After every progress change (a resolve or a subtraction): emit
 ## wave_progress_changed, fire progress triggers in array order, then try to
 ## clear. A wave clears when every counted enemy resolved and no action chain
-## or group spawn is pending; then wave_clear triggers, a waves.gap_s gap, the
-## running chains finish, and the next wave starts (or the level clears).
+## or group spawn is pending; then wave_clear triggers, a waves.gap_s gap (on a
+## pausable one-shot Timer child, like a `wait` action), the running chains
+## finish, and the next wave starts (or the level clears).
 ## A stall net subtracts groups that can never spawn, so no wave soft-locks.
 ## Once Events.level_failed fires (the player died) the attempt is dead until
 ## start_level / debug_skip_to_boss (retro F1, DW-54): no wave or level clears
 ## and progress is frozen (kills don't resolve, nothing is subtracted, no
 ## wave_progress_changed, no progress triggers, no stall net, F3 refuses).
-## Running chains and pending group spawns still run; only counting stops.
+## A running chain runs no further action of any kind (decision #39, amended
+## by DW-78): it stops at its next action or after its current await, logs one
+## INFO beat line and leaves the chain count. A group spawn requested before
+## the failure still spawns, uncounted.
 ## First outcome wins: a level_failed after level_cleared changes nothing here.
 ##
 ## Formation rows: each entry starts on the next free row, except the
@@ -35,10 +39,11 @@ extends Node
 ## and hint (Story 5.8: Events.hint_requested for the HUD HintPill; never waits).
 ## The level's intro_sequence plays before wave 1 (skipped on a retry) and its
 ## outro_sequence before level_cleared (also on a retry), each the same way as
-## a comms action. Every await in a chain, the intro or the outro is on this
-## node's own signal or a child Timer, so a freed director (death reload)
-## never resumes one. After every await a chain of an older wave (F6, a new
-## start_level) returns without touching the counters.
+## a comms action. Every await in a chain, the wave-clear gap, the intro or the
+## outro is on this node's own signal or a child Timer, so a freed director
+## (death reload) never resumes one. After every await a chain of an older wave
+## (F6, a new start_level) returns without touching the counters; then a chain
+## of a failed attempt stops (above).
 ##
 ## Feature-flag gate: a type listed in EntityRegistry.ENEMY_FLAGS whose flag is
 ## false at wave start is disabled for that wave. Its spawn and group entries
@@ -57,6 +62,9 @@ const WHEN_WAVE_START: StringName = &"wave_start"
 const WHEN_PROGRESS: StringName = &"progress"
 const WHEN_WAVE_CLEAR: StringName = &"wave_clear"
 const DEFAULT_ENTRY: String = "top"
+## Shortest child Timer: a Timer can't run 0 s, so a gap of 0 (or less) fires on
+## the next frame like the old zero-length timer. Technical, not a design number.
+const MIN_TIMER_S: float = 0.001
 
 @export var spawner: Spawner
 
@@ -454,13 +462,20 @@ func _fire_triggers(event: StringName, value: float) -> void:
 
 
 ## Runs one trigger's actions in order. A chain of an older wave (F6) stops
-## after its next await without touching the counters.
+## after its next await without touching the counters. Once the attempt failed
+## (DW-78) the chain runs no further action: it stops before its next action or
+## right after its current await, and still leaves the chain count.
 func _run_chain(trigger: BeatTrigger) -> void:
 	var serial: int = _serial
 	trigger.has_fired = true
 	_running_chains += 1
 	Log.info("beat", "Level %d wave %d: %s trigger fired (%d actions)" % [_level_id, _wave_index + 1, trigger.when, trigger.actions.size()])
-	for action: Dictionary in trigger.actions:
+	var skipped: int = 0
+	for i: int in trigger.actions.size():
+		if _failed:
+			skipped = trigger.actions.size() - i
+			break
+		var action: Dictionary = trigger.actions[i]
 		if action.has("spawn_group"):
 			_request_group(str(action["spawn_group"]))
 		elif action.has("wait"):
@@ -479,6 +494,8 @@ func _run_chain(trigger: BeatTrigger) -> void:
 				await _sequence_done
 				if serial != _serial:
 					return
+				if _failed:
+					break  # The loop top stops the chain.
 		elif action.has("story_event"):
 			var event_name: StringName = StringName(str(action["story_event"]))
 			Log.info("beat", "Level %d wave %d: story event '%s'" % [_level_id, _wave_index + 1, event_name])
@@ -491,6 +508,8 @@ func _run_chain(trigger: BeatTrigger) -> void:
 			Events.hint_requested.emit(hint_id)
 		else:
 			Log.warn("beat", "%s waves[%d]: unknown action %s; skipped" % [_source, _wave_index, action])
+	if _failed:
+		Log.info("beat", "Level %d wave %d: %s trigger chain stopped (attempt failed; %d actions skipped)" % [_level_id, _wave_index + 1, trigger.when, skipped])
 	_running_chains -= 1
 	if _running_chains == 0:
 		chains_finished.emit()
@@ -515,8 +534,9 @@ func _finished_count(id: StringName) -> int:
 	return int(_finished_counts.get(id, 0))
 
 
-## A one-shot pausable Timer child for a `wait` action: freed with the director,
-## so an abandoned chain never resumes.
+## A one-shot pausable Timer child for a `wait` action or the wave-clear gap:
+## freed with the director, so an abandoned chain or gap never resumes. The
+## caller frees it after its timeout. `wait_s` must be > 0.
 func _start_wait_timer(wait_s: float) -> Timer:
 	var timer: Timer = Timer.new()
 	timer.one_shot = true
@@ -559,7 +579,9 @@ func _try_clear() -> void:
 	Events.wave_cleared.emit(index)
 	Log.info("wave", "Level %d wave %d cleared (%d resolved)" % [_level_id, index + 1, _progress.resolved])
 	_fire_triggers(WHEN_WAVE_CLEAR, 0.0)
-	await get_tree().create_timer(_gap_s, false).timeout
+	var gap: Timer = _start_wait_timer(maxf(_gap_s, MIN_TIMER_S))
+	await gap.timeout
+	gap.queue_free()
 	if serial != _serial or _failed:
 		return
 	while _running_chains > 0:

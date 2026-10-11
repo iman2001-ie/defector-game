@@ -517,6 +517,47 @@ func test_gap_is_pausable() -> void:
 	assert_eq(_events_named("wave_started").size(), 2, "next wave once unpaused")
 
 
+## DW-77: the gap waits on a pausable child Timer, freed after the gap.
+func test_gap_uses_a_pausable_child_timer() -> void:
+	_start([{"spawns": [_wasps(1)]}, {"spawns": [_wasps(1)]}])
+	_kill(1)
+	var timers: Array[Node] = _director.find_children("*", "Timer", false, false)
+	assert_eq(timers.size(), 1, "one Timer child")
+	if timers.size() == 1:
+		assert_eq(timers[0].process_mode, Node.PROCESS_MODE_PAUSABLE)
+		assert_almost_eq((timers[0] as Timer).wait_time, GAP_S, 0.0001, "waves.gap_s long")
+	await wait_seconds(GAP_S + 0.05)
+	assert_eq(_events_named("wave_started").size(), 2, "next wave after the gap")
+	await wait_process_frames(1)
+	assert_eq(_director.find_children("*", "Timer", false, false).size(), 0, "timer freed")
+
+
+## DW-77: a zero gap still starts the next wave on a later frame.
+func test_zero_gap_starts_the_next_wave_later() -> void:
+	(Config.tuning["waves"] as Dictionary)["gap_s"] = 0.0
+	_start([{"spawns": [_wasps(1)]}, {"spawns": [_wasps(1)]}])
+	_kill(1)
+	assert_eq(_events_named("wave_cleared").size(), 1)
+	assert_eq(_events_named("wave_started").size(), 1, "never synchronously inside the clear")
+	await wait_process_frames(3)
+	assert_eq(_events_named("wave_started").size(), 2, "next wave on a later frame")
+	assert_engine_error_count(0, "no Timer error")
+
+
+## DW-77: a death reload during the gap never resumes the freed director.
+func test_death_reload_during_the_gap_resumes_nothing() -> void:
+	_start([{"spawns": [_wasps(1)]}, {"spawns": [_wasps(1)]}])
+	_kill(1)
+	assert_eq(_events_named("wave_cleared").size(), 1, "wave 1 cleared")
+	Events.level_failed.emit(&"hearts")
+	_root.queue_free()
+	await wait_process_frames(2)
+	assert_false(is_instance_valid(_director), "director freed")
+	await wait_seconds(GAP_S + 0.1)
+	assert_eq(_events_named("wave_started").size(), 1, "no second wave_started")
+	assert_engine_error_count(0, "no 'class instance is gone' error")
+
+
 # --- Last wave ----------------------------------------------------------------
 
 func test_last_wave_clears_the_level() -> void:
@@ -605,29 +646,105 @@ func test_death_while_waiting_for_chains_never_starts_the_next_wave() -> void:
 	assert_eq(_events_named("wave_started").size(), 1, "no second wave_started")
 
 
-## DW-54: after the death, chains and group spawns still run, but a failed
-## group entry is not subtracted and the stall net never fires.
-func test_chains_and_groups_still_run_after_death_without_counting() -> void:
+## DW-54, DW-78: a group requested before the death still spawns uncounted (a
+## failed entry is not subtracted, no stall net), but the chain's later actions
+## never run.
+func test_group_requested_before_death_spawns_uncounted_and_the_chain_stops() -> void:
 	_start([{
 		"spawns": [_wasps(2)],
 		"groups": {"r": [{"type": "bogus", "count": 1.0}, _wasps(1)]},
-		"triggers": [{"when": "wave_start", "actions": [{"wait": GAP_S}, {"spawn_group": "r"}, {"wait": GAP_S}]}],
+		"triggers": [{"when": "wave_start", "actions": [{"spawn_group": "r"}, {"wait": GAP_S}, {"story_event": "e"}]}],
 	}])
 	assert_eq(_director.total_count(), 4)
 	Events.level_failed.emit(&"hearts")
 	_kill(2)
-	await wait_seconds(GAP_S + 0.02)
 	await wait_process_frames(2)
 	assert_eq(_counted().size(), 1, "the group's wasp spawned")
 	assert_push_error("bogus")
 	assert_eq(_lines_containing("[ERROR]").size(), 1, "only the bogus type errors")
 	_kill(1)
 	await wait_seconds(GAP_S + 0.05)
-	assert_eq(_director.running_chains(), 0, "chain finished")
+	assert_eq(_story_events(), [] as Array[Array], "e never emitted")
+	assert_eq(_director.running_chains(), 0, "chain stopped")
 	assert_eq(_director.total_count(), 4, "nothing subtracted")
 	assert_eq(_director.resolved_count(), 0)
 	assert_eq(_events_named("wave_progress_changed"), [] as Array[Array], "no wave_progress_changed")
 	assert_eq(_lines_containing("stalled"), [] as Array[String], "no stall net")
+
+
+## DW-78: a death during a wait stops the chain: no later action of any kind runs.
+func test_death_during_a_wait_stops_the_chain() -> void:
+	_load_dialogue()
+	Audio.music_streams[&"combat"] = _silent_wav()
+	_start([{
+		"spawns": [_wasps(1)],
+		"groups": {"r": [_wasps(2)]},
+		"triggers": [{"when": "wave_start", "actions": [
+			{"wait": 0.1}, {"music": "combat"}, {"comms": "story_a"}, {"story_event": "e"},
+			{"hint": "move_fire"}, {"spawn_group": "r"},
+		]}],
+	}])
+	assert_eq(_director.running_chains(), 1, "chain in its wait")
+	Events.level_failed.emit(&"hearts")
+	await wait_seconds(0.2)
+	await wait_process_frames(2)
+	assert_eq(Audio.current_music(), &"", "no music action")
+	assert_eq(_requests(), [] as Array[Array], "no comms request")
+	assert_eq(_story_events(), [] as Array[Array], "no story event")
+	assert_eq(_events_named("hint_requested"), [] as Array[Array], "no hint")
+	assert_eq(_counted().size(), 1, "no group spawned")
+	assert_eq(_director.running_chains(), 0, "chain stopped")
+	var stops: Array[String] = _lines_containing("chain stopped")
+	assert_eq(stops.size(), 1, "one stop line")
+	if stops.size() == 1:
+		assert_true(stops[0].begins_with("[INFO][beat]"), "INFO beat line")
+
+
+## DW-78: a death while a story holds the chain: the chain stops once the story ends.
+func test_death_while_a_story_holds_the_chain_stops_it() -> void:
+	_load_dialogue()
+	_start_chain([{"comms": "story_a"}, {"story_event": "e"}])
+	Events.level_failed.emit(&"hearts")
+	_finish(&"story_a")
+	assert_eq(_story_events(), [] as Array[Array], "e never emitted")
+	assert_eq(_director.running_chains(), 0, "chain stopped")
+	assert_eq(_lines_containing("chain stopped").size(), 1, "one stop line")
+
+
+## DW-78: a failed chain held by a story stops on another sequence's finished.
+func test_failed_story_chain_stops_on_another_finished() -> void:
+	_load_dialogue()
+	_start_chain([{"comms": "story_a"}, {"story_event": "e"}])
+	Events.level_failed.emit(&"hearts")
+	_finish(&"combat_a")
+	assert_eq(_director.running_chains(), 0, "chain stopped")
+	assert_eq(_story_events(), [] as Array[Array], "e never emitted")
+	assert_eq(_lines_containing("chain stopped").size(), 1, "one stop line")
+
+
+## DW-78: a death during the chain's last await still logs the stop line.
+func test_death_during_the_last_wait_logs_the_stop() -> void:
+	_start_chain([{"wait": 0.1}])
+	Events.level_failed.emit(&"hearts")
+	await wait_seconds(0.2)
+	assert_eq(_director.running_chains(), 0, "chain stopped")
+	var stops: Array[String] = _lines_containing("chain stopped")
+	assert_eq(stops.size(), 1, "one stop line")
+	if stops.size() == 1:
+		assert_true(stops[0].begins_with("[INFO][beat]"), "INFO beat line")
+
+
+## DW-78: after a stopped chain, a new attempt's chains run normally.
+func test_retry_after_a_stopped_chain_runs_chains() -> void:
+	_start_chain([{"wait": 0.05}, {"story_event": "e"}])
+	Events.level_failed.emit(&"hearts")
+	await wait_seconds(0.1)
+	assert_eq(_director.running_chains(), 0, "stopped")
+	_start_chain([{"wait": 0.05}, {"story_event": "e2"}])
+	assert_eq(_director.running_chains(), 1, "new chain running")
+	await wait_seconds(0.1)
+	assert_eq(_story_events(), [["story_event_requested", &"e2"]] as Array[Array], "the new attempt's chain ran")
+	assert_eq(_director.running_chains(), 0)
 
 
 func test_f3_after_death_refuses() -> void:

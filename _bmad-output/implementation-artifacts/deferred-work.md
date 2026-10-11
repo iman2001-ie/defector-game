@@ -751,7 +751,9 @@ location: game/systems/waves/wave_director.gd _try_clear
 source_spec: `spec-5-3-trigger-dialogue-and-music-from-wave-events.md`
 severity: low
 reason: wave_director.gd _try_clear: `await get_tree().create_timer(_gap_s, false).timeout`, unchanged since Story 2.2 and kept on purpose by the Story 5.3 spec ("Leave the _try_clear gap timer as it is"). A level reload frees the director while the timer lives on the SceneTree; on timeout Godot may log "Resumed function after await, but class instance is gone". Not reproduced: a test that frees the director during the gap and checks the error output would settle it. The fix is the same child-Timer pattern used for `wait`.
-status: open
+status: done 2026-10-10
+resolution: resolved by sweep bundle dw-wave-director-chain-lifetime
+resolution-undo: 9f49191dc8277a424cc1f47d7f6bf5a505f0aa44e48eb95aa75be5b1195d0298 2026-10-10 7374617475733a206f70656e
 
 ### DW-78: Chains that keep running after a death (decision #39, DW-54) now also fire comms, story_event and music, so a chain resuming from a wait during the death beat can open a story pause over the death
 origin: spec-deferred 7ecef071415f
@@ -759,7 +761,9 @@ location: game/systems/waves/wave_director.gd _run_chain
 source_spec: `spec-5-3-trigger-dialogue-and-music-from-wave-events.md`
 severity: medium
 reason: wave_director.gd _run_chain never checks _failed (by design: decision #39 says "running chains and group spawns still run" after level_failed, and the Story 5.3 intent says not to change the DW-54 failure rules). A level chain such as [wait 2, comms story_x] whose wait ends after the death but before the reload emits comms_sequence_requested; a story sequence then pauses the tree via PauseArbiter on top of the death beat. Not reachable with shipped data (no real level has beats until Epic 7). Settling it needs a human decision extending decision #39: should comms, story_event and music be dropped once _failed is set? The fix would be a `_failed` skip on those three actions plus a test.
-status: open
+status: done 2026-10-10
+resolution: resolved by sweep bundle dw-wave-director-chain-lifetime
+resolution-undo: 9f49191dc8277a424cc1f47d7f6bf5a505f0aa44e48eb95aa75be5b1195d0298 2026-10-10 7374617475733a206f70656e
 decision: 2026-10-10 Stop the whole chain after a fail — Abort running chains when level_failed fires (all actions, including spawn_group), with tests, and amend decision #39 accordingly.
 
 ### DW-79: test_shake_camera.test_process_drives_shake is frame-timing sensitive and failed once in a full run ("_process moves the offset": offset still Vector2.ZERO after 3 process frames), then passed on re-run.
