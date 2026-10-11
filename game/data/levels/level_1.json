@@ -1,29 +1,68 @@
 {
 	"id": 1,
 	"name": "Cargo Ambush",
-	"background": null,
-	"music": null,
-	"convoy": false,
-	"ally": null,
+	"background": "space_1",
+	"music": "combat",
+	"convoy": true,
+	"ally": "tarek",
 	"intro_sequence": null,
-	"outro_sequence": null,
+	"outro_sequence": "l1_tarek_closing",
 	"waves": [
-		{
-			"spawns": [
-				{ "type": "wasp", "count": 6, "formation": "grid_3x2", "entry": "top" }
-			],
-			"asteroids": [],
-			"triggers": [
-				{ "when": "wave_start", "actions": [ { "wait": 0.5 } ] }
-			]
-		},
 		{
 			"spawns": [
 				{ "type": "wasp", "count": 8, "formation": "grid_4x2", "entry": "top" }
 			],
 			"asteroids": [],
 			"triggers": [
-				{ "when": "wave_clear", "actions": [ { "wait": 0.5 } ] }
+				{ "when": "wave_start", "actions": [ { "music": "combat" }, { "hint": "move_fire" } ] }
+			]
+		},
+		{
+			"spawns": [
+				{ "type": "wasp", "count": 10, "formation": "grid_5x2", "entry": "top" }
+			],
+			"asteroids": [
+				{ "size": "small", "count": 3 },
+				{ "size": "medium", "count": 1 }
+			],
+			"triggers": [
+				{ "when": "wave_start", "actions": [ { "hint": "missile" } ] }
+			]
+		},
+		{
+			"spawns": [
+				{ "type": "lancer", "count": 2, "formation": "grid_2x1", "entry": "sides" },
+				{ "type": "wasp", "count": 12, "formation": "grid_6x2", "entry": "top" },
+				{ "type": "maul", "count": 3, "formation": "grid_3x1", "entry": "sides" }
+			],
+			"asteroids": [],
+			"triggers": [
+				{ "when": "wave_start", "actions": [ { "comms": "l1_w3_tarek_warning" } ] },
+				{ "when": "progress", "at": 0.25, "flag": "isolde_interruptions", "actions": [ { "comms": "l1_w3_isolde_interrupt" } ] }
+			]
+		},
+		{
+			"spawns": [
+				{ "type": "lancer", "count": 4, "formation": "grid_4x1", "entry": "sides" },
+				{ "type": "wasp", "count": 10, "formation": "grid_5x2", "entry": "top" }
+			],
+			"asteroids": [],
+			"triggers": []
+		},
+		{
+			"spawns": [
+				{ "type": "lancer", "count": 3, "formation": "grid_3x1", "entry": "sides" },
+				{ "type": "wasp", "count": 16, "formation": "grid_8x2", "entry": "top" }
+			],
+			"asteroids": [],
+			"groups": {
+				"reinforcements": [
+					{ "type": "maul", "count": 4, "formation": "grid_4x1", "entry": "sides" }
+				]
+			},
+			"triggers": [
+				{ "when": "progress", "at": 0.30, "flag": "surrender_prompts", "actions": [ { "comms": "l1_w5_surrender" }, { "spawn_group": "reinforcements" } ] },
+				{ "when": "progress", "at": 0.30, "flag": "!surrender_prompts", "actions": [ { "spawn_group": "reinforcements" } ] }
 			]
 		}
 	]

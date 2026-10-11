@@ -16,7 +16,11 @@ extends GutTest
 ## every campaign sequence lives in its file with its mode, line count and
 ## speakers, no system speaker and no choice yet; the Final Choice refusals
 ## open with Vale; Tarek's cut-off is final and cuts mid-word; the cast rules
-## (Vale's line cap, no gendered terms, self-introductions, "General").
+## (Vale's line cap, no gendered terms, self-introductions, "General"). Story
+## 7.1: level_1.json is the GDD Cargo Ambush (root values, per-wave counts by
+## type, asteroids, reinforcements, exact triggers); levels 2 and 3 stay the
+## Wasp-only placeholders; Mauls, the convoy and the ally are allowed in
+## level_1 but not yet in levels 2 and 3.
 
 const LEVELS_DIR: String = "res://data/levels/"
 
@@ -46,13 +50,17 @@ func test_every_campaign_level_has_a_file() -> void:
 		assert_eq(data.get("id"), float(i), "level_%d.json id" % i)
 
 
-## The placeholder levels (Story 4.1, replaced in Epic 7, decision F12): GDD
-## names, ids 1..3, the level_dev key set, and 1-2 Wasp-only waves.
+## The campaign levels: GDD names, ids 1..3 and the level_dev key set. Levels 2
+## and 3 are still the placeholders (Story 4.1, replaced in Epic 7, decision
+## F12): no convoy and 1-2 Wasp-only waves. Level 1 is the real Cargo Ambush
+## since Story 7.1 (test_level_1_cargo_ambush_shape).
 const LEVEL_NAMES: Dictionary = {
 	1: "Cargo Ambush",
 	2: "The Blockade",
 	3: "Siege of the Throne World",
 }
+## The campaign levels that are still Story 4.1 placeholders.
+const PLACEHOLDER_LEVELS: Array[int] = [2, 3]
 
 
 func test_placeholder_levels_have_their_names_and_wasp_waves() -> void:
@@ -74,6 +82,9 @@ func test_placeholder_levels_have_their_names_and_wasp_waves() -> void:
 		assert_eq(keys, dev_keys, "%s has the level_dev key set" % path)
 		assert_eq(data.get("id"), float(i), "%s id" % path)
 		assert_eq(data.get("name"), LEVEL_NAMES[i], "%s name" % path)
+		assert_false(Config.level("%d" % i).is_empty(), "Config.level('%d') loads" % i)
+		if not PLACEHOLDER_LEVELS.has(i):
+			continue
 		assert_eq(data.get("convoy"), false, "%s has no convoy" % path)
 		var waves: Array = data.get("waves", []) as Array
 		assert_between(waves.size(), 1, 2, "%s has 1-2 waves" % path)
@@ -83,7 +94,98 @@ func test_placeholder_levels_have_their_names_and_wasp_waves() -> void:
 			for entry: Variant in spawns:
 				assert_eq((entry as Dictionary).get("type"), "wasp", "%s wave %d is Wasp-only" % [path, w])
 			assert_false((waves[w] as Dictionary).has("groups"), "%s wave %d has no groups" % [path, w])
-		assert_false(Config.level("%d" % i).is_empty(), "Config.level('%d') loads" % i)
+
+
+## Counted enemies by type in one wave: every spawn entry plus every group
+## entry (the WaveDirector counts groups up front). Type String -> int.
+func _wave_type_totals(wave: Dictionary) -> Dictionary:
+	var entries: Array = []
+	if wave.get("spawns") is Array:
+		entries.append_array(wave["spawns"] as Array)
+	if wave.get("groups") is Dictionary:
+		for group: Variant in (wave["groups"] as Dictionary).values():
+			if group is Array:
+				entries.append_array(group as Array)
+	var totals: Dictionary = {}
+	for raw: Variant in entries:
+		if raw is Dictionary:
+			var type_id: String = str((raw as Dictionary).get("type", ""))
+			totals[type_id] = int(totals.get(type_id, 0)) + _entry_count(raw as Dictionary)
+	return totals
+
+
+## Story 7.1: Level 1 is the GDD's Cargo Ambush. Root values (convoy on, Tarek
+## flying, no intro because the opening story is its intro, Tarek's closing as
+## the outro), the per-wave counted totals by type (spawns plus groups), wave 2's
+## asteroids, Lancers as the first entry of every wave that has them (their
+## strafe zone ends at y 378, so they take row 0), the exact reinforcements
+## group and every wave's exact trigger list: wave 1 also starts the music
+## (the level-root `music` key is not read) before its hint; the Tarek warning
+## has no flag; the Isolde interruption and the surrender are flag-gated and the
+## surrender is paired with a !surrender_prompts trigger so the 4 Mauls arrive
+## either way.
+func test_level_1_cargo_ambush_shape() -> void:
+	var data: Dictionary = Config.level("1")
+	assert_false(data.is_empty(), "level_1.json loads")
+	var keys: Array = data.keys()
+	keys.sort()
+	var dev_keys: Array = Config.level("dev").keys()
+	dev_keys.sort()
+	assert_eq(keys, dev_keys, "the level_dev key set")
+	assert_eq(data.get("id"), 1.0, "id 1")
+	assert_eq(data.get("name"), "Cargo Ambush")
+	assert_eq(data.get("background"), "space_1")
+	assert_eq(data.get("music"), "combat")
+	assert_eq(data.get("convoy"), true, "convoy on")
+	assert_eq(data.get("ally"), "tarek", "Tarek flies")
+	assert_true(data.has("intro_sequence"), "intro_sequence key present")
+	assert_null(data.get("intro_sequence"), "no intro: the opening story is Level 1's intro")
+	assert_eq(data.get("outro_sequence"), "l1_tarek_closing", "Tarek's closing is the outro")
+	assert_true(Config.dialogue_is_story(&"l1_tarek_closing"), "the outro is a story sequence")
+	var waves: Array = data.get("waves", []) as Array
+	assert_eq(waves.size(), 5, "5 waves")
+	if waves.size() != 5:
+		return
+	var expected_totals: Array[Dictionary] = [
+		{"wasp": 8},
+		{"wasp": 10},
+		{"lancer": 2, "wasp": 12, "maul": 3},
+		{"lancer": 4, "wasp": 10},
+		{"lancer": 3, "wasp": 16, "maul": 4},
+	]
+	var expected_counted: Array[int] = [8, 10, 17, 14, 23]
+	for w: int in 5:
+		var wave: Dictionary = waves[w] as Dictionary
+		var totals: Dictionary = _wave_type_totals(wave)
+		assert_eq(totals, expected_totals[w], "wave %d counted by type" % (w + 1))
+		var sum: int = 0
+		for type_id: Variant in totals:
+			sum += int(totals[type_id])
+		assert_eq(sum, expected_counted[w], "wave %d counts %d" % [w + 1, expected_counted[w]])
+		var spawns: Array = wave.get("spawns", []) as Array
+		if totals.has("lancer") and not spawns.is_empty():
+			assert_eq((spawns[0] as Dictionary).get("type"), "lancer", "wave %d: Lancers are the first entry (row 0)" % (w + 1))
+		if w != 4:
+			assert_false(wave.has("groups"), "wave %d has no groups" % (w + 1))
+		if w != 1:
+			assert_eq(wave.get("asteroids", []), [], "wave %d has no asteroids" % (w + 1))
+	assert_eq((waves[1] as Dictionary).get("asteroids"), [{"size": "small", "count": 3.0}, {"size": "medium", "count": 1.0}], "wave 2: 3 small and 1 medium asteroid")
+	assert_eq((waves[4] as Dictionary).get("groups"), {"reinforcements": [{"type": "maul", "count": 4.0, "formation": "grid_4x1", "entry": "sides"}]}, "wave 5: 4 Maul reinforcements")
+	var expected_triggers: Array = [
+		[{"when": "wave_start", "actions": [{"music": "combat"}, {"hint": "move_fire"}]}],
+		[{"when": "wave_start", "actions": [{"hint": "missile"}]}],
+		[
+			{"when": "wave_start", "actions": [{"comms": "l1_w3_tarek_warning"}]},
+			{"when": "progress", "at": 0.25, "flag": "isolde_interruptions", "actions": [{"comms": "l1_w3_isolde_interrupt"}]},
+		],
+		[],
+		[
+			{"when": "progress", "at": 0.30, "flag": "surrender_prompts", "actions": [{"comms": "l1_w5_surrender"}, {"spawn_group": "reinforcements"}]},
+			{"when": "progress", "at": 0.30, "flag": "!surrender_prompts", "actions": [{"spawn_group": "reinforcements"}]},
+		],
+	]
+	for w: int in 5:
+		assert_eq((waves[w] as Dictionary).get("triggers"), expected_triggers[w], "wave %d triggers" % (w + 1))
 
 
 func test_every_level_file_is_valid() -> void:
@@ -1180,12 +1282,17 @@ func test_dev_convoy_level_shape() -> void:
 	assert_eq(wasps.get("entry"), "top")
 
 
-## Mauls only appear in dev levels until Epic 7 places them in level_1.
-func test_mauls_only_in_dev_levels() -> void:
+## Mauls appear only in dev levels and in level_1 (Story 7.1: the W3 ambush and
+## the W5 reinforcements); the GDD gives levels 2 and 3 none.
+func test_mauls_only_in_dev_levels_and_level_1() -> void:
 	for path: String in _level_files():
 		var text: String = FileAccess.get_file_as_string(path)
 		if text.contains("\"maul\""):
-			assert_true(path.get_file().begins_with("level_dev"), "%s: no Mauls in campaign levels before Epic 7" % path)
+			var file: String = path.get_file()
+			assert_true(file.begins_with("level_dev") or file == "level_1.json", "%s: Mauls only in dev levels and level_1" % path)
+	assert_true(FileAccess.get_file_as_string(LEVELS_DIR + "level_1.json").contains("\"maul\""), "level_1 has Mauls")
+	for i: int in PLACEHOLDER_LEVELS:
+		assert_false(FileAccess.get_file_as_string(LEVELS_DIR + "level_%d.json" % i).contains("\"maul\""), "level_%d has no Mauls" % i)
 
 
 func test_maul_tuning_ranges() -> void:
@@ -1199,8 +1306,9 @@ func test_maul_tuning_ranges() -> void:
 	assert_between(Config.num("drops.maul.chance"), 0.0, 1.0)
 
 
-## Only dev levels turn the convoy on until Epic 7 (decision F12).
-func test_convoy_is_a_bool_and_only_on_in_dev_levels() -> void:
+## Only dev levels and level_1 (the escort level, Story 7.1) turn the convoy
+## on (decision F12); levels 2 and 3 have none.
+func test_convoy_is_a_bool_and_only_on_in_dev_levels_and_level_1() -> void:
 	for path: String in _level_files():
 		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
 		if not (parsed is Dictionary):
@@ -1208,7 +1316,11 @@ func test_convoy_is_a_bool_and_only_on_in_dev_levels() -> void:
 		var value: Variant = (parsed as Dictionary).get("convoy", false)
 		assert_true(value is bool, "%s convoy is a bool" % path)
 		if value is bool and bool(value):
-			assert_true(path.get_file().begins_with("level_dev"), "%s: only dev levels have a convoy before Epic 7" % path)
+			var file: String = path.get_file()
+			assert_true(file.begins_with("level_dev") or file == "level_1.json", "%s: only dev levels and level_1 have a convoy" % path)
+	assert_eq(Config.level("1").get("convoy"), true, "level_1 has the convoy")
+	for i: int in PLACEHOLDER_LEVELS:
+		assert_eq(Config.level(str(i)).get("convoy"), false, "level_%d has no convoy" % i)
 
 
 # --- Ally (Story 6.4) ------------------------------------------------------------------
@@ -1246,11 +1358,13 @@ func test_dev_ally_level_shape() -> void:
 	assert_true(needle_with_rocks, "a Needle wave with asteroids")
 
 
-## level_dev keeps no ally; the campaign levels keep "ally": null until Epic 7.
-func test_ally_off_in_dev_and_campaign_levels() -> void:
+## level_dev keeps no ally; level_1 flies Tarek (Story 7.1); levels 2 and 3
+## keep "ally": null until Stories 7.2 and 7.6.
+func test_ally_tarek_in_level_1_and_off_in_dev_and_levels_2_3() -> void:
 	assert_null(Config.level("dev").get("ally"), "level_dev has no ally")
-	for i: int in [1, 2, 3]:
-		assert_null(Config.level(str(i)).get("ally"), "level_%d has no ally before Epic 7" % i)
+	assert_eq(Config.level("1").get("ally"), "tarek", "level_1 flies Tarek")
+	for i: int in PLACEHOLDER_LEVELS:
+		assert_null(Config.level(str(i)).get("ally"), "level_%d has no ally yet" % i)
 
 
 func test_allies_tuning_ranges() -> void:

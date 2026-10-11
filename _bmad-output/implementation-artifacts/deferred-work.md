@@ -924,3 +924,18 @@ source_spec: `spec-dw-90-boss-cadence-start-to-start-wording.md`
 severity: low
 reason: `boss.turrets` has count, hp, spread_bullets, bullet_speed_px_s, fire_interval_s 3.0 and telegraph_s 0.5, with no stagger key; the architecture doesn't define it either. Under start-to-start the stagger is the only thing that separates the four turrets' clocks, so an Epic 7 implementer must invent a value (and must put it in data, per AGENTS.md). Pre-existing; this rewording didn't cause it.
 status: open
+
+### DW-96: Whether the Level 1 convoy (100 HP) survives real play against 7 Mauls and Lancer fire is unverified; the integration test raises its HP to 100000.
+origin: spec-deferred b0f61076fa31
+location: game/data/levels/level_1.json
+source_spec: `spec-7-1-play-level-1-cargo-ambush.md`
+reason: Maybe-false: 3 + 4 Mauls at 10 damage each is 70, and Lancers aim at the convoy 50 % of the time for 5 per hit, so a slow player could lose the convoy. Settled by the operator playtest in operator_actions (watch convoy HP per GDD decision #23); a retune belongs in tuning.json.
+status: open
+
+### DW-97: The level-root "music" key is still unread, so Level 1 states "combat" twice (the root key and a W1 music action) and nothing owns wiring the root key.
+origin: spec-deferred dcdfdd460b89
+location: game/systems/waves/wave_director.gd
+source_spec: `spec-7-1-play-level-1-cargo-ambush.md`
+severity: low
+reason: Pre-existing since Story 5.3 (architecture As-built 5.3: "Story 8.1 or Epic 7 can wire it"). Stories 7.2 and 7.6 will copy the duplicated pattern, and a later edit to one copy can silently disagree with the other. Wiring it is a WaveDirector change, which is outside this data-only story.
+status: open

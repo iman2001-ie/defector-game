@@ -1,0 +1,13 @@
+{
+  "actions": [
+    "Play Level 1 from the title in a debug build (\"<GODOT_DIR>/Godot_v4.7.2-stable_win64.exe\" --path game) with the F1 overlay on, from wave 1 to the clear, and confirm that no wave soft-locks and that the level takes about 3-4 minutes plus dialogue.",
+    "During that run, confirm the control hints read clearly (W1 move then hold LMB, W2 RMB missile, E/Q when energy first reaches 50/100) and that a first-time player would understand the controls by wave 2 without verbal help.",
+    "Judge whether wave 1 reads as the calm \"slow formation\" the GDD asks for; if it does not, raise a design change (a per-wave Wasp speed does not exist yet) rather than editing code silently.",
+    "Judge whether the convoy (100 HP) survives real play against the 3 + 4 Mauls and the Lancer fire; if it is too fragile or too safe, retune in game/data/tuning.json (never code) and record the change in the GDD decision log.",
+    "Confirm the ambush (Tarek warning at W3 start, Isolde at 25 % of W3), the W5 surrender pause and the Maul reinforcements, and Tarek's closing line on clear land as beats."
+  ],
+  "parked_at": "2026-10-11",
+  "run_id": "20261007-173701-8906",
+  "spec_file": "_bmad-output/implementation-artifacts/spec-7-1-play-level-1-cargo-ambush.md",
+  "story_key": "7-1-play-level-1-cargo-ambush"
+}
