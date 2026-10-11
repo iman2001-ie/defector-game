@@ -130,9 +130,9 @@ FR48: Level 3 "Siege of the Throne World" (Ryn fights alongside, throne-world pl
 
 **Flagship boss**
 
-FR49: Flagship Phase 1 (Turrets): 4 turrets, 25 HP each, with an invulnerable core. Each turret fires a 3-bullet spread (350 px/s) every 3.0 s, staggered, after a 0.5 s glow. 2 medium asteroids drift through as cover.
-FR50: Flagship Phase 2 (Core): once all 4 turrets die, the 200 HP core is exposed. It fires a 12-bullet radial burst (300 px/s) every 3.0 s after a 0.6 s charge glow and launches 5 Wasps every 10 s (maximum 10 alive). Boss-launched Wasps drop energy normally.
-FR51: Flagship Phase 3 (Final Choice): when the core drops to 50 HP, the game pauses, Isolde speaks, and the Final Choice appears as two large centred buttons, [Offer Surrender] / [Destroy Her], chosen by click with no timer. Both lead to her refusal; only her response line differs. Then the desperate barrage starts: 2 alternating radial bursts (300 px/s) every 1.5 s after a 0.4 s glow, plus an aimed 3-bullet spread (400 px/s) every 2.0 s after a 0.3 s glow. The core flashes red at a steady pulse.
+FR49: Flagship Phase 1 (Turrets): 4 turrets, 25 HP each, with an invulnerable core. Each turret fires a 3-bullet spread (350 px/s) every 3.0 s start-to-start, staggered; its 0.5 s glow runs inside that period, then it fires. 2 medium asteroids drift through as cover.
+FR50: Flagship Phase 2 (Core): once all 4 turrets die, the 200 HP core is exposed. It fires a 12-bullet radial burst (300 px/s) every 3.0 s start-to-start (its 0.6 s charge glow runs inside that period, then it fires) and launches 5 Wasps every 10 s (maximum 10 alive). Boss-launched Wasps drop energy normally.
+FR51: Flagship Phase 3 (Final Choice): when the core drops to 50 HP, the game pauses, Isolde speaks, and the Final Choice appears as two large centred buttons, [Offer Surrender] / [Destroy Her], chosen by click with no timer. Both lead to her refusal; only her response line differs. Then the desperate barrage starts: 2 alternating radial bursts (300 px/s) every 1.5 s start-to-start (each burst's 0.4 s charge glow runs inside that period, then that burst fires), plus an aimed 3-bullet spread (400 px/s) every 2.0 s start-to-start (the 0.3 s glow runs inside that period, then it fires). The core flashes red at a steady pulse.
 FR52: Flagship hull contact costs 2 hearts. Flagship turrets drop an energy orb 100% of the time.
 FR53: During the boss fight, a dedicated boss bar replaces the wave progress bar, with three segment markers: turrets, core and final.
 FR54: Destroying the Flagship plays the boss-death feedback tier, then Isolde's final line, then the end screen.
@@ -1651,7 +1651,7 @@ So that the final fight opens with a clear first objective.
 
 **Given** Phase 1
 **When** it runs
-**Then** 4 turrets with 25 HP each fire 3-bullet spreads at 350 px/s every 3.0 s, staggered, each after a 0.5 s glow; the core is invulnerable; and 2 medium asteroids drift through as cover
+**Then** 4 turrets with 25 HP each fire 3-bullet spreads at 350 px/s every 3.0 s start-to-start (decision #50), staggered; each turret's 0.5 s glow runs inside that period, then it fires; the core is invulnerable; and 2 medium asteroids drift through as cover
 
 **Given** a turret is destroyed
 **When** it dies
@@ -1683,9 +1683,9 @@ So that the fight escalates once I've stripped its defences.
 **When** the Flagship enters `CORE`
 **Then** `Events.boss_phase_changed(2)` fires and the 200 HP core becomes damageable
 
-**Given** Phase 2 is active
-**When** 3.0 s pass
-**Then** the core glows for 0.6 s, then fires a 12-bullet radial burst at 300 px/s
+**Given** Phase 2 is active and the core fires every 3.0 s start-to-start (decision #50)
+**When** it attacks
+**Then** the core glows for 0.6 s inside that period, then fires a 12-bullet radial burst at 300 px/s
 
 **Given** Phase 2 is active
 **When** 10 s pass
@@ -1721,7 +1721,7 @@ So that the finale mirrors her offer from Level 1 and ends on her refusal.
 
 **Given** the response sequence finishes
 **When** the Flagship enters `DESPERATE`
-**Then** the core becomes damageable again and pulses red; it fires 2 alternating radial bursts (300 px/s) every 1.5 s after a 0.4 s glow and an aimed 3-bullet spread (400 px/s) every 2.0 s after a 0.3 s glow
+**Then** the core becomes damageable again and pulses red; it fires 2 alternating radial bursts (300 px/s) every 1.5 s start-to-start (each burst's 0.4 s charge glow runs inside that period, then that burst fires) and an aimed 3-bullet spread (400 px/s) every 2.0 s start-to-start (the 0.3 s glow runs inside that period, then it fires), per decision #50
 
 **Given** the core's HP reaches 0
 **When** the Flagship enters `DYING`

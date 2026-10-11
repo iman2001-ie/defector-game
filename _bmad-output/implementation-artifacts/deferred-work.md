@@ -878,7 +878,9 @@ location: _bmad-output/planning-artifacts/epics.md (Epic 7 story ACs)
 source_spec: `spec-dw-57-dw-69-dw-70-epic-docs-decision-log-sync.md`
 severity: low
 reason: epics.md Story 7.x ACs (about lines 1654, 1688, 1724), FR49-FR51 (epics.md:133-135) and gdd.md:283-285 are unchanged. Decision #50, the architecture Flagship cadence bullet and the data test now state start-to-start, but an Epic 7 implementer reading only the ACs could build interval + glow. Rewording those ACs is a planning-doc change the DW-69 decision did not ask for, so it needs the operator's OK.
-status: open
+status: done 2026-10-11
+resolution: resolved by sweep bundle dw-decision-dw-90
+resolution-undo: a8c4aa599f0a3b24de3c7d67cc7f582083717f6e79fc392d0eadaedab123c87f 2026-10-11 7374617475733a206f70656e
 decision: 2026-10-11 Reword FR49-FR51, the Epic 7 ACs and the GDD Flagship table to start-to-start — Reword FR49-FR51 (epics.md:133-135), the Epic 7 story ACs (epics.md around lines 1654, 1688 and 1724) and the GDD Flagship phase table (gdd.md:283-285) to the start-to-start wording used for Stories 2.5/2.7 (e.g. 'fires every 3.0 s start-to-start; the 0.5 s glow runs inside that period, then it fires'). Keep every number. Record the change in the GDD decision log with a reference to decision #50 and DW-70. Docs only, no code or data changes.
 decision: 2026-10-11 Reword FR49-FR51, the Epic 7 ACs and the GDD Flagship table to start-to-start — Reword FR49-FR51 (epics.md:133-135), the Epic 7 story ACs (epics.md around lines 1654, 1688 and 1724) and the GDD Flagship phase table (gdd.md:283-285) to the start-to-start wording used for Stories 2.5/2.7 (e.g. 'fires every 3.0 s start-to-start; the 0.5 s glow runs inside that period, then it fires'). Keep every number. Record the change in the GDD decision log with a reference to decision #50 and DW-70. Docs only, no code or data changes.
 
@@ -913,4 +915,12 @@ location: game/entities/allies/convoy.gd _place_ships
 source_spec: `spec-dw-83-convoy-solid-triangle-formation.md`
 severity: low
 reason: hull_polygon() is built from ConvoyShip.hull_rect() (128x64 hitboxes) while hulls are drawn 160x80; Story 6.1 already resolved against the hitbox rects, so this predates DW-83. Settle by operator playtest of dev_convoy: if the overlap reads badly, build the polygon from the drawn extents (hull_size) instead.
+status: open
+
+### DW-95: The Flagship turrets are "staggered" (FR49, Story 7.3, GDD phase 1) but no stagger offset is defined in the docs or in `tuning.json` `boss.turrets`.
+origin: spec-deferred 838210c950e1
+location: _bmad-output/planning-artifacts/epics.md (FR49, Story 7.3); game/data/tuning.json (boss.turrets)
+source_spec: `spec-dw-90-boss-cadence-start-to-start-wording.md`
+severity: low
+reason: `boss.turrets` has count, hp, spread_bullets, bullet_speed_px_s, fire_interval_s 3.0 and telegraph_s 0.5, with no stagger key; the architecture doesn't define it either. Under start-to-start the stagger is the only thing that separates the four turrets' clocks, so an Epic 7 implementer must invent a value (and must put it in data, per AGENTS.md). Pre-existing; this rewording didn't cause it.
 status: open
