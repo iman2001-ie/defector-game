@@ -786,6 +786,14 @@ func test_every_after_sfx_is_registered() -> void:
 		assert_true(Audio.SFX.has(StringName(str(ref[1]))), "%s: sfx '%s' is in Audio.SFX" % [ref[0], ref[1]])
 
 
+## DW-80: a cut-off sfx plays on the reserved comms pool, so combat SFX can't steal it.
+func test_every_after_sfx_is_a_comms_sfx() -> void:
+	var refs: Array[Array] = _after_sfx(_all_sequences())
+	assert_gt(refs.size(), 0, "dialogue has an after.sfx to check")
+	for ref: Array in refs:
+		assert_true(Audio.COMMS_SFX.has(StringName(str(ref[1]))), "%s: sfx '%s' is in Audio.COMMS_SFX" % [ref[0], ref[1]])
+
+
 func test_after_sfx_collector_self_check() -> void:
 	var sequences: Dictionary = {
 		"plain": {"mode": "combat", "lines": [{"speaker": "isolde", "text": "Hi."}]},

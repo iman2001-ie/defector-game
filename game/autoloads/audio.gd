@@ -1,6 +1,9 @@
 extends Node
-## Sound effects: a pool of non-positional AudioStreamPlayers on the SFX bus and
-## an id -> stream registry. When every player is busy the oldest one is stolen.
+## Sound effects: two pools of non-positional AudioStreamPlayers on the SFX bus
+## and an id -> stream registry. The comms_* ids (COMMS_SFX) play on a small
+## reserved comms pool, every other id on the combat pool (DW-80). When every
+## player of a pool is busy, that pool's oldest player is stolen; a pool never
+## takes a player from the other, so a combat flood can't cut a comms_static.
 ##
 ## Music (Story 5.3): one `Music` AudioStreamPlayer on the Music bus and the
 ## `music_streams` id -> stream registry (empty until Story 8.1 adds tracks).
@@ -11,6 +14,9 @@ extends Node
 
 const DEFAULT_PITCH_JITTER: float = 0.05
 const POOL_SIZE: int = 12
+## The reserved comms pool (DW-80): comms cues are sequential by design, so the
+## second player only covers a short cue overlapping a long one.
+const COMMS_POOL_SIZE: int = 2
 const SFX_BUS: StringName = &"SFX"
 const MUSIC_BUS: StringName = &"Music"
 const MUSIC_STOP: StringName = &"stop"
@@ -34,11 +40,25 @@ const SFX: Dictionary[StringName, AudioStream] = {
 	&"comms_handover": preload("res://assets/audio/sfx/sfx_comms_handover.wav"),
 	&"maul_alarm": preload("res://assets/audio/sfx/sfx_maul_alarm.wav"),
 }
+## The ids that play on the comms pool; every other id plays on the combat pool.
+const COMMS_SFX: Dictionary[StringName, bool] = {
+	&"comms_open": true,
+	&"comms_open_nobeep": true,
+	&"comms_static": true,
+	&"comms_click": true,
+	&"comms_handover": true,
+}
 
+## The combat pool.
 var _players: Array[AudioStreamPlayer] = []
 var _in_use: Array[bool] = []
 ## Start order of each player; the lowest is the oldest.
 var _serials: Array[int] = []
+## The reserved comms pool (same layout as the combat pool).
+var _comms_players: Array[AudioStreamPlayer] = []
+var _comms_in_use: Array[bool] = []
+var _comms_serials: Array[int] = []
+## Shared by both pools: every play bumps it by exactly 1.
 var _next_serial: int = 0
 var _newest: AudioStreamPlayer = null
 var _warned_ids: Dictionary[StringName, bool] = {}
@@ -64,6 +84,15 @@ func _ready() -> void:
 		_players.append(player)
 		_in_use.append(false)
 		_serials.append(-1)
+	for i: int in COMMS_POOL_SIZE:
+		var player: AudioStreamPlayer = AudioStreamPlayer.new()
+		player.name = "Comms%d" % i
+		player.bus = SFX_BUS
+		player.finished.connect(_on_comms_player_finished.bind(i))
+		add_child(player)
+		_comms_players.append(player)
+		_comms_in_use.append(false)
+		_comms_serials.append(-1)
 	_music = AudioStreamPlayer.new()
 	_music.name = "Music"
 	_music.bus = MUSIC_BUS
@@ -72,7 +101,8 @@ func _ready() -> void:
 
 
 ## Plays a registered SFX. pitch_scale = pitch * (1 + random in +-pitch_jitter).
-## Returns the player used, or null for an unknown id (warned once per id).
+## comms_* ids (COMMS_SFX) play on the comms pool, every other id on the combat
+## pool. Returns the player used, or null for an unknown id (warned once per id).
 func play_sfx(id: StringName, pitch_jitter: float = DEFAULT_PITCH_JITTER, volume_db: float = 0.0, pitch: float = 1.0) -> AudioStreamPlayer:
 	var stream: AudioStream = SFX.get(id) as AudioStream
 	if stream == null:
@@ -80,41 +110,55 @@ func play_sfx(id: StringName, pitch_jitter: float = DEFAULT_PITCH_JITTER, volume
 			_warned_ids[id] = true
 			Log.warn("audio", "unknown sfx id '%s'" % id)
 		return null
-	if _players.is_empty():
+	var comms: bool = COMMS_SFX.has(id)
+	var players: Array[AudioStreamPlayer] = _comms_players if comms else _players
+	var in_use: Array[bool] = _comms_in_use if comms else _in_use
+	var serials: Array[int] = _comms_serials if comms else _serials
+	if players.is_empty():
 		return null
-	var index: int = _pick_player()
-	var player: AudioStreamPlayer = _players[index]
+	var index: int = _pick_player(players, in_use, serials)
+	var player: AudioStreamPlayer = players[index]
 	if player.playing:
 		player.stop()
 	player.stream = stream
 	player.volume_db = volume_db
 	player.pitch_scale = pitch * (1.0 + randf_range(-pitch_jitter, pitch_jitter))
-	_in_use[index] = true
-	_serials[index] = _next_serial
+	in_use[index] = true
+	serials[index] = _next_serial
 	_next_serial += 1
 	_newest = player
 	player.play()
 	return player
 
 
-## The most recently started player (tests), or null before the first play.
+## The most recently started player of either pool (tests), or null before the
+## first play.
 func newest_player() -> AudioStreamPlayer:
 	return _newest
 
 
-## The first free player, else the one with the oldest start serial.
-func _pick_player() -> int:
+## The reserved comms pool's players (tests).
+func comms_players() -> Array[AudioStreamPlayer]:
+	return _comms_players.duplicate()
+
+
+## The pool's first free player, else its one with the oldest start serial.
+func _pick_player(players: Array[AudioStreamPlayer], in_use: Array[bool], serials: Array[int]) -> int:
 	var oldest: int = 0
-	for i: int in _players.size():
-		if not _in_use[i]:
+	for i: int in players.size():
+		if not in_use[i]:
 			return i
-		if _serials[i] < _serials[oldest]:
+		if serials[i] < serials[oldest]:
 			oldest = i
 	return oldest
 
 
 func _on_player_finished(index: int) -> void:
 	_in_use[index] = false
+
+
+func _on_comms_player_finished(index: int) -> void:
+	_comms_in_use[index] = false
 
 
 # --- Music ----------------------------------------------------------------------

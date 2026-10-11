@@ -836,6 +836,17 @@ func _cut_static() -> AudioStreamPlayer:
 	return player
 
 
+## DW-80: a combat SFX flood during the hold never steals the static's player.
+func test_a_combat_flood_keeps_the_static() -> void:
+	var player: AudioStreamPlayer = _cut_static()
+	for i: int in 20:
+		Audio.play_sfx(&"laser_zap")
+	assert_eq(_channel.cut_sfx_player(), player, "the same player")
+	if player != null:
+		assert_true(player.playing, "still playing")
+		assert_eq(player.stream, Audio.SFX[&"comms_static"], "still the static")
+
+
 func test_the_static_stops_with_the_hide() -> void:
 	var player: AudioStreamPlayer = _cut_static()
 	_channel.step_combat(_hide_s - 0.02)

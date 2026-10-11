@@ -2,24 +2,30 @@ extends GutTest
 ## Audio: bus layout, SFX pool (size, bus, steal oldest, reuse finished),
 ## unknown ids, pitch jitter and per-call volume and pitch. Story 5.3: the
 ## Music player, play / switch / fade-stop and the missing-stream warning.
+## DW-80: the reserved comms pool (comms_* ids only; combat SFX never steal it).
 
 const UnscaledClock := preload("res://tests/fixtures/unscaled_clock.gd")
 
 var _lines: Array[String] = []
 
 
-## Frees every pool player (as if each finished) so tests start from a known state.
+## Frees every player of both pools (as if each finished) so tests start from a
+## known state.
 func _free_all_players() -> void:
-	for player: AudioStreamPlayer in _pool():
+	var all: Array[AudioStreamPlayer] = _pool()
+	all.append_array(Audio.comms_players())
+	for player: AudioStreamPlayer in all:
 		player.stop()
 		player.finished.emit()
 
 
-## The SFX pool (every AudioStreamPlayer child except the Music player).
+## The combat SFX pool (every AudioStreamPlayer child except the Music player
+## and the comms players).
 func _pool() -> Array[AudioStreamPlayer]:
+	var comms: Array[AudioStreamPlayer] = Audio.comms_players()
 	var out: Array[AudioStreamPlayer] = []
 	for child: Node in Audio.get_children():
-		if child is AudioStreamPlayer and child != Audio.music_player():
+		if child is AudioStreamPlayer and child != Audio.music_player() and not comms.has(child):
 			out.append(child as AudioStreamPlayer)
 	return out
 
@@ -139,6 +145,91 @@ func test_pitch_jitter_range() -> void:
 		assert_between(player.pitch_scale, 0.95, 1.05)
 		pitches[player.pitch_scale] = true
 	assert_gt(pitches.size(), 1, "not all pitches equal")
+
+
+# --- Comms pool (DW-80) ----------------------------------------------------------
+
+const COMMS_IDS: Array[StringName] = [&"comms_open", &"comms_open_nobeep", &"comms_static", &"comms_click", &"comms_handover"]
+
+
+func test_comms_pool_of_two_on_sfx_bus() -> void:
+	var comms: Array[AudioStreamPlayer] = Audio.comms_players()
+	assert_eq(Audio.COMMS_POOL_SIZE, 2)
+	assert_eq(comms.size(), 2)
+	for i: int in comms.size():
+		assert_eq(comms[i].bus, &"SFX")
+		assert_eq(comms[i].name, StringName("Comms%d" % i))
+		assert_eq(comms[i].get_parent(), Audio)
+	for player: AudioStreamPlayer in _pool():
+		assert_false(comms.has(player), "the pools are distinct")
+
+
+func test_comms_sfx_matches_the_comms_ids_in_the_registry() -> void:
+	for id: StringName in Audio.SFX:
+		if String(id).begins_with("comms_"):
+			assert_true(Audio.COMMS_SFX.has(id), "registry id %s is in COMMS_SFX" % id)
+	for id: StringName in Audio.COMMS_SFX:
+		assert_true(String(id).begins_with("comms_"), "COMMS_SFX id %s is a comms_ id" % id)
+		assert_true(Audio.SFX.has(id), "COMMS_SFX id %s is registered" % id)
+	for id: StringName in COMMS_IDS:
+		assert_true(Audio.COMMS_SFX.has(id), "%s is in COMMS_SFX" % id)
+
+
+func test_every_comms_id_routes_to_the_comms_pool() -> void:
+	var comms: Array[AudioStreamPlayer] = Audio.comms_players()
+	for id: StringName in Audio.COMMS_SFX:
+		_free_all_players()
+		var player: AudioStreamPlayer = Audio.play_sfx(id)
+		assert_true(comms.has(player), "%s plays on a comms player" % id)
+		assert_eq(Audio.newest_player(), player, "newest spans the comms pool")
+	_free_all_players()
+	assert_false(comms.has(Audio.play_sfx(&"laser_zap")), "a combat id never uses the comms pool")
+
+
+func test_combat_flood_never_steals_the_static() -> void:
+	_free_all_players()
+	var comms: Array[AudioStreamPlayer] = Audio.comms_players()
+	var static_player: AudioStreamPlayer = Audio.play_sfx(&"comms_static", 0.0)
+	assert_true(comms.has(static_player))
+	for i: int in 20:
+		var player: AudioStreamPlayer = Audio.play_sfx(&"laser_zap")
+		assert_false(comms.has(player), "laser %d is a combat player" % i)
+	assert_true(static_player.playing, "the static keeps playing")
+	assert_eq(static_player.stream, Audio.SFX[&"comms_static"], "the static keeps its stream")
+
+
+func test_comms_pool_steals_its_own_oldest() -> void:
+	_free_all_players()
+	var comms: Array[AudioStreamPlayer] = Audio.comms_players()
+	var pool: Array[AudioStreamPlayer] = _pool()
+	for i: int in 12:
+		Audio.play_sfx(&"laser_zap")
+	assert_eq(Audio.play_sfx(&"comms_static"), comms[0])
+	assert_eq(Audio.play_sfx(&"comms_click"), comms[1])
+	assert_eq(Audio.play_sfx(&"comms_handover"), comms[0], "3rd comms cue steals the oldest comms player")
+	assert_eq(comms[0].stream, Audio.SFX[&"comms_handover"])
+	assert_eq(comms[1].stream, Audio.SFX[&"comms_click"], "the newer comms cue is kept")
+	for player: AudioStreamPlayer in pool:
+		assert_eq(player.stream, Audio.SFX[&"laser_zap"], "no combat player taken")
+		assert_true(player.playing, "the combat player keeps playing")
+
+
+func test_finished_comms_player_is_reused() -> void:
+	_free_all_players()
+	var comms: Array[AudioStreamPlayer] = Audio.comms_players()
+	assert_eq(Audio.play_sfx(&"comms_static"), comms[0])
+	assert_eq(Audio.play_sfx(&"comms_click"), comms[1])
+	comms[1].finished.emit()
+	assert_eq(Audio.play_sfx(&"comms_handover"), comms[1], "the finished comms player is reused")
+	assert_eq(comms[0].stream, Audio.SFX[&"comms_static"], "the static keeps its player")
+	assert_true(comms[0].playing, "the static keeps playing")
+
+
+func test_every_play_bumps_the_serial_once() -> void:
+	var before: int = Audio._next_serial
+	Audio.play_sfx(&"laser_zap")
+	Audio.play_sfx(&"comms_click")
+	assert_eq(Audio._next_serial, before + 2, "one per play, either pool")
 
 
 # --- Music (Story 5.3) ------------------------------------------------------------

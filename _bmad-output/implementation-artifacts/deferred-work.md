@@ -792,7 +792,9 @@ location: game/autoloads/audio.gd _pick_player
 source_spec: `spec-5-4-cut-off-readability-and-impact.md`
 severity: low
 reason: _pick_player steals the oldest busy player when the pool is full, and a 6 s clip is almost always the oldest. Not observed; needs about 12 overlapping SFX during the hold. A fix would let a caller mark a player as not stealable (or reserve one comms player) and needs a decision on the Audio API.
-status: open
+status: done 2026-10-11
+resolution: resolved by sweep bundle dw-audio-reserved-comms-player
+resolution-undo: fff6e2aacda1cc7a18526fac647cedcbde1668e84e27df64c510acd48f7f0f73 2026-10-11 7374617475733a206f70656e
 decision: 2026-10-10 Reserve a dedicated comms player — Give Audio a separate player (or small pool) for comms cues that combat SFX never steal, route comms_static/comms_open through it, and add tests.
 
 ### DW-81: A story request during the cut-off line's typing window (now about 2.4 s instead of 0.87 s) drops the cut-off with none of its effects, and a wave clear in that window skips the silence while the static, shake and music stop still fire.
