@@ -1,11 +1,1 @@
-{
-  "DW-90": {
-    "answered_at": "2026-10-11",
-    "bundle_name": "",
-    "effect": "build",
-    "intent": "Reword FR49-FR51 (epics.md:133-135), the Epic 7 story ACs (epics.md around lines 1654, 1688 and 1724) and the GDD Flagship phase table (gdd.md:283-285) to the start-to-start wording used for Stories 2.5/2.7 (e.g. 'fires every 3.0 s start-to-start; the 0.5 s glow runs inside that period, then it fires'). Keep every number. Record the change in the GDD decision log with a reference to decision #50 and DW-70. Docs only, no code or data changes.",
-    "key": "1",
-    "label": "Reword FR49-FR51, the Epic 7 ACs and the GDD Flagship table to start-to-start",
-    "resolution": ""
-  }
-}
+{}
