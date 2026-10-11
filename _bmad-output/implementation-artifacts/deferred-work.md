@@ -607,7 +607,9 @@ location: AGENTS.md:62-63
 source_spec: `spec-dw-28-agents-md-commit-subject-forms.md`
 severity: low
 reason: AGENTS.md:62 gives `chore(retro): epic 3 retrospective` as a bookkeeping example, and AGENTS.md:63 lists retros as manual non-story work with `Epic 1 retro: revision 2`. Both are real subjects in git log. An agent writing a retro commit can't tell from the text which form applies. The fix is a short clarifying clause in AGENTS.md (agent-context file), so it is deferred.
-status: open
+status: done 2026-10-10
+resolution: resolved by sweep bundle dw-agents-md-import-and-commit-wording
+resolution-undo: b4e5f680f41e66d945025ad9c4b5bbf00ec64bb7c8eb6a016376532904901b2e 2026-10-10 7374617475733a206f70656e
 
 ### DW-63: A third copy of the import description, in the CLI export block at `_bmad-output/game-architecture.md:1247`, still says "imports the WAVs Audio preloads", and AGENTS.md's "source for the copy" pointer
 origin: spec-deferred fbeeb3bb7b5e
@@ -615,7 +617,9 @@ location: _bmad-output/game-architecture.md:1247; AGENTS.md:30
 source_spec: `spec-dw-47-dw-53-agents-md-import-guidance-wording.md`
 severity: low
 reason: Line 1247 reads `# 1. Import (builds the class_name cache and imports the WAVs Audio preloads)`. The bundle intent names only two copies, so this one predates the change and was left untouched. It can drift from AGENTS.md just like DW-51 described. A fix rewords line 1247 and widens the AGENTS.md pointer, which edits an agent-context file.
-status: open
+status: done 2026-10-10
+resolution: resolved by sweep bundle dw-agents-md-import-and-commit-wording
+resolution-undo: b4e5f680f41e66d945025ad9c4b5bbf00ec64bb7c8eb6a016376532904901b2e 2026-10-10 7374617475733a206f70656e
 
 ### DW-64: The class_name trigger covers adding, changing or removing the `class_name` declaration, but not changing the `extends` line or `@icon` of a script that keeps its `class_name`, though the global class
 origin: spec-deferred 441e58b30799
@@ -623,7 +627,9 @@ location: AGENTS.md:30; _bmad-output/game-architecture.md:1344-1345
 source_spec: `spec-dw-47-dw-53-agents-md-import-guidance-wording.md`
 severity: low
 reason: Godot's `global_script_class_cache.cfg` records each class's base and icon alongside its name, so such an edit leaves the cache stale for headless `-s` runs. The "any pull" and "stale game/.godot/" clauses cover incoming changes but not a local edit read literally. The fix edits AGENTS.md (agent-context file).
-status: open
+status: done 2026-10-10
+resolution: resolved by sweep bundle dw-agents-md-import-and-commit-wording
+resolution-undo: b4e5f680f41e66d945025ad9c4b5bbf00ec64bb7c8eb6a016376532904901b2e 2026-10-10 7374617475733a206f70656e
 
 ### DW-65: "(only the `.import` sidecars are tracked)" does not say what it contrasts with, so it can read as if the source assets were untracked.
 origin: spec-deferred 832df692c8ad
@@ -631,7 +637,9 @@ location: AGENTS.md:30; _bmad-output/game-architecture.md:1348
 source_spec: `spec-dw-47-dw-53-agents-md-import-guidance-wording.md`
 severity: low
 reason: The intended contrast is tracked assets plus sidecars versus the ignored imported copies; wording such as "the assets and their `.import` sidecars are tracked; the imported copies are not" removes the ambiguity. The fix edits AGENTS.md (agent-context file).
-status: open
+status: done 2026-10-10
+resolution: resolved by sweep bundle dw-agents-md-import-and-commit-wording
+resolution-undo: b4e5f680f41e66d945025ad9c4b5bbf00ec64bb7c8eb6a016376532904901b2e 2026-10-10 7374617475733a206f70656e
 
 ### DW-66: The asset cause says an asset "has no imported copy" until `--import` runs, but for a changed (not new or moved) asset the imported copy exists and is out of date.
 origin: spec-deferred 78e12e7f3b31
@@ -639,7 +647,9 @@ location: AGENTS.md:30; _bmad-output/game-architecture.md:1347
 source_spec: `spec-dw-47-dw-53-agents-md-import-guidance-wording.md`
 severity: low
 reason: Imported copies in `game/.godot/imported/` are keyed by source path, so a changed asset keeps its old copy. Wording such as "no up-to-date imported copy" covers both cases. The simplification comes from the bundle intent. The fix edits AGENTS.md (agent-context file).
-status: open
+status: done 2026-10-10
+resolution: resolved by sweep bundle dw-agents-md-import-and-commit-wording
+resolution-undo: b4e5f680f41e66d945025ad9c4b5bbf00ec64bb7c8eb6a016376532904901b2e 2026-10-10 7374617475733a206f70656e
 
 ### DW-67: LevelValidator doesn't detect a group named by more than one spawn_group action that can fire in the same wave.
 origin: spec-deferred ec3ee6a059ef
@@ -804,4 +814,28 @@ location: game/entities/allies/convoy.gd (_draw)
 source_spec: `_bmad-output/planning-artifacts/ux-designs/ux-defector-game-2026-10-06/mockups` (convoy in the HUD mock)
 severity: low
 reason: Art only, for the Story 8.2 art pass: match the mock's freighter look (DESIGN.md: ~160x80 cargo hulls recoloured `coalition` with a dimmer body). The formation and collision shape are settled separately by DW-83 (nose-up, middle ship raised, one solid triangle); this entry is only the ship drawing.
+status: open
+
+### DW-87: The class_name trigger list covers `extends` and `@icon` edits but not adding or removing `@abstract` or `@tool` on a script that keeps its `class_name`, though the global class cache records those
+origin: spec-deferred caa1a8ec97eb
+location: AGENTS.md:30; _bmad-output/game-architecture.md:1393-1395
+source_spec: `spec-dw-62-dw-66-agents-md-import-and-commit-wording.md`
+severity: low
+reason: `game/.godot/global_script_class_cache.cfg` entries carry `base`, `class`, `icon`, `is_abstract`, `is_tool`, `language` and `path`, so toggling `@abstract`/`@tool` leaves the cache stale for headless `-s` runs. No game script uses either today, so it is rare. The fix edits AGENTS.md:30 (agent-context file) and its architecture copy.
+status: open
+
+### DW-88: The CLI export block's import comment is called a "copy" of the AGENTS.md note (and AGENTS.md says to change all copies together), but it repeats only the first clause and points elsewhere for re-run
+origin: spec-deferred 7d969e5a29e8
+location: AGENTS.md:30; _bmad-output/game-architecture.md:1293-1295, 1391-1392
+source_spec: `spec-dw-62-dw-66-agents-md-import-and-commit-wording.md`
+severity: low
+reason: game-architecture.md:1293-1295 says "Copy of the note in AGENTS.md ... see it or the headless CLI block ... for when to re-run"; game-architecture.md:1391-1392 calls it "another copy"; AGENTS.md:30 names it among "the copies". Calling it a short form/pointer in all three places removes the ambiguity. The fix edits AGENTS.md (agent-context file).
+status: open
+
+### DW-89: AGENTS.md section 5 now gives a form for bmad-loop/orchestration retro commits and for hand-written retro revisions, but not for a first retrospective a person writes by hand (previously covered by
+origin: spec-deferred e327f358a1f5
+location: AGENTS.md:62-63
+source_spec: `spec-dw-62-dw-66-agents-md-import-and-commit-wording.md`
+severity: low
+reason: AGENTS.md:62 covers "retro commits made by bmad-loop or orchestration"; AGENTS.md:63 now says "hand-written retro revisions" where it used to say "retros". Wording such as "hand-written retros (first pass or revision)" closes the gap. The fix edits AGENTS.md (agent-context file).
 status: open

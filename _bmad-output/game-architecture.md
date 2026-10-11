@@ -1290,7 +1290,9 @@ The game is a single-player offline game with no network, no accounts and no per
 CLI export (optional, for repeatability). Run the import step first; on a fresh clone with no `game/.godot/` the export fails without it:
 
 ```bash
-# 1. Import (builds the class_name cache and imports the WAVs Audio preloads)
+# 1. Import (builds the class_name cache and imports the project's assets). Copy of the note in AGENTS.md
+# section 3 (Project facts), Tests bullet, which is the source; see it or the headless CLI block under
+# "AI Tooling (MCP Servers)" for when to re-run.
 "<GODOT_DIR>/Godot_v4.7.2-stable_win64_console.exe" --headless --path game --import
 
 # 2. Export
@@ -1386,13 +1388,15 @@ AI agents use the **headless CLI loop** instead, which covers editing, error che
 
 ```bash
 # Import the project (builds the class_name cache and imports the project's assets).
-# Copy of the note in AGENTS.md section 3 (Project facts), Tests bullet, which is the source; change both together.
+# Copy of the note in AGENTS.md section 3 (Project facts), Tests bullet, which is the source; the CLI export
+# block's import step (Deployment Architecture) is another copy; change them all together.
 # Run on a fresh clone with no game/.godot/. Re-run after adding, changing or removing a class_name declaration
-# (including adding, renaming, moving or deleting a script that has one), after adding, changing, renaming, moving
-# or deleting an imported asset, after any pull or branch switch, or when game/.godot/ is stale: headless -s runs
-# don't rescan the class cache, and an asset has no imported copy in the gitignored game/.godot/imported/ until
-# --import runs (only the .import sidecars are tracked). Typical symptoms: a parse error naming a class_name that
-# exists, or a preload or resource-load failure for an asset that exists.
+# (including adding, renaming, moving or deleting a script that has one, or changing the extends line or @icon of
+# a script that keeps its class_name), after adding, changing, renaming, moving or deleting an imported asset,
+# after any pull or branch switch, or when game/.godot/ is stale: headless -s runs don't rescan the class cache,
+# and an asset has no up-to-date imported copy in the gitignored game/.godot/imported/ until --import runs (the
+# assets and their .import sidecars are tracked; the imported copies are not). Typical symptoms: a parse error
+# naming a class_name that exists, or a preload or resource-load failure for an asset that exists.
 "<GODOT_DIR>/Godot_v4.7.2-stable_win64_console.exe" --headless --path game --import
 
 # Run all GUT tests headless
