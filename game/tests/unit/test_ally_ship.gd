@@ -396,3 +396,347 @@ func test_fighter_outline_is_ship_px_nose_up_in_coalition() -> void:
 	assert_almost_eq(hi.x - lo.x, 64.0, 0.001, "ship_px wide")
 	assert_eq(pts[0], Vector2(0, -32), "nose up")
 	assert_eq(AllyShip.OUTLINE_COLOR, Color("#22E6FF"))
+
+
+# --- Tarek's fall (Story 6.5, FR35) ---------------------------------------------------
+
+const FALL_EVENT: StringName = &"tarek_fall"
+## Vale + (0, -shield_offset_px).
+const OFFSET: Vector2 = Vector2(0, -80)
+
+
+## A stub Vale: a bare Node2D in Groups.PLAYER at `pos`.
+func _vale(pos: Vector2) -> Node2D:
+	var vale: Node2D = Node2D.new()
+	vale.global_position = pos
+	vale.add_to_group(Groups.PLAYER)
+	add_child_autofree(vale)
+	return vale
+
+
+func _count_lines(text: String) -> int:
+	var n: int = 0
+	for line: String in _lines:
+		if line == text:
+			n += 1
+	return n
+
+
+## Fires the event and steps until the ally is FALLING (at most 64 steps).
+func _to_falling(ally: AllyShip) -> void:
+	Events.story_event_requested.emit(FALL_EVENT)
+	var guard: int = 64
+	while ally.state() != AllyShip.State.FALLING and guard > 0:
+		ally.step(STEP)
+		guard -= 1
+	assert_eq(ally.state(), AllyShip.State.FALLING, "reached FALLING")
+
+
+func test_fall_tuning() -> void:
+	assert_eq(Config.num("allies.fall.approach_s"), 1.0)
+	assert_eq(Config.num("allies.fall.shield_s"), 1.5)
+	assert_eq(Config.num("allies.fall.shield_offset_px"), 80.0)
+	assert_eq(Config.num("allies.fall.shield_radius_px"), 72.0)
+	assert_eq(Config.num("allies.fall.shield_flash_hz"), 8.0)
+	assert_eq(Config.num("allies.fall.exit_speed_px_s"), 320.0)
+	assert_eq(Config.num("allies.fall.exit_drop"), 0.35)
+	var ally: AllyShip = _make()
+	assert_eq(ally.approach_s, 1.0, "cached in _ready")
+	assert_eq(ally.shield_s, 1.5)
+	assert_eq(ally.shield_offset_px, 80.0)
+	assert_eq(ally.shield_radius_px, 72.0)
+	assert_eq(ally.shield_flash_hz, 8.0)
+	assert_eq(ally.exit_speed_px_s, 320.0)
+	assert_eq(ally.exit_drop, 0.35)
+
+
+func test_fire_trail_node() -> void:
+	var ally: AllyShip = _make()
+	var trail: GPUParticles2D = ally.get_node_or_null("FireTrail") as GPUParticles2D
+	assert_not_null(trail, "a FireTrail GPUParticles2D child")
+	if trail == null:
+		return
+	assert_eq(ally.fire_trail(), trail)
+	assert_false(trail.emitting, "off while patrolling")
+	assert_false(trail.local_coords, "world-space particles")
+	assert_eq(trail.position, Vector2(0, 24))
+	var mat: CanvasItemMaterial = trail.material as CanvasItemMaterial
+	assert_not_null(mat, "a CanvasItemMaterial")
+	if mat != null:
+		assert_eq(mat.blend_mode, CanvasItemMaterial.BLEND_MODE_ADD, "additive")
+	var ppm: ParticleProcessMaterial = trail.process_material as ParticleProcessMaterial
+	assert_not_null(ppm)
+	if ppm == null:
+		return
+	var ramp: GradientTexture1D = ppm.color_ramp as GradientTexture1D
+	assert_not_null(ramp)
+	if ramp == null:
+		return
+	var g: Gradient = ramp.gradient
+	assert_eq(g.get_point_count(), 3)
+	var energy: Color = Color("#FFD23F")
+	var danger: Color = Color("#FF1F4B")
+	assert_almost_eq(g.get_color(0).r, energy.r, 0.01, "energy first")
+	assert_almost_eq(g.get_color(0).g, energy.g, 0.01)
+	assert_almost_eq(g.get_color(0).b, energy.b, 0.01)
+	assert_almost_eq(g.get_color(1).g, danger.g, 0.01, "then danger")
+	assert_almost_eq(g.get_color(1).b, danger.b, 0.01)
+	assert_eq(g.get_color(2).a, 0.0, "then transparent")
+
+
+func test_fall_starts_on_the_event() -> void:
+	var ally: AllyShip = _make()
+	_vale(Vector2(900, 900))
+	_wasp(Vector2(600, 300))
+	_steps(ally, 3)
+	var clock: float = ally.fire_clock()
+	Events.story_event_requested.emit(FALL_EVENT)
+	assert_eq(ally.state(), AllyShip.State.APPROACH, "APPROACH at once")
+	assert_eq(_count_lines("[INFO][scene] Tarek's fall: shielding Vale"), 1, "one INFO line")
+	assert_false(ally.is_damaged())
+	assert_false(ally.shield_visible())
+	_steps(ally, 40)
+	assert_eq(_bolts().size(), 0, "no shot from the event onward")
+	assert_eq(ally.fire_clock(), clock, "the fire clock stopped")
+
+
+func test_approach_is_a_smoothstep_blend_tracking_vale() -> void:
+	var ally: AllyShip = _make()
+	var vale: Node2D = _vale(Vector2(900, 900))
+	var start: Vector2 = ally.global_position
+	Events.story_event_requested.emit(FALL_EVENT)
+	for k: int in range(1, 9):
+		vale.global_position += Vector2(10, -5)
+		ally.step(STEP)
+		var target: Vector2 = vale.global_position + OFFSET
+		if k < 8:
+			assert_eq(ally.state(), AllyShip.State.APPROACH, "still approaching at step %d" % k)
+			var want: Vector2 = start.lerp(target, smoothstep(0.0, 1.0, float(k) / 8.0))
+			assert_almost_eq(ally.global_position, want, Vector2(0.001, 0.001), "smoothstep blend at step %d" % k)
+	assert_eq(ally.state(), AllyShip.State.SHIELD, "SHIELD after approach_s")
+	assert_eq(ally.global_position, vale.global_position + OFFSET, "exactly at Vale + (0, -80)")
+
+
+func test_shield_holds_over_vale_then_falls() -> void:
+	var ally: AllyShip = _make()
+	var vale: Node2D = _vale(Vector2(900, 900))
+	Events.story_event_requested.emit(FALL_EVENT)
+	_steps(ally, 8)
+	assert_eq(ally.state(), AllyShip.State.SHIELD)
+	assert_true(ally.shield_visible(), "the ring shows")
+	for k: int in range(1, 13):
+		vale.global_position += Vector2(-12, 3)
+		ally.step(STEP)
+		assert_eq(ally.global_position, vale.global_position + OFFSET, "tracks Vale at step %d" % k)
+		if k < 12:
+			assert_eq(ally.state(), AllyShip.State.SHIELD)
+			assert_true(ally.shield_visible())
+			assert_eq(ally.to_global(Vector2(0, ally.shield_offset_px)), vale.global_position, "ring centred on Vale")
+	assert_eq(ally.state(), AllyShip.State.FALLING, "FALLING after shield_s")
+	assert_false(ally.shield_visible(), "the ring is gone")
+
+
+func test_shield_alpha_pulses_at_the_flash_rate() -> void:
+	assert_almost_eq(AllyShip.shield_alpha(0.0, 8.0), 1.0, 0.0001, "bright at the start")
+	assert_lt(AllyShip.shield_alpha(1.0 / 16.0, 8.0), 0.5, "dim half a period later")
+	assert_almost_eq(AllyShip.shield_alpha(1.0 / 8.0, 8.0), 1.0, 0.0001, "bright one period later")
+	assert_almost_eq(AllyShip.shield_alpha(0.3, 0.0), 1.0, 0.0001, "no flash rate: steady")
+
+
+func test_falling_to_the_left_edge() -> void:
+	var ally: AllyShip = _make()
+	_vale(Vector2(400, 900))
+	_to_falling(ally)
+	assert_true(ally.is_damaged(), "damaged")
+	assert_true(ally.fire_trail().emitting, "the trail is on")
+	assert_eq(_count_lines("[INFO][scene] Tarek's fall: damaged, leaving the fight"), 1)
+	var p0: Vector2 = ally.global_position
+	ally.step(STEP)
+	var want: Vector2 = Vector2(-1.0, 0.35).normalized() * 320.0 * STEP
+	assert_almost_eq(ally.global_position - p0, want, Vector2(0.001, 0.001), "320 px/s left with the down drift")
+
+
+func test_falling_to_the_right_edge() -> void:
+	var ally: AllyShip = _make()
+	_vale(Vector2(1500, 900))
+	_to_falling(ally)
+	var p0: Vector2 = ally.global_position
+	ally.step(STEP)
+	var want: Vector2 = Vector2(1.0, 0.35).normalized() * 320.0 * STEP
+	assert_almost_eq(ally.global_position - p0, want, Vector2(0.001, 0.001), "320 px/s right with the down drift")
+
+
+func test_falling_at_the_midline_goes_right() -> void:
+	var ally: AllyShip = _make()
+	_vale(Vector2(960, 900))
+	_to_falling(ally)
+	var p0: Vector2 = ally.global_position
+	ally.step(STEP)
+	assert_gt(ally.global_position.x, p0.x, "x >= 960 heads right")
+
+
+func test_damaged_outline_has_the_right_wing_tip_broken_off() -> void:
+	var ally: AllyShip = _make()
+	var pts: PackedVector2Array = ally.damaged_outline()
+	assert_gt(pts.size(), 2)
+	assert_ne(pts, ally.outline(), "differs from the patrol hull")
+	var lo_x: float = INF
+	var hi_x: float = -INF
+	for p: Vector2 in pts:
+		lo_x = minf(lo_x, p.x)
+		hi_x = maxf(hi_x, p.x)
+	assert_almost_eq(lo_x, -32.0, 0.001, "the left wing is whole")
+	assert_lt(hi_x, 32.0 * 0.8, "the right wing tip is gone")
+	assert_eq(pts[0], Vector2(0, -32), "nose up")
+	assert_eq(AllyShip.DAMAGED_OUTLINE_COLOR, Color("#FF1F4B"), "danger outline")
+	assert_almost_eq(AllyShip.DAMAGED_BODY_COLOR.r, Color("#0A1222").r, 0.001)
+	assert_almost_eq(AllyShip.DAMAGED_BODY_COLOR.g, Color("#0A1222").g, 0.001)
+	assert_almost_eq(AllyShip.DAMAGED_BODY_COLOR.b, Color("#0A1222").b, 0.001)
+	assert_almost_eq(AllyShip.DAMAGED_BODY_COLOR.a, 0.8, 0.001)
+
+
+func test_gone_once_off_screen_and_freed() -> void:
+	var ally: AllyShip = _make()
+	_vale(Vector2(400, 900))
+	_to_falling(ally)
+	var bounds: Rect2 = Playfield.RECT.grow(64.0)
+	var trail: GPUParticles2D = ally.fire_trail()
+	var guard: int = 200
+	while ally.state() == AllyShip.State.FALLING and guard > 0:
+		assert_true(bounds.has_point(ally.global_position), "still inside while FALLING")
+		ally.step(STEP)
+		guard -= 1
+	assert_eq(ally.state(), AllyShip.State.GONE, "GONE")
+	assert_false(bounds.has_point(ally.global_position), "outside RECT.grow(ship_px)")
+	assert_false(trail.emitting, "the trail stops")
+	assert_true(ally.is_queued_for_deletion(), "freed")
+	assert_eq(_count_lines("[INFO][scene] Tarek's fall: Tarek has left the level"), 1)
+	await get_tree().process_frame
+	var left: int = 0
+	for child: Node in _allies.get_children():
+		if child is AllyShip:
+			left += 1
+	assert_eq(left, 0, "no AllyShip in Allies afterwards")
+
+
+func test_no_bolts_through_the_whole_fall() -> void:
+	var ally: AllyShip = _make()
+	_vale(Vector2(900, 900))
+	_wasp(Vector2(600, 300))
+	_steps(ally, 4)
+	assert_eq(_bolts().size(), 1, "firing while patrolling")
+	Events.story_event_requested.emit(FALL_EVENT)
+	var guard: int = 200
+	while is_instance_valid(ally) and not ally.is_queued_for_deletion() and guard > 0:
+		ally.step(STEP)
+		guard -= 1
+	assert_eq(_bolts().size(), 1, "no bolt after the event")
+
+
+func test_no_player_goes_straight_to_falling() -> void:
+	var ally: AllyShip = _make()
+	_steps(ally, 2)
+	var at: Vector2 = ally.global_position
+	Events.story_event_requested.emit(FALL_EVENT)
+	assert_eq(ally.state(), AllyShip.State.FALLING, "no Vale: straight to FALLING")
+	assert_eq(ally.global_position, at, "from where it is")
+	assert_true(ally.is_damaged())
+	assert_true(ally.fire_trail().emitting)
+
+
+func test_player_freed_mid_approach_falls_from_where_it_is() -> void:
+	var ally: AllyShip = _make()
+	var vale: Node2D = _vale(Vector2(900, 900))
+	Events.story_event_requested.emit(FALL_EVENT)
+	_steps(ally, 3)
+	var at: Vector2 = ally.global_position
+	vale.free()
+	ally.step(STEP)
+	assert_eq(ally.state(), AllyShip.State.FALLING, "Vale gone: FALLING")
+	assert_eq(ally.global_position, at, "from where it is")
+
+
+func test_player_freed_mid_shield_falls_from_where_it_is() -> void:
+	var ally: AllyShip = _make()
+	var vale: Node2D = _vale(Vector2(900, 900))
+	Events.story_event_requested.emit(FALL_EVENT)
+	_steps(ally, 8)
+	assert_eq(ally.state(), AllyShip.State.SHIELD)
+	var at: Vector2 = ally.global_position
+	vale.free()
+	ally.step(STEP)
+	assert_eq(ally.state(), AllyShip.State.FALLING, "Vale gone: FALLING")
+	assert_eq(ally.global_position, at, "from where it is")
+
+
+func test_ryn_ignores_the_event() -> void:
+	var ally: AllyShip = _make("ryn")
+	_vale(Vector2(900, 900))
+	_wasp(Vector2(600, 300))
+	Events.story_event_requested.emit(FALL_EVENT)
+	assert_eq(ally.state(), AllyShip.State.PATROL, "Ryn keeps patrolling")
+	_steps(ally, 4)
+	assert_eq(_bolts().size(), 1, "and firing")
+	assert_eq(_count_lines("[INFO][scene] Tarek's fall: shielding Vale"), 0)
+
+
+func test_tarek_ignores_other_events() -> void:
+	var ally: AllyShip = _make()
+	_vale(Vector2(900, 900))
+	Events.story_event_requested.emit(&"dev_evt")
+	assert_eq(ally.state(), AllyShip.State.PATROL)
+
+
+func test_repeat_event_mid_fall_changes_nothing() -> void:
+	var ally: AllyShip = _make()
+	_vale(Vector2(900, 900))
+	Events.story_event_requested.emit(FALL_EVENT)
+	_steps(ally, 3)
+	var at: Vector2 = ally.global_position
+	Events.story_event_requested.emit(FALL_EVENT)
+	assert_eq(ally.state(), AllyShip.State.APPROACH, "still APPROACH")
+	assert_eq(ally.global_position, at)
+	_steps(ally, 5)
+	assert_eq(ally.state(), AllyShip.State.SHIELD, "the approach was not restarted")
+	Events.story_event_requested.emit(FALL_EVENT)
+	assert_eq(ally.state(), AllyShip.State.SHIELD)
+	_steps(ally, 12)
+	assert_eq(ally.state(), AllyShip.State.FALLING)
+	Events.story_event_requested.emit(FALL_EVENT)
+	assert_eq(ally.state(), AllyShip.State.FALLING)
+	assert_eq(_count_lines("[INFO][scene] Tarek's fall: shielding Vale"), 1, "one start")
+
+
+func test_zero_approach_ends_on_the_first_step() -> void:
+	((Config.tuning["allies"] as Dictionary)["fall"] as Dictionary)["approach_s"] = 0.0
+	var ally: AllyShip = _make()
+	var vale: Node2D = _vale(Vector2(900, 900))
+	Events.story_event_requested.emit(FALL_EVENT)
+	assert_eq(ally.state(), AllyShip.State.APPROACH)
+	ally.step(STEP)
+	assert_eq(ally.state(), AllyShip.State.SHIELD, "approach over in one step")
+	assert_eq(ally.global_position, vale.global_position + OFFSET)
+
+
+func test_zero_shield_ends_on_the_first_step() -> void:
+	((Config.tuning["allies"] as Dictionary)["fall"] as Dictionary)["shield_s"] = 0.0
+	var ally: AllyShip = _make()
+	_vale(Vector2(900, 900))
+	Events.story_event_requested.emit(FALL_EVENT)
+	_steps(ally, 8)
+	assert_eq(ally.state(), AllyShip.State.SHIELD)
+	ally.step(STEP)
+	assert_eq(ally.state(), AllyShip.State.FALLING, "shield over in one step")
+
+
+func test_zero_approach_and_shield() -> void:
+	var fall: Dictionary = (Config.tuning["allies"] as Dictionary)["fall"] as Dictionary
+	fall["approach_s"] = 0.0
+	fall["shield_s"] = 0.0
+	var ally: AllyShip = _make()
+	_vale(Vector2(900, 900))
+	Events.story_event_requested.emit(FALL_EVENT)
+	ally.step(STEP)
+	assert_eq(ally.state(), AllyShip.State.SHIELD)
+	ally.step(STEP)
+	assert_eq(ally.state(), AllyShip.State.FALLING)

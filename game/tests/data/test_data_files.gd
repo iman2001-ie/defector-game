@@ -1232,3 +1232,56 @@ func test_allies_tuning_ranges() -> void:
 	assert_gt(Config.int_("allies.damage"), 0, "damage > 0")
 	assert_lt(Config.num("allies.patrol_band_y.min"), Config.num("allies.patrol_band_y.max"), "patrol_band_y.min < max")
 	assert_lte(Config.num("allies.kill_share.min"), Config.num("allies.kill_share.max"), "kill_share.min <= max")
+
+
+# --- Tarek's fall (Story 6.5) ------------------------------------------------------------
+
+## The dev level that proves the fall: the level_dev key set, Tarek on, no
+## convoy, exactly one trigger with a story_event, flagged tarek_fall at 0.5,
+## whose actions are the story event then the Level 2 cut-off line.
+func test_dev_tarek_fall_level_shape() -> void:
+	var data: Dictionary = Config.level("dev_tarek_fall")
+	assert_false(data.is_empty(), "level_dev_tarek_fall.json loads")
+	var keys: Array = data.keys()
+	keys.sort()
+	var dev_keys: Array = Config.level("dev").keys()
+	dev_keys.sort()
+	assert_eq(keys, dev_keys, "the level_dev key set")
+	assert_eq(data.get("id"), 0.0)
+	assert_eq(data.get("name"), "Development: Tarek's fall")
+	assert_eq(data.get("ally"), "tarek", "Tarek flies")
+	assert_eq(data.get("convoy"), false, "no convoy")
+	assert_null(data.get("music"))
+	assert_null(data.get("intro_sequence"))
+	assert_null(data.get("outro_sequence"))
+	var waves: Array = data.get("waves", []) as Array
+	assert_eq(waves.size(), 3, "3 waves")
+	var found: Array[Dictionary] = []
+	var found_wave: int = -1
+	for i: int in waves.size():
+		for trigger: Variant in ((waves[i] as Dictionary).get("triggers", []) as Array):
+			for action: Variant in ((trigger as Dictionary).get("actions", []) as Array):
+				if (action as Dictionary).has("story_event"):
+					found.append(trigger as Dictionary)
+					found_wave = i
+					break
+	assert_eq(found.size(), 1, "exactly one story_event trigger")
+	if found.size() != 1:
+		return
+	assert_eq(found_wave, 1, "in wave 2")
+	var t: Dictionary = found[0]
+	assert_eq(t.get("when"), "progress")
+	assert_eq(t.get("at"), 0.5)
+	assert_eq(t.get("flag"), "tarek_fall", "gated by tarek_fall")
+	assert_eq(t.get("actions"), [{"story_event": "tarek_fall"}, {"comms": "l2_w5_tarek_cutoff"}], "the story event, then the cut-off line")
+	assert_true(Config.has_sequence(&"l2_w5_tarek_cutoff"), "the line exists")
+
+
+func test_allies_fall_tuning_ranges() -> void:
+	assert_gte(Config.num("allies.fall.approach_s"), 0.0, "approach_s >= 0")
+	assert_gte(Config.num("allies.fall.shield_s"), 0.0, "shield_s >= 0")
+	assert_gt(Config.num("allies.fall.exit_speed_px_s"), 0.0, "exit_speed_px_s > 0")
+	assert_gt(Config.num("allies.fall.shield_radius_px"), 0.0, "shield_radius_px > 0")
+	assert_gt(Config.num("allies.fall.shield_offset_px"), 0.0, "shield_offset_px > 0")
+	assert_gt(Config.num("allies.fall.shield_flash_hz"), 0.0, "shield_flash_hz > 0")
+	assert_gte(Config.num("allies.fall.exit_drop"), 0.0, "exit_drop >= 0 (down or level)")

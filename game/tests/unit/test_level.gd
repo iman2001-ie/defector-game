@@ -54,6 +54,8 @@ func after_each() -> void:
 	_delete_save()
 	SaveManager.save_path = SaveManager.DEFAULT_SAVE_PATH
 	_reset_game_state()
+	if Audio.music_streams.has(FALL_TEST_MUSIC):
+		_end_fall_music()
 	Config.load_data()
 	Feedback.reset()
 	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_VISIBLE)
@@ -1683,3 +1685,226 @@ func test_kill_share_logged_once_on_fail() -> void:
 	Events.level_cleared.emit(0)
 	Log.sink = Callable()
 	assert_eq(_kill_share_lines(), ["[INFO][combat] Kills: 1 total, ally 1 (100%); target 10-15%"] as Array[String], "one line per attempt")
+
+
+# --- Tarek's fall (Story 6.5) ------------------------------------------------------------
+
+const FALL_TEST_MUSIC: StringName = &"test_fall_silent"
+
+
+## Plays a silent looping test-only track (erased in _end_fall_music).
+func _play_fall_music() -> void:
+	var wav: AudioStreamWAV = AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.mix_rate = 22050
+	var data: PackedByteArray = PackedByteArray()
+	data.resize(22050 * 2)
+	wav.data = data
+	wav.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	wav.loop_end = 22050
+	Audio.music_streams[FALL_TEST_MUSIC] = wav
+	Audio.play_music(FALL_TEST_MUSIC)
+
+
+func _end_fall_music() -> void:
+	Audio.stop_music(0.0)
+	Audio.music_streams.erase(FALL_TEST_MUSIC)
+	Audio._warned_music.erase(FALL_TEST_MUSIC)
+
+
+## Live AllyShips under World/Allies (queued-for-deletion ones excluded).
+func _live_allies() -> Array[AllyShip]:
+	var out: Array[AllyShip] = []
+	for ally: AllyShip in _ally_ships():
+		if not ally.is_queued_for_deletion():
+			out.append(ally)
+	return out
+
+
+## Instance ids of every AllyBolt under World/Projectiles.
+func _ally_bolt_ids() -> Dictionary:
+	var ids: Dictionary = {}
+	for child: Node in _level.get_node("World/Projectiles").get_children():
+		if child is AllyBolt:
+			ids[child.get_instance_id()] = true
+	return ids
+
+
+## Adds the instance id of every AllyBolt under World/Projectiles that is not
+## in `known` to `seen`, so a bolt freed before a later check is still caught.
+func _record_new_ally_bolts(known: Dictionary, seen: Dictionary) -> void:
+	for child: Node in _level.get_node("World/Projectiles").get_children():
+		if child is AllyBolt and not known.has(child.get_instance_id()):
+			seen[child.get_instance_id()] = true
+
+
+## AllyBolts under World/Projectiles that are not in `known`.
+func _new_ally_bolts(known: Dictionary) -> int:
+	var n: int = 0
+	for child: Node in _level.get_node("World/Projectiles").get_children():
+		if child is AllyBolt and not known.has(child.get_instance_id()):
+			n += 1
+	return n
+
+
+## dev_tarek_fall: F3 on wave 1, then waits for wave 2.
+func _to_fall_wave_2(director: WaveDirector) -> void:
+	director.debug_resolve_wave()
+	await _wait_for_wave(director, 2, 4.0)
+
+
+## Kills counted enemies one by one until the director has resolved half the
+## wave or `done` returns true; returns the kills made.
+func _kill_to_half(director: WaveDirector, done: Callable) -> int:
+	var kills: int = 0
+	while not done.call() and kills < 20:
+		if float(director.resolved_count()) / float(maxi(director.total_count(), 1)) >= 0.5:
+			break
+		if not _kill_one_counted():
+			break
+		kills += 1
+	return kills
+
+
+## Kills every counted enemy until wave `wave` starts (at most `seconds`).
+func _clear_until_wave(director: WaveDirector, wave: int, seconds: float) -> void:
+	var end_ms: int = Time.get_ticks_msec() + int(seconds * 1000.0)
+	while director.wave_number() < wave and Time.get_ticks_msec() < end_ms:
+		_kill_one_counted()
+		await wait_seconds(0.05)
+
+
+## Acceptance (Story 6.5, flag on): on the real level.tscn, dev_tarek_fall wave 2
+## at 50 % destroyed fires the tarek_fall story event and the l2_w5_tarek_cutoff
+## line in the interruption box with no pause; Tarek glides over Vale; at the
+## cut (40 characters plus the suffix) the static plays, the cut-off shake
+## lands, the music drops out and comms go silent; Tarek falls damaged with
+## his fire trail and leaves for good; no ally bolt is fired from the event on;
+## clearing wave 2 lifts the silence and wave 3 runs with no ally.
+func test_dev_tarek_fall_flag_on() -> void:
+	(Config.tuning["waves"] as Dictionary)["gap_s"] = 0.05
+	Log.sink = _capture
+	_play_fall_music()
+	_make_level("dev_tarek_fall")
+	_make_player_invincible()
+	var director: WaveDirector = _level.get_node("WaveDirector") as WaveDirector
+	var channel: CommsChannel = _level.get_node("Comms/CommsChannel") as CommsChannel
+	var box: CommsBox = _level.get_node("Comms/CommsBox") as CommsBox
+	var camera: ShakeCamera = _level.get_node("ShakeCamera") as ShakeCamera
+	var text: Label = box.get_node("Box/Text") as Label
+	var allies: Array[AllyShip] = _live_allies()
+	assert_eq(allies.size(), 1, "Tarek flies")
+	if allies.size() != 1:
+		_end_fall_music()
+		return
+	var ally: AllyShip = allies[0]
+	assert_eq(ally.ally_id, "tarek")
+	assert_eq(Audio.current_music(), FALL_TEST_MUSIC, "the test track plays")
+	await _to_fall_wave_2(director)
+	assert_eq(director.wave_number(), 2, "on wave 2")
+	var event_line: String = "[INFO][beat] Level 0 wave 2: story event 'tarek_fall'"
+	var fired: Callable = func() -> bool: return _lines.has(event_line)
+	_kill_to_half(director, fired)
+	assert_true(_lines.has(event_line), "the story event fired")
+	assert_gte(float(director.resolved_count()) / float(director.total_count()), 0.5, "at 50 %")
+	var known: Dictionary = _ally_bolt_ids()
+	var new_bolts: Dictionary = {}
+	assert_eq(channel.current_combat(), &"l2_w5_tarek_cutoff", "the cut-off line plays")
+	assert_true(box.visible, "in the interruption box")
+	assert_false(get_tree().paused, "no pause")
+	assert_false(PauseArbiter.is_paused(), "no pause reason")
+	assert_true(is_instance_valid(ally), "Tarek still here")
+	if not is_instance_valid(ally):
+		_end_fall_music()
+		return
+	assert_eq(ally.state(), AllyShip.State.APPROACH, "Tarek glides over Vale")
+	# Freeze the shake decay so the amplitude reads exactly what the cut set.
+	camera.set_process(false)
+	var saw_shield: bool = false
+	var saw_damaged: bool = false
+	var saw_trail: bool = false
+	var end_ms: int = Time.get_ticks_msec() + 5000
+	while channel.cut_phase() != CommsChannel.CutPhase.HOLD and Time.get_ticks_msec() < end_ms:
+		await get_tree().physics_frame
+		_record_new_ally_bolts(known, new_bolts)
+		if is_instance_valid(ally) and not ally.is_queued_for_deletion():
+			saw_shield = saw_shield or ally.shield_visible()
+			if ally.is_damaged():
+				saw_damaged = true
+				saw_trail = saw_trail or ally.fire_trail().emitting
+	assert_eq(channel.cut_phase(), CommsChannel.CutPhase.HOLD, "the cut-off landed")
+	var full: String = str((Config.sequence(&"l2_w5_tarek_cutoff").get("lines") as Array)[0].get("text"))
+	assert_eq(text.text, full.left(40) + str(Config.section("comms").get("cutoff_suffix")), "cut after 40 characters, plus the suffix")
+	var cut_sfx: AudioStreamPlayer = channel.cut_sfx_player()
+	assert_not_null(cut_sfx, "the static plays")
+	if cut_sfx != null:
+		assert_eq(cut_sfx.stream, Audio.SFX[&"comms_static"], "comms_static")
+	assert_almost_eq(camera.current_amplitude(), Config.num("comms.cutoff_shake_px"), 0.0001, "the cut-off shake")
+	assert_eq(Audio.current_music(), &"", "the music dropped out")
+	assert_true(channel.is_silenced(), "comms silenced")
+	assert_true(saw_shield, "the shield ring showed")
+	camera.set_process(true)
+	end_ms = Time.get_ticks_msec() + 8000
+	while is_instance_valid(ally) and not ally.is_queued_for_deletion() and Time.get_ticks_msec() < end_ms:
+		await get_tree().physics_frame
+		_record_new_ally_bolts(known, new_bolts)
+		if is_instance_valid(ally) and not ally.is_queued_for_deletion() and ally.is_damaged():
+			saw_damaged = true
+			saw_trail = saw_trail or ally.fire_trail().emitting
+	assert_true(saw_damaged, "Tarek fell damaged")
+	assert_true(saw_trail, "with his fire trail")
+	await get_tree().process_frame
+	assert_false(is_instance_valid(ally), "Tarek freed")
+	assert_eq(_live_allies().size(), 0, "no AllyShip left")
+	assert_eq(_lines_containing("Tarek's fall: Tarek has left the level").size(), 1, "left once")
+	_record_new_ally_bolts(known, new_bolts)
+	assert_eq(new_bolts.size(), 0, "no AllyBolt spawned after the event")
+	assert_eq(director.wave_number(), 2, "still wave 2")
+	assert_true(channel.is_silenced(), "silent until the wave clears")
+	await _clear_until_wave(director, 3, 10.0)
+	assert_eq(director.wave_number(), 3, "wave 3 runs")
+	assert_false(channel.is_silenced(), "the wave clear lifted the silence")
+	assert_eq(_live_allies().size(), 0, "with no ally")
+	assert_eq(_lines_containing("Ally 'tarek' spawned").size(), 1, "never re-created")
+	_end_fall_music()
+	Log.sink = Callable()
+
+
+## Acceptance (Story 6.5, flag off): with tarek_fall false, wave 2 passing 50 %
+## fires no story event and no cut-off line; Tarek keeps patrolling and firing
+## and wave 2 still clears into wave 3.
+func test_dev_tarek_fall_flag_off() -> void:
+	(Config.tuning["waves"] as Dictionary)["gap_s"] = 0.05
+	Config.flags["tarek_fall"] = false
+	Log.sink = _capture
+	_make_level("dev_tarek_fall")
+	_make_player_invincible()
+	var director: WaveDirector = _level.get_node("WaveDirector") as WaveDirector
+	var channel: CommsChannel = _level.get_node("Comms/CommsChannel") as CommsChannel
+	var allies: Array[AllyShip] = _live_allies()
+	assert_eq(allies.size(), 1, "Tarek flies")
+	if allies.size() != 1:
+		Log.sink = Callable()
+		return
+	var ally: AllyShip = allies[0]
+	await _to_fall_wave_2(director)
+	assert_eq(director.wave_number(), 2, "on wave 2")
+	_kill_to_half(director, func() -> bool: return false)
+	assert_gte(float(director.resolved_count()) / float(director.total_count()), 0.5, "past 50 %")
+	var known: Dictionary = _ally_bolt_ids()
+	var end_ms: int = Time.get_ticks_msec() + 3000
+	while _new_ally_bolts(known) == 0 and Time.get_ticks_msec() < end_ms:
+		await get_tree().physics_frame
+	assert_eq(_lines_containing("story event").size(), 0, "no story event")
+	assert_eq(_lines_containing("l2_w5_tarek_cutoff").size(), 0, "no cut-off line")
+	assert_ne(channel.current_combat(), &"l2_w5_tarek_cutoff")
+	assert_false(channel.is_silenced())
+	assert_true(is_instance_valid(ally) and not ally.is_queued_for_deletion(), "Tarek still here")
+	if is_instance_valid(ally):
+		assert_eq(ally.state(), AllyShip.State.PATROL, "still patrolling")
+		assert_false(ally.is_damaged())
+	assert_gt(_new_ally_bolts(known), 0, "and still firing")
+	await _clear_until_wave(director, 3, 10.0)
+	assert_eq(director.wave_number(), 3, "wave 2 clears into wave 3")
+	assert_eq(_live_allies().size(), 1, "Tarek flies on")
+	Log.sink = Callable()

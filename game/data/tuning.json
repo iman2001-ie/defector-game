@@ -204,7 +204,16 @@
 		"fire_interval_s": 0.5,
 		"kill_share": { "min": 0.10, "max": 0.15 },
 		"ship_px": 64,
-		"shot_speed_px_s": 1200
+		"shot_speed_px_s": 1200,
+		"fall": {
+			"approach_s": 1.0,
+			"shield_s": 1.5,
+			"shield_offset_px": 80,
+			"shield_radius_px": 72,
+			"shield_flash_hz": 8,
+			"exit_speed_px_s": 320,
+			"exit_drop": 0.35
+		}
 	},
 	"waves": {
 		"gap_s": 2.0,
