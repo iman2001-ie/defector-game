@@ -1180,3 +1180,55 @@ func test_convoy_is_a_bool_and_only_on_in_dev_levels() -> void:
 		assert_true(value is bool, "%s convoy is a bool" % path)
 		if value is bool and bool(value):
 			assert_true(path.get_file().begins_with("level_dev"), "%s: only dev levels have a convoy before Epic 7" % path)
+
+
+# --- Ally (Story 6.4) ------------------------------------------------------------------
+
+## The dev level for the kill-share playtest: the level_dev key set, Tarek on,
+## no convoy, 3-4 waves mixing Wasps and Lancers with a Needle wave that brings
+## asteroids; no intro or outro.
+func test_dev_ally_level_shape() -> void:
+	var data: Dictionary = Config.level("dev_ally")
+	assert_false(data.is_empty(), "level_dev_ally.json loads")
+	var keys: Array = data.keys()
+	keys.sort()
+	var dev_keys: Array = Config.level("dev").keys()
+	dev_keys.sort()
+	assert_eq(keys, dev_keys, "the level_dev key set")
+	assert_eq(data.get("id"), 0.0)
+	assert_eq(data.get("name"), "Development: ally")
+	assert_eq(data.get("ally"), "tarek", "Tarek flies")
+	assert_eq(data.get("convoy"), false, "no convoy")
+	assert_null(data.get("intro_sequence"))
+	assert_null(data.get("outro_sequence"))
+	var waves: Array = data.get("waves", []) as Array
+	assert_between(waves.size(), 3, 4, "3-4 waves")
+	var types: Dictionary = {}
+	var needle_with_rocks: bool = false
+	for wave: Variant in waves:
+		var wave_types: Array[String] = []
+		for entry: Variant in (wave as Dictionary).get("spawns", []) as Array:
+			wave_types.append(str((entry as Dictionary).get("type")))
+			types[str((entry as Dictionary).get("type"))] = true
+		if wave_types.has("needle") and not ((wave as Dictionary).get("asteroids", []) as Array).is_empty():
+			needle_with_rocks = true
+	assert_true(types.has("wasp"), "Wasps")
+	assert_true(types.has("lancer"), "Lancers")
+	assert_true(needle_with_rocks, "a Needle wave with asteroids")
+
+
+## level_dev keeps no ally; the campaign levels keep "ally": null until Epic 7.
+func test_ally_off_in_dev_and_campaign_levels() -> void:
+	assert_null(Config.level("dev").get("ally"), "level_dev has no ally")
+	for i: int in [1, 2, 3]:
+		assert_null(Config.level(str(i)).get("ally"), "level_%d has no ally before Epic 7" % i)
+
+
+func test_allies_tuning_ranges() -> void:
+	assert_gt(Config.num("allies.fire_interval_s"), 0.0, "fire_interval_s > 0")
+	assert_gt(Config.num("allies.shot_speed_px_s"), 0.0, "shot_speed_px_s > 0")
+	assert_gt(Config.num("allies.speed_px_s"), 0.0, "speed_px_s > 0")
+	assert_gt(Config.num("allies.ship_px"), 0.0, "ship_px > 0")
+	assert_gt(Config.int_("allies.damage"), 0, "damage > 0")
+	assert_lt(Config.num("allies.patrol_band_y.min"), Config.num("allies.patrol_band_y.max"), "patrol_band_y.min < max")
+	assert_lte(Config.num("allies.kill_share.min"), Config.num("allies.kill_share.max"), "kill_share.min <= max")

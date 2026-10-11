@@ -378,3 +378,19 @@ func test_non_object_entry_skips_reachability() -> void:
 	var wasps: Dictionary = {"type": "wasp", "count": 4.0}
 	_assert_one(_unreachable_wave([3, wasps], [wasps.duplicate()]), "waves[0].spawns[0]")
 	_assert_one(_unreachable_wave([wasps], [3, wasps.duplicate()]), "waves[0].groups.g[0]")
+
+
+## Story 6.4: `ally` is absent, null, "tarek" or "ryn".
+func test_ally_must_be_null_tarek_or_ryn() -> void:
+	for good: Variant in [null, "tarek", "ryn"]:
+		var data: Dictionary = _valid()
+		data["ally"] = good
+		assert_eq(_validate(data), [] as Array[String], "ally %s" % good)
+	assert_eq(_validate(_valid()), [] as Array[String], "ally absent")
+	for bad: Variant in ["bogus", "", "Tarek", 1.0, true, ["tarek"], {}]:
+		var data: Dictionary = _valid()
+		data["ally"] = bad
+		_assert_one(data, "ally")
+		var problems: Array[String] = _validate(data)
+		if problems.size() == 1:
+			assert_string_contains(problems[0], "must be null, \"tarek\" or \"ryn\"")

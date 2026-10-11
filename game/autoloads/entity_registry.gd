@@ -28,6 +28,7 @@ const PROJECTILES: Dictionary[StringName, PackedScene] = {
 	&"micro_missile": preload("res://entities/projectiles/micro_missile.tscn"),
 	&"enemy_bullet": preload("res://entities/projectiles/enemy_bullet.tscn"),
 	&"needle_bolt": preload("res://entities/projectiles/needle_bolt.tscn"),
+	&"ally_bolt": preload("res://entities/projectiles/ally_bolt.tscn"),
 }
 ## One scene for every asteroid size; the size is set through setup().
 const ASTEROID: PackedScene = preload("res://entities/asteroids/asteroid.tscn")
@@ -37,6 +38,8 @@ const EXPLOSION: PackedScene = preload("res://entities/effects/explosion.tscn")
 const ENERGY_ORB: PackedScene = preload("res://entities/pickups/energy_orb.tscn")
 ## The three-ship escort convoy (Story 6.1), spawned once by a level with "convoy": true.
 const CONVOY: PackedScene = preload("res://entities/allies/convoy.tscn")
+## The invincible wingman (Story 6.4), spawned once by a level with "ally": "tarek"|"ryn".
+const ALLY_SHIP: PackedScene = preload("res://entities/allies/ally_ship.tscn")
 
 
 ## The known enemy type ids (Config validates level files against them).

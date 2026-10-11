@@ -19,3 +19,5 @@ const COUNTED: StringName = &"counted"
 const WAVE_DIRECTOR: StringName = &"wave_director"
 ## The level's Convoy (joined in Convoy._ready, Story 6.1).
 const CONVOY: StringName = &"convoy"
+## The level's ally ship (joined in AllyShip._ready, Story 6.4).
+const ALLIES: StringName = &"allies"

@@ -13,6 +13,7 @@ extends RefCounted
 ##   `spawns` array or a `boss` (a non-empty string).
 ## - `intro_sequence` and `outro_sequence` are absent, null or a non-empty
 ##   string (Story 5.3).
+## - `ally` is absent, null or one of ALLY_IDS (tarek, ryn; Story 6.4).
 ## - Spawn and group entries: a known `type`, an integer `count` > 0, an optional
 ##   valid `formation` with at most `max_columns` grid columns (when > 0), an
 ##   optional `entry` of `top` or `sides`.
@@ -47,6 +48,8 @@ const MUSIC_ACTIONS: Array[String] = ["stop", "combat", "boss"]
 const HINT_ACTIONS: Array[String] = ["move_fire", "missile"]
 const SEQUENCE_KEYS: Array[String] = ["intro_sequence", "outro_sequence"]
 const NEGATE_PREFIX: String = "!"
+## The ally ids a level's `ally` key may name (Story 6.4).
+const ALLY_IDS: Array[String] = ["tarek", "ryn"]
 
 
 ## Returns every problem found (empty when the level is valid). `flags` is the
@@ -61,6 +64,8 @@ static func validate(data: Dictionary, source: String, known_types: Array[String
 		var seq: Variant = data.get(key)
 		if seq != null and not (seq is String and not (seq as String).is_empty()):
 			problems.append(_problem(source, key, "must be null or a non-empty string"))
+	if not is_valid_ally(data.get("ally")):
+		problems.append(_problem(source, "ally", "must be null, \"tarek\" or \"ryn\""))
 	var waves: Variant = data.get("waves")
 	if not (waves is Array):
 		problems.append(_problem(source, "waves", "missing or not an array"))
@@ -82,6 +87,11 @@ static func validate(data: Dictionary, source: String, known_types: Array[String
 		else:
 			problems.append(_problem(source, path, "is not an object"))
 	return problems
+
+
+## True for a valid `ally` value: null (or absent) or one of ALLY_IDS.
+static func is_valid_ally(value: Variant) -> bool:
+	return value == null or (value is String and ALLY_IDS.has(value as String))
 
 
 static func _check_wave(wave: Dictionary, ctx: Dictionary, path: String, problems: Array[String]) -> void:

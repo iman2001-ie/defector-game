@@ -15,6 +15,20 @@ extends Node2D
 ## (set_convoy, for the solid hulls) before the WaveDirector starts. A missing
 ## or false key spawns nothing (the HUD convoy bar stays hidden).
 ##
+## Ally (Story 6.4): when the level JSON has "ally": "tarek" or "ryn"
+## (ally_id), the Spawner spawns one AllyShip with that id into World/Allies
+## before the WaveDirector starts. An absent or null key spawns nothing; any
+## other value (LevelValidator also reports it) logs a WARN and spawns nothing.
+## Play the ally dev level with:
+##   "<GODOT_DIR>/Godot_v4.7.2-stable_win64.exe" --path game res://scenes/level/level.tscn -- --level=dev_ally
+##
+## Kill share (Story 6.4, FR34): on a level that spawned an ally, the level
+## tallies Events.enemy_killed (all kills, and those with by_ally) and, when the
+## attempt's outcome is decided (the first Events.level_cleared or
+## level_failed), logs one `[INFO][combat] Kills: N total, ally M (P%); target 10-15%`
+## line (kill_share_line, the target from tuning allies.kill_share), once per
+## attempt. A level without an ally logs no such line.
+##
 ## Events.level_cleared(id) -> SceneRouter.complete_level(id) (Story 4.2): a
 ## campaign level unlocks and saves, then the next level or the title loads.
 ##
@@ -48,6 +62,13 @@ var user_args: PackedStringArray = OS.get_cmdline_user_args()
 ## test runner's scene).
 var change_scene: Callable
 
+## True once this level spawned an ally: only then is the kill share logged.
+var _has_ally: bool = false
+var _kills: int = 0
+var _ally_kills: int = 0
+## Set once the kill-share line is logged: the attempt's outcome is decided.
+var _summary_logged: bool = false
+
 @onready var _player: Player = $World/Player
 @onready var _spawner: Spawner = $Spawner
 @onready var _director: WaveDirector = $WaveDirector
@@ -64,6 +85,8 @@ func _ready() -> void:
 	# Progression (Story 4.2): a cleared level goes through the router, which
 	# saves and moves on for campaign levels only (the dev level is a no-op).
 	Events.level_cleared.connect(_on_events_level_cleared)
+	Events.level_failed.connect(_on_events_level_failed)
+	Events.enemy_killed.connect(_on_events_enemy_killed)
 	var arg_level: String = debug_level_id(OS.is_debug_build(), args)
 	if not arg_level.is_empty():
 		if GameState.current_level_id.is_empty():
@@ -88,6 +111,9 @@ func _ready() -> void:
 	Log.info("scene", "Level %d '%s' started (%s)%s" % [id, str(data.get("name", "")), Config.LEVEL_PATH_FORMAT % level_id, retry_tag])
 	if has_convoy(data):
 		_spawn_convoy()
+	var ally: String = ally_id(data)
+	if not ally.is_empty():
+		_spawn_ally(ally)
 	_director.start_level(data, Config.LEVEL_PATH_FORMAT % level_id)
 	# One explosion per tier off-screen, so the first real impact doesn't hitch.
 	if should_prewarm(OS.is_debug_build(), args):
@@ -109,12 +135,64 @@ func _spawn_convoy() -> void:
 	Log.info("scene", "Convoy spawned: %d ships, %d HP" % [convoy.ships().size(), convoy.max_hp()])
 
 
+## Spawns the level's ally ship through the Spawner.
+func _spawn_ally(id: String) -> void:
+	var ally: AllyShip = _spawner.spawn_ally({"ally": id})
+	if ally == null:
+		Log.warn("scene", "Level asks for ally '%s' but none could be spawned" % id)
+		return
+	_has_ally = true
+	Log.info("scene", "Ally '%s' spawned" % id)
+
+
 func _request_comms(sequence_id: StringName) -> void:
 	Events.comms_sequence_requested.emit(sequence_id)
 
 
 func _on_events_level_cleared(cleared_id: int) -> void:
+	_log_kill_share()
 	SceneRouter.complete_level(cleared_id)
+
+
+func _on_events_level_failed(_reason: StringName) -> void:
+	_log_kill_share()
+
+
+func _on_events_enemy_killed(_enemy_type: StringName, _position: Vector2, by_ally: bool) -> void:
+	if _summary_logged:
+		return
+	_kills += 1
+	if by_ally:
+		_ally_kills += 1
+
+
+## Logs the attempt's kill-share line once (the first outcome wins), only on a
+## level that spawned an ally.
+func _log_kill_share() -> void:
+	if _summary_logged or not _has_ally:
+		return
+	_summary_logged = true
+	Log.info("combat", kill_share_line(_kills, _ally_kills,
+		Config.num("allies.kill_share.min"), Config.num("allies.kill_share.max")))
+
+
+## `Kills: N total, ally M (P%); target LO-HI%`: P is the ally's rounded
+## percentage of `total` (0 when total is 0); `lo` and `hi` are fractions.
+static func kill_share_line(total: int, ally: int, lo: float, hi: float) -> String:
+	var pct: int = roundi(100.0 * float(ally) / float(total)) if total > 0 else 0
+	return "Kills: %d total, ally %d (%d%%); target %d-%d%%" % [total, ally, pct, roundi(lo * 100.0), roundi(hi * 100.0)]
+
+
+## The level's ally id: "tarek" or "ryn" from the data's "ally" key; "" when
+## the key is absent or null, and "" with a WARN for any other value.
+static func ally_id(data: Dictionary) -> String:
+	var value: Variant = data.get("ally")
+	if value == null:
+		return ""
+	if LevelValidator.is_valid_ally(value):
+		return value as String
+	Log.warn("scene", "Level ally %s is not null, \"tarek\" or \"ryn\"; no ally spawned" % JSON.stringify(value))
+	return ""
 
 
 ## True only when the level data's "convoy" is the boolean true.

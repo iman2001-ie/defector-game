@@ -242,3 +242,14 @@ func test_base_damage_for_returns_damage() -> void:
 	assert_eq(calls.size(), 1)
 	if calls.size() == 1:
 		assert_eq(calls[0].amount, 3, "_on_area_entered applies _damage_for")
+
+
+## Story 6.4: setup's optional from_ally key (ally shots); missing keeps false.
+func test_setup_from_ally_key() -> void:
+	var bolt: Projectile = BOLT_SCENE.instantiate() as Projectile
+	assert_false(bolt.from_ally, "default false")
+	bolt.setup({"position": Vector2(300, 400), "from_ally": true})
+	assert_true(bolt.from_ally)
+	bolt.setup({"damage": 2})
+	assert_true(bolt.from_ally, "a missing key keeps the current value")
+	bolt.free()

@@ -1542,3 +1542,144 @@ func test_dev_lancer_shots_aim_at_the_player_without_a_convoy() -> void:
 			assert_false(bullet.targets_convoy, "never convoy-aimed")
 			assert_lt(_ray_miss_px(bullet.global_position, bullet.velocity, player.global_position), 0.01, "aimed at the player")
 	assert_gte(seen.size(), 3, "the Lancers fired")
+
+
+# --- Ally (Story 6.4) ------------------------------------------------------------------
+
+var _ally_kills: int = 0
+
+
+func _on_kill_count_ally(_t: StringName, _p: Vector2, by_ally: bool) -> void:
+	if by_ally:
+		_ally_kills += 1
+
+
+func _ally_ships() -> Array[AllyShip]:
+	var out: Array[AllyShip] = []
+	for child: Node in _level.get_node("World/Allies").get_children():
+		if child is AllyShip:
+			out.append(child as AllyShip)
+	return out
+
+
+## Acceptance: dev_ally on the real level.tscn spawns exactly one coalition
+## Tarek under World/Allies on the allies layer, patrolling at y 690 at
+## 150 px/s, firing 1-damage from_ally player shots, and scoring a kill that
+## reports by_ally.
+func test_dev_ally_level_spawns_tarek_who_fires_and_scores() -> void:
+	Log.sink = _capture
+	_make_level("dev_ally")
+	_make_player_invincible()
+	var allies: Array[AllyShip] = _ally_ships()
+	assert_eq(allies.size(), 1, "one AllyShip in World/Allies")
+	assert_eq(_level.get_node("World/Allies").get_child_count(), 1, "nothing else (no convoy)")
+	if allies.size() != 1:
+		Log.sink = Callable()
+		return
+	var ally: AllyShip = allies[0]
+	assert_eq(ally.ally_id, "tarek")
+	assert_true(ally.is_in_group(&"allies"))
+	assert_eq(ally.collision_layer, CollisionLayers.ALLIES)
+	assert_eq(ally.collision_mask, 0)
+	assert_eq(ally.spawner, _level.get_node("Spawner"))
+	assert_eq(ally.global_position, Vector2(32, 690))
+	assert_eq(_lines_containing("Ally 'tarek' spawned").size(), 1, "spawn logged")
+	_ally_kills = 0
+	Events.enemy_killed.connect(_on_kill_count_ally)
+	var x0: float = ally.global_position.x
+	await wait_physics_frames(30)
+	assert_almost_eq(ally.global_position.x - x0, 150.0 * 30.0 / 60.0, 2.0, "about 150 px/s to the right")
+	assert_eq(ally.global_position.y, 690.0)
+	var saw_bolt: bool = false
+	var frames_left: int = 15 * Engine.physics_ticks_per_second
+	while _ally_kills == 0 and frames_left > 0:
+		frames_left -= 1
+		for child: Node in _level.get_node("World/Projectiles").get_children():
+			var bolt: AllyBolt = child as AllyBolt
+			if bolt != null and not saw_bolt:
+				saw_bolt = true
+				assert_true(bolt.from_ally, "from_ally")
+				assert_eq(bolt.damage, 1)
+				assert_eq(bolt.collision_layer, CollisionLayers.PLAYER_SHOTS)
+		await get_tree().physics_frame
+	Events.enemy_killed.disconnect(_on_kill_count_ally)
+	Log.sink = Callable()
+	assert_true(saw_bolt, "the ally fired")
+	assert_gt(_ally_kills, 0, "the ally scored a kill (by_ally)")
+
+
+func test_no_ally_on_a_level_without_one() -> void:
+	Log.sink = _capture
+	_make_level()
+	Log.sink = Callable()
+	assert_eq(_ally_ships().size(), 0, "level_dev spawns no ally")
+	assert_eq(_lines_containing("Ally").size(), 0, "no ally line or warning")
+
+
+func test_ally_id_reads_tarek_or_ryn() -> void:
+	var level_script: GDScript = load("res://scenes/level/level.gd") as GDScript
+	Log.sink = _capture
+	assert_eq(level_script.call("ally_id", {"ally": "tarek"}), "tarek")
+	assert_eq(level_script.call("ally_id", {"ally": "ryn"}), "ryn")
+	assert_eq(level_script.call("ally_id", {"ally": null}), "")
+	assert_eq(level_script.call("ally_id", {}), "", "absent")
+	assert_eq(_lines.size(), 0, "no warning for absent or null")
+	assert_eq(level_script.call("ally_id", {"ally": "bogus"}), "")
+	assert_eq(level_script.call("ally_id", {"ally": 3.0}), "")
+	Log.sink = Callable()
+	var warns: int = 0
+	for line: String in _lines:
+		if line.begins_with("[WARN][scene] Level ally"):
+			warns += 1
+	assert_eq(warns, 2, "a WARN per invalid value")
+
+
+func test_kill_share_line() -> void:
+	var level_script: GDScript = load("res://scenes/level/level.gd") as GDScript
+	assert_eq(level_script.call("kill_share_line", 0, 0, 0.10, 0.15), "Kills: 0 total, ally 0 (0%); target 10-15%")
+	assert_eq(level_script.call("kill_share_line", 20, 3, 0.10, 0.15), "Kills: 20 total, ally 3 (15%); target 10-15%")
+	assert_eq(level_script.call("kill_share_line", 3, 1, 0.10, 0.15), "Kills: 3 total, ally 1 (33%); target 10-15%")
+
+
+func _kill_share_lines() -> Array[String]:
+	var out: Array[String] = []
+	for line: String in _lines:
+		if line.begins_with("[INFO][combat] Kills:"):
+			out.append(line)
+	return out
+
+
+func test_kill_share_logged_once_on_clear() -> void:
+	SceneRouter.change_scene = _record_scene
+	Log.sink = _capture
+	_make_level("dev_ally")
+	for i: int in 3:
+		Events.enemy_killed.emit(&"wasp", Vector2.ZERO, false)
+	Events.enemy_killed.emit(&"wasp", Vector2.ZERO, true)
+	Events.level_cleared.emit(0)
+	Events.enemy_killed.emit(&"wasp", Vector2.ZERO, true)
+	Events.level_failed.emit(&"hearts")
+	Log.sink = Callable()
+	assert_eq(_kill_share_lines(), ["[INFO][combat] Kills: 4 total, ally 1 (25%); target 10-15%"] as Array[String], "one line, the first outcome wins")
+
+
+func test_no_kill_share_line_on_a_level_without_an_ally() -> void:
+	SceneRouter.change_scene = _record_scene
+	Log.sink = _capture
+	_make_level()
+	Events.enemy_killed.emit(&"wasp", Vector2.ZERO, false)
+	Events.level_cleared.emit(0)
+	Log.sink = Callable()
+	assert_eq(_kill_share_lines(), [] as Array[String], "clearing dev logs no Kills: line")
+
+
+func test_kill_share_logged_once_on_fail() -> void:
+	SceneRouter.change_scene = _record_scene
+	Log.sink = _capture
+	_make_level("dev_ally")
+	Events.enemy_killed.emit(&"wasp", Vector2.ZERO, true)
+	Events.level_failed.emit(&"hearts")
+	Events.level_failed.emit(&"convoy")
+	Events.level_cleared.emit(0)
+	Log.sink = Callable()
+	assert_eq(_kill_share_lines(), ["[INFO][combat] Kills: 1 total, ally 1 (100%); target 10-15%"] as Array[String], "one line per attempt")

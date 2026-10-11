@@ -283,3 +283,44 @@ func test_spawn_convoy_without_allies_returns_null() -> void:
 		if line.begins_with("[DEBUG][spawn]") and line.contains("Allies"):
 			allies_lines += 1
 	assert_eq(allies_lines, 2, "one DEBUG line for the missing container, one for the refused spawn")
+
+
+# --- Ally (Story 6.4) ----------------------------------------------------------------
+
+func test_registry_has_the_ally_ship_and_bolt() -> void:
+	assert_not_null(EntityRegistry.ALLY_SHIP)
+	var ally: Node = EntityRegistry.ALLY_SHIP.instantiate()
+	assert_true(ally is AllyShip)
+	ally.free()
+	assert_true(EntityRegistry.PROJECTILES.has(&"ally_bolt"))
+
+
+func test_spawn_ally_parents_into_allies_with_the_spawner() -> void:
+	var allies: Node2D = _add_container("Allies")
+	var spawner: Spawner = _make_spawner(_world)
+	var ally: AllyShip = spawner.spawn_ally({"ally": "ryn"})
+	assert_not_null(ally)
+	if ally == null:
+		return
+	ally.set_physics_process(false)
+	assert_eq(ally.get_parent(), allies, "under World/Allies")
+	assert_eq(ally.ally_id, "ryn", "setup ran before add_child")
+	assert_eq(ally.spawner, spawner)
+	assert_true(ally.is_in_group(&"allies"))
+
+
+func test_spawn_ally_without_allies_returns_null() -> void:
+	_spawn_lines.clear()
+	var debug_was: bool = Log.debug_enabled
+	Log.debug_enabled = true
+	Log.sink = _capture_spawn
+	var spawner: Spawner = _make_spawner(_world)
+	var ally: AllyShip = spawner.spawn_ally({"ally": "tarek"})
+	Log.sink = Callable()
+	Log.debug_enabled = debug_was
+	assert_null(ally)
+	var refused: int = 0
+	for line: String in _spawn_lines:
+		if line.begins_with("[DEBUG][spawn]") and line.contains("ally not spawned"):
+			refused += 1
+	assert_eq(refused, 1, "one DEBUG line for the refused spawn")

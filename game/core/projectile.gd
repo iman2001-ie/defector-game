@@ -19,7 +19,8 @@ const OFFSCREEN_MARGIN_PX: float = 64.0
 
 var damage: int = 1
 var velocity: Vector2 = Vector2.ZERO
-## Set by ally shooters (later epics); enemies read it from the damage source.
+## True for an AllyShip's shots (Story 6.4, the setup key `from_ally`);
+## enemies read it from the damage source and report `by_ally` on a kill.
 var from_ally: bool = false
 ## Feedback tier played where this projectile hits (missile: MEDIUM).
 var impact_tier: int = ImpactTier.SMALL
@@ -31,13 +32,15 @@ var _spent: bool = false
 
 
 ## Stores params; nothing is applied until _ready(). Keys: position (global),
-## velocity, damage. Missing keys keep the current values.
+## velocity, damage, from_ally (optional, Story 6.4). Missing keys keep the
+## current values.
 func setup(params: Dictionary) -> void:
 	if params.has("position"):
 		_spawn_position = params["position"] as Vector2
 		_has_spawn_position = true
 	velocity = params.get("velocity", velocity) as Vector2
 	damage = int(params.get("damage", damage))
+	from_ally = bool(params.get("from_ally", from_ally))
 
 
 func _ready() -> void:

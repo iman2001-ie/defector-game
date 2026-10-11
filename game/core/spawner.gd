@@ -31,10 +31,10 @@ func _ready() -> void:
 	_pickups = world.get_node_or_null(^"Pickups") as Node2D
 	if _pickups == null:
 		Log.debug("spawn", "World '%s' has no Pickups container; energy orbs disabled" % world.name)
-	# Allies is optional too (test worlds and the sandbox omit it); without it no convoy spawns.
+	# Allies is optional too (test worlds and the sandbox omit it); without it no convoy or ally spawns.
 	_allies = world.get_node_or_null(^"Allies") as Node2D
 	if _allies == null:
-		Log.debug("spawn", "World '%s' has no Allies container; convoy disabled" % world.name)
+		Log.debug("spawn", "World '%s' has no Allies container; convoy and ally disabled" % world.name)
 
 
 func _exit_tree() -> void:
@@ -149,6 +149,25 @@ func spawn_convoy(params: Dictionary) -> Convoy:
 	convoy.setup(params)
 	_allies.add_child(convoy)
 	return convoy
+
+
+## Returns the spawned ally ship (Story 6.4), or null without an Allies container.
+## params: ally ("tarek" | "ryn", see AllyShip.setup). The ally gets this
+## Spawner, which creates its shots.
+func spawn_ally(params: Dictionary) -> AllyShip:
+	if _allies == null:
+		Log.debug("spawn", "No Allies container; ally not spawned")
+		return null
+	var node: Node = EntityRegistry.ALLY_SHIP.instantiate()
+	var ally: AllyShip = node as AllyShip
+	if ally == null:
+		Log.error("spawn", "ally scene is not an AllyShip")
+		node.queue_free()
+		return null
+	ally.spawner = self
+	ally.setup(params)
+	_allies.add_child(ally)
+	return ally
 
 
 func _container(path: NodePath) -> Node2D:
