@@ -390,18 +390,19 @@ func test_wave_of_only_disabled_entries_clears_without_a_stall() -> void:
 
 
 ## GDD Level 3 wave 2 shape (decision F14): Hunters stay a known id with the flag off.
+## The Needle entry comes first: it must be the first row-taker (DW-68).
 func test_cut_story_level_3_wave_2_shape_validates_and_clears() -> void:
 	Config.flags["hunter_wasp"] = false
 	var data: Dictionary = {"id": 3.0, "waves": [{
 		"spawns": [
-			{"type": "bastion", "count": 2.0, "formation": "grid_2x1", "entry": "top"},
 			{"type": "needle", "count": 2.0, "formation": "grid_2x1", "entry": "top"},
+			{"type": "bastion", "count": 2.0, "formation": "grid_2x1", "entry": "top"},
 			_hunters(4, "grid_4x1"),
 		],
 		"asteroids": [{"size": "medium", "count": 3.0}],
 	}]}
 	var max_columns: int = Formation.max_columns(Vector2(Config.num("waves.formation.spacing_px.x"), 0.0), Playfield.SIZE.x)
-	assert_eq(LevelValidator.validate(data, SRC, EntityRegistry.enemy_types(), Config.flags, EntityRegistry.enemy_flags(), max_columns), [] as Array[String], "validates")
+	assert_eq(LevelValidator.validate(data, SRC, EntityRegistry.enemy_types(), Config.flags, EntityRegistry.enemy_flags(), EntityRegistry.rowless_types(), max_columns), [] as Array[String], "validates")
 	_director.start_level(data, SRC)
 	assert_eq(_director.total_count(), 4, "2 Bastions + 2 Needles")
 	assert_eq(_counted().size(), 4)

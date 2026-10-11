@@ -494,6 +494,28 @@ func test_level_at_passes_flags_and_column_bound() -> void:
 	assert_push_error("%s waves[0].triggers[1].flag" % TEMP_LEVEL)
 
 
+## DW-68: level_at passes EntityRegistry's rowless types to the validator, so a
+## Maul before a Needle is fine and a Wasp before one is a problem.
+func test_level_at_passes_rowless_types() -> void:
+	Log.sink = _capture
+	for first: String in ["maul", "wasp"]:
+		_captured.clear()
+		_write(TEMP_LEVEL, JSON.stringify({"id": 4, "waves": [{
+			"spawns": [{"type": first, "count": 1}, {"type": "needle", "count": 1}],
+		}]}))
+		Config.level_at(TEMP_LEVEL)
+		DirAccess.remove_absolute(TEMP_LEVEL)
+		var errors: Array[String] = []
+		for entry: Array in _captured:
+			if entry[0] == "ERROR" and entry[1] == "data":
+				errors.append(entry[2] as String)
+		if first == "maul":
+			assert_eq(errors, [] as Array[String], "a rowless Maul may precede the Needle")
+		else:
+			assert_eq(errors.size(), 1, "the Needle follows a Wasp: %s" % [errors])
+			assert_push_error("%s waves[0].spawns[1].type" % TEMP_LEVEL)
+
+
 # --- Dialogue data (Story 5.1) ------------------------------------------------
 
 const BAD_DIALOGUE_DIR: String = "res://tests/fixtures/dialogue/bad/"

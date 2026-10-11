@@ -659,7 +659,9 @@ location: game/systems/waves/level_validator.gd
 source_spec: `spec-dw-37-wave-data-validation-hardening.md`
 severity: low
 reason: WaveDirector._request_group logs a WARN and ignores a second request for an already-spawned group (wave_director.gd:319); the validator's reachability pass accepts duplicate naming. Pre-existing, not introduced by DW-37.
-status: open
+status: done 2026-10-10
+resolution: resolved by sweep bundle dw-level-validator-group-rules
+resolution-undo: 86024e89630b53b2535ed1f810dad8b7933a23a66463e828496e223f80e46db9 2026-10-10 7374617475733a206f70656e
 
 ### DW-68: A Needle entry authored after another entry anchors on row 0 over the earlier entry's Wasps, while the row WaveDirector reserves for it stays empty.
 origin: spec-deferred 9ab5c792c2ca
@@ -667,7 +669,9 @@ location: game/systems/waves/wave_director.gd:264
 source_spec: `spec-dw-37-wave-data-validation-hardening.md`
 severity: low
 reason: needle.gd anchors at enemies.needle.anchor_y_px (160 = waves.formation.top_y) whatever its slot y, but WaveDirector._spawn_entry gives it the next free row. Only a first-in-wave Needle (as in level_dev.json wave 4) lines up. Pre-existing: before DW-37 every type advanced the row. Neither LevelValidator nor test_zoned_formations_fit_their_top_zone detects it, and no shipped wave hits it.
-status: open
+status: done 2026-10-10
+resolution: resolved by sweep bundle dw-level-validator-group-rules
+resolution-undo: 86024e89630b53b2535ed1f810dad8b7933a23a66463e828496e223f80e46db9 2026-10-10 7374617475733a206f70656e
 decision: 2026-10-10 Validator: Needle must be first row-taker — Make LevelValidator reject a needle entry that follows another row-taking entry in the same wave, with a test, and document the rule in the wave-data notes.
 
 ### DW-69: Decision #38 covers only Lancer and Bastion; the boss timers (boss.turrets fire_interval_s/telegraph_s, desperate aimed/radial interval plus glow) still have unstated cadence semantics, and the Wasp
@@ -860,4 +864,20 @@ location: game/tests/unit/test_level.gd (test_dev_convoy_maul_wave_hits_the_conv
 source_spec: `spec-dw-57-dw-69-dw-70-epic-docs-decision-log-sync.md`
 severity: medium
 reason: Failed in 2 of 3 full headless runs and 1 of 3 isolated runs of test_level.gd during this bundle; passed in the others. The bundle touches no runtime code, only docs and one data test. Likely frame-timing sensitive, like DW-79 (test_shake_camera, which also flaked once in this run).
+status: open
+
+### DW-92: A single needle entry that spans more than one formation row (count above max_columns, or a grid_CxR with R > 1) reserves rows 1..n that stay empty, and Needles in the same column overlap on row 0.
+origin: spec-deferred 719efcc1047a
+location: game/systems/waves/level_validator.gd:_check_anchored_list
+source_spec: `spec-dw-67-dw-68-level-validator-group-rules.md`
+severity: low
+reason: Formation.slots wraps or stacks the entry over several rows and WaveDirector advances _next_row by Formation.rows_used, but needle.gd anchors every Needle at enemies.needle.anchor_y_px whatever its slot y. DW-68's rule only checks the entries before a Needle, not how many rows the Needle entry itself takes. No shipped wave does this (both Needle entries are grid_2x1).
+status: open
+
+### DW-93: Nothing enforces enemies.needle.anchor_y_px == waves.formation.top_y, which the "Needle is the first row-taker" rule (DW-68) takes for granted.
+origin: spec-deferred 6d893b736db5
+location: game/tests/data/test_data_files.gd:test_needle_tuning_ranges
+source_spec: `spec-dw-67-dw-68-level-validator-group-rules.md`
+severity: low
+reason: test_needle_tuning_ranges only checks that anchor_y_px is inside the enemy zone. If either tuning value changes, even a first-in-wave Needle stops lining up with row 0. Pre-existing tuning coupling; not introduced by this change.
 status: open

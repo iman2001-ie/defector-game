@@ -157,7 +157,7 @@ func level_at(path: String) -> Dictionary:
 		return {}
 	var spacing: Vector2 = Vector2(num("waves.formation.spacing_px.x"), 0.0)
 	var max_columns: int = Formation.max_columns(spacing, Playfield.SIZE.x)
-	for problem: String in LevelValidator.validate(data, path, _known_enemy_types(), flags, _enemy_flags(), max_columns):
+	for problem: String in LevelValidator.validate(data, path, _known_enemy_types(), flags, _enemy_flags(), _rowless_types(), max_columns):
 		Log.error("data", problem)
 	return data
 
@@ -184,6 +184,20 @@ func _enemy_flags() -> Dictionary:
 		return {}
 	var out: Variant = registry.call(&"enemy_flags")
 	return out if out is Dictionary else {}
+
+
+## EntityRegistry's rowless enemy types, looked up at runtime for the same
+## reason as _known_enemy_types() (LevelValidator's Needle rule, DW-68).
+func _rowless_types() -> Array[StringName]:
+	var out: Array[StringName] = []
+	var registry: Node = get_node_or_null(^"/root/EntityRegistry")
+	if registry == null:
+		Log.error("data", "EntityRegistry autoload not found; every enemy type takes a row")
+		return out
+	var raw: Variant = registry.call(&"rowless_types")
+	if raw is Array:
+		out.assign(raw as Array)
+	return out
 
 
 ## Reads every *.json in `dir` (sorted by name) and returns the valid sequences

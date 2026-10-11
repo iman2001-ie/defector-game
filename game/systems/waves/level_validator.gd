@@ -2,7 +2,7 @@ class_name LevelValidator
 extends RefCounted
 ## Checks a level JSON dictionary (data/levels/level_<id>.json). Pure logic,
 ## no nodes, no autoload reads: the caller passes the known enemy types, the
-## flags, the type gates and the column bound. Config.level() logs every
+## flags, the type gates, the rowless types and the column bound. Config.level() logs every
 ## problem; the GUT data test fails on any.
 ##
 ## Each problem names the source file and the key path, for example
@@ -39,6 +39,20 @@ extends RefCounted
 ##   trigger whose flag passes but which never fires. The pass is skipped for
 ##   a wave whose spawns, groups or their entries have a shape, type or count
 ##   problem (its counts are not known).
+## - One request per group (DW-67): a second spawn_group action naming the same
+##   group, in a trigger whose flag passes, is a problem (any `when`; the
+##   WaveDirector spawns a group once and ignores a second request). A
+##   mutually exclusive `flag` / `!flag` pair stays valid.
+## - The Needle is the first row-taker (DW-68, operator decision 2026-10-10):
+##   it anchors on row 0 (enemies.needle.anchor_y_px), so a `needle` entry
+##   that takes a row and follows, or may follow, another row-taking entry in
+##   the same wave is a problem. A row-taker is an object entry with a known
+##   type not in `rowless_types` and an integer count > 0 (flags are
+##   ignored). Spawns come first; a Needle in a group must have no row-taker
+##   in `spawns`, before it in its own group, or in any other requested group
+##   of the wave (groups spawn in trigger order, which isn't known
+##   statically). A requested group is one named by a trigger whose flag
+##   passes; a group no such trigger names never spawns and isn't checked.
 
 const WHENS: Array[String] = ["wave_start", "progress", "wave_clear", "boss_phase", "boss_hp_le"]
 const ACTION_KEYS: Array[String] = ["comms", "spawn_group", "story_event", "music", "wait", "hint"]
@@ -50,13 +64,17 @@ const SEQUENCE_KEYS: Array[String] = ["intro_sequence", "outro_sequence"]
 const NEGATE_PREFIX: String = "!"
 ## The ally ids a level's `ally` key may name (Story 6.4).
 const ALLY_IDS: Array[String] = ["tarek", "ryn"]
+## The enemy type anchored on formation row 0 (enemies.needle.anchor_y_px), so
+## it must be the first row-taking entry of its wave (DW-68).
+const ANCHORED_TYPE: StringName = &"needle"
 
 
 ## Returns every problem found (empty when the level is valid). `flags` is the
 ## flags.json dictionary, `type_flags` maps an enemy type id to the flag that
-## gates it (EntityRegistry.ENEMY_FLAGS) and `max_columns` bounds grid columns
-## (Formation.max_columns(); 0 means unbounded).
-static func validate(data: Dictionary, source: String, known_types: Array[StringName], flags: Dictionary, type_flags: Dictionary, max_columns: int) -> Array[String]:
+## gates it (EntityRegistry.ENEMY_FLAGS), `rowless_types` lists the types that
+## don't take a formation row (EntityRegistry.ROWLESS_TYPES) and `max_columns`
+## bounds grid columns (Formation.max_columns(); 0 means unbounded).
+static func validate(data: Dictionary, source: String, known_types: Array[StringName], flags: Dictionary, type_flags: Dictionary, rowless_types: Array[StringName], max_columns: int) -> Array[String]:
 	var problems: Array[String] = []
 	if not _is_number(data.get("id")):
 		problems.append(_problem(source, "id", "missing or not a number"))
@@ -77,6 +95,7 @@ static func validate(data: Dictionary, source: String, known_types: Array[String
 		"known_types": known_types,
 		"flags": flags,
 		"type_flags": type_flags,
+		"rowless_types": rowless_types,
 		"max_columns": max_columns,
 	}
 	for i: int in (waves as Array).size():
@@ -157,8 +176,98 @@ static func _check_wave(wave: Dictionary, ctx: Dictionary, path: String, problem
 		if not named_groups.has(group_name):
 			problems.append(_problem(source, "%s.groups.%s" % [path, group_name], "is never named by a spawn_group action in this wave"))
 
+	_check_duplicate_requests(parsed, ctx, problems)
+	_check_anchored_entries(spawns, groups, parsed, ctx, path, problems)
+
 	if counts_known[0]:
 		_check_reachability(wave, spawns, groups, parsed, named_groups, ctx, path, problems)
+
+
+## DW-67: a group requested by two actions that can both fire (their triggers
+## pass their flags) is a problem at the second action.
+static func _check_duplicate_requests(parsed: Array[Dictionary], ctx: Dictionary, problems: Array[String]) -> void:
+	## Group name -> the path of the first action that requests it.
+	var first_request: Dictionary = {}
+	for record: Dictionary in parsed:
+		if not record.flag_passes:
+			continue
+		var record_groups: Array[String] = record.groups
+		var group_paths: Array[String] = record.group_paths
+		for i: int in record_groups.size():
+			var group_name: String = record_groups[i]
+			if first_request.has(group_name):
+				problems.append(_problem(ctx.source, group_paths[i] + ".spawn_group", "group '%s' is already requested by %s; WaveDirector spawns a group once and ignores a second request" % [group_name, first_request[group_name]]))
+			else:
+				first_request[group_name] = group_paths[i]
+
+
+## DW-68: a Needle entry must not follow, or possibly follow, a row-taking
+## entry of its wave (see the class doc). Only groups requested by a trigger
+## whose flag passes can spawn, so only they are checked or may come first.
+static func _check_anchored_entries(spawns: Array, groups: Dictionary, parsed: Array[Dictionary], ctx: Dictionary, path: String, problems: Array[String]) -> void:
+	var requested: Array[String] = []
+	for record: Dictionary in parsed:
+		if record.flag_passes:
+			for group_name: String in record.groups:
+				if not requested.has(group_name):
+					requested.append(group_name)
+	var first_spawn_taker: String = _check_anchored_list(spawns, path + ".spawns", "", "follows", ctx, problems)
+	for group_name: String in groups:
+		if not requested.has(group_name):
+			continue
+		## A row-taker that spawns, or may spawn, before this group.
+		var before: String = first_spawn_taker
+		var verb: String = "follows"
+		if before.is_empty():
+			for other: String in groups:
+				if other == group_name or not requested.has(other):
+					continue
+				var other_taker: String = _first_row_taker(groups[other] as Array, "%s.groups.%s" % [path, other], ctx)
+				if not other_taker.is_empty():
+					before = other_taker
+					verb = "may follow"
+					break
+		_check_anchored_list(groups[group_name] as Array, "%s.groups.%s" % [path, group_name], before, verb, ctx, problems)
+
+
+## Reports each row-taking Needle entry of `entries` with a row-taker before it: `before`
+## (the path of one ahead of the whole list, reported with `verb`) or an
+## earlier entry of the list. Returns the path of the list's first row-taker
+## ("" when none).
+static func _check_anchored_list(entries: Array, list_path: String, before: String, verb: String, ctx: Dictionary, problems: Array[String]) -> String:
+	var first_taker: String = ""
+	for e: int in entries.size():
+		if not (entries[e] is Dictionary):
+			continue
+		var entry_path: String = "%s[%d]" % [list_path, e]
+		var dict: Dictionary = entries[e]
+		var type_id: StringName = StringName(str(dict.get("type", "")))
+		## A Needle with a bad count takes no row; its count problem is reported.
+		if type_id == ANCHORED_TYPE and _is_row_taker(dict, ctx):
+			var prior: String = before if not before.is_empty() else first_taker
+			var prior_verb: String = verb if not before.is_empty() else "follows"
+			if not prior.is_empty():
+				problems.append(_problem(ctx.source, entry_path + ".type", "%s must be the first row-taking entry in its wave (it anchors on row 0 at enemies.needle.anchor_y_px) but %s %s" % [ANCHORED_TYPE, prior_verb, prior]))
+		if first_taker.is_empty() and _is_row_taker(dict, ctx):
+			first_taker = entry_path
+	return first_taker
+
+
+## The path of the first row-taking entry of `entries` ("" when none).
+static func _first_row_taker(entries: Array, list_path: String, ctx: Dictionary) -> String:
+	for e: int in entries.size():
+		if entries[e] is Dictionary and _is_row_taker(entries[e] as Dictionary, ctx):
+			return "%s[%d]" % [list_path, e]
+	return ""
+
+
+## An entry with a known type that isn't rowless and an integer count > 0
+## (flags are ignored: a gated type takes a row while its flag is on).
+static func _is_row_taker(entry: Dictionary, ctx: Dictionary) -> bool:
+	var type_id: StringName = StringName(str(entry.get("type", "")))
+	var known_types: Array[StringName] = ctx.known_types
+	var rowless_types: Array[StringName] = ctx.rowless_types
+	return known_types.has(type_id) and not rowless_types.has(type_id) and _is_positive_int(entry.get("count"))
 
 
 ## Fixed-point simulation of the wave's counting (see the class doc).
@@ -276,7 +385,8 @@ static func _check_asteroids(entries: Array, source: String, path: String, probl
 
 
 ## Checks one trigger and returns its record for the reachability pass:
-## path, when, at, at_valid, flag_passes, groups (the valid spawn_group names).
+## path, when, at, at_valid, flag_passes, groups (the valid spawn_group names)
+## and group_paths (each one's action path, parallel to groups).
 static func _check_trigger(trigger: Dictionary, ctx: Dictionary, path: String, groups: Dictionary, named_groups: Array[String], problems: Array[String]) -> Dictionary:
 	var source: String = ctx.source
 	var when: String = str(trigger.get("when", "")) if trigger.get("when") is String else ""
@@ -289,6 +399,7 @@ static func _check_trigger(trigger: Dictionary, ctx: Dictionary, path: String, g
 		"at_valid": false,
 		"flag_passes": true,
 		"groups": [] as Array[String],
+		"group_paths": [] as Array[String],
 	}
 
 	if when == "progress" or trigger.has("at"):
@@ -345,6 +456,7 @@ static func _check_trigger(trigger: Dictionary, ctx: Dictionary, path: String, g
 				named_groups.append(group_name)
 			if groups.has(group_name):
 				(record.groups as Array[String]).append(group_name)
+				(record.group_paths as Array[String]).append(action_path)
 			else:
 				problems.append(_problem(source, action_path + ".spawn_group", "names no group '%s' in this wave" % group_name))
 	return record

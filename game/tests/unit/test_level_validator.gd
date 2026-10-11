@@ -5,7 +5,8 @@ extends GutTest
 const SRC: String = "res://data/levels/level_test.json"
 const MAX_COLUMNS: int = 12
 
-var _known: Array[StringName] = [&"wasp", &"hunter_wasp"]
+var _known: Array[StringName] = [&"wasp", &"hunter_wasp", &"needle"]
+var _rowless: Array[StringName] = [&"hunter_wasp"]
 var _flags: Dictionary = {"on": true, "off": false, "hunter_wasp": false}
 var _type_flags: Dictionary = {&"hunter_wasp": "hunter_wasp"}
 
@@ -29,7 +30,7 @@ func _valid() -> Dictionary:
 
 
 func _validate(data: Dictionary) -> Array[String]:
-	return LevelValidator.validate(data, SRC, _known, _flags, _type_flags, MAX_COLUMNS)
+	return LevelValidator.validate(data, SRC, _known, _flags, _type_flags, _rowless, MAX_COLUMNS)
 
 
 ## Asserts exactly one problem, naming the source and `path`.
@@ -394,3 +395,134 @@ func test_ally_must_be_null_tarek_or_ryn() -> void:
 		var problems: Array[String] = _validate(data)
 		if problems.size() == 1:
 			assert_string_contains(problems[0], "must be null, \"tarek\" or \"ryn\"")
+
+
+# --- DW-67: one spawn_group request per group -----------------------------------
+
+func test_duplicate_wave_start_requests_are_a_problem() -> void:
+	var data: Dictionary = _wave(2, {"g": 2}, [
+		{"when": "wave_start", "actions": [{"spawn_group": "g"}]},
+		{"when": "wave_start", "actions": [{"spawn_group": "g"}]},
+	])
+	_assert_one(data, "waves[0].triggers[1].actions[0].spawn_group")
+	var problems: Array[String] = _validate(data)
+	if problems.size() == 1:
+		assert_string_contains(problems[0], "already requested by waves[0].triggers[0].actions[0]")
+
+
+func test_duplicate_request_in_one_trigger_is_a_problem() -> void:
+	var data: Dictionary = _wave(2, {"g": 2}, [
+		{"when": "wave_start", "actions": [{"spawn_group": "g"}, {"wait": 0.5}, {"spawn_group": "g"}]},
+	])
+	_assert_one(data, "waves[0].triggers[0].actions[2].spawn_group")
+	var problems: Array[String] = _validate(data)
+	if problems.size() == 1:
+		assert_string_contains(problems[0], "already requested by waves[0].triggers[0].actions[0]")
+
+
+func test_exclusive_flag_pair_is_not_a_duplicate() -> void:
+	for flag: String in ["on", "off"]:
+		var data: Dictionary = _wave(2, {"g": 2}, [
+			{"when": "wave_start", "flag": flag, "actions": [{"spawn_group": "g"}]},
+			{"when": "wave_start", "flag": "!" + flag, "actions": [{"spawn_group": "g"}]},
+		])
+		assert_eq(_validate(data), [] as Array[String], flag)
+
+
+func test_flag_off_request_is_not_a_duplicate() -> void:
+	var data: Dictionary = _wave(2, {"g": 2}, [
+		{"when": "wave_start", "flag": "off", "actions": [{"spawn_group": "g"}]},
+		{"when": "wave_start", "actions": [{"spawn_group": "g"}]},
+	])
+	assert_eq(_validate(data), [] as Array[String])
+
+
+func test_duplicate_across_whens_is_a_problem() -> void:
+	var data: Dictionary = _wave(2, {"g": 2}, [
+		{"when": "wave_start", "actions": [{"spawn_group": "g"}]},
+		{"when": "wave_clear", "actions": [{"spawn_group": "g"}]},
+	])
+	_assert_one(data, "waves[0].triggers[1].actions[0].spawn_group")
+
+
+# --- DW-68: the Needle is the first row-taking entry ----------------------------
+
+func _entry(type: String) -> Dictionary:
+	return {"type": type, "count": 1.0}
+
+
+## One wave with `spawns` and `groups` (name -> entries); every group is
+## requested by its own wave_start trigger.
+func _row_wave(spawns: Array, groups: Dictionary) -> Dictionary:
+	var triggers: Array = []
+	for group_name: String in groups:
+		triggers.append({"when": "wave_start", "actions": [{"spawn_group": group_name}]})
+	return {"id": 1.0, "waves": [{"spawns": spawns, "groups": groups, "triggers": triggers}]}
+
+
+func test_needle_first_is_valid() -> void:
+	assert_eq(_validate(_row_wave([_entry("needle"), _entry("wasp")], {})), [] as Array[String])
+
+
+func test_needle_after_a_row_taker_is_a_problem() -> void:
+	_assert_one(_row_wave([_entry("wasp"), _entry("needle")], {}), "waves[0].spawns[1].type")
+	var problems: Array[String] = _validate(_row_wave([_entry("wasp"), _entry("needle")], {}))
+	if problems.size() == 1:
+		assert_string_contains(problems[0], "needle must be the first row-taking entry in its wave")
+		assert_string_contains(problems[0], "enemies.needle.anchor_y_px")
+		assert_string_contains(problems[0], "follows waves[0].spawns[0]")
+	_assert_one(_row_wave([_entry("needle"), _entry("needle")], {}), "waves[0].spawns[1].type")
+
+
+func test_rowless_entry_before_the_needle_is_valid() -> void:
+	assert_eq(_validate(_row_wave([_entry("hunter_wasp"), _entry("needle")], {})), [] as Array[String])
+
+
+func test_needle_in_a_group_after_spawns_is_a_problem() -> void:
+	_assert_one(_row_wave([_entry("wasp")], {"g": [_entry("needle")]}), "waves[0].groups.g[0].type")
+
+
+func test_needle_after_an_entry_of_its_group_is_a_problem() -> void:
+	_assert_one(_row_wave([], {"g": [_entry("wasp"), _entry("needle")]}), "waves[0].groups.g[1].type")
+
+
+func test_needle_group_may_follow_another_row_taking_group() -> void:
+	for spawns: Array in [[], [_entry("hunter_wasp")]]:
+		var data: Dictionary = _row_wave(spawns, {"g": [_entry("needle")], "h": [_entry("wasp")]})
+		_assert_one(data, "waves[0].groups.g[0].type")
+		var problems: Array[String] = _validate(data)
+		if problems.size() == 1:
+			assert_string_contains(problems[0], "may follow waves[0].groups.h[0]")
+
+
+func test_needle_only_group_after_rowless_spawns_is_valid() -> void:
+	assert_eq(_validate(_row_wave([_entry("hunter_wasp")], {"g": [_entry("needle")]})), [] as Array[String])
+
+
+func test_group_behind_a_failing_flag_is_not_a_row_taker() -> void:
+	# h is requested only under "!on", so it never spawns (a reachability
+	# problem), and g's Needle can't follow it.
+	var data: Dictionary = {"id": 1.0, "waves": [{
+		"spawns": [],
+		"groups": {"g": [_entry("needle")], "h": [_entry("wasp")]},
+		"triggers": [
+			{"when": "wave_start", "flag": "on", "actions": [{"spawn_group": "g"}]},
+			{"when": "wave_start", "flag": "!on", "actions": [{"spawn_group": "h"}]},
+		],
+	}]}
+	var problems: Array[String] = _validate(data)
+	assert_eq(_count_containing(problems, ".type"), 0, "no Needle problem: %s" % [problems])
+	assert_eq(_count_containing(problems, "waves[0].groups.h"), 1, "h is unreachable")
+
+
+func test_needle_with_a_bad_count_takes_no_row() -> void:
+	_assert_one(_row_wave([_entry("wasp"), {"type": "needle", "count": 0}], {}), "waves[0].spawns[1].count")
+
+
+func test_flag_gated_row_taker_before_the_needle_is_a_problem() -> void:
+	# Flags are ignored for row-takers: a gated Wasp takes a row while its flag is on.
+	_type_flags[&"wasp"] = "off"
+	var problems: Array[String] = _validate(_row_wave([_entry("wasp"), _entry("needle")], {}))
+	_type_flags.erase(&"wasp")
+	assert_eq(problems.size(), 1, "%s" % [problems])
+	assert_eq(_count_containing(problems, "waves[0].spawns[1].type"), 1)

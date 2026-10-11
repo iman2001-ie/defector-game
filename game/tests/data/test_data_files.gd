@@ -95,7 +95,7 @@ func test_every_level_file_is_valid() -> void:
 		assert_true(parsed is Dictionary, "%s parses to an object" % path)
 		if not (parsed is Dictionary):
 			continue
-		var problems: Array[String] = LevelValidator.validate(parsed as Dictionary, path, known, Config.flags, EntityRegistry.enemy_flags(), max_columns)
+		var problems: Array[String] = LevelValidator.validate(parsed as Dictionary, path, known, Config.flags, EntityRegistry.enemy_flags(), EntityRegistry.rowless_types(), max_columns)
 		assert_eq(problems, [] as Array[String], "%s has no problems" % path)
 
 

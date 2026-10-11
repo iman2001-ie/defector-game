@@ -53,3 +53,9 @@ func enemy_types() -> Array[StringName]:
 ## lookup (LevelValidator counts a gated type 0 while its flag is off).
 func enemy_flags() -> Dictionary:
 	return ENEMY_FLAGS
+
+
+## The ROWLESS_TYPES list, for Config's runtime lookup (LevelValidator checks
+## that a Needle is the first row-taking entry of its wave, DW-68).
+func rowless_types() -> Array[StringName]:
+	return ROWLESS_TYPES
