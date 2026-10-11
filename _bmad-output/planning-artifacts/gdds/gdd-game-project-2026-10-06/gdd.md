@@ -212,7 +212,7 @@ All values below are **initial tuning**, chosen to be easy to change. They are e
   - Lancers aim at the convoy 50% of the time (5 damage per hit). Every other enemy shot that strays into a cargo ship deals 2. Mauls deal 10. Bastions and Needles never *aim* at the convoy, but their shots can hit it.
 - **Tarek (Levels 1–2) and Ryn (Level 3):**
   - Their allied ships patrol scripted horizontal paths at y 620–760, moving at 150 px/s.
-  - They fire 1 damage every 0.5 s at the nearest enemy.
+  - They fire 1 damage every 1.0 s at the nearest enemy (provisional, decision #47).
   - They cannot be destroyed or damaged, except for Tarek's scripted hit in Level 2.
   - They make roughly 10–15% of total kills, so they help without carrying the player.
 

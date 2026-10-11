@@ -117,7 +117,7 @@ Planning is part of the 20 h total. The must-haves are budgeted to about 13 h; t
 **Stories:**
 
 1. *(MUST)* **Convoy (Level 1):** 3 cargo ships on a scripted slow path with a shared 100 HP bar. If the bar reaches 0, the level restarts.
-2. *(SHOULD, "the successor's ship" in the brief)* **Ally ships:** Tarek (Levels 1–2) and Ryn (Level 3) follow scripted paths, fire 1 damage every 0.5 s at the nearest enemy, and cannot be destroyed.
+2. *(SHOULD, "the successor's ship" in the brief)* **Ally ships:** Tarek (Levels 1–2) and Ryn (Level 3) follow scripted paths, fire 1 damage every 1.0 s (provisional, decision #47) at the nearest enemy, and cannot be destroyed.
 3. *(SHOULD, last to cut)* **Tarek's scripted fall in Level 2 Wave 5:** triggered at 50% of the wave destroyed. His shield flashes over Vale, then the damaged variant appears with a fire trail and exits. This works together with the cut-off effect from E5.
 4. *(COULD)* **Scrolling convoy variant.**
 

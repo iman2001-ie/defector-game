@@ -1266,7 +1266,7 @@ The comms channel consumes `comms_advance` (press and release) with `get_viewpor
 | Shader compile hitch | Pre-warm (above). Renderer fallback per ADR-003 |
 | Logging | None per frame |
 | Barrage homing | Nearest enemy picked **once** on spawn and re-picked only when the target is freed (`is_instance_valid`). No per-frame group scans. Built (Story 3.5): `MicroMissile` re-picks once per lost target (freed or queued for deletion) and stops scanning when that finds nothing; with no target it steers toward straight up; it turns at most `turn_rate_deg_s`, keeps its speed and frees itself after `lifetime_s` |
-| Ally targeting | Re-acquire the nearest enemy every 0.5 s (on fire), not every frame |
+| Ally targeting | Re-acquire the nearest enemy on each shot (every `allies.fire_interval_s`, 1.0 s), not every frame |
 | Verification | E1 sandbox stress test at the NFR1 peak: `-- --stress` (40 Wasps refilled on death, ~200 live projectiles topped up through `Spawner`, F1 overlay on, vsync off) for a manual look, and `-- --bench=N` for a self-timing run (fire held at `BENCH_AIM`, one deliberate LARGE impact during the 2 s warm-up with its frame ms logged, N s sampled, logs avg/p99/max, exit 0 only if avg, p99 and max are all < 16.6 ms (`debug.bench`), else 2; quits after a short real-time delay so the final line is never lost). Add `-- --no-prewarm` to compare the first LARGE impact without `Feedback.prewarm()`. Re-run `--bench=20` after any visual change. Last results: GDD decision log #27 and #32 (taken before the 200-projectile load and the p99/max gate) |
 
 ## Security Architecture

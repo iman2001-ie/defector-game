@@ -15,6 +15,9 @@ const BULLET_SCENE: PackedScene = preload("res://entities/projectiles/enemy_bull
 const DT: float = 1.0 / 60.0
 ## An exact binary fraction: four steps make the 0.5 s interval exactly.
 const STEP: float = 0.125
+## The cadence tests run on this fixed interval, not the shipped tuning value
+## (decision log #47: allies.fire_interval_s is still being tuned by feel).
+const TEST_FIRE_INTERVAL_S: float = 0.5
 
 var _world: Node2D
 var _projectiles: Node2D
@@ -29,6 +32,7 @@ func before_each() -> void:
 	_lines.clear()
 	_kills.clear()
 	Log.sink = _capture
+	(Config.tuning["allies"] as Dictionary)["fire_interval_s"] = TEST_FIRE_INTERVAL_S
 	_world = Node2D.new()
 	_projectiles = _add_container("Projectiles")
 	_enemies = _add_container("Enemies")
@@ -97,11 +101,12 @@ func _steps(ally: AllyShip, n: int, delta: float = STEP) -> void:
 # --- Tuning and scene shape -------------------------------------------------------
 
 func test_tuning() -> void:
+	Config.load_data()
 	assert_eq(Config.num("allies.patrol_band_y.min"), 620.0)
 	assert_eq(Config.num("allies.patrol_band_y.max"), 760.0)
 	assert_eq(Config.num("allies.speed_px_s"), 150.0)
 	assert_eq(Config.int_("allies.damage"), 1)
-	assert_eq(Config.num("allies.fire_interval_s"), 0.5)
+	assert_eq(Config.num("allies.fire_interval_s"), 1.0)
 	assert_eq(Config.num("allies.ship_px"), 64.0)
 	assert_eq(Config.num("allies.shot_speed_px_s"), 1200.0)
 	assert_eq(Config.num("allies.kill_share.min"), 0.10)

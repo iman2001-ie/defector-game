@@ -201,7 +201,7 @@
 		"patrol_band_y": { "min": 620, "max": 760 },
 		"speed_px_s": 150,
 		"damage": 1,
-		"fire_interval_s": 0.5,
+		"fire_interval_s": 1.0,
 		"kill_share": { "min": 0.10, "max": 0.15 },
 		"ship_px": 64,
 		"shot_speed_px_s": 1200,
