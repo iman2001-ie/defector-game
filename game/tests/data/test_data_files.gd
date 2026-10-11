@@ -3,7 +3,9 @@ extends GutTest
 ## every telegraph in tuning.enemies / tuning.boss is >= the 0.3 s minimum;
 ## every enemy bullet speed is <= the readable maximum; Wasp, Lancer and
 ## Bastion waves fit their formation rows inside each type's zone (a Bastion's
-## is its drift box); Needle, Bastion and Hunter Wasp tuning is sane; every
+## is its drift box); Needle, Bastion and Hunter Wasp tuning is sane; the
+## Wasp's and every boss telegraph, glow or charge fits inside its
+## start-to-start period (decision #50, DW-69); every
 ## Needle wave brings cover; every flag-gated enemy type has its flag; the
 ## energy and drop tuning matches the GDD; the Shield cost and duration match
 ## the GDD and its UX tuning exists. Dialogue (Stories 5.1-5.2): every file
@@ -322,6 +324,25 @@ func test_needle_tuning_ranges() -> void:
 	assert_between(Config.num("enemies.needle.anchor_y_px"), half, ENEMY_ZONE_BOTTOM_Y,
 		"anchor_y_px fully on screen and inside the enemy zone")
 	assert_gte(Config.num("enemies.needle.reposition_min_distance_px"), 0.0, "reposition_min_distance_px >= 0")
+
+
+# Decision #50 (DW-69): decision #38 extended to the Wasp and every boss timer.
+# Each interval is the start-to-start period and includes its telegraph, glow
+# or charge, so the telegraph must fit inside the period.
+func test_wasp_and_boss_telegraphs_fit_their_periods() -> void:
+	var pairs: Array[Array] = [
+		["enemies.wasp.telegraph_s", "enemies.wasp.dive_interval_s.min"],
+		["boss.turrets.telegraph_s", "boss.turrets.fire_interval_s"],
+		["boss.core.charge_s", "boss.core.radial_interval_s"],
+		["boss.desperate.radial_charge_s", "boss.desperate.radial_interval_s"],
+		["boss.desperate.aimed_telegraph_s", "boss.desperate.aimed_interval_s"],
+	]
+	for pair: Array in pairs:
+		var telegraph_key: String = pair[0]
+		var interval_key: String = pair[1]
+		var interval: float = Config.num(interval_key)
+		assert_gt(interval, 0.0, "%s > 0" % interval_key)
+		assert_lte(Config.num(telegraph_key), interval, "%s <= %s" % [telegraph_key, interval_key])
 
 
 ## GDD Bastion: drifts within band_y with its whole hull (probe sprite_px)

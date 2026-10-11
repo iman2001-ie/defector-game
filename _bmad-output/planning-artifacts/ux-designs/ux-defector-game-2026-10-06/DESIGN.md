@@ -97,7 +97,7 @@ The fixed 1920×1080 canvas is letterboxed to 16:9. There's a 32px safe margin o
 | Player zone | y 432 → 1080 | **No persistent HUD.** The only exceptions are the temporary hint pill and the paused overlays (story panel, Final Choice, retry, menus), which appear over a dim. Allies y 620–760, convoy y 760–920 |
 | Story panel (paused) | 410, 300, 1100, 300 | Over `dim`. 32px padding, portrait on the left, text block 812px wide, cue 20px bottom-right |
 | Final Choice buttons | centred pair, 480 × 120 each, 48px gap, top at y 680 | 80px below the story panel |
-| Retry prompt | headline centred at y 440 (48px, `danger`); buttons 320 × 80, 48px gap, top at y 560 | No panel, just dim + text + buttons |
+| Retry prompt | headline top at y 440 (48px, `danger`); buttons 320 × 80, 48px gap, top at y 560 | No panel, just dim + text + buttons |
 | Hint pill | centred at y 560, 52px tall, 24px horizontal padding, fully rounded | One pill at a time |
 | Story panel text | max 4 lines at 28px in the 812px block, **≤ 200 characters per line of dialogue** (data test); autowrap, clip | No-portrait variant (Vale, system): the text block spans the full 1036px |
 | Shield bubble | 120px circle centred on the ship | `coalition` ring at 40% alpha; blinks at 4 Hz for the last 0.75 s |

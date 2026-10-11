@@ -558,7 +558,9 @@ location: n/a
 source_spec: `_bmad-output/implementation-artifacts/epic-3-retro-2026-10-08.md`
 severity: low
 reason: retrospective action item from sprint-status.yaml (epic 3; owner Developer; sprint-status status open)
-status: open
+status: done 2026-10-10
+resolution: resolved by sweep bundle dw-epic-docs-decision-log-sync
+resolution-undo: fd1443620827978c4576ed6f315e29497c18561fe0d09ed56a465c6c23665774 2026-10-10 7374617475733a206f70656e
 decision: 2026-10-10 Record all three as built — Record the Epic 3 deviations in the GDD decision log as built: (S1) asteroids survive player contact (the enemy is destroyed, the asteroid is not); amend the GDD contact table to match. (S2) Reword DESIGN.md:100 to "headline top at y 440" to match retry_prompt.gd. (S3) Record the new tuning values (orb magnet 600, orb size 24, orb spread 32, micro-missile speed 800, turn rate 540 deg/s, lifetime 3.0, F4 +100) and the top-level `ui` tuning section as decision-log rows. Docs only; no code or tuning change.
 
 ### DW-58: Playtest the Epic 3 manual checks listed in specs 3-1 to 3-5
@@ -674,7 +676,9 @@ location: game/data/tuning.json (boss.turrets, boss.desperate)
 source_spec: `spec-dw-40-enemy-fire-cadence-full-period.md`
 severity: low
 reason: tuning.json boss.turrets pairs fire_interval_s 3.0 with telegraph_s 0.5, and GDD FR51 says "every 1.5 s after a 0.4 s glow". The boss isn't built yet (Epic 7), so the DW-40 question will come back unless #38 is extended or the boss story states its semantics. Pre-existing ambiguity; the intent scopes DW-40 to Lancer and Bastion.
-status: open
+status: done 2026-10-10
+resolution: resolved by sweep bundle dw-epic-docs-decision-log-sync
+resolution-undo: fd1443620827978c4576ed6f315e29497c18561fe0d09ed56a465c6c23665774 2026-10-10 7374617475733a206f70656e
 decision: 2026-10-10 Extend #38 to all enemy and boss timers — Add a decision-log row extending #38 (fire_interval_s is the start-to-start period including the telegraph) to boss.turrets and boss.desperate and the Wasp, add a data test requiring telegraph/glow <= interval for those keys, and note the rule in the architecture's boss section; reconcile the boss.turrets tuning with FR51 or record the difference.
 
 ### DW-70: The Story 2.5 AC in epics.md ("Given a Lancer's fire timer reaches 2.0 s ... glows for 0.3 s, then it fires") now describes the old timer literally; as built the timer is 1.7 s and the shot lands at
@@ -683,7 +687,9 @@ location: _bmad-output/planning-artifacts/epics.md:785
 source_spec: `spec-dw-40-enemy-fire-cadence-full-period.md`
 severity: low
 reason: epics.md:785-787. FR20 ("every 2.0 s") and decision #38 match the new behaviour, and the architecture note explains it. The DW-40 decision lists only tests, the architecture notes and a decision-log row as the docs to update, and AGENTS.md says to ask the user before changing planning docs, so amending a done story's AC (as #34/#35 did) is left for the user to decide.
-status: open
+status: done 2026-10-10
+resolution: resolved by sweep bundle dw-epic-docs-decision-log-sync
+resolution-undo: fd1443620827978c4576ed6f315e29497c18561fe0d09ed56a465c6c23665774 2026-10-10 7374617475733a206f70656e
 decision: 2026-10-10 Amend the AC wording — Reword the Story 2.5 AC in epics.md to say the Lancer fires every 2.0 s start-to-start, with the 0.3 s glow inside that period (per decision #38), and note the amendment in the #38 decision-log row; check the Bastion AC (Story 2.7) for the same wording.
 
 ### DW-71: PlayerShield's missing-bubble degradation path (Log.error plus null-safe raise/step/drop) has no test.
@@ -838,4 +844,20 @@ location: AGENTS.md:62-63
 source_spec: `spec-dw-62-dw-66-agents-md-import-and-commit-wording.md`
 severity: low
 reason: AGENTS.md:62 covers "retro commits made by bmad-loop or orchestration"; AGENTS.md:63 now says "hand-written retro revisions" where it used to say "retros". Wording such as "hand-written retros (first pass or revision)" closes the gap. The fix edits AGENTS.md (agent-context file).
+status: open
+
+### DW-90: Epic 7 boss ACs and the GDD/FR49-FR51 boss cadence lines still use the "every N s after a G s glow" wording that DW-70 rewrote for Stories 2.5 and 2.7.
+origin: spec-deferred 739a3e585011
+location: _bmad-output/planning-artifacts/epics.md (Epic 7 story ACs)
+source_spec: `spec-dw-57-dw-69-dw-70-epic-docs-decision-log-sync.md`
+severity: low
+reason: epics.md Story 7.x ACs (about lines 1654, 1688, 1724), FR49-FR51 (epics.md:133-135) and gdd.md:283-285 are unchanged. Decision #50, the architecture Flagship cadence bullet and the data test now state start-to-start, but an Epic 7 implementer reading only the ACs could build interval + glow. Rewording those ACs is a planning-doc change the DW-69 decision did not ask for, so it needs the operator's OK.
+status: open
+
+### DW-91: test_level.gd test_dev_convoy_maul_wave_hits_the_convoy is intermittent ("at its slot's y": 179.3 vs 160 +/- 13.3).
+origin: spec-deferred 70466bae9005
+location: game/tests/unit/test_level.gd (test_dev_convoy_maul_wave_hits_the_convoy)
+source_spec: `spec-dw-57-dw-69-dw-70-epic-docs-decision-log-sync.md`
+severity: medium
+reason: Failed in 2 of 3 full headless runs and 1 of 3 isolated runs of test_level.gd during this bundle; passed in the others. The bundle touches no runtime code, only docs and one data test. Likely frame-timing sensitive, like DW-79 (test_shake_camera, which also flaked once in this run).
 status: open

@@ -186,8 +186,8 @@ All values below are **initial tuning**, chosen to be easy to change. They are e
 |---|---|---|
 | Enemy bullet or bolt | 1 heart | 5 if aimed at the convoy, 2 if stray |
 | Needle shot | 1 heart | 2 (stray; Needles never aim at the convoy) |
-| Contact with small or medium enemy or asteroid | 1 heart (the enemy is destroyed) | n/a |
-| Contact with large asteroid, Bastion, or Flagship hull | 2 hearts | n/a |
+| Contact with small or medium enemy or asteroid | 1 heart (the enemy is destroyed; an asteroid is not, decision #48) | n/a |
+| Contact with large asteroid, Bastion, or Flagship hull | 2 hearts (the large asteroid survives, decision #48) | n/a |
 | Contact with a convoy ship | none (the ship is blocked and slides along the hull) | none |
 | Maul impact | 1 heart on contact (it never targets the player, but the player can body-block it; the Maul is destroyed) | 10 |
 

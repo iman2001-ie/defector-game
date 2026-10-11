@@ -782,9 +782,9 @@ So that I have ranged pressure to dodge and prioritise.
 **When** it is active
 **Then** it strafes horizontally within the top 35% of the screen at 200 px/s
 
-**Given** a Lancer's fire timer reaches 2.0 s
+**Given** a Lancer fires every 2.0 s start-to-start (decision #38)
 **When** it attacks
-**Then** its muzzle glows for 0.3 s, then it fires one bullet aimed at the player's current position at 450 px/s
+**Then** its muzzle glows for 0.3 s inside that period, then it fires one bullet aimed at the player's current position at 450 px/s
 
 **Given** the shared enemy bullet scene (`enemy_bullet.tscn`)
 **When** it is fired
@@ -828,9 +828,9 @@ So that I must commit missiles and positioning to take down a tank.
 **When** it is active
 **Then** it drifts at 60 px/s within y 80–400 and stays above the player zone
 
-**Given** each of its 2 turrets reaches its 2.5 s timer
+**Given** each of its 2 turrets fires every 2.5 s start-to-start (decision #38)
 **When** it attacks
-**Then** the turret glows for 0.5 s, then fires a 3-bullet spread (±15°) at 350 px/s using the shared enemy bullet
+**Then** the turret glows for 0.5 s inside that period, then fires a 3-bullet spread (±15°) at 350 px/s using the shared enemy bullet
 
 **Given** the Bastion's HP reaches 0
 **When** it dies
