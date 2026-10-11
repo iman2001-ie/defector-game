@@ -666,6 +666,7 @@ source_spec: `spec-dw-40-enemy-fire-cadence-full-period.md`
 severity: low
 reason: tuning.json boss.turrets pairs fire_interval_s 3.0 with telegraph_s 0.5, and GDD FR51 says "every 1.5 s after a 0.4 s glow". The boss isn't built yet (Epic 7), so the DW-40 question will come back unless #38 is extended or the boss story states its semantics. Pre-existing ambiguity; the intent scopes DW-40 to Lancer and Bastion.
 status: open
+decision: 2026-10-10 Extend #38 to all enemy and boss timers — Add a decision-log row extending #38 (fire_interval_s is the start-to-start period including the telegraph) to boss.turrets and boss.desperate and the Wasp, add a data test requiring telegraph/glow <= interval for those keys, and note the rule in the architecture's boss section; reconcile the boss.turrets tuning with FR51 or record the difference.
 
 ### DW-70: The Story 2.5 AC in epics.md ("Given a Lancer's fire timer reaches 2.0 s ... glows for 0.3 s, then it fires") now describes the old timer literally; as built the timer is 1.7 s and the shot lands at
 origin: spec-deferred 09902fcc9688
