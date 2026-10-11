@@ -203,6 +203,22 @@ func test_hunter_wasps_do_not_advance_the_row() -> void:
 	_assert_rowless("hunter_wasp")
 
 
+## Story 6.2: the Maul never holds its slot either.
+func test_mauls_do_not_advance_the_row() -> void:
+	_assert_rowless("maul")
+
+
+## Story 6.2 AC: a Maul that resolves without a kill (here: no convoy, on its
+## first step) is counted, so a wave of only Mauls clears.
+func test_a_wave_of_only_mauls_clears_without_a_convoy() -> void:
+	_start([{"spawns": [{"type": "maul", "count": 3.0, "formation": "grid_3x1", "entry": "sides"}]}])
+	assert_eq(_director.total_count(), 3)
+	await wait_physics_frames(3)
+	assert_eq(_director.resolved_count(), 3, "every Maul resolved")
+	await wait_seconds(GAP_S * 4.0)
+	assert_eq(_events_named("level_cleared").size(), 1, "the wave (and the one-wave level) clears")
+
+
 func test_sides_entry_reaches_the_wasp() -> void:
 	_start([{"spawns": [{"type": "wasp", "count": 2.0, "formation": "grid_2x1", "entry": "sides"}]}])
 	var counted: Array[Enemy] = _counted()

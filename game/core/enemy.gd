@@ -3,7 +3,8 @@ extends Area2D
 ## Base for every enemy: HP and tier from tuning, damage intake, one-shot death.
 ##
 ## Created only by Spawner: setup(params) stores values before add_child, and
-## _ready() applies them. `resolved` is emitted exactly once.
+## _ready() applies them. `resolved` is emitted exactly once: through _die()
+## (a kill) or _resolve_without_kill() (no kill, e.g. a Maul hit or miss).
 ##
 ## Shared subclass helpers: `_slot`/`_has_slot`/`_entry` from setup params,
 ## _entry_start_for() (off-screen entry start), _aim_from() (aim at the player),
@@ -98,6 +99,22 @@ func _die() -> void:
 	Feedback.impact(tier, global_position)
 	Events.enemy_killed.emit(type_id, global_position, _last_hit_by_ally)
 	_drop_loot()
+	resolved.emit()
+	queue_free()
+
+
+## The no-kill exit (decision F18, Story 6.2): the enemy leaves the wave
+## without being killed (a Maul that hit the convoy, missed, or had no convoy).
+## It counts as resolved for the WaveDirector but is never a kill: no
+## Events.enemy_killed and no loot roll. `play_feedback` plays the tier's impact
+## (a Maul self-destructing on the convoy); a miss plays nothing. Once only:
+## ignored when already dead, like _die().
+func _resolve_without_kill(play_feedback: bool) -> void:
+	if _dead:
+		return
+	_dead = true
+	if play_feedback:
+		Feedback.impact(tier, global_position)
 	resolved.emit()
 	queue_free()
 

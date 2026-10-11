@@ -1343,3 +1343,110 @@ func test_convoy_loss_runs_the_retry_flow() -> void:
 	assert_true(GameState.is_retry)
 	assert_eq(GameState.energy, 0, "energy reset")
 	assert_eq(GameState.current_level_id, "dev_convoy")
+
+
+# --- Maul wave (Story 6.2) -------------------------------------------------------------
+
+var _hp_values: Array[int] = []
+var _maul_kills: int = 0
+
+
+func _on_convoy_hp(current: int, _max_hp: int) -> void:
+	_hp_values.append(current)
+
+
+func _on_maul_killed(enemy_type: StringName, _p: Vector2, _a: bool) -> void:
+	if enemy_type == &"maul":
+		_maul_kills += 1
+
+
+func _mauls() -> Array[Maul]:
+	var out: Array[Maul] = []
+	for child: Node in _level.get_node("World/Enemies").get_children():
+		var maul: Maul = child as Maul
+		if maul != null and not maul.is_dead() and not maul.is_queued_for_deletion():
+			out.append(maul)
+	return out
+
+
+func _wait_for_wave(director: WaveDirector, wave: int, seconds: float) -> void:
+	var end_ms: int = Time.get_ticks_msec() + int(seconds * 1000.0)
+	while director.wave_number() < wave and Time.get_ticks_msec() < end_ms:
+		await get_tree().process_frame
+
+
+## Acceptance (Story 6.2): dev_convoy wave 3 on the real level.tscn. Each Maul
+## starts off-screen on its side with the alarm ping and the trail, dives
+## straight at 400 px/s toward the ship nearest it at spawn, takes at least the
+## 0.3 s telegraph minimum to reach the convoy band, and a hit drops the convoy
+## HP by exactly 10 with no kill. Every Maul resolves.
+func test_dev_convoy_maul_wave_hits_the_convoy() -> void:
+	(Config.tuning["waves"] as Dictionary)["gap_s"] = 0.05
+	_hp_values.clear()
+	_maul_kills = 0
+	_make_level("dev_convoy")
+	var player: Player = _level.get_node("World/Player") as Player
+	player.debug_invincible = true
+	# Park the ship out of the physics world so no Maul is body-blocked.
+	player.process_mode = Node.PROCESS_MODE_DISABLED
+	var convoy: Convoy = _convoys()[0]
+	var director: WaveDirector = _level.get_node("WaveDirector") as WaveDirector
+	director.debug_resolve_wave()
+	await _wait_for_wave(director, 2, 3.0)
+	assert_eq(director.wave_number(), 2)
+	director.debug_resolve_wave()
+	await _wait_for_wave(director, 3, 4.0)
+	assert_eq(director.wave_number(), 3, "the Maul wave")
+	Events.convoy_hp_changed.connect(_on_convoy_hp)
+	Events.enemy_killed.connect(_on_maul_killed)
+	var hp_before: int = convoy.hp()
+	var mauls: Array[Maul] = []
+	var end_ms: int = Time.get_ticks_msec() + 2000
+	while mauls.is_empty() and Time.get_ticks_msec() < end_ms:
+		await get_tree().physics_frame
+		mauls = _mauls()
+	assert_eq(mauls.size(), 4, "4 Mauls spawned")
+	var spawn_ms: int = Time.get_ticks_msec()
+	var speed: float = Config.num("enemies.maul.dive_speed_px_s")
+	var band_top: float = Config.num("convoy.band_y.min")
+	var alarm: bool = false
+	for child: Node in Audio.get_children():
+		var sfx: AudioStreamPlayer = child as AudioStreamPlayer
+		if sfx != null and sfx.stream == Audio.SFX[&"maul_alarm"]:
+			alarm = true
+	assert_true(alarm, "the alarm ping played")
+	# Snapshot every Maul before any await, so none flies on before it is checked.
+	var starts: Array[Vector2] = []
+	var headings: Array[Vector2] = []
+	for maul: Maul in mauls:
+		starts.append(maul.global_position)
+		headings.append(maul.heading())
+		assert_true((maul.get_node("Trail") as CanvasItem).visible, "trail shows")
+		assert_not_null(maul.target_ship(), "aimed at a convoy ship")
+	for i: int in mauls.size():
+		var p: Vector2 = starts[i]
+		assert_true(p.x < 0.0 or p.x > Playfield.SIZE.x, "Maul at %s starts off-screen on its side" % p)
+		assert_almost_eq(p.y, Config.num("waves.formation.top_y"), 2.0 * speed / 60.0 + 0.01, "at its slot's y")
+		var to_band: float = (band_top - p.y) / (headings[i].y * speed)
+		assert_gte(to_band, Config.num("weapons.enemy_bullet.min_telegraph_s"), "reaching the band takes >= the telegraph minimum")
+	await get_tree().physics_frame
+	for i: int in mauls.size():
+		var maul: Maul = mauls[i]
+		if is_instance_valid(maul) and not maul.is_dead():
+			assert_eq(maul.heading(), headings[i], "heading locked")
+	end_ms = Time.get_ticks_msec() + 5000
+	while _hp_values.is_empty() and Time.get_ticks_msec() < end_ms:
+		await get_tree().physics_frame
+	assert_false(_hp_values.is_empty(), "a Maul reached the convoy")
+	if not _hp_values.is_empty():
+		assert_eq(hp_before - _hp_values[0], 10, "convoy HP drops by exactly 10")
+		assert_gte(Time.get_ticks_msec() - spawn_ms, 300, "no sooner than the telegraph minimum")
+	end_ms = Time.get_ticks_msec() + 5000
+	while not _mauls().is_empty() and Time.get_ticks_msec() < end_ms:
+		await get_tree().physics_frame
+	assert_eq(_mauls().size(), 0, "every Maul resolved (hit or miss)")
+	assert_eq(_maul_kills, 0, "a hit or a miss is never a kill")
+	for v: int in _hp_values:
+		assert_eq((hp_before - v) % 10, 0, "only Maul hits (10 each)")
+	Events.convoy_hp_changed.disconnect(_on_convoy_hp)
+	Events.enemy_killed.disconnect(_on_maul_killed)

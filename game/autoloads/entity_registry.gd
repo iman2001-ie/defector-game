@@ -7,6 +7,7 @@ const ENEMIES: Dictionary[StringName, PackedScene] = {
 	&"needle": preload("res://entities/enemies/needle/needle.tscn"),
 	&"bastion": preload("res://entities/enemies/bastion/bastion.tscn"),
 	&"hunter_wasp": preload("res://entities/enemies/hunter_wasp/hunter_wasp.tscn"),
+	&"maul": preload("res://entities/enemies/maul/maul.tscn"),
 }
 ## Enemy type id -> the flags.json flag that gates its wave spawns. A type is
 ## always a known id (levels validate with it); the WaveDirector skips its
@@ -14,12 +15,13 @@ const ENEMIES: Dictionary[StringName, PackedScene] = {
 const ENEMY_FLAGS: Dictionary[StringName, String] = {
 	&"hunter_wasp": "hunter_wasp",
 }
-## Enemy types that don't hold a formation row: the Hunter Wasp never holds its
-## slot (a sides entry only starts at the slot's y, so it may share a row with
-## the next entry). The WaveDirector doesn't advance its formation row for them.
+## Enemy types that don't hold a formation row: the Hunter Wasp and the Maul
+## never hold their slot (a sides entry only starts at the slot's y, then the
+## Hunter chases and the Maul dives at the convoy, so such an entry may share a
+## row with the next one). The WaveDirector doesn't advance its formation row for them.
 ## The Needle is not rowless: it anchors at enemies.needle.anchor_y_px (= top_y)
 ## and roams that row, so it takes a row like a formation type.
-const ROWLESS_TYPES: Array[StringName] = [&"hunter_wasp"]
+const ROWLESS_TYPES: Array[StringName] = [&"hunter_wasp", &"maul"]
 const PROJECTILES: Dictionary[StringName, PackedScene] = {
 	&"laser_bolt": preload("res://entities/projectiles/laser_bolt.tscn"),
 	&"missile": preload("res://entities/projectiles/missile.tscn"),

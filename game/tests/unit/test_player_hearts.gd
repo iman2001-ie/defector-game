@@ -228,6 +228,78 @@ func test_bastion_contact_costs_two_and_survives() -> void:
 	assert_false(bastion.is_dead(), "Bastion alive")
 
 
+# --- Maul body-block (Story 6.2) ---------------------------------------------------
+
+const MAUL_SCENE: PackedScene = preload("res://entities/enemies/maul/maul.tscn")
+const CONVOY_SCENE: PackedScene = preload("res://entities/allies/convoy.tscn")
+
+
+func _maul() -> Maul:
+	var maul: Maul = MAUL_SCENE.instantiate() as Maul
+	maul.setup({"position": HAZARD_POS})
+	add_child_autofree(maul)
+	maul.set_physics_process(false)
+	return maul
+
+
+func _still_convoy() -> Convoy:
+	var convoy: Convoy = CONVOY_SCENE.instantiate() as Convoy
+	add_child_autofree(convoy)
+	convoy.set_physics_process(false)
+	return convoy
+
+
+## The Maul's contact cost is its own key (damage.maul_contact_hearts), not the
+## medium tier's; it is destroyed as a kill and the convoy takes nothing.
+func test_maul_body_block_costs_maul_contact_hearts_and_kills_it() -> void:
+	(Config.tuning["damage"] as Dictionary)["maul_contact_hearts"] = 3
+	var player: Player = _make_player(Vector2(1200, 900))
+	var convoy: Convoy = _still_convoy()
+	var maul: Maul = _maul()
+	assert_eq(maul.tier, ImpactTier.MEDIUM)
+	player.on_contact(maul)
+	assert_eq(player.hearts, 2, "5 - damage.maul_contact_hearts (3)")
+	assert_true(maul.is_dead(), "Maul destroyed by contact")
+	assert_signal_emitted_with_parameters(Events, "enemy_killed", [&"maul", HAZARD_POS, false])
+	assert_eq(convoy.hp(), convoy.max_hp(), "the convoy is unchanged")
+	Config.load_data()
+
+
+func test_maul_contact_uses_the_shipped_key() -> void:
+	var maul: Maul = _maul()
+	_player.on_contact(maul)
+	assert_eq(_player.hearts, 5 - Config.int_("damage.maul_contact_hearts"))
+	assert_true(maul.is_dead())
+
+
+func test_maul_contact_during_iframes_or_shield_costs_nothing_but_destroys() -> void:
+	_player.apply_damage(1, null)
+	var first: Maul = _maul()
+	_player.on_contact(first)
+	assert_eq(_player.hearts, 4, "no heart during i-frames")
+	assert_true(first.is_dead(), "still destroyed")
+	_step(Config.num("player.iframes_s") + DT)
+	GameState.energy = 100
+	assert_true(_player.try_shield(), "shield raised")
+	var second: Maul = _maul()
+	_player.on_contact(second)
+	assert_eq(_player.hearts, 4, "no heart under the shield")
+	assert_true(second.is_dead(), "still destroyed")
+	assert_signal_emit_count(Events, "enemy_killed", 2)
+
+
+func test_other_medium_enemies_keep_the_medium_cost() -> void:
+	(Config.tuning["damage"] as Dictionary)["maul_contact_hearts"] = 3
+	var player: Player = _make_player(Vector2(1200, 900))
+	var lancer: Lancer = LANCER_SCENE.instantiate() as Lancer
+	lancer.setup({"position": HAZARD_POS})
+	add_child_autofree(lancer)
+	lancer.set_physics_process(false)
+	player.on_contact(lancer)
+	assert_eq(player.hearts, 5 - Config.int_("damage.contact_medium_hearts"), "Lancer unchanged")
+	Config.load_data()
+
+
 func test_asteroid_costs_by_size_and_is_never_destroyed() -> void:
 	var expected: Dictionary = {&"small": 1, &"medium": 1, &"large": 2}
 	for size: StringName in expected:

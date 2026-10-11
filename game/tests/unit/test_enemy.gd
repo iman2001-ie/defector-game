@@ -435,3 +435,42 @@ func test_enemy_without_spawner_drops_nothing_silently() -> void:
 	assert_eq(get_tree().get_nodes_in_group(&"pickups").size(), 0, "no orb anywhere")
 	assert_eq(_logged("[ERROR]").size(), 0)
 	assert_eq(_logged("[WARN]").size(), 0)
+
+
+# --- No-kill resolution (Story 6.2, decision F18) ------------------------------------
+
+func test_resolve_without_kill_emits_resolved_only() -> void:
+	var spawner: Spawner = _drop_world()
+	_set_chance("wasp", 1.0)
+	var wasp: Enemy = _spawn(spawner, &"wasp", Vector2(640, 200))
+	watch_signals(wasp)
+	wasp._resolve_without_kill(false)
+	assert_true(wasp.is_dead())
+	assert_signal_emit_count(wasp, "resolved", 1)
+	assert_signal_not_emitted(Events, "enemy_killed", "not a kill")
+	assert_true(wasp.is_queued_for_deletion(), "freed")
+	assert_false(Feedback.is_hit_stopped())
+	wasp._resolve_without_kill(true)
+	wasp.apply_damage(99, null)
+	wasp.destroy_by_contact()
+	assert_signal_emit_count(wasp, "resolved", 1, "exactly once on every later path")
+	assert_signal_not_emitted(Events, "enemy_killed")
+	await wait_process_frames(1)
+	assert_eq(_orbs(spawner).size(), 0, "no loot")
+
+
+func test_resolve_without_kill_with_feedback_plays_the_tier() -> void:
+	var wasp: Enemy = _make_wasp()
+	wasp.set_physics_process(false)
+	wasp._resolve_without_kill(true)
+	assert_eq(Audio.newest_player().stream, Audio.SFX[&"explosion_small"], "the enemy's tier feedback")
+	assert_signal_emit_count(wasp, "resolved", 1)
+	assert_signal_not_emitted(Events, "enemy_killed")
+
+
+func test_resolve_after_death_is_ignored() -> void:
+	var wasp: Enemy = _make_wasp()
+	wasp.apply_damage(99, null)
+	wasp._resolve_without_kill(true)
+	assert_signal_emit_count(wasp, "resolved", 1)
+	assert_signal_emit_count(Events, "enemy_killed", 1)

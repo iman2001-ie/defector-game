@@ -1109,7 +1109,8 @@ func test_cast_rules() -> void:
 # --- Convoy (Story 6.1) ------------------------------------------------------------
 
 ## The dev level that proves the convoy: the level_dev key set, convoy on, two
-## short waves of Wasps (Lancers allowed), no intro or outro.
+## short waves of Wasps (Lancers allowed), then (Story 6.2) a Maul wave: 4
+## side-entry Mauls plus 2 top Wasps; no intro or outro.
 func test_dev_convoy_level_shape() -> void:
 	var data: Dictionary = Config.level("dev_convoy")
 	assert_false(data.is_empty(), "level_dev_convoy.json loads")
@@ -1125,14 +1126,48 @@ func test_dev_convoy_level_shape() -> void:
 	assert_null(data.get("intro_sequence"), "no intro")
 	assert_null(data.get("outro_sequence"), "no outro")
 	var waves: Array = data.get("waves", []) as Array
-	assert_eq(waves.size(), 2, "2 waves")
-	for w: int in waves.size():
+	assert_eq(waves.size(), 3, "3 waves")
+	for w: int in mini(waves.size(), 2):
 		var types: Array[String] = []
 		for entry: Variant in (waves[w] as Dictionary).get("spawns", []) as Array:
 			types.append(str((entry as Dictionary).get("type")))
 		assert_true(types.has("wasp"), "wave %d has Wasps" % w)
 		for t: String in types:
 			assert_true(t == "wasp" or t == "lancer", "wave %d is Wasps (and Lancers) only" % w)
+	if waves.size() < 3:
+		return
+	var spawns: Array = (waves[2] as Dictionary).get("spawns", []) as Array
+	assert_eq(spawns.size(), 2, "wave 3: a Maul entry and a Wasp entry")
+	if spawns.size() != 2:
+		return
+	var mauls: Dictionary = spawns[0]
+	assert_eq(mauls.get("type"), "maul")
+	assert_eq(mauls.get("count"), 4.0)
+	assert_eq(mauls.get("formation"), "grid_4x1")
+	assert_eq(mauls.get("entry"), "sides")
+	var wasps: Dictionary = spawns[1]
+	assert_eq(wasps.get("type"), "wasp")
+	assert_eq(wasps.get("count"), 2.0)
+	assert_eq(wasps.get("entry"), "top")
+
+
+## Mauls only appear in dev levels until Epic 7 places them in level_1.
+func test_mauls_only_in_dev_levels() -> void:
+	for path: String in _level_files():
+		var text: String = FileAccess.get_file_as_string(path)
+		if text.contains("\"maul\""):
+			assert_true(path.get_file().begins_with("level_dev"), "%s: no Mauls in campaign levels before Epic 7" % path)
+
+
+func test_maul_tuning_ranges() -> void:
+	assert_eq(Config.int_("enemies.maul.hp"), 6)
+	assert_eq(str(Config.section("enemies.maul").get("tier")), "medium")
+	assert_gt(Config.num("enemies.maul.dive_speed_px_s"), 0.0, "dive_speed_px_s > 0")
+	assert_gt(Config.num("enemies.maul.hitbox_ratio"), 0.0)
+	assert_lte(Config.num("enemies.maul.hitbox_ratio"), 1.0)
+	assert_eq(Config.int_("damage.convoy_maul"), 10)
+	assert_gte(Config.int_("damage.maul_contact_hearts"), 1)
+	assert_between(Config.num("drops.maul.chance"), 0.0, 1.0)
 
 
 ## Only dev levels turn the convoy on until Epic 7 (decision F12).

@@ -32,6 +32,7 @@ const SFX: Dictionary[StringName, AudioStream] = {
 	&"comms_static": preload("res://assets/audio/sfx/sfx_comms_static.wav"),
 	&"comms_click": preload("res://assets/audio/sfx/sfx_comms_click.wav"),
 	&"comms_handover": preload("res://assets/audio/sfx/sfx_comms_handover.wav"),
+	&"maul_alarm": preload("res://assets/audio/sfx/sfx_maul_alarm.wav"),
 }
 
 var _players: Array[AudioStreamPlayer] = []

@@ -69,9 +69,29 @@ func test_registry_has_hunter_wasp_and_its_flag() -> void:
 	assert_eq(EntityRegistry.ENEMY_FLAGS.get(&"hunter_wasp", ""), "hunter_wasp", "gated by flags.hunter_wasp")
 
 
+func test_registry_has_the_rowless_ungated_maul() -> void:
+	assert_true(EntityRegistry.ENEMIES.has(&"maul"))
+	assert_true(EntityRegistry.enemy_types().has(&"maul"), "a known level type")
+	assert_true(EntityRegistry.ROWLESS_TYPES.has(&"maul"), "never holds its slot")
+	assert_false(EntityRegistry.ENEMY_FLAGS.has(&"maul"), "not flag-gated (MUST)")
+
+
+func test_spawn_enemy_maul() -> void:
+	var spawner: Spawner = _make_spawner(_world)
+	var enemy: Enemy = spawner.spawn_enemy(&"maul", {"position": Vector2(640, 300)})
+	assert_true(enemy is Maul)
+	if enemy == null:
+		return
+	enemy.set_physics_process(false)
+	assert_eq(enemy.get_parent(), _enemies)
+	assert_eq(enemy.global_position, Vector2(640, 300))
+	assert_eq(enemy.spawner, spawner)
+	assert_true(enemy.is_in_group(&"enemies"))
+
+
 func test_spawned_enemy_gets_the_spawner() -> void:
 	var spawner: Spawner = _make_spawner(_world)
-	for type_id: StringName in [&"wasp", &"lancer", &"needle", &"bastion", &"hunter_wasp"]:
+	for type_id: StringName in [&"wasp", &"lancer", &"needle", &"bastion", &"hunter_wasp", &"maul"]:
 		var enemy: Enemy = spawner.spawn_enemy(type_id, {"position": Vector2(640, 160)})
 		assert_not_null(enemy)
 		if enemy != null:

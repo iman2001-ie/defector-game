@@ -29,8 +29,9 @@ BARRAGE_WHOOSH_SEED = 3501
 COMMS_OPEN_SEED = 5101
 COMMS_CLICK_SEED = 5102
 COMMS_HANDOVER_SEED = 5103
+MAUL_ALARM_SEED = 6201
 # Normalisation peak per sound when it differs from the default 0.9: the line cues sit under comms_open.
-PEAKS = {"comms_click": 0.45, "comms_handover": 0.7}
+PEAKS = {"comms_click": 0.45, "comms_handover": 0.7, "maul_alarm": 0.6}
 OUT_DIR = Path(__file__).resolve().parent.parent / "game" / "assets" / "audio" / "sfx"
 
 
@@ -180,6 +181,24 @@ def barrage_whoosh(rng: random.Random) -> list[float]:
         # Swells up to a peak at 70%, then a quick linear fade to 0.
         swell = (t / 0.7) ** 1.5 if t < 0.7 else (1.0 - t) / 0.3
         out.append((lp - bp) * swell)
+    return out
+
+
+def maul_alarm(rng: random.Random) -> list[float]:
+    """Short 0.36 s two-tone alarm ping (Story 6.2): a 1320 Hz beep, a short gap, then a 990 Hz beep,
+    each a soft-clipped sine with a quick attack and decay plus a trace of grit."""
+    beep = int(0.15 * RATE)
+    gap = int(0.06 * RATE)
+    out: list[float] = []
+    for freq in (1320.0, 990.0):
+        phase = 0.0
+        for i in range(beep):
+            phase += 2.0 * math.pi * freq / RATE
+            tone = math.tanh(2.0 * math.sin(phase)) + 0.25 * math.sin(2.0 * phase)
+            grit = rng.uniform(-1.0, 1.0) * 0.03
+            out.append((tone + grit) * _envelope(i, beep, 0.004, 1.3))
+        if freq == 1320.0:
+            out.extend([0.0] * gap)
     return out
 
 
@@ -342,6 +361,7 @@ def main() -> None:
     PEAKS["comms_open_nobeep"] = 0.9 * max(abs(s) for s in sounds["comms_open_nobeep"]) / max(abs(s) for s in sounds["comms_open"])
     sounds["comms_click"] = comms_click(random.Random(COMMS_CLICK_SEED))
     sounds["comms_handover"] = comms_handover(random.Random(COMMS_HANDOVER_SEED))
+    sounds["maul_alarm"] = maul_alarm(random.Random(MAUL_ALARM_SEED))
     for name, samples in sounds.items():
         path = _write(name, samples)
         print(f"wrote {path.name} ({len(samples) / RATE:.2f} s)")

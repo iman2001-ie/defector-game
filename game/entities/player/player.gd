@@ -52,8 +52,9 @@ extends Area2D
 ## reset: retry and the next level reload the scene (ADR-004).
 ##
 ## Contact: the Player watches its own area_entered/area_exited. A small or
-## medium Enemy costs damage.contact_<tier>_hearts and is destroyed by contact,
-## even while invulnerable; a large Enemy (Bastion) costs contact_large_hearts
+## medium Enemy costs damage.contact_<tier>_hearts (a Maul: its own
+## damage.maul_contact_hearts, Story 6.2) and is destroyed by contact, even
+## while invulnerable; a large Enemy (Bastion) costs contact_large_hearts
 ## and survives; an Asteroid costs contact_<size>_hearts and is never destroyed.
 ## Hazards that survive are remembered while they overlap; when the i-frames end
 ## (or debug_invincible turns off) one still-overlapping hazard hits again.
@@ -132,6 +133,8 @@ var _bounds_max: Vector2
 var _contact_small: int = 0
 var _contact_medium: int = 0
 var _contact_large: int = 0
+## damage.maul_contact_hearts: a Maul's own contact cost (Story 6.2).
+var _contact_maul: int = 0
 ## Surviving hazards (large enemies, asteroids) the hurtbox overlaps right now.
 var _contacts: Array[Area2D] = []
 var _dead: bool = false
@@ -177,6 +180,7 @@ func _ready() -> void:
 	_contact_small = Config.int_("damage.contact_small_hearts")
 	_contact_medium = Config.int_("damage.contact_medium_hearts")
 	_contact_large = Config.int_("damage.contact_large_hearts")
+	_contact_maul = Config.int_("damage.maul_contact_hearts")
 	_barrage_cost = maxi(Config.int_("abilities.barrage.cost"), 0)
 
 	_health.damaged.connect(_on_damaged)
@@ -370,7 +374,8 @@ func _deny(ability: StringName) -> void:
 # --- Contact ----------------------------------------------------------------------
 
 ## Contact with `area`: an energy orb is collected (no heart cost, even while
-## invulnerable); enemies and asteroids cost hearts by tier or size; small and
+## invulnerable); enemies and asteroids cost hearts by tier or size (a Maul by
+## damage.maul_contact_hearts); small and
 ## medium enemies are then destroyed (even while invulnerable). Other areas and
 ## dead enemies are ignored. Surviving hazards are remembered. Once safe (level
 ## cleared) only orbs are collected; hazards cost and destroy nothing.
@@ -388,7 +393,7 @@ func on_contact(area: Area2D) -> void:
 		if enemy.is_dead():
 			return
 		var destroyed: bool = enemy.tier == ImpactTier.SMALL or enemy.tier == ImpactTier.MEDIUM
-		apply_damage(_enemy_contact_cost(enemy.tier), enemy)
+		apply_damage(_enemy_contact_cost(enemy), enemy)
 		if destroyed:
 			enemy.destroy_by_contact()
 		elif not _dead:
@@ -403,7 +408,11 @@ func on_contact(area: Area2D) -> void:
 			_remember(area)
 
 
-func _enemy_contact_cost(tier: int) -> int:
+## A Maul costs damage.maul_contact_hearts; every other enemy costs by its tier.
+func _enemy_contact_cost(enemy: Enemy) -> int:
+	if enemy is Maul:
+		return _contact_maul
+	var tier: int = enemy.tier
 	if tier == ImpactTier.SMALL:
 		return _contact_small
 	if tier == ImpactTier.MEDIUM:

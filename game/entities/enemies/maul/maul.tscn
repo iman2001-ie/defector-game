@@ -1,0 +1,23 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://entities/enemies/maul/maul.gd" id="1_maul"]
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_add"]
+blend_mode = 1
+
+[node name="Maul" type="Area2D"]
+collision_layer = 4
+collision_mask = 64
+script = ExtResource("1_maul")
+sprite_px = 96.0
+
+[node name="Hitbox" type="CollisionShape2D" parent="."]
+
+[node name="Trail" type="Polygon2D" parent="."]
+material = SubResource("CanvasItemMaterial_add")
+color = Color(1, 0.121569, 0.294118, 1)
+polygon = PackedVector2Array(-18, -30, 18, -30, 8, -60, 0, -96, -8, -60)
+
+[node name="Hull" type="Polygon2D" parent="."]
+color = Color(1, 0.168627, 0.839216, 1)
+polygon = PackedVector2Array(-16, 46, 16, 46, 36, 18, 46, -14, 30, -40, 12, -30, -12, -30, -30, -40, -46, -14, -36, 18)
