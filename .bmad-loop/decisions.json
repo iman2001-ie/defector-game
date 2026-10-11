@@ -43,5 +43,14 @@
     "key": "2",
     "label": "Stop the whole chain after a fail",
     "resolution": ""
+  },
+  "DW-80": {
+    "answered_at": "2026-10-10",
+    "bundle_name": "",
+    "effect": "build",
+    "intent": "Give Audio a separate player (or small pool) for comms cues that combat SFX never steal, route comms_static/comms_open through it, and add tests.",
+    "key": "2",
+    "label": "Reserve a dedicated comms player",
+    "resolution": ""
   }
 }
