@@ -27,6 +27,9 @@ func before_each() -> void:
 		"comms_sequence_requested": func(id: StringName) -> void: _events.append(["comms_sequence_requested", id]),
 		"story_event_requested": func(event_name: StringName) -> void: _events.append(["story_event_requested", event_name]),
 		"hint_requested": func(hint_id: StringName) -> void: _events.append(["hint_requested", hint_id]),
+		"boss_started": func() -> void: _events.append(["boss_started"]),
+		"boss_phase_changed": func(p: int) -> void: _events.append(["boss_phase_changed", p]),
+		"boss_hp_changed": func(c: int, m: int, p: int) -> void: _events.append(["boss_hp_changed", c, m, p]),
 	}
 	for signal_name: String in _recorders:
 		Events.connect(signal_name, _recorders[signal_name])
@@ -773,13 +776,132 @@ func test_failure_after_clear_keeps_the_clear() -> void:
 	assert_eq(_events_named("level_cleared"), [["level_cleared", 5]] as Array[Array], "level_cleared once")
 
 
-# --- Boss wave ----------------------------------------------------------------
+# --- Boss wave (Story 7.3) ----------------------------------------------------
 
-func test_boss_wave_without_a_flagship_is_subtracted_and_clears() -> void:
+## Live Flagships in the fixture's Enemies container.
+func _flagships() -> Array[Flagship]:
+	var out: Array[Flagship] = []
+	for child: Node in _world.get_node("Enemies").get_children():
+		var boss: Flagship = child as Flagship
+		if boss != null and not boss.is_queued_for_deletion():
+			out.append(boss)
+	return out
+
+
+func _medium_asteroids() -> int:
+	var count: int = 0
+	for child: Node in _world.get_node("Asteroids").get_children():
+		var rock: Asteroid = child as Asteroid
+		if rock != null and rock.size == &"medium":
+			count += 1
+	return count
+
+
+func test_boss_wave_spawns_the_flagship_counted_as_one() -> void:
 	_start([{"boss": "flagship", "triggers": []}])
-	assert_push_error("boss 'flagship'")
-	assert_eq(_director.total_count(), 0)
+	assert_eq(_director.total_count(), 1, "the boss counts 1")
+	assert_eq(_events_named("wave_started"), [["wave_started", 0, 1]] as Array[Array])
+	var bosses: Array[Flagship] = _flagships()
+	assert_eq(bosses.size(), 1, "one Flagship under World/Enemies")
+	if bosses.size() == 1:
+		assert_true(bosses[0].is_in_group(&"boss"), "in Groups.BOSS")
+		assert_false(bosses[0].is_in_group(&"counted"), "not in Groups.COUNTED")
+		assert_eq(bosses[0].spawner, _director.spawner, "spawned through the Spawner")
+	assert_eq(_counted().size(), 0)
+	assert_eq(_events_named("boss_started").size(), 1)
+	assert_eq(_events_named("boss_phase_changed"), [["boss_phase_changed", 0]] as Array[Array])
+	assert_eq(_events_named("boss_hp_changed"), [["boss_hp_changed", 300, 300, 0]] as Array[Array])
+	assert_eq(_medium_asteroids(), Config.int_("boss.phase1_medium_asteroids"), "the cover asteroids")
+	assert_eq(_medium_asteroids(), 2)
+	for rock: Node in _world.get_node("Asteroids").get_children():
+		assert_false(rock.is_in_group(&"counted"), "cover never counts")
+	assert_eq(_lines_containing("[INFO][wave] Level 3 wave 1: boss 'flagship' spawned").size(), 1)
+
+
+func test_cover_asteroids_add_to_the_waves_own() -> void:
+	_start([{"boss": "flagship", "asteroids": [{"size": "medium", "count": 1.0}, {"size": "small", "count": 2.0}]}])
+	assert_eq(_medium_asteroids(), 3, "2 cover + 1 listed")
+	assert_eq(_world.get_node("Asteroids").get_child_count(), 5, "plus the 2 small")
+
+
+func test_boss_wave_never_clears_without_boss_defeated() -> void:
+	_start([{"boss": "flagship"}])
+	await wait_seconds(GAP_S + 0.2)
+	assert_eq(_events_named("wave_cleared"), [] as Array[Array], "no clear while the Flagship lives")
+	assert_eq(_director.total_count(), 1, "never subtracted")
+	assert_eq(_director.resolved_count(), 0)
+	assert_eq(_lines_containing("stalled").size(), 0, "no stall net")
+	assert_eq(_flagships().size(), 1)
+
+
+func test_boss_defeated_resolves_the_wave_once() -> void:
+	_start([{"boss": "flagship"}], 5)
+	Events.boss_defeated.emit()
+	assert_eq(_director.resolved_count(), 1, "1/1")
+	assert_eq(_events_named("wave_progress_changed"), [["wave_progress_changed", 0, 1.0]] as Array[Array])
 	assert_eq(_events_named("wave_cleared"), [["wave_cleared", 0]] as Array[Array])
+	Events.boss_defeated.emit()
+	assert_eq(_director.resolved_count(), 1, "a second boss_defeated changes nothing")
+	assert_eq(_events_named("wave_progress_changed").size(), 1)
+	assert_eq(_events_named("wave_cleared").size(), 1)
+	await wait_seconds(GAP_S + 0.1)
+	assert_eq(_events_named("level_cleared"), [["level_cleared", 5]] as Array[Array])
+	Events.boss_defeated.emit()
+	assert_eq(_events_named("level_cleared").size(), 1, "still once")
+
+
+func test_boss_defeated_before_the_boss_wave_is_ignored() -> void:
+	_start([{"spawns": [_wasps(1)]}, {"boss": "flagship"}])
+	Events.boss_defeated.emit()
+	assert_eq(_director.resolved_count(), 0, "wave 1 isn't a boss wave")
+	assert_eq(_events_named("wave_cleared"), [] as Array[Array])
+
+
+## DW-54: a dead attempt's boss_defeated resolves nothing.
+func test_boss_defeated_after_level_failed_does_not_resolve() -> void:
+	_start([{"boss": "flagship"}], 5)
+	Events.level_failed.emit(&"hearts")
+	Events.boss_defeated.emit()
+	assert_eq(_director.resolved_count(), 0, "not resolved")
+	await wait_seconds(GAP_S + 0.1)
+	assert_eq(_events_named("wave_cleared"), [] as Array[Array])
+	assert_eq(_events_named("level_cleared"), [] as Array[Array])
+
+
+func test_unknown_boss_is_logged_subtracted_and_the_wave_clears() -> void:
+	_start([{"boss": "bogus", "triggers": []}])
+	assert_push_error("boss 'bogus'")
+	assert_eq(_director.total_count(), 0, "subtracted")
+	assert_eq(_flagships().size(), 0)
+	assert_eq(_medium_asteroids(), 0, "no cover without a boss")
+	assert_eq(_events_named("wave_cleared"), [["wave_cleared", 0]] as Array[Array])
+
+
+func test_boss_without_a_spawner_is_logged_subtracted_and_the_wave_clears() -> void:
+	_director.spawner = null
+	_start([{"boss": "flagship"}])
+	assert_push_error("WaveDirector has no spawner")
+	assert_push_error("boss 'flagship' has no spawner")
+	assert_eq(_director.total_count(), 0, "subtracted")
+	assert_eq(_events_named("wave_cleared"), [["wave_cleared", 0]] as Array[Array])
+
+
+func test_f3_on_a_boss_wave_frees_the_flagship_and_clears() -> void:
+	var defeats: Array[int] = [0]
+	var on_defeat: Callable = func() -> void: defeats[0] += 1
+	Events.boss_defeated.connect(on_defeat)
+	_start([{"boss": "flagship"}, {"spawns": [_wasps(1)]}])
+	var boss: Flagship = _flagships()[0]
+	_director.debug_resolve_wave()
+	Events.boss_defeated.disconnect(on_defeat)
+	assert_true(boss.is_queued_for_deletion(), "Flagship freed")
+	assert_eq(defeats[0], 0, "no boss_defeated")
+	assert_eq(_director.resolved_count(), 1, "resolved 1/1")
+	assert_eq(_events_named("wave_cleared"), [["wave_cleared", 0]] as Array[Array])
+	await wait_seconds(GAP_S + 0.1)
+	assert_eq(_events_named("wave_started").size(), 2, "the next wave starts")
+	Events.boss_defeated.emit()
+	assert_eq(_director.resolved_count(), 0, "a late boss_defeated doesn't touch wave 2")
 
 
 # --- F3 -----------------------------------------------------------------------
@@ -850,7 +972,6 @@ func test_f6_jumps_to_the_boss_wave_and_abandons_chains() -> void:
 	])
 	var old: Array[Enemy] = _counted()
 	_director.debug_skip_to_boss()
-	assert_push_error("boss 'flagship'")
 	for enemy: Enemy in old:
 		assert_true(enemy.is_queued_for_deletion(), "freed")
 		assert_false(enemy.is_dead(), "without resolving")
@@ -859,17 +980,42 @@ func test_f6_jumps_to_the_boss_wave_and_abandons_chains() -> void:
 	await wait_seconds(0.2)
 	assert_eq(_counted().size(), 0, "the abandoned chain spawned nothing")
 	assert_eq(_director.running_chains(), 0, "the abandoned chain left the counters alone")
+	assert_eq(_flagships().size(), 1, "the Flagship spawned")
+	assert_eq(_director.total_count(), 1)
 	await wait_seconds(GAP_S + 0.1)
-	assert_eq(_events_named("level_cleared").size(), 1, "boss wave subtracted, level cleared")
+	assert_eq(_events_named("level_cleared"), [] as Array[Array], "the boss wave waits for boss_defeated")
+	Events.boss_defeated.emit()
+	await wait_seconds(GAP_S + 0.1)
+	assert_eq(_events_named("level_cleared").size(), 1, "level cleared after boss_defeated")
 
 
 func test_f6_resets_the_dead_attempt_guard() -> void:
 	_start([{"spawns": [_wasps(1)]}, {"boss": "flagship"}])
 	Events.level_failed.emit(&"hearts")
 	_director.debug_skip_to_boss()
-	assert_push_error("boss 'flagship'")
+	Events.boss_defeated.emit()
+	assert_eq(_director.resolved_count(), 1, "the reopened attempt resolves the boss")
 	await wait_seconds(GAP_S + 0.1)
-	assert_eq(_events_named("level_cleared").size(), 1, "boss wave subtracted, level cleared")
+	assert_eq(_events_named("level_cleared").size(), 1, "level cleared")
+
+
+func test_f6_frees_the_live_flagship_and_starts_a_fresh_one() -> void:
+	_start([{"spawns": [_wasps(1)]}, {"boss": "flagship"}])
+	_director.debug_skip_to_boss()
+	var first: Array[Flagship] = _flagships()
+	assert_eq(first.size(), 1)
+	_director.debug_skip_to_boss()
+	assert_true(first[0].is_queued_for_deletion(), "the old Flagship freed")
+	var second: Array[Flagship] = _flagships()
+	assert_eq(second.size(), 1, "a fresh Flagship")
+	if second.size() == 1:
+		assert_ne(second[0], first[0])
+	assert_eq(_events_named("wave_started").back(), ["wave_started", 1, 2], "the boss wave restarted")
+	assert_eq(_events_named("boss_started").size(), 2)
+	assert_eq(_director.total_count(), 1)
+	assert_eq(_director.resolved_count(), 0)
+	Events.boss_defeated.emit()
+	assert_eq(_events_named("wave_cleared"), [["wave_cleared", 1]] as Array[Array], "one boss_defeated clears it")
 
 
 func test_f6_without_a_boss_wave_logs() -> void:
@@ -941,7 +1087,6 @@ func test_f6_abandons_a_chain_waiting_on_a_story() -> void:
 	])
 	assert_eq(_director.running_chains(), 1, "chain waiting on story_a")
 	_director.debug_skip_to_boss()
-	assert_push_error("boss 'flagship'")
 	assert_eq(_director.running_chains(), 0, "F6 dropped the chain count")
 	_finish(&"story_a")
 	assert_eq(_story_events(), [] as Array[Array], "the abandoned chain runs nothing")
@@ -1113,7 +1258,6 @@ func test_f6_during_the_intro_abandons_it() -> void:
 	_load_dialogue()
 	_director.start_level(_level([{"spawns": [_wasps(1)]}, {"boss": "flagship"}], "story_a"), SRC)
 	_director.debug_skip_to_boss()
-	assert_push_error("boss 'flagship'")
 	assert_eq(_events_named("wave_started"), [["wave_started", 1, 2]] as Array[Array], "boss wave")
 	_finish(&"story_a")
 	assert_eq(_events_named("wave_started").size(), 1, "the intro starts nothing after F6")

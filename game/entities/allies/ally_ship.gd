@@ -366,7 +366,8 @@ static func aim(from: Vector2, to: Vector2) -> Vector2:
 
 
 ## The live Enemy in `nodes` nearest `from` (distance_squared_to) whose
-## position is inside Playfield.RECT; dead, queued-for-deletion, off-screen and
+## position is inside Playfield.RECT; dead, queued-for-deletion, off-screen,
+## non-targetable (the Flagship hull, an invulnerable core; Story 7.3) and
 ## non-Enemy nodes are skipped. Null when none qualifies.
 static func nearest_target(from: Vector2, nodes: Array[Node]) -> Enemy:
 	var best: Enemy = null
@@ -375,7 +376,7 @@ static func nearest_target(from: Vector2, nodes: Array[Node]) -> Enemy:
 		if not is_instance_valid(node):
 			continue
 		var enemy: Enemy = node as Enemy
-		if enemy == null or enemy.is_dead() or enemy.is_queued_for_deletion():
+		if enemy == null or enemy.is_dead() or enemy.is_queued_for_deletion() or not enemy.is_targetable():
 			continue
 		if not Playfield.RECT.has_point(enemy.global_position):
 			continue

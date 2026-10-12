@@ -28,6 +28,9 @@ const SFX: Dictionary[StringName, AudioStream] = {
 	&"explosion_small": preload("res://assets/audio/sfx/sfx_explosion_small.wav"),
 	&"explosion_medium": preload("res://assets/audio/sfx/sfx_explosion_medium.wav"),
 	&"explosion_large": preload("res://assets/audio/sfx/sfx_explosion_large.wav"),
+	# Placeholder (Story 7.3): the boss_part tier plays the large explosion until
+	# Epic 8 adds its own sound.
+	&"explosion_boss_part": preload("res://assets/audio/sfx/sfx_explosion_large.wav"),
 	&"player_hit": preload("res://assets/audio/sfx/sfx_player_hit.wav"),
 	&"player_death": preload("res://assets/audio/sfx/sfx_player_death.wav"),
 	&"energy_pickup": preload("res://assets/audio/sfx/sfx_energy_pickup.wav"),

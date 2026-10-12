@@ -1,4 +1,4 @@
-[gd_scene load_steps=22 format=3]
+[gd_scene load_steps=23 format=3]
 
 [ext_resource type="Script" path="res://scenes/level/level.gd" id="1_level"]
 [ext_resource type="PackedScene" path="res://entities/player/player.tscn" id="2_player"]
@@ -20,6 +20,7 @@
 [ext_resource type="PackedScene" path="res://systems/comms/comms_box.tscn" id="18_comms_box"]
 [ext_resource type="Script" path="res://ui/hud/hint_pill.gd" id="19_hint_pill"]
 [ext_resource type="Script" path="res://ui/hud/convoy_bar.gd" id="20_convoy_bar"]
+[ext_resource type="Script" path="res://ui/hud/boss_bar.gd" id="21_boss_bar"]
 
 [sub_resource type="Environment" id="Environment_glow"]
 background_mode = 3
@@ -92,6 +93,19 @@ offset_bottom = 60.0
 mouse_filter = 2
 theme = ExtResource("9_theme")
 script = ExtResource("8_wave_bar")
+
+[node name="BossBar" type="Control" parent="HUD"]
+process_mode = 1
+visible = false
+layout_mode = 3
+anchors_preset = 0
+offset_left = 680.0
+offset_top = 40.0
+offset_right = 1240.0
+offset_bottom = 60.0
+mouse_filter = 2
+theme = ExtResource("9_theme")
+script = ExtResource("21_boss_bar")
 
 [node name="HeartsDisplay" type="Control" parent="HUD"]
 process_mode = 1

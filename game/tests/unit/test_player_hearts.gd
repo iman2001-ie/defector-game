@@ -255,6 +255,35 @@ func test_bastion_contact_costs_two_and_survives() -> void:
 	assert_false(bastion.is_dead(), "Bastion alive")
 
 
+## Story 7.3 (GDD contact table): touching the Flagship hull costs 2 hearts and
+## the hull survives (it is armour, never destroyed by contact).
+func test_flagship_hull_contact_costs_two_and_survives() -> void:
+	var boss: Flagship = (load("res://entities/boss/flagship.tscn") as PackedScene).instantiate() as Flagship
+	add_child_autofree(boss)
+	boss.set_physics_process(false)
+	_player.on_contact(boss)
+	assert_eq(_player.hearts, 5 - Config.int_("damage.contact_large_hearts"))
+	assert_eq(_player.hearts, 3)
+	assert_false(boss.is_dead(), "hull alive")
+	assert_false(boss.is_queued_for_deletion(), "hull not freed")
+	assert_eq(boss.current_hp(), boss.max_hp(), "contact doesn't damage the Flagship")
+
+
+## Story 7.3: touching a Flagship part (a turret) also costs 2 hearts and the
+## turret survives.
+func test_flagship_turret_contact_costs_two_and_survives() -> void:
+	var boss: Flagship = (load("res://entities/boss/flagship.tscn") as PackedScene).instantiate() as Flagship
+	add_child_autofree(boss)
+	boss.set_physics_process(false)
+	var turret: FlagshipTurret = boss.turrets()[0]
+	_player.on_contact(turret)
+	assert_eq(_player.hearts, 5 - Config.int_("damage.contact_large_hearts"))
+	assert_eq(_player.hearts, 3)
+	assert_false(turret.is_dead(), "turret alive")
+	assert_false(turret.is_queued_for_deletion(), "turret not freed")
+	assert_eq(turret.hp, Config.int_("boss.turrets.hp"), "contact doesn't damage the turret")
+
+
 # --- Maul body-block (Story 6.2) ---------------------------------------------------
 
 const MAUL_SCENE: PackedScene = preload("res://entities/enemies/maul/maul.tscn")

@@ -8,7 +8,13 @@ extends Area2D
 ##
 ## Shared subclass helpers: `_slot`/`_has_slot`/`_entry` from setup params,
 ## _entry_start_for() (off-screen entry start), _aim_from() (aim at the player),
-## _can_fire() (missing-spawner guard) and _tuning_key() ("enemies.<type_id>.<field>").
+## _can_fire() (missing-spawner guard) and _tuning_key() ("<_tuning_section()>.<field>").
+##
+## Virtual hooks (Story 7.3, the Flagship and its parts): _tuning_section()
+## (where the hp, tier and hitbox_ratio live; default "enemies.<type_id>"),
+## _max_hp() (the hp set in _ready; default the section's hp), _hitbox_shape()
+## (default a circle of sprite_px / 2 * hitbox_ratio) and is_targetable()
+## (whether homing shots and allies may pick it; default true).
 
 signal resolved
 
@@ -56,13 +62,11 @@ func setup(params: Dictionary) -> void:
 func _ready() -> void:
 	if _has_spawn_position:
 		global_position = _spawn_position
-	hp = Config.int_(_tuning_key("hp"))
-	tier = ImpactTier.from_name(str(Config.section("enemies.%s" % type_id).get("tier", "")))
+	hp = _max_hp()
+	tier = ImpactTier.from_name(str(Config.section(_tuning_section()).get("tier", "")))
 	var hitbox: CollisionShape2D = get_node_or_null(^"Hitbox") as CollisionShape2D
 	if hitbox != null:
-		var circle: CircleShape2D = CircleShape2D.new()
-		circle.radius = sprite_px / 2.0 * Config.num(_tuning_key("hitbox_ratio"))
-		hitbox.shape = circle
+		hitbox.shape = _hitbox_shape()
 	else:
 		Log.error("combat", "enemy '%s' has no Hitbox" % type_id)
 	add_to_group(Groups.ENEMIES)
@@ -90,6 +94,13 @@ func destroy_by_contact() -> void:
 
 func is_dead() -> bool:
 	return _dead
+
+
+## Whether homing shots (micro-missiles) and the ally may pick this enemy as a
+## target. True for every regular enemy; the Flagship hull and an invulnerable
+## core say no.
+func is_targetable() -> bool:
+	return true
 
 
 func _die() -> void:
@@ -164,6 +175,24 @@ func _can_fire() -> bool:
 	return false
 
 
-## Config key for this enemy's tuning `field`: "enemies.<type_id>.<field>".
+## The tuning section holding this enemy's hp, tier and hitbox_ratio:
+## "enemies.<type_id>" (the Flagship and its parts override it).
+func _tuning_section() -> String:
+	return "enemies.%s" % type_id
+
+
+## Config key for this enemy's tuning `field`: "<_tuning_section()>.<field>".
 func _tuning_key(field: String) -> String:
-	return "enemies.%s.%s" % [type_id, field]
+	return "%s.%s" % [_tuning_section(), field]
+
+
+## The hp set in _ready: the section's `hp`.
+func _max_hp() -> int:
+	return Config.int_(_tuning_key("hp"))
+
+
+## The Hitbox shape built in _ready: a circle of sprite_px / 2 * hitbox_ratio.
+func _hitbox_shape() -> Shape2D:
+	var circle: CircleShape2D = CircleShape2D.new()
+	circle.radius = sprite_px / 2.0 * Config.num(_tuning_key("hitbox_ratio"))
+	return circle

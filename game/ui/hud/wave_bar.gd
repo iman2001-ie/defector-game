@@ -10,6 +10,10 @@ extends Control
 ## Fills tween over `hud.wave_bar.fill_tween_s` and never go down within an
 ## attempt. The tween is bound to this pausable node, so it freezes with the game.
 ##
+## Boss fight (Story 7.3): Events.boss_started fades the whole bar out over
+## `hud.boss_bar.fade_s` while the BossBar fades in over the same slot;
+## level_started brings it back at once.
+##
 ## Colours, outline, corners and the gap come from the shared Theme
 ## (`ui/theme/defector_theme.tres`, type `WaveBar`); position, size and the
 ## tween time come from Config.
@@ -21,6 +25,8 @@ const STYLE_HIGHLIGHT: StringName = &"highlight"
 const CONST_SEPARATION: StringName = &"separation"
 
 var fill_tween_s: float = 0.0
+## The boss-bar cross-fade time (hud.boss_bar.fade_s).
+var boss_fade_s: float = 0.0
 
 ## Fill each segment is heading for (0..1).
 var _target: Array[float] = []
@@ -31,6 +37,7 @@ var _highlight: int = -1
 var _tween: Tween
 ## Segment the running tween animates; -1 when none.
 var _tween_index: int = -1
+var _fade_tween: Tween
 
 
 func _init() -> void:
@@ -42,10 +49,12 @@ func _ready() -> void:
 	position = Vector2(Config.num("hud.wave_bar.x"), Config.num("hud.wave_bar.y"))
 	size = Vector2(Config.num("hud.wave_bar.width"), Config.num("hud.wave_bar.height"))
 	fill_tween_s = maxf(Config.num("hud.wave_bar.fill_tween_s"), 0.0)
+	boss_fade_s = maxf(Config.num("hud.boss_bar.fade_s"), 0.0)
 	Events.level_started.connect(_on_events_level_started)
 	Events.wave_started.connect(_on_events_wave_started)
 	Events.wave_progress_changed.connect(_on_events_wave_progress_changed)
 	Events.wave_cleared.connect(_on_events_wave_cleared)
+	Events.boss_started.connect(_on_events_boss_started)
 
 
 # --- Read accessors (tests) ------------------------------------------------------
@@ -116,6 +125,8 @@ static func fill_rect(rect: Rect2, shown: float) -> Rect2:
 
 func _on_events_level_started(_level_id: int) -> void:
 	_stop_tween()
+	_stop_fade()
+	modulate.a = 1.0
 	for i: int in segment_count():
 		_target[i] = 0.0
 		_displayed[i] = 0.0
@@ -158,6 +169,22 @@ func _on_events_wave_cleared(wave_index: int) -> void:
 	if next != _highlight:
 		_highlight = next
 		queue_redraw()
+
+
+## The boss arrived: fade the bar out (the BossBar fades in over it).
+func _on_events_boss_started() -> void:
+	_stop_fade()
+	if boss_fade_s <= 0.0:
+		modulate.a = 0.0
+		return
+	_fade_tween = create_tween()
+	_fade_tween.tween_property(self, ^"modulate:a", 0.0, boss_fade_s)
+
+
+func _stop_fade() -> void:
+	if _fade_tween != null and _fade_tween.is_valid():
+		_fade_tween.kill()
+	_fade_tween = null
 
 
 # --- Fill animation ------------------------------------------------------------

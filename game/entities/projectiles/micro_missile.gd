@@ -71,7 +71,9 @@ func _orient() -> void:
 
 
 ## The Node2D in `nodes` nearest to `from`, skipping non-Node2D nodes, nodes
-## queued for deletion and dead Enemies. Null when none is left; the first wins a tie.
+## queued for deletion, dead Enemies and Enemies that are not targetable (the
+## Flagship hull, an invulnerable core; Story 7.3). Null when none is left; the
+## first wins a tie.
 static func nearest_enemy(from: Vector2, nodes: Array[Node]) -> Node2D:
 	var best: Node2D = null
 	var best_d2: float = INF
@@ -80,7 +82,7 @@ static func nearest_enemy(from: Vector2, nodes: Array[Node]) -> Node2D:
 		if body == null or body.is_queued_for_deletion():
 			continue
 		var enemy: Enemy = body as Enemy
-		if enemy != null and enemy.is_dead():
+		if enemy != null and (enemy.is_dead() or not enemy.is_targetable()):
 			continue
 		var d2: float = from.distance_squared_to(body.global_position)
 		if d2 < best_d2:

@@ -22,6 +22,12 @@ const ENEMY_FLAGS: Dictionary[StringName, String] = {
 ## The Needle is not rowless: it anchors at enemies.needle.anchor_y_px (= top_y)
 ## and roams that row, so it takes a row like a formation type.
 const ROWLESS_TYPES: Array[StringName] = [&"hunter_wasp", &"maul"]
+## Boss type id -> scene (Story 7.3). Kept apart from ENEMIES on purpose, so a
+## boss is never a valid `spawns` type: only a wave's `boss` key spawns one,
+## through Spawner.spawn_boss.
+const BOSSES: Dictionary[StringName, PackedScene] = {
+	&"flagship": preload("res://entities/boss/flagship.tscn"),
+}
 const PROJECTILES: Dictionary[StringName, PackedScene] = {
 	&"laser_bolt": preload("res://entities/projectiles/laser_bolt.tscn"),
 	&"missile": preload("res://entities/projectiles/missile.tscn"),

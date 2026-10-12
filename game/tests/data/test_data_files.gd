@@ -1526,3 +1526,128 @@ func test_allies_fall_tuning_ranges() -> void:
 	assert_gt(Config.num("allies.fall.shield_offset_px"), 0.0, "shield_offset_px > 0")
 	assert_gt(Config.num("allies.fall.shield_flash_hz"), 0.0, "shield_flash_hz > 0")
 	assert_gte(Config.num("allies.fall.exit_drop"), 0.0, "exit_drop >= 0 (down or level)")
+
+
+# --- Flagship Phase 1 (Story 7.3) ---------------------------------------------------
+
+const FLAGSHIP_SCENE_PATH: String = "res://entities/boss/flagship.tscn"
+
+
+## The GDD numbers the Flagship's Phase 1 must keep (FR49, FR52, FR53) and the
+## tiers of its hull and parts.
+func test_flagship_phase_1_matches_the_gdd() -> void:
+	assert_eq(Config.int_("boss.turrets.count"), 4, "4 turrets")
+	assert_eq(Config.int_("boss.turrets.hp"), 25, "25 HP each")
+	assert_eq(Config.int_("boss.core.hp"), 200, "core 200 HP")
+	assert_eq(Config.int_("boss.final_choice_hp"), 50, "Final Choice at 50")
+	assert_eq(Config.int_("boss.turrets.spread_bullets"), 3, "3-bullet spread")
+	assert_eq(Config.num("boss.turrets.bullet_speed_px_s"), 350.0)
+	assert_eq(Config.num("boss.turrets.fire_interval_s"), 3.0, "every 3.0 s start to start")
+	assert_eq(Config.num("boss.turrets.telegraph_s"), 0.5, "0.5 s glow")
+	assert_eq(Config.int_("boss.phase1_medium_asteroids"), 2, "2 medium cover asteroids")
+	assert_eq(Config.int_("drops.flagship_turret.orbs"), 1, "a turret drops an orb")
+	assert_eq(Config.num("drops.flagship_turret.chance"), 1.0, "always")
+	assert_eq(str(Config.section("boss.hull").get("tier")), "boss_death")
+	assert_eq(str(Config.section("boss.turrets").get("tier")), "boss_part")
+	assert_eq(str(Config.section("boss.core").get("tier")), "boss_death")
+
+
+## Story 7.3 provisional tuning (decision #54): sane ranges, the hull starts
+## fully above the screen and every part ends inside the enemy zone at its
+## station (the part offsets come from the scene, like the Bastion's turrets).
+func test_flagship_phase_1_tuning_ranges() -> void:
+	var width: float = Config.num("boss.hull.width_px")
+	var height: float = Config.num("boss.hull.height_px")
+	assert_gt(width, 0.0, "hull.width_px > 0")
+	assert_lte(width, Playfield.SIZE.x, "the hull fits the screen width")
+	assert_gt(height, 0.0, "hull.height_px > 0")
+	assert_gt(Config.num("boss.hull.arrival_s"), 0.0, "hull.arrival_s > 0")
+	for section: String in ["boss.turrets", "boss.core"]:
+		assert_gt(Config.num(section + ".sprite_px"), 0.0, "%s.sprite_px > 0" % section)
+		var ratio: float = Config.num(section + ".hitbox_ratio")
+		assert_gt(ratio, 0.0, "%s.hitbox_ratio > 0" % section)
+		assert_lte(ratio, 1.0, "%s.hitbox_ratio <= 1" % section)
+	var spread: float = Config.num("boss.turrets.spread_deg")
+	assert_gte(spread, 0.0, "spread_deg >= 0")
+	assert_lt(spread, 90.0, "spread_deg < 90")
+	assert_gte(Config.num("boss.turrets.stagger_s"), 0.0, "stagger_s >= 0")
+	assert_gt(Config.num("boss.turrets.glow_energy"), 1.0, "glow_energy > 1")
+	var probe: Node = (load(FLAGSHIP_SCENE_PATH) as PackedScene).instantiate()
+	var bottom: float = height / 2.0
+	var parts: Array[Node] = (probe.get_node("Turrets") as Node).get_children()
+	parts.append(probe.get_node("Core"))
+	assert_eq(parts.size(), Config.int_("boss.turrets.count") + 1, "the scene has the tuned turrets and a core")
+	for part: Node in parts:
+		var section: String = "boss.core" if part.name == "Core" else "boss.turrets"
+		var radius: float = Config.num(section + ".sprite_px") / 2.0 * Config.num(section + ".hitbox_ratio")
+		bottom = maxf(bottom, (part as Node2D).position.y + radius)
+	probe.free()
+	var station: float = Config.num("boss.hull.station_y")
+	assert_gte(station - height / 2.0, 0.0, "the hull is fully on screen at its station")
+	assert_lte(station + bottom, ENEMY_ZONE_BOTTOM_Y, "every part ends inside the enemy zone")
+	assert_lte(Config.num("boss.hull.arrive_from_y") + bottom, 0.0, "the Flagship starts fully above the screen")
+
+
+## The boss bar takes the wave bar's slot (UX), with its label inside the top HUD band.
+func test_boss_bar_tuning() -> void:
+	for key: String in ["x", "y", "width", "height"]:
+		assert_eq(Config.num("hud.boss_bar." + key), Config.num("hud.wave_bar." + key), "boss bar %s = wave bar %s" % [key, key])
+	assert_eq(Config.num("hud.boss_bar.fade_s"), 0.3, "0.3 s cross-fade")
+	assert_eq(Config.num("hud.boss_bar.label_y"), 68.0, "FLAGSHIP label at y 68")
+	assert_eq(Config.int_("hud.boss_bar.label_px"), 20, "20 px HUD label")
+	assert_gt(Config.num("hud.boss_bar.marker_w_px"), 0.0, "marker_w_px > 0")
+	assert_gte(Config.num("hud.boss_bar.label_y"), Config.num("hud.boss_bar.y") + Config.num("hud.boss_bar.height"), "the label sits below the bar")
+	assert_lte(Config.num("hud.boss_bar.label_y") + Config.num("hud.boss_bar.label_px"), 120.0, "inside the top HUD band")
+
+
+## The dev level for the Flagship (F6 and manual play): the level_dev key set,
+## no convoy, ally or story, a Wasp wave, then the one boss wave as the last.
+func test_dev_boss_level_shape() -> void:
+	var data: Dictionary = Config.level("dev_boss")
+	assert_false(data.is_empty(), "level_dev_boss.json loads")
+	var keys: Array = data.keys()
+	keys.sort()
+	var dev_keys: Array = Config.level("dev").keys()
+	dev_keys.sort()
+	assert_eq(keys, dev_keys, "the level_dev key set")
+	assert_eq(data.get("id"), 0.0)
+	assert_eq(data.get("name"), "Development: boss")
+	assert_eq(data.get("convoy"), false, "no convoy")
+	assert_null(data.get("ally"), "no ally")
+	assert_null(data.get("intro_sequence"))
+	assert_null(data.get("outro_sequence"))
+	var waves: Array = data.get("waves", []) as Array
+	assert_eq(waves.size(), 2, "2 waves")
+	if waves.size() != 2:
+		return
+	assert_eq((waves[0] as Dictionary).get("spawns"), [{"type": "wasp", "count": 4.0, "formation": "grid_4x1", "entry": "top"}], "wave 1: 4 Wasps")
+	assert_eq(waves[1], {"boss": "flagship", "triggers": []}, "wave 2: the Flagship")
+	assert_true(EntityRegistry.BOSSES.has(&"flagship"), "flagship is a registered boss")
+
+
+## Only dev levels have a boss wave until Story 7.6 puts the Flagship in Level 3.
+func test_boss_waves_only_in_dev_levels() -> void:
+	for path: String in _level_files():
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+		if not (parsed is Dictionary):
+			continue
+		for wave: Variant in ((parsed as Dictionary).get("waves", []) as Array):
+			if wave is Dictionary and (wave as Dictionary).has("boss"):
+				assert_true(path.get_file().begins_with("level_dev"), "%s: a boss wave only in dev levels" % path)
+
+
+## Every level's boss wave names a registered boss (EntityRegistry.BOSSES), so a
+## typo can't slip through as a subtracted boss wave.
+func test_every_boss_wave_names_a_known_boss() -> void:
+	var found: int = 0
+	for path: String in _level_files():
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+		if not (parsed is Dictionary):
+			continue
+		var waves: Array = (parsed as Dictionary).get("waves", []) as Array
+		for w: int in waves.size():
+			if waves[w] is Dictionary and (waves[w] as Dictionary).has("boss"):
+				found += 1
+				var boss: Variant = (waves[w] as Dictionary)["boss"]
+				assert_true(EntityRegistry.BOSSES.has(StringName(str(boss))), "%s waves[%d].boss '%s' is a registered boss" % [path, w, boss])
+	assert_gt(found, 0, "at least one boss wave checked")

@@ -81,6 +81,29 @@ func spawn_enemy(type_id: StringName, params: Dictionary) -> Enemy:
 	return enemy
 
 
+## Returns the spawned boss (Story 7.3), or null for an unknown id or a missing
+## Enemies container. Like spawn_enemy it hands the boss this Spawner (the
+## Flagship passes it on to its parts) and parents it to World/Enemies.
+## Callers must treat null as "not counted".
+func spawn_boss(type_id: StringName, params: Dictionary) -> Flagship:
+	var scene: PackedScene = EntityRegistry.BOSSES.get(type_id) as PackedScene
+	if scene == null:
+		Log.error("spawn", "unknown boss type '%s'" % type_id)
+		return null
+	if _enemies == null:
+		return null
+	var node: Node = scene.instantiate()
+	var boss: Flagship = node as Flagship
+	if boss == null:
+		Log.error("spawn", "boss type '%s' is not a Flagship" % type_id)
+		node.queue_free()
+		return null
+	boss.spawner = self
+	boss.setup(params)
+	_enemies.add_child(boss)
+	return boss
+
+
 ## Returns the spawned asteroid, or null for an unknown size or a missing container.
 ## params.size must be one of Asteroid.SIZES.
 func spawn_asteroid(params: Dictionary) -> Asteroid:

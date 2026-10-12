@@ -5,8 +5,9 @@ extends Node
 ## The only node that decides what spawns and when; the Spawner does the
 ## instantiating. Per wave: build the BeatTriggers, count the total up front
 ## (spawns + every group entry, a boss = 1), emit wave_started, run the
-## wave_start triggers, spawn the entries in stacked formation rows, subtract
-## what failed to spawn, then spawn the (never counted) asteroids.
+## wave_start triggers, spawn the entries in stacked formation rows and the
+## boss (if any), subtract what failed to spawn, then spawn the (never counted)
+## asteroids.
 ##
 ## After every progress change (a resolve or a subtraction): emit
 ## wave_progress_changed, fire progress triggers in array order, then try to
@@ -15,6 +16,18 @@ extends Node
 ## pausable one-shot Timer child, like a `wait` action), the running chains
 ## finish, and the next wave starts (or the level clears).
 ## A stall net subtracts groups that can never spawn, so no wave soft-locks.
+##
+## Boss wave (Story 7.3): `{ "boss": "<id>", "triggers": [...] }` counts 1. The
+## boss spawns through Spawner.spawn_boss (EntityRegistry.BOSSES), after the
+## wave_start triggers, and is one live counted unit (in Groups.BOSS, never in
+## Groups.COUNTED), so the stall net never subtracts a living boss. It resolves
+## only on Events.boss_defeated (once; a second one, or one after level_failed,
+## changes nothing). An unknown id or a failed spawn logs an error naming it
+## and is subtracted, so the wave still clears. When the boss spawned, the
+## WaveDirector also spawns its boss.phase1_medium_asteroids medium cover
+## asteroids, in addition to the wave's `asteroids`. F3 frees a live boss
+## (without boss_defeated) and resolves the wave; F6 frees it with the counted
+## enemies and starts the boss wave with a fresh one.
 ## Once Events.level_failed fires (the player died) the attempt is dead until
 ## start_level / debug_skip_to_boss (retro F1, DW-54): no wave or level clears
 ## and progress is frozen (kills don't resolve, nothing is subtracted, no
@@ -98,6 +111,11 @@ var _next_row: int = 0
 ## at wave start.
 var _disabled_types: Dictionary = {}
 var _live_counted: int = 0
+## The current boss wave's boss (null when none spawned); freed by F3 and F6.
+var _boss: Enemy = null
+## True while the current wave's boss is a live counted unit (spawned and not
+## yet resolved by Events.boss_defeated, F3 or F6).
+var _boss_pending: bool = false
 var _running_chains: int = 0
 var _clearing: bool = false
 var _level_done: bool = false
@@ -118,6 +136,7 @@ func _ready() -> void:
 	add_to_group(Groups.WAVE_DIRECTOR)
 	Events.level_failed.connect(_on_events_level_failed)
 	Events.comms_sequence_finished.connect(_on_events_comms_sequence_finished)
+	Events.boss_defeated.connect(_on_events_boss_defeated)
 
 
 ## First outcome wins (DW-54): a failure after the level cleared is ignored.
@@ -191,6 +210,8 @@ func start_wave(index: int) -> void:
 	_clearing = false
 	_running_chains = 0
 	_live_counted = 0
+	_boss = null
+	_boss_pending = false
 	_next_row = 0
 	_spawned_groups.clear()
 	_skipped_groups.clear()
@@ -230,8 +251,7 @@ func start_wave(index: int) -> void:
 	for i: int in spawns.size():
 		failures += _spawn_entry(spawns[i], "%s.spawns[%d]" % [path, i], _serial)
 	if wave.has("boss"):
-		Log.error("wave", "%s %s.boss: boss '%s' does not exist yet (Epic 7); not counted" % [_source, path, str(wave["boss"])])
-		failures += 1
+		failures += _spawn_boss(wave["boss"], path + ".boss")
 	_spawn_asteroids(wave.get("asteroids", []), path + ".asteroids")
 	_in_step = false
 	if failures > 0:
@@ -259,6 +279,7 @@ func debug_resolve_wave() -> void:
 			_spawned_groups[group_name] = true
 			_skipped_groups[group_name] = true
 	_pending_groups.clear()
+	_free_boss()
 	_debug_resolving = true
 	for node: Node in get_tree().get_nodes_in_group(Groups.COUNTED):
 		var enemy: Enemy = node as Enemy
@@ -272,8 +293,9 @@ func debug_resolve_wave() -> void:
 		_try_clear()
 
 
-## F6: jumps to the first boss wave. Current counted enemies are freed without
-## resolving and running chains are abandoned.
+## F6: jumps to the first boss wave. Current counted enemies and any live boss
+## are freed without resolving and running chains are abandoned; the boss wave
+## starts with a fresh boss.
 func debug_skip_to_boss() -> void:
 	var boss_index: int = -1
 	for i: int in _waves.size():
@@ -287,6 +309,11 @@ func debug_skip_to_boss() -> void:
 	for node: Node in get_tree().get_nodes_in_group(Groups.COUNTED):
 		node.remove_from_group(Groups.COUNTED)
 		node.queue_free()
+	for node: Node in get_tree().get_nodes_in_group(Groups.BOSS):
+		node.remove_from_group(Groups.BOSS)
+		node.queue_free()
+	_boss = null
+	_boss_pending = false
 	_level_done = false
 	_failed = false
 	start_wave(boss_index)
@@ -367,6 +394,44 @@ func _spawn_entry(entry: Variant, path: String, serial: int) -> int:
 	return failures
 
 
+## Spawns the wave's boss `raw` (a type id in EntityRegistry.BOSSES) through
+## the Spawner as one live counted unit, then its medium cover asteroids.
+## Returns 1 when it failed (an unknown id or no spawner; logged, the caller
+## subtracts it), else 0.
+func _spawn_boss(raw: Variant, path: String) -> int:
+	var type_id: StringName = StringName(str(raw))
+	if spawner == null:
+		Log.error("wave", "%s %s: boss '%s' has no spawner; not counted" % [_source, path, type_id])
+		return 1
+	if not EntityRegistry.BOSSES.has(type_id):
+		Log.error("wave", "%s %s: unknown boss '%s'; not counted" % [_source, path, type_id])
+		return 1
+	var boss: Flagship = spawner.spawn_boss(type_id, {})
+	if boss == null:
+		Log.error("wave", "%s %s: boss '%s' failed to spawn; not counted" % [_source, path, type_id])
+		return 1
+	_boss = boss
+	_boss_pending = true
+	_live_counted += 1
+	Log.info("wave", "Level %d wave %d: boss '%s' spawned" % [_level_id, _wave_index + 1, type_id])
+	var cover: int = Config.int_("boss.phase1_medium_asteroids")
+	if cover > 0:
+		_spawn_asteroids([{"size": "medium", "count": float(cover)}], path + ".cover")
+	return 0
+
+
+## Frees the current boss without resolving it (F3) and drops it from the live
+## count. Its wave progress is then resolved by F3 itself.
+func _free_boss() -> void:
+	if _boss != null and is_instance_valid(_boss):
+		_boss.remove_from_group(Groups.BOSS)
+		_boss.queue_free()
+	_boss = null
+	if _boss_pending:
+		_boss_pending = false
+		_live_counted = maxi(_live_counted - 1, 0)
+
+
 ## Asteroids spawn at the top edge at a random x and are never counted.
 func _spawn_asteroids(raw: Variant, path: String) -> void:
 	if not (raw is Array):
@@ -431,6 +496,19 @@ func _on_enemy_resolved(serial: int) -> void:
 	_live_counted = maxi(_live_counted - 1, 0)
 	if _failed:
 		return  # DW-54: a dead attempt's kills don't count.
+	_progress.resolve()
+	_on_progress_changed()
+
+
+## The boss wave resolves only here (Story 7.3). Once: a second boss_defeated,
+## one with no live boss, or one of a dead attempt (DW-54) changes nothing.
+func _on_events_boss_defeated() -> void:
+	if not _boss_pending:
+		return
+	_boss_pending = false
+	_live_counted = maxi(_live_counted - 1, 0)
+	if _failed:
+		return  # DW-54: a dead attempt's progress is frozen.
 	_progress.resolve()
 	_on_progress_changed()
 

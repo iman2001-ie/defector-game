@@ -164,6 +164,13 @@ func test_unknown_enemy_returns_null() -> void:
 	assert_eq(_enemies.get_child_count(), 0, "nothing added")
 
 
+func test_unknown_boss_returns_null() -> void:
+	var spawner: Spawner = _make_spawner(_world)
+	assert_null(spawner.spawn_boss(&"nope_boss", {}))
+	assert_push_error("nope_boss")
+	assert_eq(_enemies.get_child_count(), 0, "nothing added")
+
+
 func test_unknown_asteroid_size_returns_null() -> void:
 	var spawner: Spawner = _make_spawner(_world)
 	assert_null(spawner.spawn_asteroid({"size": &"huge"}))
@@ -180,6 +187,7 @@ func test_missing_container_logs_and_returns_null() -> void:
 	assert_push_error("Asteroids")
 	assert_null(spawner.spawn_projectile(&"laser_bolt", {}))
 	assert_null(spawner.spawn_enemy(&"wasp", {}))
+	assert_null(spawner.spawn_boss(&"flagship", {}))
 	assert_null(spawner.spawn_asteroid({"size": &"small"}))
 
 

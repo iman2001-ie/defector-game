@@ -1,0 +1,43 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://entities/boss/flagship.gd" id="1_flagship"]
+[ext_resource type="PackedScene" path="res://entities/boss/flagship_turret.tscn" id="2_turret"]
+[ext_resource type="PackedScene" path="res://entities/boss/flagship_core.tscn" id="3_core"]
+
+[node name="Flagship" type="Area2D"]
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("1_flagship")
+sprite_px = 720.0
+
+[node name="Hitbox" type="CollisionShape2D" parent="."]
+
+[node name="Hull" type="Polygon2D" parent="."]
+color = Color(1, 0.168627, 0.839216, 1)
+polygon = PackedVector2Array(-300, -80, 300, -80, 360, -30, 360, 40, 320, 80, -320, 80, -360, 40, -360, -30)
+
+[node name="Plating" type="Polygon2D" parent="."]
+color = Color(0.45, 0.07, 0.38, 1)
+polygon = PackedVector2Array(-280, -58, 280, -58, 330, -20, 330, 30, 300, 60, -300, 60, -330, 30, -330, -20)
+
+[node name="Bridge" type="Polygon2D" parent="."]
+color = Color(1, 0.168627, 0.839216, 1)
+polygon = PackedVector2Array(-60, -46, 60, -46, 84, -16, 60, 14, -60, 14, -84, -16)
+
+[node name="Turrets" type="Node2D" parent="."]
+
+[node name="Turret0" parent="Turrets" instance=ExtResource("2_turret")]
+position = Vector2(-270, 104)
+
+[node name="Turret1" parent="Turrets" instance=ExtResource("2_turret")]
+position = Vector2(-110, 104)
+
+[node name="Turret2" parent="Turrets" instance=ExtResource("2_turret")]
+position = Vector2(110, 104)
+
+[node name="Turret3" parent="Turrets" instance=ExtResource("2_turret")]
+position = Vector2(270, 104)
+
+[node name="Core" parent="." instance=ExtResource("3_core")]
+position = Vector2(0, 124)

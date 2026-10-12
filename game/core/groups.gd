@@ -21,3 +21,5 @@ const WAVE_DIRECTOR: StringName = &"wave_director"
 const CONVOY: StringName = &"convoy"
 ## The level's ally ship (joined in AllyShip._ready, Story 6.4).
 const ALLIES: StringName = &"allies"
+## The live boss (the Flagship; joined in Flagship._ready, Story 7.3). Never counted.
+const BOSS: StringName = &"boss"
