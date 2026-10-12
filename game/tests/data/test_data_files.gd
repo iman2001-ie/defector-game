@@ -21,9 +21,14 @@ extends GutTest
 ## type, asteroids, reinforcements, exact triggers). Story 7.2: level_2.json is
 ## the GDD Blockade (root values, per-wave counted totals by type, exact spawn
 ## order and formations, asteroids, exact triggers) and the formation rows are
-## 90 px apart (decision #53); level 3 stays the Wasp-only placeholder; Mauls
-## and the convoy are allowed in level_1 but not in levels 2 and 3; Tarek flies
-## in levels 1 and 2 and level 3 has no ally yet.
+## 90 px apart (decision #53); Mauls and the convoy are allowed in level_1 but
+## not in levels 2 and 3. Story 7.6: level_3.json is the GDD Siege of the Throne
+## World (root values, per-wave counted totals by type with the hunter_wasp flag
+## off and on, exact spawn order and formations, asteroids, exact triggers, the
+## Flagship boss wave last); no placeholder level is left; Tarek flies in levels
+## 1 and 2 and Ryn in level 3; a boss wave is allowed in dev levels and as
+## level 3's last wave; every level's background is null or a LevelBackground
+## id, and only level 3 shows the throne world.
 
 const LEVELS_DIR: String = "res://data/levels/"
 
@@ -53,23 +58,21 @@ func test_every_campaign_level_has_a_file() -> void:
 		assert_eq(data.get("id"), float(i), "level_%d.json id" % i)
 
 
-## The campaign levels: GDD names, ids 1..3 and the level_dev key set. Level 3
-## is still the placeholder (Story 4.1, replaced in Epic 7, decision F12): no
-## convoy and 1-2 Wasp-only waves. Level 1 is the real Cargo Ambush since Story
-## 7.1 (test_level_1_cargo_ambush_shape) and level 2 the real Blockade since
-## Story 7.2 (test_level_2_blockade_shape).
+## The campaign levels: GDD names, ids 1..3 and the level_dev key set. Every
+## Story 4.1 placeholder is gone: level 1 is the Cargo Ambush since Story 7.1
+## (test_level_1_cargo_ambush_shape), level 2 the Blockade since Story 7.2
+## (test_level_2_blockade_shape) and level 3 the Siege of the Throne World since
+## Story 7.6 (test_level_3_siege_shape).
 const LEVEL_NAMES: Dictionary = {
 	1: "Cargo Ambush",
 	2: "The Blockade",
 	3: "Siege of the Throne World",
 }
-## The campaign levels that are still Story 4.1 placeholders.
-const PLACEHOLDER_LEVELS: Array[int] = [3]
 ## The campaign levels the GDD gives no Mauls and no convoy (escort is Level 1 only).
 const NO_MAUL_NO_CONVOY_LEVELS: Array[int] = [2, 3]
 
 
-func test_campaign_levels_have_their_names_and_placeholder_wasp_waves() -> void:
+func test_campaign_levels_have_their_names_ids_and_key_set() -> void:
 	var dev: Variant = JSON.parse_string(FileAccess.get_file_as_string(LEVELS_DIR + "level_dev.json"))
 	assert_true(dev is Dictionary, "level_dev.json parses")
 	if not (dev is Dictionary):
@@ -89,17 +92,6 @@ func test_campaign_levels_have_their_names_and_placeholder_wasp_waves() -> void:
 		assert_eq(data.get("id"), float(i), "%s id" % path)
 		assert_eq(data.get("name"), LEVEL_NAMES[i], "%s name" % path)
 		assert_false(Config.level("%d" % i).is_empty(), "Config.level('%d') loads" % i)
-		if not PLACEHOLDER_LEVELS.has(i):
-			continue
-		assert_eq(data.get("convoy"), false, "%s has no convoy" % path)
-		var waves: Array = data.get("waves", []) as Array
-		assert_between(waves.size(), 1, 2, "%s has 1-2 waves" % path)
-		for w: int in waves.size():
-			var spawns: Array = (waves[w] as Dictionary).get("spawns", []) as Array
-			assert_gt(spawns.size(), 0, "%s wave %d spawns something" % [path, w])
-			for entry: Variant in spawns:
-				assert_eq((entry as Dictionary).get("type"), "wasp", "%s wave %d is Wasp-only" % [path, w])
-			assert_false((waves[w] as Dictionary).has("groups"), "%s wave %d has no groups" % [path, w])
 
 
 ## Counted enemies by type in one wave: every spawn entry plus every group
@@ -284,6 +276,100 @@ func test_level_2_blockade_shape() -> void:
 		assert_eq(wave.get("asteroids"), expected_asteroids[w], "wave %d asteroids" % (w + 1))
 		assert_false(wave.has("groups"), "wave %d has no groups" % (w + 1))
 		assert_eq(wave.get("triggers"), expected_triggers[w], "wave %d triggers" % (w + 1))
+
+
+## Counted enemies in one wave when every flag-gated type (EntityRegistry.ENEMY_FLAGS)
+## is `gated_on` or off: the WaveDirector skips and doesn't count a gated type
+## whose flag is off (decision F14).
+func _wave_counted(wave: Dictionary, gated_on: bool) -> int:
+	var totals: Dictionary = _wave_type_totals(wave)
+	var sum: int = 0
+	for type_id: Variant in totals:
+		if not gated_on and EntityRegistry.ENEMY_FLAGS.has(StringName(str(type_id))):
+			continue
+		sum += int(totals[type_id])
+	return sum
+
+
+## Story 7.6: Level 3 is the GDD's Siege of the Throne World. Root values (no
+## convoy, Ryn flying, the throne_world background, Ryn's l3_briefing story as
+## the intro, no outro until Story 7.7 adds Isolde's final line), each wave's
+## exact spawn order and formations (W1 Lancers then Wasps; W2 Needles first,
+## then Bastions, then the rowless Hunter Wasps; W3 Bastion, Lancers, then the
+## Wasps as grid_10x2, decision #53), the counted totals by type with the
+## hunter_wasp flag off (as shipped) and on, the exact asteroids, no groups and
+## every wave's exact trigger list: W1 starts the combat music (the level-root
+## `music` key is not read); the W3 taunt is gated by isolde_interruptions at
+## 0.25; the last wave is the Flagship with exactly the boss music trigger.
+func test_level_3_siege_shape() -> void:
+	var data: Dictionary = Config.level("3")
+	assert_false(data.is_empty(), "level_3.json loads")
+	var keys: Array = data.keys()
+	keys.sort()
+	var dev_keys: Array = Config.level("dev").keys()
+	dev_keys.sort()
+	assert_eq(keys, dev_keys, "the level_dev key set")
+	assert_eq(data.get("id"), 3.0, "id 3")
+	assert_eq(data.get("name"), "Siege of the Throne World")
+	assert_eq(data.get("background"), "throne_world")
+	assert_eq(data.get("music"), "combat")
+	assert_eq(data.get("convoy"), false, "no convoy")
+	assert_eq(data.get("ally"), "ryn", "Ryn flies")
+	assert_eq(data.get("intro_sequence"), "l3_briefing", "Ryn's briefing is the intro")
+	assert_true(Config.dialogue_is_story(&"l3_briefing"), "the intro is a story sequence")
+	assert_true(data.has("outro_sequence"), "the outro key is present")
+	assert_null(data.get("outro_sequence"), "no outro until Story 7.7")
+	assert_false(Config.flag("hunter_wasp"), "shipped: hunter_wasp off")
+	var waves: Array = data.get("waves", []) as Array
+	assert_eq(waves.size(), 4, "3 defence waves and the boss wave")
+	if waves.size() != 4:
+		return
+	var expected_totals: Array[Dictionary] = [
+		{"lancer": 4, "wasp": 12},
+		{"needle": 2, "bastion": 2, "hunter_wasp": 4},
+		{"bastion": 1, "lancer": 3, "wasp": 20},
+	]
+	var expected_counted_off: Array[int] = [16, 4, 24]
+	var expected_counted_on: Array[int] = [16, 8, 24]
+	var expected_spawns: Array = [
+		[
+			{"type": "lancer", "count": 4.0, "formation": "grid_4x1", "entry": "sides"},
+			{"type": "wasp", "count": 12.0, "formation": "grid_6x2", "entry": "top"},
+		],
+		[
+			{"type": "needle", "count": 2.0, "formation": "grid_2x1", "entry": "top"},
+			{"type": "bastion", "count": 2.0, "formation": "grid_2x1", "entry": "top"},
+			{"type": "hunter_wasp", "count": 4.0, "formation": "grid_4x1", "entry": "top"},
+		],
+		[
+			{"type": "bastion", "count": 1.0, "formation": "grid_1x1", "entry": "top"},
+			{"type": "lancer", "count": 3.0, "formation": "grid_3x1", "entry": "sides"},
+			{"type": "wasp", "count": 20.0, "formation": "grid_10x2", "entry": "top"},
+		],
+	]
+	var expected_asteroids: Array = [
+		[],
+		[{"size": "medium", "count": 3.0}],
+		[],
+	]
+	var expected_triggers: Array = [
+		[{"when": "wave_start", "actions": [{"music": "combat"}]}],
+		[],
+		[{"when": "progress", "at": 0.25, "flag": "isolde_interruptions", "actions": [{"comms": "l3_w3_isolde_taunt"}]}],
+	]
+	for w: int in 3:
+		var wave: Dictionary = waves[w] as Dictionary
+		assert_false(wave.has("boss"), "wave %d is not a boss wave" % (w + 1))
+		assert_eq(_wave_type_totals(wave), expected_totals[w], "wave %d enemies by type" % (w + 1))
+		assert_eq(_wave_counted(wave, false), expected_counted_off[w], "wave %d counts %d with hunter_wasp off" % [w + 1, expected_counted_off[w]])
+		assert_eq(_wave_counted(wave, true), expected_counted_on[w], "wave %d counts %d with hunter_wasp on" % [w + 1, expected_counted_on[w]])
+		assert_eq(wave.get("spawns"), expected_spawns[w], "wave %d spawn order and formations" % (w + 1))
+		assert_eq(wave.get("asteroids"), expected_asteroids[w], "wave %d asteroids" % (w + 1))
+		assert_false(wave.has("groups"), "wave %d has no groups" % (w + 1))
+		assert_eq(wave.get("triggers"), expected_triggers[w], "wave %d triggers" % (w + 1))
+	assert_eq(waves[3], {"boss": "flagship", "triggers": [{"when": "wave_start", "actions": [{"music": "boss"}]}]},
+		"wave 4: the Flagship with the boss music")
+	assert_true(Config.dialogue_is_story(&"l3_final_choice"), "the Flagship's Final Choice is a story sequence")
 
 
 func test_every_level_file_is_valid() -> void:
@@ -1459,12 +1545,12 @@ func test_dev_ally_level_shape() -> void:
 
 
 ## level_dev keeps no ally; levels 1 and 2 fly Tarek (Stories 7.1 and 7.2);
-## level 3 keeps "ally": null until Story 7.6.
-func test_ally_tarek_in_levels_1_2_and_off_in_dev_and_level_3() -> void:
+## level 3 flies Ryn, who took command after Tarek's fall (Story 7.6).
+func test_ally_tarek_in_levels_1_2_ryn_in_level_3_and_none_in_dev() -> void:
 	assert_null(Config.level("dev").get("ally"), "level_dev has no ally")
 	assert_eq(Config.level("1").get("ally"), "tarek", "level_1 flies Tarek")
 	assert_eq(Config.level("2").get("ally"), "tarek", "level_2 flies Tarek")
-	assert_null(Config.level("3").get("ally"), "level_3 has no ally yet")
+	assert_eq(Config.level("3").get("ally"), "ryn", "level_3 flies Ryn")
 
 
 func test_allies_tuning_ranges() -> void:
@@ -1680,15 +1766,44 @@ func test_dev_boss_level_shape() -> void:
 	assert_true(EntityRegistry.BOSSES.has(&"flagship"), "flagship is a registered boss")
 
 
-## Only dev levels have a boss wave until Story 7.6 puts the Flagship in Level 3.
-func test_boss_waves_only_in_dev_levels() -> void:
+## Boss waves appear only in dev levels and in level_3.json (Story 7.6: the
+## Flagship), where the one boss wave is the last wave.
+func test_boss_waves_only_in_dev_levels_and_last_in_level_3() -> void:
 	for path: String in _level_files():
 		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
 		if not (parsed is Dictionary):
 			continue
 		for wave: Variant in ((parsed as Dictionary).get("waves", []) as Array):
 			if wave is Dictionary and (wave as Dictionary).has("boss"):
-				assert_true(path.get_file().begins_with("level_dev"), "%s: a boss wave only in dev levels" % path)
+				var file: String = path.get_file()
+				assert_true(file.begins_with("level_dev") or file == "level_3.json", "%s: a boss wave only in dev levels and level_3" % path)
+	var waves: Array = Config.level("3").get("waves", []) as Array
+	var boss_waves: Array[int] = []
+	for w: int in waves.size():
+		if waves[w] is Dictionary and (waves[w] as Dictionary).has("boss"):
+			boss_waves.append(w)
+	assert_eq(boss_waves, [waves.size() - 1] as Array[int], "level_3's only boss wave is its last wave")
+
+
+## Story 7.6: every level file's `background` is null or a LevelBackground id;
+## level 1 is space_1, level 2 space_2, and only level_3.json uses the throne
+## world, so it lands as a reveal (GDD: the throne world appears only in Level 3).
+func test_throne_world_background_only_in_level_3() -> void:
+	var throne_files: Array[String] = []
+	for path: String in _level_files():
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+		if not (parsed is Dictionary):
+			continue
+		var value: Variant = (parsed as Dictionary).get("background")
+		assert_true(value == null or (value is String and LevelBackground.IDS.has(value as String)),
+			"%s background %s is null or a LevelBackground id" % [path, JSON.stringify(value)])
+		if value is String and value == LevelBackground.THRONE_WORLD:
+			throne_files.append(path.get_file())
+	assert_eq(Config.level("1").get("background"), "space_1", "level 1: space_1")
+	assert_eq(Config.level("2").get("background"), "space_2", "level 2: space_2")
+	assert_eq(throne_files, ["level_3.json"] as Array[String], "only level_3.json uses the throne world")
+	assert_eq(LevelBackground.THRONE_WORLD, "throne_world")
+	assert_true(LevelBackground.IDS.has(LevelBackground.THRONE_WORLD), "the throne world is a known id")
 
 
 ## Every level's boss wave names a registered boss (EntityRegistry.BOSSES), so a

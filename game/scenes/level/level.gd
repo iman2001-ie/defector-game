@@ -22,6 +22,13 @@ extends Node2D
 ## Play the ally dev level with:
 ##   "<GODOT_DIR>/Godot_v4.7.2-stable_win64.exe" --path game res://scenes/level/level.tscn -- --level=dev_ally
 ##
+## Background (Story 7.6): before the convoy, the ally and the WaveDirector,
+## the level hands the data's "background" id (background_id) to its
+## Background node (LevelBackground.apply) and logs one `Background '<id>'`
+## INFO line when the id it shows is non-empty (an unknown id warns and shows
+## none). Only "throne_world" (Level 3) draws
+## anything until Epic 8; an absent or null key is "" and draws nothing.
+##
 ## Kill share (Story 6.4, FR34): on a level that spawned an ally, the level
 ## tallies Events.enemy_killed (all kills, and those with by_ally) and, when the
 ## attempt's outcome is decided (the first Events.level_cleared or
@@ -109,6 +116,10 @@ func _ready() -> void:
 	GameState.emit_energy()
 	var retry_tag: String = " (retry)" if GameState.is_retry else ""
 	Log.info("scene", "Level %d '%s' started (%s)%s" % [id, str(data.get("name", "")), Config.LEVEL_PATH_FORMAT % level_id, retry_tag])
+	var backdrop: LevelBackground = $Background as LevelBackground
+	backdrop.apply(background_id(data))
+	if not backdrop.background_id().is_empty():
+		Log.info("scene", "Background '%s'" % backdrop.background_id())
 	if has_convoy(data):
 		_spawn_convoy()
 	var ally: String = ally_id(data)
@@ -192,6 +203,19 @@ static func ally_id(data: Dictionary) -> String:
 	if LevelValidator.is_valid_ally(value):
 		return value as String
 	Log.warn("scene", "Level ally %s is not null, \"tarek\" or \"ryn\"; no ally spawned" % JSON.stringify(value))
+	return ""
+
+
+## The level's background id from the data's "background" key; "" when the key
+## is absent or null, and "" with a WARN for any value that isn't a String
+## (LevelBackground.apply warns about an unknown String id).
+static func background_id(data: Dictionary) -> String:
+	var value: Variant = data.get("background")
+	if value == null:
+		return ""
+	if value is String:
+		return value as String
+	Log.warn("scene", "Level background %s is not null or a string; no background drawn" % JSON.stringify(value))
 	return ""
 
 

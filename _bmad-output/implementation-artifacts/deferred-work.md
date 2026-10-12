@@ -946,3 +946,10 @@ location: game/data/levels/level_2.json
 source_spec: `spec-7-2-play-level-2-the-blockade.md`
 reason: Maybe-false: both entries are grid_2x1 from the top, so they share x slots, and the Bastion hull spans y 170-330 against the Needle's 120-200. Whether this hurts play depends on the Bastion drift and the Needle reposition (every 8 s), so it is settled by the operator playtest in operator_actions; a fix would be a layout change in level_2.json.
 status: open
+
+### DW-99: No automated test proves the throne-world placeholder arc is actually rendered on screen; the tests check LevelBackground state, colours, geometry and node order only.
+origin: spec-deferred db8006c82555
+location: game/scenes/level/level_background.gd
+source_spec: `spec-7-6-play-level-3-siege-of-the-throne-world.md`
+reason: Maybe-false (intent-alignment layer): headless GUT runs on the dummy renderer, so pixels can't be checked there. The draw path is a single draw_colored_polygon plus draw_polyline over a convex circular segment, called after apply(). Settled by the operator playtest in operator_actions (the arc must be visible in Level 3 and absent in Levels 1 and 2).
+status: open
