@@ -1,0 +1,13 @@
+{
+  "actions": [
+    "Run \"<GODOT_DIR>/Godot_v4.7.2-stable_win64.exe\" --path game res://scenes/level/level.tscn -- --level=dev_boss in a debug build, press F6, destroy all four turrets, and confirm the Flagship enters Phase 2: the core opens up, the boss bar drains from the 66.7 % marker as you hit the core, and no error appears in the log.",
+    "In that run, judge whether the 0.6 s core glow reads clearly before each 12-bullet radial burst and whether the bursts are fair to dodge; any retune goes in game/data/tuning.json (boss.core) with a GDD decision-log entry.",
+    "Judge the Wasp launches: every 10 s up to 5 Wasps fly out of the core to their slots below the Flagship (never more than 10 alive) and then dive like wave Wasps. Note whether one missile killing two stacked boss Wasps (rows 60 px apart) is acceptable.",
+    "Destroy all four turrets while the Flagship is still flying in and confirm it still reaches its station and then opens the core (Phase 2).",
+    "Confirm or overrule the provisional readings in GDD decision-log row 55 (radial layout, first burst and first launch one full period after Phase 2 starts, launch origin and the 10 fixed slots, the launch count rule, core death before Story 7.5, F6 freeing launched Wasps), and update the row status accordingly."
+  ],
+  "parked_at": "2026-10-12",
+  "run_id": "20261007-173701-8906",
+  "spec_file": "_bmad-output/implementation-artifacts/spec-7-4-break-the-exposed-core-phase-2.md",
+  "story_key": "7-4-break-the-exposed-core-phase-2"
+}

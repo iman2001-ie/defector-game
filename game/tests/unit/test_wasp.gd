@@ -98,6 +98,42 @@ func test_side_entry_starts_on_the_nearer_side() -> void:
 	assert_eq(_warns().size(), 0)
 
 
+## Story 7.4: a boss-launched Wasp's first ENTER starts at `launch_from` (the
+## core centre); its re-entry after a dive still comes from the top.
+func test_launch_from_starts_the_first_entry_there_and_reaches_the_slot() -> void:
+	var from: Vector2 = Vector2(960, 294)
+	var wasp: Wasp = _make({"slot": Vector2(640, 370), "launch_from": from})
+	assert_eq(wasp.state(), Wasp.State.ENTER)
+	assert_eq(wasp.global_position, from, "starts at launch_from")
+	assert_eq(wasp.formation_slot(), Vector2(640, 370))
+	wasp.step(0.1)
+	var expected: Vector2 = from.move_toward(Vector2(640, 370), 35.0)
+	assert_almost_eq(wasp.global_position.x, expected.x, 0.001, "flies toward the slot at entry speed")
+	assert_almost_eq(wasp.global_position.y, expected.y, 0.001)
+	_step_until(wasp, Wasp.State.HOLD, 3.0)
+	assert_eq(wasp.state(), Wasp.State.HOLD)
+	assert_eq(wasp.global_position, Vector2(640, 370), "holds its slot")
+	wasp.start_dive()
+	_step_until(wasp, Wasp.State.DIVE, 1.0)
+	_step_until(wasp, Wasp.State.ENTER, 5.0)
+	assert_eq(wasp.state(), Wasp.State.ENTER, "re-entering after the dive")
+	assert_eq(wasp.global_position, Vector2(640, -32), "the re-entry comes from the top, not launch_from")
+	assert_eq(_warns().size(), 0)
+
+
+func test_without_launch_from_the_entry_start_is_unchanged() -> void:
+	var top: Wasp = _make({"position": Vector2(640, 370), "slot": Vector2(640, 370), "entry": &"top"})
+	assert_eq(top.global_position, Vector2(640, -32), "top entry as before")
+	var sides: Wasp = _make({"position": Vector2(400, 280), "slot": Vector2(400, 280), "entry": &"sides"})
+	assert_eq(sides.global_position, Vector2(-32, 280), "side entry as before")
+
+
+func test_launch_from_without_a_slot_is_ignored() -> void:
+	var wasp: Wasp = _make({"position": Vector2(500, 300), "launch_from": Vector2(960, 294)})
+	assert_eq(wasp.state(), Wasp.State.HOLD, "a slotless Wasp still holds")
+	assert_eq(wasp.global_position, Vector2(500, 300))
+
+
 func test_unknown_entry_warns_and_uses_top() -> void:
 	var wasp: Wasp = _make({"position": Vector2(720, 160), "slot": Vector2(720, 160), "entry": &"spiral"})
 	assert_eq(wasp.global_position, Vector2(720, -32))

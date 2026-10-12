@@ -23,3 +23,6 @@ const CONVOY: StringName = &"convoy"
 const ALLIES: StringName = &"allies"
 ## The live boss (the Flagship; joined in Flagship._ready, Story 7.3). Never counted.
 const BOSS: StringName = &"boss"
+## Wasps the Flagship launched in CORE (joined by Flagship, Story 7.4). Never
+## counted: the WaveDirector never connects their `resolved`; F6 frees them.
+const BOSS_WASPS: StringName = &"boss_wasps"

@@ -1018,6 +1018,62 @@ func test_f6_frees_the_live_flagship_and_starts_a_fresh_one() -> void:
 	assert_eq(_events_named("wave_cleared"), [["wave_cleared", 1]] as Array[Array], "one boss_defeated clears it")
 
 
+## Story 7.4: drives `boss` (physics off) to its station, destroys its turrets
+## (CORE) and steps it past its first Wasp launch. Returns the live
+## boss-launched Wasps (Groups.BOSS_WASPS), physics off on each.
+func _launch_boss_wasps(boss: Flagship) -> Array[Wasp]:
+	boss.set_physics_process(false)
+	boss.step(Config.num("boss.hull.arrival_s"))
+	for turret: FlagshipTurret in boss.turrets():
+		turret.apply_damage(turret.hp, null)
+	assert_eq(boss.phase(), Flagship.Phase.CORE, "the Flagship is in CORE")
+	var dt: float = 1.0 / 60.0
+	for i: int in roundi(Config.num("boss.core.wasp_launch_interval_s") / dt) + 2:
+		boss.step(dt)
+	var out: Array[Wasp] = []
+	for node: Node in get_tree().get_nodes_in_group(&"boss_wasps"):
+		var wasp: Wasp = node as Wasp
+		if wasp != null and not wasp.is_queued_for_deletion():
+			wasp.set_physics_process(false)
+			out.append(wasp)
+	assert_eq(out.size(), Config.int_("boss.core.wasp_launch_count"), "the first launch")
+	return out
+
+
+func test_f6_frees_the_boss_launched_wasps() -> void:
+	_start([{"spawns": [_wasps(1)]}, {"boss": "flagship"}])
+	_director.debug_skip_to_boss()
+	var first: Flagship = _flagships()[0]
+	var launched: Array[Wasp] = _launch_boss_wasps(first)
+	_director.debug_skip_to_boss()
+	assert_true(first.is_queued_for_deletion(), "the old Flagship freed")
+	for wasp: Wasp in launched:
+		assert_true(wasp.is_queued_for_deletion(), "every boss-launched Wasp freed")
+		assert_false(wasp.is_dead(), "without a kill")
+		assert_false(wasp.is_in_group(&"boss_wasps"), "out of Groups.BOSS_WASPS")
+	assert_eq(_flagships().size(), 1, "a fresh Flagship")
+	assert_eq(_director.total_count(), 1)
+	assert_eq(_director.resolved_count(), 0)
+
+
+func test_launched_wasp_kills_leave_the_boss_wave_counts_unchanged() -> void:
+	_start([{"boss": "flagship"}])
+	var launched: Array[Wasp] = _launch_boss_wasps(_flagships()[0])
+	var progress_events: int = _events_named("wave_progress_changed").size()
+	for wasp: Wasp in launched:
+		assert_false(wasp.is_in_group(&"counted"), "not counted")
+		assert_eq(wasp.resolved.get_connections().size(), 0, "the WaveDirector never listens to it")
+	for wasp: Wasp in launched:
+		wasp.apply_damage(wasp.hp, null)
+	assert_eq(_director.total_count(), 1, "the wave total is unchanged")
+	assert_eq(_director.resolved_count(), 0, "the resolved count is unchanged")
+	assert_eq(_events_named("wave_progress_changed").size(), progress_events, "no progress change")
+	await wait_seconds(GAP_S + 0.2)
+	assert_eq(_events_named("wave_cleared"), [] as Array[Array], "the boss wave still waits for boss_defeated")
+	assert_eq(_lines_containing("stalled").size(), 0, "no stall net")
+	assert_eq(_director.total_count(), 1)
+
+
 func test_f6_without_a_boss_wave_logs() -> void:
 	_start([{"spawns": [_wasps(1)]}])
 	_director.debug_skip_to_boss()

@@ -293,9 +293,9 @@ func debug_resolve_wave() -> void:
 		_try_clear()
 
 
-## F6: jumps to the first boss wave. Current counted enemies and any live boss
-## are freed without resolving and running chains are abandoned; the boss wave
-## starts with a fresh boss.
+## F6: jumps to the first boss wave. Current counted enemies, any live boss and
+## its launched Wasps (Groups.BOSS_WASPS, Story 7.4) are freed without resolving
+## and running chains are abandoned; the boss wave starts with a fresh boss.
 func debug_skip_to_boss() -> void:
 	var boss_index: int = -1
 	for i: int in _waves.size():
@@ -311,6 +311,9 @@ func debug_skip_to_boss() -> void:
 		node.queue_free()
 	for node: Node in get_tree().get_nodes_in_group(Groups.BOSS):
 		node.remove_from_group(Groups.BOSS)
+		node.queue_free()
+	for node: Node in get_tree().get_nodes_in_group(Groups.BOSS_WASPS):
+		node.remove_from_group(Groups.BOSS_WASPS)
 		node.queue_free()
 	_boss = null
 	_boss_pending = false

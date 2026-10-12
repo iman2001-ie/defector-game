@@ -1552,6 +1552,59 @@ func test_flagship_phase_1_matches_the_gdd() -> void:
 	assert_eq(str(Config.section("boss.core").get("tier")), "boss_death")
 
 
+## The GDD numbers the Flagship's Phase 2 must keep (FR50, Story 7.4): a
+## 12-bullet radial burst at 300 px/s every 3.0 s start to start with its 0.6 s
+## charge inside, and 5 Wasps every 10 s with at most 10 alive.
+func test_flagship_phase_2_matches_the_gdd() -> void:
+	assert_eq(Config.int_("boss.core.radial_bullets"), 12, "12-bullet radial burst")
+	assert_eq(Config.num("boss.core.radial_speed_px_s"), 300.0, "300 px/s")
+	assert_eq(Config.num("boss.core.radial_interval_s"), 3.0, "every 3.0 s start to start")
+	assert_eq(Config.num("boss.core.charge_s"), 0.6, "0.6 s charge glow")
+	assert_eq(Config.int_("boss.core.wasp_launch_count"), 5, "5 Wasps per launch")
+	assert_eq(Config.num("boss.core.wasp_launch_interval_s"), 10.0, "every 10 s")
+	assert_eq(Config.int_("boss.core.wasp_max_alive"), 10, "at most 10 alive")
+
+
+## Story 7.4 provisional tuning (decision #55): sane ranges, enough boss Wasp
+## slots for the cap, and every slot inside the playfield and the Wasp zone
+## with the Wasp's whole sprite below the core's hitbox at the station.
+func test_flagship_phase_2_tuning_ranges() -> void:
+	assert_gt(Config.num("boss.core.glow_energy"), 0.0, "core glow_energy > 0")
+	assert_gte(Config.int_("boss.core.radial_bullets"), 1, "radial_bullets >= 1")
+	var count: int = Config.int_("boss.core.wasp_launch_count")
+	var cap: int = Config.int_("boss.core.wasp_max_alive")
+	assert_gte(count, 1, "wasp_launch_count >= 1")
+	assert_gte(cap, count, "wasp_max_alive >= wasp_launch_count")
+	assert_gt(Config.num("boss.core.wasp_launch_interval_s"), 0.0, "wasp_launch_interval_s > 0")
+	var columns: int = Config.int_("boss.core.wasp_slots.columns")
+	var spacing: float = Config.num("boss.core.wasp_slots.spacing_x_px")
+	var rows: Variant = Config.section("boss.core.wasp_slots").get("rows_y")
+	assert_true(rows is Array, "wasp_slots.rows_y is an array")
+	if not (rows is Array):
+		return
+	assert_gte(columns, 1, "wasp_slots.columns >= 1")
+	assert_gte(columns * (rows as Array).size(), cap, "columns x rows >= wasp_max_alive")
+	var wasp: Node = (load("res://entities/enemies/wasp/wasp.tscn") as PackedScene).instantiate()
+	var half: float = (wasp as Enemy).sprite_px / 2.0
+	wasp.free()
+	for c: int in columns:
+		var x: float = Playfield.SIZE.x / 2.0 + (float(c) - float(columns - 1) / 2.0) * spacing
+		assert_gte(x - half, 0.0, "slot column %d inside the playfield (left)" % c)
+		assert_lte(x + half, Playfield.SIZE.x, "slot column %d inside the playfield (right)" % c)
+	var zone_y: float = Config.num("enemies.wasp.zone_height_ratio") * Playfield.SIZE.y
+	var probe: Node = (load(FLAGSHIP_SCENE_PATH) as PackedScene).instantiate()
+	var core_y: float = (probe.get_node("Core") as Node2D).position.y
+	probe.free()
+	var core_bottom: float = Config.num("boss.hull.station_y") + core_y \
+		+ Config.num("boss.core.sprite_px") / 2.0 * Config.num("boss.core.hitbox_ratio")
+	for y: Variant in rows:
+		assert_true(y is float or y is int, "rows_y entry %s is a number" % y)
+		if not (y is float or y is int):
+			continue
+		assert_lte(float(y), zone_y, "row y %s inside the Wasp zone (<= %.0f)" % [y, zone_y])
+		assert_gt(float(y) - half, core_bottom, "row y %s: the Wasp clears the core hitbox (bottom %.1f)" % [y, core_bottom])
+
+
 ## Story 7.3 provisional tuning (decision #54): sane ranges, the hull starts
 ## fully above the screen and every part ends inside the enemy zone at its
 ## station (the part offsets come from the scene, like the Bastion's turrets).

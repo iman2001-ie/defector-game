@@ -11,6 +11,10 @@ extends Enemy
 ## back to its slot and never resolves for leaving.
 ##
 ## Without a `slot` (the sandbox) the Wasp holds its spawn position forever.
+##
+## Boss-launched Wasps (Story 7.4) also pass `launch_from` (global): with a
+## `slot`, the first ENTER starts there (the Flagship's core centre) instead of
+## off screen. Only the first entry: a re-entry after a dive comes from the top.
 
 enum State { ENTER, HOLD, TELEGRAPH, DIVE }
 
@@ -19,6 +23,9 @@ var _state: State = State.HOLD
 var _t: float = 0.0
 ## Where the next ENTER starts.
 var _entry_start: Vector2 = Vector2.ZERO
+## The `launch_from` param (Story 7.4): where the first ENTER starts.
+var _launch_from: Vector2 = Vector2.ZERO
+var _has_launch_from: bool = false
 var _dive_dir: Vector2 = Vector2.DOWN
 var _flash_on: bool = false
 var _exit_rect: Rect2 = Rect2()
@@ -35,6 +42,14 @@ var _hull: CanvasItem = null
 
 func _init() -> void:
 	type_id = &"wasp"
+
+
+## Enemy.setup plus the optional `launch_from` (Vector2, global).
+func setup(params: Dictionary) -> void:
+	super(params)
+	if params.has("launch_from"):
+		_launch_from = params["launch_from"] as Vector2
+		_has_launch_from = true
 
 
 func _ready() -> void:
@@ -56,7 +71,7 @@ func _ready() -> void:
 	if _slot.y > zone_y:
 		Log.warn("spawn", "wasp slot y %.0f is below the formation zone (y <= %.0f); clamped" % [_slot.y, zone_y])
 		_slot.y = zone_y
-	_entry_start = _entry_start_for(_slot)
+	_entry_start = _launch_from if _has_launch_from else _entry_start_for(_slot)
 	_enter_state(State.ENTER)
 
 
