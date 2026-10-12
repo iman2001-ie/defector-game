@@ -28,6 +28,10 @@ var all_levels_unlocked: bool = false
 ## HintPill adds a hint id when the hint starts showing and never queues a
 ## recorded one again, so retries, restarts and the title don't repeat it.
 var shown_hints: Dictionary[StringName, bool] = {}
+## Story 7.5: the Final Choice the player made (&"surrender" | &"destroy"), set
+## by CommsChannel when an option is clicked; &"" until then. Kept for a
+## possible epilogue line (Story 7.8); never saved or reset.
+var final_choice: StringName = &""
 
 
 ## True when level `n` may be started (Story 4.3's Level Select): the F7 debug

@@ -2,7 +2,8 @@ extends GutTest
 ## GameState (Story 3.2): the run-state autoload holds energy, current_level_id
 ## and is_retry. Story 3.3: the energy API (max_energy, add_energy clamp and
 ## energy_changed, emit_energy). Story 4.2: highest_unlocked_level,
-## all_levels_unlocked (debug F7) and is_level_unlocked.
+## all_levels_unlocked (debug F7) and is_level_unlocked. Story 7.5:
+## final_choice (default &"", never saved).
 
 const GAME_STATE_SCRIPT: GDScript = preload("res://autoloads/game_state.gd")
 
@@ -18,6 +19,8 @@ func after_each() -> void:
 	GameState.is_retry = false
 	GameState.highest_unlocked_level = 1
 	GameState.all_levels_unlocked = false
+	GameState.final_choice = &""
+	SaveManager.save_path = SaveManager.DEFAULT_SAVE_PATH
 
 
 func test_defaults() -> void:
@@ -107,3 +110,22 @@ func test_emit_energy_announces_the_current_value() -> void:
 	GameState.emit_energy()
 	assert_eq(GameState.energy, 30, "unchanged")
 	assert_signal_emitted_with_parameters(Events, "energy_changed", [30, 100])
+
+
+## Story 7.5: the Final Choice starts empty, holds a StringName and is never saved.
+func test_final_choice_defaults_to_empty_and_is_never_saved() -> void:
+	var state: Node = GAME_STATE_SCRIPT.new()
+	assert_eq(state.get("final_choice"), &"", "empty until a choice is made")
+	assert_eq(typeof(state.get("final_choice")), TYPE_STRING_NAME)
+	state.free()
+	GameState.final_choice = &"destroy"
+	var path: String = "user://test_final_choice_save.cfg"
+	SaveManager.save_path = path
+	assert_true(SaveManager.save(), "saved")
+	var file: ConfigFile = ConfigFile.new()
+	assert_eq(file.load(path), OK)
+	for section: String in file.get_sections():
+		for key: String in file.get_section_keys(section):
+			assert_false(key.contains("choice"), "%s/%s is not the final choice" % [section, key])
+			assert_ne(str(file.get_value(section, key)), "destroy", "the choice is not written")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))

@@ -126,6 +126,45 @@
 					"cut_off_at": 39
 				}
 			]
+		},
+		"choice_a": {
+			"mode": "story",
+			"lines": [
+				{ "speaker": "isolde", "text": "Lead-in one." },
+				{ "speaker": "isolde", "text": "Lead-in two. Choose." }
+			],
+			"choice": {
+				"options": [
+					{ "id": "surrender", "label": "OFFER SURRENDER", "next": "resp_s" },
+					{ "id": "destroy", "label": "DESTROY HER", "next": "resp_d" }
+				]
+			}
+		},
+		"resp_s": {
+			"mode": "story",
+			"lines": [
+				{ "speaker": "vale", "text": "Surrender line." },
+				{ "speaker": "isolde", "text": "Contempt." }
+			]
+		},
+		"resp_d": {
+			"mode": "story",
+			"lines": [
+				{ "speaker": "vale", "text": "Destroy line." },
+				{ "speaker": "isolde", "text": "Defiance." }
+			]
+		},
+		"choice_bad_next": {
+			"mode": "story",
+			"lines": [
+				{ "speaker": "isolde", "text": "Broken choice." }
+			],
+			"choice": {
+				"options": [
+					{ "id": "surrender", "label": "OFFER SURRENDER", "next": "no_such_response" },
+					{ "id": "destroy", "label": "DESTROY HER", "next": "resp_d" }
+				]
+			}
 		}
 	}
 }

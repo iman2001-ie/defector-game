@@ -8,7 +8,11 @@ extends GutTest
 ## hitbox layout, contact and targeting. Phase 2: the move to CORE when the 4th
 ## turret dies, core damage, the core's start-to-start radial cadence and glow,
 ## the 12-bullet radial burst, the Wasp launches (slots, cap, not counted,
-## drops), leaving CORE, the core's death before Story 7.5 and targeting.
+## drops), leaving CORE and targeting. Phase 3 (Story 7.5): the 50 HP clamp
+## into FINAL_CHOICE and its comms request, the wait for its own `finished`,
+## DESPERATE (the alternating radials, the aimed spread, the shared glow, the
+## red pulse, targeting) and the core's death: DYING, Feedback.boss_death and
+## boss_defeated after the chain.
 
 const FLAGSHIP_SCENE: PackedScene = preload("res://entities/boss/flagship.tscn")
 const DT: float = 1.0 / 60.0
@@ -24,6 +28,8 @@ var _lines: Array[String] = []
 ## Every boss Events emission: [signal name, args...].
 var _events: Array[Array] = []
 var _recorders: Dictionary = {}
+## Every Events.comms_sequence_requested id.
+var _requests: Array[StringName] = []
 
 
 func before_each() -> void:
@@ -39,12 +45,15 @@ func before_each() -> void:
 	}
 	for signal_name: String in _recorders:
 		Events.connect(signal_name, _recorders[signal_name])
+	_requests.clear()
+	Events.comms_sequence_requested.connect(_on_requested)
 
 
 func after_each() -> void:
 	for signal_name: String in _recorders:
 		Events.disconnect(signal_name, _recorders[signal_name])
 	_recorders = {}
+	Events.comms_sequence_requested.disconnect(_on_requested)
 	Log.sink = Callable()
 	Config.load_data()
 	Feedback.reset()
@@ -55,6 +64,10 @@ func after_each() -> void:
 	_effects = null
 	_spawner = null
 	_camera = null
+
+
+func _on_requested(id: StringName) -> void:
+	_requests.append(id)
 
 
 func _capture(level: String, category: String, msg: String) -> void:
@@ -127,6 +140,48 @@ func _spawn_in_core() -> Flagship:
 	_events.clear()
 	_lines.clear()
 	return boss
+
+
+## A Flagship in CORE whose core was clamped to 50 (FINAL_CHOICE, Story 7.5).
+## Clears the recorded events, requests and log lines.
+func _spawn_in_final_choice() -> Flagship:
+	var boss: Flagship = _spawn_in_core()
+	boss.core().apply_damage(boss.core().hp, null)
+	assert_eq(boss.phase(), Flagship.Phase.FINAL_CHOICE, "in FINAL_CHOICE")
+	_events.clear()
+	_requests.clear()
+	_lines.clear()
+	return boss
+
+
+## A Flagship in DESPERATE (its Final Choice finished). Clears the recorded
+## events and log lines.
+func _spawn_in_desperate() -> Flagship:
+	var boss: Flagship = _spawn_in_final_choice()
+	Events.comms_sequence_finished.emit(Flagship.FINAL_CHOICE_SEQUENCE)
+	assert_eq(boss.phase(), Flagship.Phase.DESPERATE, "in DESPERATE")
+	_events.clear()
+	_lines.clear()
+	return boss
+
+
+## A stand-in player at `pos` (in the player group, for _aim_from).
+func _add_player(pos: Vector2) -> Node2D:
+	var player: Node2D = Node2D.new()
+	player.add_to_group(&"player")
+	add_child_autofree(player)
+	player.global_position = pos
+	return player
+
+
+## Explosions under World/Effects not queued for deletion.
+func _live_explosions() -> Array[Explosion]:
+	var out: Array[Explosion] = []
+	for child: Node in _effects.get_children():
+		var e: Explosion = child as Explosion
+		if e != null and not e.is_queued_for_deletion():
+			out.append(e)
+	return out
 
 
 ## Steps the Flagship `seconds` at DT (rounded to whole ticks).
@@ -762,37 +817,356 @@ func test_leaving_core_stops_shots_and_launches_and_keeps_the_wasps() -> void:
 	assert_false(boss.core().is_glowing())
 
 
-func test_core_killed_before_story_7_5_stays_in_core() -> void:
+# --- Phase 3: the Final Choice, DESPERATE and DYING (Story 7.5) -----------------------
+
+## Story 7.5: the shipped Phase 3 numbers these tests rely on.
+func test_phase_3_tuning_used_here() -> void:
+	assert_eq(Config.int_("boss.final_choice_hp"), 50)
+	assert_eq(Config.num("boss.desperate.radial_interval_s"), 1.5)
+	assert_eq(Config.num("boss.desperate.aimed_interval_s"), 2.0)
+	assert_eq(Config.int_("boss.desperate.radial_bullets"), 12)
+	assert_eq(Config.int_("boss.desperate.radial_bursts"), 2)
+	assert_eq(Config.num("feedback.boss_death_chain_s"), 2.0)
+	assert_eq(Flagship.FINAL_CHOICE_SEQUENCE, &"l3_final_choice")
+
+
+func test_clamp_a_999_hit_from_60_to_exactly_50_and_final_choice() -> void:
 	var boss: Flagship = _spawn_in_core()
+	var core: FlagshipCore = boss.core()
+	core.apply_damage(140, null)
+	assert_eq(core.hp, 60, "a plain hit above the floor")
+	assert_eq(boss.phase(), Flagship.Phase.CORE)
+	_events.clear()
+	_requests.clear()
+	core.apply_damage(999, null)
+	_assert_clamped_into_final_choice(boss)
+
+
+func test_clamp_an_exact_hit_from_55() -> void:
+	var boss: Flagship = _spawn_in_core()
+	var core: FlagshipCore = boss.core()
+	core.apply_damage(145, null)
+	assert_eq(core.hp, 55)
+	_events.clear()
+	_requests.clear()
+	core.apply_damage(5, null)
+	_assert_clamped_into_final_choice(boss)
+
+
+func _assert_clamped_into_final_choice(boss: Flagship) -> void:
+	var core: FlagshipCore = boss.core()
+	assert_eq(core.hp, 50, "clamped to exactly 50")
+	assert_false(core.is_dead(), "never a kill")
+	assert_true(core.invulnerable, "invulnerable")
+	assert_false(core.is_targetable(), "no target")
+	assert_eq(core.hp_floor(), 0, "the floor is spent")
+	assert_eq(boss.phase(), Flagship.Phase.FINAL_CHOICE, "FINAL_CHOICE")
+	assert_eq(_events, [
+		["boss_hp_changed", 50, 300, 2],
+		["boss_phase_changed", 3],
+		["boss_hp_changed", 50, 300, 3],
+	] as Array[Array], "the hp change, then the phase entry")
+	assert_eq(_requests, [&"l3_final_choice"] as Array[StringName], "l3_final_choice requested once")
+	assert_false(core.is_attacking(), "the core attack stopped")
+	assert_false(core.is_glowing())
+	assert_eq(_events_named("enemy_killed"), [] as Array[Array])
+	assert_eq(_events_named("boss_defeated"), [] as Array[Array])
+
+
+func test_a_hit_above_the_floor_stays_in_core() -> void:
+	var boss: Flagship = _spawn_in_core()
+	boss.core().apply_damage(149, null)
+	assert_eq(boss.core().hp, 51, "core 51")
+	assert_false(boss.core().invulnerable)
+	assert_eq(boss.phase(), Flagship.Phase.CORE, "still CORE")
+	assert_eq(_requests, [] as Array[StringName], "nothing requested")
+	assert_eq(boss.core().hp_floor(), 50, "the floor is still armed")
+
+
+func test_final_choice_waits_for_its_own_finished() -> void:
+	var boss: Flagship = _spawn_in_core()
+	_step_for(boss, 1.0)
+	var core: FlagshipCore = boss.core()
+	core.apply_damage(150, null)
+	assert_eq(boss.phase(), Flagship.Phase.FINAL_CHOICE)
+	var bullets: int = _bullets().size()
+	var wasps: int = _launched().size()
+	_events.clear()
+	Events.comms_sequence_finished.emit(&"other")
+	Events.comms_sequence_finished.emit(&"l3_isolde_refuse_destroy")
+	for i: int in 600:
+		boss.step(DT)
+	assert_eq(boss.phase(), Flagship.Phase.FINAL_CHOICE, "still FINAL_CHOICE")
+	assert_eq(_bullets().size(), bullets, "no core shots")
+	assert_eq(_launched().size(), wasps, "no launches")
+	assert_false(core.is_glowing(), "no charge glow")
+	core.apply_damage(10, null)
+	assert_eq(core.hp, 50, "the core ignores damage")
+	assert_eq(_events, [] as Array[Array], "nothing emitted")
+
+
+func test_finished_outside_final_choice_is_ignored() -> void:
+	var boss: Flagship = _spawn_in_core()
+	Events.comms_sequence_finished.emit(&"l3_final_choice")
+	assert_eq(boss.phase(), Flagship.Phase.CORE, "CORE ignores it")
+	assert_eq(_events_named("boss_phase_changed"), [] as Array[Array])
+
+
+func test_final_choice_finished_enters_desperate_once() -> void:
+	var boss: Flagship = _spawn_in_final_choice()
+	Events.comms_sequence_finished.emit(&"l3_final_choice")
+	assert_eq(boss.phase(), Flagship.Phase.DESPERATE, "DESPERATE")
+	assert_eq(_events, [["boss_phase_changed", 4], ["boss_hp_changed", 50, 300, 4]] as Array[Array])
+	var core: FlagshipCore = boss.core()
+	assert_false(core.invulnerable, "the core is vulnerable again")
+	assert_true(core.is_targetable(), "and targetable")
+	assert_true(core.is_desperate(), "the desperate cycles run")
+	assert_true(core.is_pulsing(), "the red pulse")
+	Events.comms_sequence_finished.emit(&"l3_final_choice")
+	assert_eq(_events_named("boss_phase_changed").size(), 1, "entered once")
+	assert_eq(boss.phase(), Flagship.Phase.DESPERATE)
+	core.apply_damage(10, null)
+	assert_eq(core.hp, 40, "damage lands")
+	assert_eq(_events.back(), ["boss_hp_changed", 40, 300, 4])
+
+
+func test_desperate_cadence_over_6_1_s() -> void:
+	var player: Node2D = _add_player(Vector2(1300, 900))
+	var boss: Flagship = _spawn_in_desperate()
+	var core: FlagshipCore = boss.core()
+	var origin: Vector2 = core.global_position
+	var radial_interval: float = Config.num("boss.desperate.radial_interval_s")
+	var radial_charge: float = Config.num("boss.desperate.radial_charge_s")
+	var aimed_interval: float = Config.num("boss.desperate.aimed_interval_s")
+	var aimed_telegraph: float = Config.num("boss.desperate.aimed_telegraph_s")
+	assert_eq([radial_interval, radial_charge, aimed_interval, aimed_telegraph], [1.5, 0.4, 2.0, 0.3], "shipped cadence")
+	## [t, radial bullets, aimed bullets] per tick that fired.
+	var shots: Array[Array] = []
+	var radial_angles: Array[Array] = []
+	var aimed_angles: Array[Array] = []
+	var samples: Array[Array] = []
+	var seen: int = _bullets().size()
+	var t: float = 0.0
+	while t < 6.1:
+		boss.step(DT)
+		t += DT
+		var bullets: Array[Projectile] = _bullets()
+		var fresh: Array[Projectile] = bullets.slice(seen)
+		seen = bullets.size()
+		var radial: Array[float] = []
+		var aimed: Array[float] = []
+		for b: Projectile in fresh:
+			assert_eq(b.global_position, origin, "from the core centre")
+			assert_eq(b.damage, Config.int_("damage.bullet_hearts"))
+			var speed: float = b.velocity.length()
+			if is_equal_approx(speed, 300.0):
+				radial.append(fposmod(_deg_from_down(b.velocity) + 0.001, 360.0) - 0.001)
+			elif is_equal_approx(speed, 400.0):
+				aimed.append(_deg_from_down(b.velocity))
+			else:
+				fail_test("unexpected bullet speed %.2f" % speed)
+		if not radial.is_empty() or not aimed.is_empty():
+			shots.append([t, radial.size(), aimed.size()])
+		if not radial.is_empty():
+			radial.sort()
+			radial_angles.append(radial)
+		if not aimed.is_empty():
+			aimed.sort()
+			aimed_angles.append(aimed)
+		samples.append([t, core.is_glowing()])
+	var radial_times: Array[float] = []
+	var aimed_times: Array[float] = []
+	for shot: Array in shots:
+		if int(shot[1]) > 0:
+			assert_eq(shot[1], 12, "12 bullets per radial burst")
+			radial_times.append(shot[0])
+		if int(shot[2]) > 0:
+			assert_eq(shot[2], 3, "3 bullets per aimed spread")
+			aimed_times.append(shot[0])
+	assert_eq(radial_times.size(), 4, "radials at 1.5, 3.0, 4.5, 6.0")
+	for k: int in radial_times.size():
+		assert_almost_eq(radial_times[k], radial_interval * float(k + 1), DT + EPS, "radial %d at 1.5 * %d" % [k + 1, k + 1])
+	assert_eq(aimed_times.size(), 3, "aimed spreads at 2.0, 4.0, 6.0")
+	for k: int in aimed_times.size():
+		assert_almost_eq(aimed_times[k], aimed_interval * float(k + 1), DT + EPS, "aimed spread %d at 2.0 * %d" % [k + 1, k + 1])
+	# Bursts 1 and 3 fly straight down (0, 30, ...); bursts 2 and 4 sit 15 degrees on, in the gaps.
+	for k: int in radial_angles.size():
+		var offset: float = 0.0 if k % 2 == 0 else 15.0
+		var angles: Array = radial_angles[k]
+		for i: int in angles.size():
+			assert_almost_eq(float(angles[i]), offset + 30.0 * float(i), 0.01, "burst %d bullet %d" % [k + 1, i])
+	var aim_deg: float = _deg_from_down(player.global_position - origin)
+	for k: int in aimed_angles.size():
+		var angles: Array = aimed_angles[k]
+		assert_almost_eq(float(angles[0]), aim_deg - 15.0, 0.01, "spread %d: -15 degrees" % (k + 1))
+		assert_almost_eq(float(angles[1]), aim_deg, 0.01, "spread %d: the centre bullet at the player" % (k + 1))
+		assert_almost_eq(float(angles[2]), aim_deg + 15.0, 0.01, "spread %d: +15 degrees" % (k + 1))
+	# The Glow shows in each radial's last 0.4 s and each aimed spread's last 0.3 s (edges skipped).
+	var checked: int = 0
+	for sample: Array in samples:
+		var st: float = sample[0]
+		var radial_lead: float = (floorf(st / radial_interval + EPS) + 1.0) * radial_interval - st
+		var aimed_lead: float = (floorf(st / aimed_interval + EPS) + 1.0) * aimed_interval - st
+		var near_edge: bool = false
+		for edge: float in [radial_lead - radial_charge, aimed_lead - aimed_telegraph, radial_lead, aimed_lead, radial_lead - radial_interval, aimed_lead - aimed_interval]:
+			if absf(edge) < 2.0 * DT:
+				near_edge = true
+		if near_edge:
+			continue
+		checked += 1
+		var expected: bool = radial_lead < radial_charge or aimed_lead < aimed_telegraph
+		assert_eq(sample[1], expected, "glow at %.3f s (radial in %.3f, aimed in %.3f)" % [st, radial_lead, aimed_lead])
+	assert_gt(checked, 250, "the glow was checked across the run")
+	assert_true(core.is_pulsing(), "the pulse is on")
+
+
+func test_desperate_rotation_helper() -> void:
+	assert_eq(FlagshipCore.desperate_rotation_deg(0, 12, 2), 0.0)
+	assert_eq(FlagshipCore.desperate_rotation_deg(1, 12, 2), 15.0)
+	assert_eq(FlagshipCore.desperate_rotation_deg(2, 12, 2), 0.0)
+	assert_eq(FlagshipCore.desperate_rotation_deg(3, 12, 2), 15.0)
+	assert_eq(FlagshipCore.desperate_rotation_deg(1, 12, 1), 0.0, "one burst never rotates")
+	assert_eq(FlagshipCore.desperate_rotation_deg(2, 12, 3), 20.0, "thirds of the gap with 3 bursts")
+	assert_eq(FlagshipCore.desperate_rotation_deg(1, 0, 2), 0.0, "no bullets")
+
+
+func test_desperate_aimed_spread_without_a_player_flies_down() -> void:
+	var boss: Flagship = _spawn_in_desperate()
+	_step_for(boss, 2.0 + DT)
+	var aimed: Array[float] = []
+	for b: Projectile in _bullets():
+		if is_equal_approx(b.velocity.length(), 400.0):
+			aimed.append(_deg_from_down(b.velocity))
+	aimed.sort()
+	assert_eq(aimed.size(), 3)
+	if aimed.size() == 3:
+		assert_almost_eq(aimed[1], 0.0, 0.01, "straight down with no player")
+
+
+func test_desperate_pulse_is_a_steady_sine_toward_red() -> void:
+	var boss: Flagship = _spawn_in_desperate()
+	var core: FlagshipCore = boss.core()
+	var base: Color = (core.get_node("Eye") as Polygon2D).color
+	assert_eq(Config.num("boss.desperate.pulse_hz"), 2.0)
+	assert_almost_eq(core.pulse_amount(), 0.0, 0.001, "starts at the Eye's own colour")
+	_step_for(boss, 0.25)
+	assert_almost_eq(core.pulse_amount(), 1.0, 0.01, "full red half a period in (2 Hz)")
+	assert_almost_eq(core.eye_color().r, core.pulse_color.r, 0.02, "the Eye is red")
+	assert_almost_eq(core.eye_color().g, core.pulse_color.g, 0.02)
+	assert_almost_eq(core.eye_color().b, core.pulse_color.b, 0.02)
+	_step_for(boss, 0.25)
+	assert_almost_eq(core.pulse_amount(), 0.0, 0.01, "back after a full period")
+	assert_almost_eq(core.eye_color().b, base.b, 0.02, "the Eye's own colour again")
+	assert_almost_eq(FlagshipCore.pulse_at(0.125, 2.0), 0.5, 0.0001, "a quarter period: half way")
+
+
+func test_desperate_without_a_spawner_fires_nothing() -> void:
+	var boss: Flagship = FLAGSHIP_SCENE.instantiate() as Flagship
+	add_child_autofree(boss)
+	boss.set_physics_process(false)
+	boss.step(Config.num("boss.hull.arrival_s"))
+	for turret: FlagshipTurret in boss.turrets():
+		turret.apply_damage(turret.hp, null)
+	boss.core().apply_damage(150, null)
+	assert_eq(boss.phase(), Flagship.Phase.FINAL_CHOICE)
+	Events.comms_sequence_finished.emit(&"l3_final_choice")
+	assert_eq(boss.phase(), Flagship.Phase.DESPERATE)
+	var glowed: bool = false
+	var t: float = 0.0
+	while t < 6.1:
+		boss.step(DT)
+		t += DT
+		glowed = glowed or boss.core().is_glowing()
+	assert_true(glowed, "the cycles run (the glow showed)")
+	assert_eq(_logged("[DEBUG][spawn] flagship_core has no spawner").size(), 1, "one DEBUG line")
+	assert_eq(_logged("[ERROR]"), [] as Array[String], "no error")
+
+
+## Story 7.5: the exposed core in DESPERATE is the target again; the hull never is.
+func test_in_desperate_the_core_is_the_target() -> void:
+	var boss: Flagship = _spawn_in_final_choice()
 	await wait_physics_frames(2)
+	var nodes: Array[Node] = get_tree().get_nodes_in_group(&"enemies")
+	var below_core: Vector2 = boss.core().global_position + Vector2(0, 300)
+	assert_false(boss.core().is_targetable(), "no target during the choice")
+	assert_null(MicroMissile.nearest_enemy(below_core, nodes), "nothing for a micro-missile")
+	Events.comms_sequence_finished.emit(&"l3_final_choice")
+	assert_true(boss.core().is_targetable(), "targetable in DESPERATE")
+	assert_false(boss.is_targetable(), "hull")
+	assert_eq(MicroMissile.nearest_enemy(below_core, nodes), boss.core(), "a micro-missile picks the core")
+	assert_eq(AllyShip.nearest_target(below_core, nodes), boss.core(), "the ally picks the core")
+
+
+func test_core_death_enters_dying_then_boss_defeated_after_the_chain() -> void:
+	var boss: Flagship = _spawn_in_core()
+	_step_for(boss, Config.num("boss.core.wasp_launch_interval_s") + DT)
+	var wasps: Array[Wasp] = _launched()
+	assert_eq(wasps.size(), 5, "Wasps launched in CORE")
+	boss.core().apply_damage(boss.core().hp, null)
+	assert_eq(boss.phase(), Flagship.Phase.FINAL_CHOICE)
+	Events.comms_sequence_finished.emit(&"l3_final_choice")
+	assert_eq(boss.phase(), Flagship.Phase.DESPERATE)
+	await wait_physics_frames(2)
+	for child: Node in _effects.get_children():
+		child.queue_free()
+	await wait_physics_frames(1)
 	var orbs_before: int = _pickups.get_child_count()
 	var core: FlagshipCore = boss.core()
-	var pos: Vector2 = core.global_position
-	core.apply_damage(core.hp, null)
+	var core_pos: Vector2 = core.global_position
+	var hull_pos: Vector2 = boss.global_position
+	_events.clear()
+	_lines.clear()
+	assert_eq(core.hp, 50)
+	core.apply_damage(50, null)
 	assert_true(core.is_dead(), "core destroyed")
-	var e: Explosion = _newest_explosion()
-	assert_not_null(e, "an explosion")
-	if e != null:
-		assert_eq(e.scale, Vector2(4.0, 4.0), "the boss_death tier")
-		assert_eq(e.global_position, pos)
+	assert_eq(_events_named("enemy_killed"), [["enemy_killed", &"flagship_core", core_pos, false]] as Array[Array])
+	assert_eq(boss.phase(), Flagship.Phase.DYING, "DYING")
+	assert_eq(_events_named("boss_phase_changed"), [["boss_phase_changed", 5]] as Array[Array])
+	assert_eq(_events_named("boss_hp_changed").back(), ["boss_hp_changed", 0, 300, 5], "combined 0")
+	assert_eq(boss.collision_layer, 0, "the hull leaves its layer")
+	assert_eq(core.collision_layer, 0, "the core leaves its layer")
+	for turret: FlagshipTurret in boss.turrets():
+		if is_instance_valid(turret):
+			assert_eq(turret.collision_layer, 0)
+	var explosions: Array[Explosion] = _live_explosions()
+	assert_eq(explosions.size(), 1, "one explosion at once: the chain's first, no core impact of its own")
+	if explosions.size() == 1:
+		assert_eq(explosions[0].global_position, hull_pos + Vector2(0, 124), "at the core (pos + the first offset)")
+		assert_eq(explosions[0].scale, Vector2(4, 4), "scale 4")
+		assert_true(explosions[0].is_flashing(), "the white flash")
 	assert_almost_eq(_camera.current_amplitude(), 20.0, EPS, "20 px shake")
-	assert_eq(_events_named("enemy_killed"), [["enemy_killed", &"flagship_core", pos, false]] as Array[Array])
-	assert_eq(_events_named("boss_hp_changed").back(), ["boss_hp_changed", 0, 300, 2], "combined 0")
-	assert_eq(_logged("[INFO][combat] Flagship: core destroyed").size(), 1, "one INFO line")
-	assert_eq(boss.phase(), Flagship.Phase.CORE, "stays CORE until Story 7.5")
+	assert_true(Feedback.is_hit_stopped(), "the 150 ms hit-stop")
+	assert_eq(Feedback.chain_pending(), 3)
+	var defeated_at: float = -1.0
+	var t: float = 0.0
+	while t < 2.5:
+		boss.step(DT)
+		Feedback.step_chain(DT)
+		t += DT
+		if defeated_at < 0.0 and not _events_named("boss_defeated").is_empty():
+			defeated_at = t
+	assert_eq(_events_named("boss_defeated").size(), 1, "boss_defeated exactly once")
+	assert_almost_eq(defeated_at, Config.num("feedback.boss_death_chain_s"), DT + EPS, "after the 2.0 s chain")
+	assert_true(boss.is_queued_for_deletion(), "the Flagship frees itself")
+	assert_eq(_live_explosions().size(), 4, "4 explosions in total")
+	assert_eq(_logged("[INFO][combat] Flagship destroyed").size(), 1, "one INFO line")
+	for wasp: Wasp in wasps:
+		assert_true(is_instance_valid(wasp) and not wasp.is_dead() and not wasp.is_queued_for_deletion(), "launched Wasps stay")
 	await wait_physics_frames(2)
 	assert_eq(_pickups.get_child_count(), orbs_before, "the core drops nothing")
-	_step_for(boss, 12.0)
-	assert_eq(boss.phase(), Flagship.Phase.CORE)
-	var wasps: Array[Wasp] = _launched()
-	assert_eq(wasps.size(), 5, "launches go on after the core's death")
-	for wasp: Wasp in wasps:
-		assert_eq(wasp.state(), Wasp.State.ENTER)
-		assert_eq(wasp.global_position, pos, "the entry starts at the core's old centre")
-	assert_eq(_logged("core destroyed").size(), 1, "still once")
-	assert_eq(_events_named("boss_defeated"), [] as Array[Array], "no boss_defeated")
-	assert_eq(boss.current_hp(), 0)
 	assert_eq(_logged("[ERROR]"), [] as Array[String], "no error")
+
+
+## The core's death in any phase enters DYING (without a floor, e.g. bad data).
+func test_core_death_in_core_without_a_floor_enters_dying() -> void:
+	var boss: Flagship = _spawn_in_core()
+	boss.core().set_hp_floor(0)
+	boss.core().apply_damage(999, null)
+	assert_true(boss.core().is_dead())
+	assert_eq(boss.phase(), Flagship.Phase.DYING)
+	assert_eq(_requests, [] as Array[StringName], "no Final Choice")
+	_step_for(boss, Config.num("feedback.boss_death_chain_s") + DT)
+	assert_eq(_events_named("boss_defeated").size(), 1)
 
 
 func test_without_a_spawner_core_cycles_but_nothing_fires_or_launches() -> void:

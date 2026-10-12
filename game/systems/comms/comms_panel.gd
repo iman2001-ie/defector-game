@@ -6,7 +6,9 @@ extends Control
 ## lowercase `click to continue ▸` cue. It has no buttons.
 ##
 ## A view only: it never reads dialogue data, and only CommsChannel calls it
-## (open, close, show_line, is_typing, complete_line). Mouse-transparent
+## (open, close, show_line, is_typing, complete_line, set_cue_visible).
+## Story 7.5: set_cue_visible(false) hides the `click to continue` cue while
+## the Final Choice buttons are up; open() always shows it again. Mouse-transparent
 ## (MOUSE_FILTER_IGNORE on it and every child), so the advance click reaches
 ## CommsChannel._unhandled_input. Runs while paused (PROCESS_MODE_ALWAYS), and
 ## the typewriter tween keeps running under the story pause.
@@ -101,10 +103,20 @@ func _ready() -> void:
 
 # --- Channel API ------------------------------------------------------------------
 
-## Shows the panel, and the dim only when `dim` is on.
+## Shows the panel (with its cue), and the dim only when `dim` is on.
 func open() -> void:
 	_dim.visible = dim
+	_cue.visible = true
 	visible = true
+
+
+## Shows or hides the `click to continue` cue (hidden while the Final Choice is up).
+func set_cue_visible(on: bool) -> void:
+	_cue.visible = on
+
+
+func is_cue_visible() -> bool:
+	return _cue.visible
 
 
 ## Hides everything and stops the typewriter.

@@ -1176,8 +1176,8 @@ func _lines_of(id: String) -> Array:
 
 ## Every campaign id lives in its file, with its mode, its line count and only
 ## its allowed speakers, and loads through Config; no `system` speaker anywhere
-## in the campaign; no `choice` on the surrender or on the Final Choice lead-in
-## (Story 7.5 adds that one).
+## in the campaign; no `choice` on the Level 1 surrender or any other
+## campaign sequence, and the Final Choice lead-in has one (Story 7.5).
 func test_campaign_script_layout() -> void:
 	assert_eq(CAMPAIGN_SCRIPT.size(), 15, "15 campaign sequences")
 	for file: String in CAMPAIGN_DIALOGUE_FILES:
@@ -1211,8 +1211,10 @@ func test_campaign_script_layout() -> void:
 	assert_gt(all_lines.size(), 0, "campaign lines to check")
 	for entry: Array in all_lines:
 		assert_ne(str((entry[2] as Dictionary).get("speaker")), "system", "%s %s: no system speaker" % [entry[0], entry[1]])
-	for id: StringName in [&"l1_w5_surrender", &"l3_final_choice"]:
-		assert_false(Config.sequence(id).has("choice"), "%s has no choice" % id)
+	assert_true(Config.sequence(&"l3_final_choice").has("choice"), "l3_final_choice has the Final Choice")
+	for row: Array in CAMPAIGN_SCRIPT:
+		if str(row[1]) != "l3_final_choice":
+			assert_false(Config.sequence(StringName(str(row[1]))).has("choice"), "%s has no choice" % row[1])
 
 
 ## Both Final Choice refusals open with Vale's line and Isolde answers; the
@@ -1704,3 +1706,142 @@ func test_every_boss_wave_names_a_known_boss() -> void:
 				var boss: Variant = (waves[w] as Dictionary)["boss"]
 				assert_true(EntityRegistry.BOSSES.has(StringName(str(boss))), "%s waves[%d].boss '%s' is a registered boss" % [path, w, boss])
 	assert_gt(found, 0, "at least one boss wave checked")
+
+
+# --- Flagship Phase 3 and the Final Choice (Story 7.5) ----------------------------------
+
+## The Final Choice block in level_3.json exactly as the story's Data bullet
+## (labels uppercase in the data, decision #56).
+func test_final_choice_block_matches_the_story() -> void:
+	var seq: Dictionary = Config.sequence(&"l3_final_choice")
+	assert_eq(seq.get("choice"), {"options": [
+		{"id": "surrender", "label": "OFFER SURRENDER", "next": "l3_isolde_refuse_surrender"},
+		{"id": "destroy", "label": "DESTROY HER", "next": "l3_isolde_refuse_destroy"},
+	]}, "the l3_final_choice choice block")
+
+
+## Every `choice` in every dialogue file names a known story sequence as each
+## option's `next`, and that sequence has no `choice` of its own. A self-check
+## on a broken file keeps the collector honest.
+func test_every_choice_next_is_a_known_story_without_a_choice() -> void:
+	var found: int = 0
+	for path: String in _dialogue_files():
+		var sequences: Dictionary = _parsed_sequences(path)
+		for problem: String in _choice_next_problems(sequences, path):
+			fail_test(problem)
+		for id: Variant in sequences:
+			if (sequences[id] as Dictionary).has("choice"):
+				found += 1
+	assert_gt(found, 0, "at least one choice checked")
+	var broken: Dictionary = {
+		"c": {"mode": "story", "lines": [], "choice": {"options": [
+			{"id": "surrender", "label": "A", "next": "missing"},
+			{"id": "destroy", "label": "B", "next": "c"},
+		]}},
+	}
+	assert_eq(_choice_next_problems(broken, "self-check").size(), 2, "an unknown next and a next with its own choice")
+
+
+func _parsed_sequences(path: String) -> Dictionary:
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+	if parsed is Dictionary and (parsed as Dictionary).get("sequences") is Dictionary:
+		return (parsed as Dictionary).get("sequences") as Dictionary
+	return {}
+
+
+## The `next` problems of the choices in `sequences` (looked up in that dict
+## first, then through Config).
+func _choice_next_problems(sequences: Dictionary, path: String) -> Array[String]:
+	var problems: Array[String] = []
+	for id: Variant in sequences:
+		var choice: Variant = (sequences[id] as Dictionary).get("choice")
+		if not (choice is Dictionary):
+			continue
+		for option: Variant in ((choice as Dictionary).get("options", []) as Array):
+			var next: String = str((option as Dictionary).get("next", ""))
+			var target: Dictionary = sequences.get(next, {}) as Dictionary
+			if target.is_empty() and Config.has_sequence(StringName(next)):
+				target = Config.sequence(StringName(next))
+			if target.is_empty():
+				problems.append("%s %s: next '%s' is not a known sequence" % [path, id, next])
+			elif target.get("mode") != "story":
+				problems.append("%s %s: next '%s' is not a story sequence" % [path, id, next])
+			elif target.has("choice"):
+				problems.append("%s %s: next '%s' has a choice of its own" % [path, id, next])
+	return problems
+
+
+## The GDD numbers the Flagship's Phase 3 must keep (FR51, FR30 boss death):
+## the 50 HP Final Choice, 2 alternating radial bursts at 300 px/s every 1.5 s
+## start to start with a 0.4 s glow inside, an aimed 3-bullet spread at
+## 400 px/s every 2.0 s with a 0.3 s glow inside, and the Boss-death tier (4x,
+## 20 px / 1.0 s, 150 ms, a white flash) as a chain over 2 s.
+func test_flagship_phase_3_matches_the_gdd() -> void:
+	assert_eq(Config.int_("boss.final_choice_hp"), 50, "Final Choice at 50")
+	assert_eq(Config.int_("boss.desperate.radial_bursts"), 2, "2 alternating radial bursts")
+	assert_eq(Config.num("boss.desperate.radial_speed_px_s"), 300.0, "300 px/s")
+	assert_eq(Config.num("boss.desperate.radial_interval_s"), 1.5, "every 1.5 s start to start")
+	assert_eq(Config.num("boss.desperate.radial_charge_s"), 0.4, "0.4 s charge glow")
+	assert_eq(Config.int_("boss.desperate.aimed_bullets"), 3, "aimed 3-bullet spread")
+	assert_eq(Config.num("boss.desperate.aimed_speed_px_s"), 400.0, "400 px/s")
+	assert_eq(Config.num("boss.desperate.aimed_interval_s"), 2.0, "every 2.0 s start to start")
+	assert_eq(Config.num("boss.desperate.aimed_telegraph_s"), 0.3, "0.3 s glow")
+	var row: Dictionary = Config.section("feedback.tiers.boss_death")
+	assert_eq(row.get("explosion_scale"), 4.0, "4x")
+	assert_eq(row.get("shake_px"), 20.0, "20 px")
+	assert_eq(row.get("shake_s"), 1.0, "1.0 s")
+	assert_eq(row.get("hit_stop_ms"), 150.0, "150 ms")
+	assert_eq(row.get("extras"), ["white_flash"], "one white flash")
+	assert_eq(Config.num("feedback.boss_death_chain_s"), 2.0, "chain over 2 s")
+	# Story 7.5 provisional readings (decision #56).
+	assert_eq(Config.int_("boss.desperate.radial_bullets"), 12, "12 bullets per desperate radial")
+	assert_eq(Config.num("boss.desperate.aimed_spread_deg"), 15.0, "+-15 degrees")
+	assert_eq(Config.num("boss.desperate.pulse_hz"), 2.0, "2 Hz pulse")
+	assert_eq(Config.section("feedback").get("boss_death_chain_offsets_px"), [[0.0, 124.0], [-270.0, 40.0], [270.0, 40.0], [0.0, 0.0]], "the core, the hull ends, the hull centre")
+	assert_eq(Config.num("feedback.white_flash.alpha"), 0.7)
+	assert_eq(Config.num("feedback.white_flash.duration_s"), 0.3)
+
+
+## Story 7.5 provisional tuning (decision #56): sane ranges.
+func test_flagship_phase_3_tuning_ranges() -> void:
+	var final_hp: int = Config.int_("boss.final_choice_hp")
+	assert_gt(final_hp, 0, "final_choice_hp > 0")
+	assert_lt(final_hp, Config.int_("boss.core.hp"), "final_choice_hp < boss.core.hp")
+	assert_gte(Config.int_("boss.desperate.radial_bullets"), 1, "radial_bullets >= 1")
+	assert_gte(Config.int_("boss.desperate.radial_bursts"), 1, "radial_bursts >= 1")
+	assert_gte(Config.int_("boss.desperate.aimed_bullets"), 1, "aimed_bullets >= 1")
+	var spread: float = Config.num("boss.desperate.aimed_spread_deg")
+	assert_gte(spread, 0.0, "aimed_spread_deg >= 0")
+	assert_lt(spread, 90.0, "aimed_spread_deg < 90")
+	assert_gt(Config.num("boss.desperate.pulse_hz"), 0.0, "pulse_hz > 0")
+	var offsets: Variant = Config.section("feedback").get("boss_death_chain_offsets_px")
+	assert_true(offsets is Array, "boss_death_chain_offsets_px is an array")
+	if offsets is Array:
+		assert_eq((offsets as Array).size(), 4, "4 chain explosions")
+		assert_gte((offsets as Array).size(), 1, "N >= 1")
+		for entry: Variant in offsets as Array:
+			assert_true(entry is Array and (entry as Array).size() == 2, "%s is an [x, y] pair" % str(entry))
+			if entry is Array and (entry as Array).size() == 2:
+				assert_true((entry as Array)[0] is float and (entry as Array)[1] is float, "%s holds numbers" % str(entry))
+	assert_gt(Config.num("feedback.boss_death_chain_s"), 0.0, "boss_death_chain_s > 0")
+	var alpha: float = Config.num("feedback.white_flash.alpha")
+	assert_gt(alpha, 0.0, "white_flash.alpha > 0")
+	assert_lte(alpha, 1.0, "white_flash.alpha <= 1")
+	var duration: float = Config.num("feedback.white_flash.duration_s")
+	assert_gt(duration, 0.0, "white_flash.duration_s > 0")
+	assert_lte(duration, 1.0, "white_flash.duration_s <= 1.0 (Explosion.LIFETIME_S)")
+	assert_lte(duration, Explosion.LIFETIME_S)
+
+
+## The Final Choice buttons (UX): 480 x 120, 48 px apart, top at y 680, below
+## the story panel and on screen, in the retry prompt's button font size.
+func test_final_choice_ui_tuning() -> void:
+	var w: float = Config.num("ui.final_choice.button_w")
+	var h: float = Config.num("ui.final_choice.button_h")
+	var gap: float = Config.num("ui.final_choice.button_gap_px")
+	var top: float = Config.num("ui.final_choice.buttons_top_y")
+	assert_eq([w, h, gap, top], [480.0, 120.0, 48.0, 680.0], "the UX layout")
+	assert_lte(w * 2.0 + gap, Playfield.SIZE.x, "the pair fits the screen width")
+	assert_gte(top, Config.num("ui.comms_panel.y") + Config.num("ui.comms_panel.h"), "below the story panel")
+	assert_lte(top + h, Playfield.SIZE.y, "on screen")
+	assert_gte(Config.int_("ui.final_choice.font_px"), 20, "no text below 20 px")

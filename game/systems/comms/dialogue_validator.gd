@@ -24,6 +24,16 @@ extends RefCounted
 ## key; `silence` other than `until_wave_clear`; `shake` not in
 ## ImpactTier.NAMES or SHAKE_CUTOFF; `sfx` not a non-empty string; `music` not in
 ## LevelValidator.MUSIC_ACTIONS.
+##
+## Choice (Story 7.5, the Final Choice), story sequences only:
+##   "choice": { "options": [ { "id": "surrender"|"destroy", "label": "...",
+##     "next": "<story sequence id>" }, { ... } ] }
+## One problem each for: `choice` in a combat sequence; `choice` not an object;
+## `options` missing or not an array; `options` not exactly CHOICE_OPTIONS
+## entries; an option that isn't an object; an `id` not in CHOICE_IDS or
+## repeating an earlier option's; a `label` or `next` that isn't a non-empty
+## string. Whether `next` names a known story sequence is a cross-file check
+## (the data test; CommsChannel logs an unknown one and finishes at once).
 
 const SPEAKERS: Array[StringName] = [&"vale", &"isolde", &"tarek", &"ryn", &"system"]
 const MODES: Array[StringName] = [&"story", &"combat"]
@@ -42,6 +52,16 @@ const SILENCE_UNTIL_WAVE_CLEAR: String = "until_wave_clear"
 ## The `after.shake` value for the dedicated cut-off shake (comms.cutoff_shake_px
 ## / cutoff_shake_s, GDD decision #43); every other value names an ImpactTier.
 const SHAKE_CUTOFF: String = "cutoff"
+## Sequence key of the Final Choice block and its keys (Story 7.5).
+const CHOICE_KEY: String = "choice"
+const CHOICE_OPTIONS_KEY: String = "options"
+const OPTION_ID: String = "id"
+const OPTION_LABEL: String = "label"
+const OPTION_NEXT: String = "next"
+## The option ids a choice may use (each at most once).
+const CHOICE_IDS: Array[String] = ["surrender", "destroy"]
+## A choice has exactly this many options.
+const CHOICE_OPTIONS: int = 2
 
 
 ## Returns every problem in the file (empty when it is valid).
@@ -80,6 +100,7 @@ static func validate_sequence(id: String, seq: Variant, path: String, story_max_
 	if (lines as Array).is_empty():
 		problems.append(_problem(path, seq_path + ".lines", "is empty"))
 		return problems
+	problems.append_array(_choice_problems(dict, mode, path, seq_path))
 	if mode == MODE_COMBAT and (lines as Array).size() != 1:
 		problems.append(_problem(path, seq_path + ".lines", "combat sequence has %d lines, exactly 1 allowed" % (lines as Array).size()))
 	for i: int in (lines as Array).size():
@@ -171,6 +192,48 @@ static func _cut_off_problems(line: Dictionary, mode: StringName, path: String, 
 					problems.append(_problem(path, key_path, "must be one of %s, not '%s'" % [", ".join(LevelValidator.MUSIC_ACTIONS), str(value)]))
 			_:
 				problems.append(_problem(path, key_path, "unknown after key '%s'" % str(key)))
+	return problems
+
+
+## The choice problems of one sequence (Story 7.5); none without a `choice` key.
+static func _choice_problems(seq: Dictionary, mode: StringName, path: String, seq_path: String) -> Array[String]:
+	var problems: Array[String] = []
+	if not seq.has(CHOICE_KEY):
+		return problems
+	var choice_path: String = seq_path + "." + CHOICE_KEY
+	if mode != MODE_STORY:
+		problems.append(_problem(path, choice_path, "choice is only allowed in story sequences"))
+		return problems
+	var choice: Variant = seq[CHOICE_KEY]
+	if not (choice is Dictionary):
+		problems.append(_problem(path, choice_path, "is not an object"))
+		return problems
+	var options_path: String = choice_path + "." + CHOICE_OPTIONS_KEY
+	var options: Variant = (choice as Dictionary).get(CHOICE_OPTIONS_KEY)
+	if not (options is Array):
+		problems.append(_problem(path, options_path, "missing or not an array"))
+		return problems
+	if (options as Array).size() != CHOICE_OPTIONS:
+		problems.append(_problem(path, options_path, "has %d options, exactly %d allowed" % [(options as Array).size(), CHOICE_OPTIONS]))
+	var seen: Array[String] = []
+	for i: int in (options as Array).size():
+		var option_path: String = "%s[%d]" % [options_path, i]
+		var option: Variant = (options as Array)[i]
+		if not (option is Dictionary):
+			problems.append(_problem(path, option_path, "is not an object"))
+			continue
+		var dict: Dictionary = option
+		var id: Variant = dict.get(OPTION_ID)
+		if not (id is String and CHOICE_IDS.has(id as String)):
+			problems.append(_problem(path, option_path + "." + OPTION_ID, "must be one of %s, not '%s'" % [", ".join(CHOICE_IDS), str(id)]))
+		elif seen.has(id as String):
+			problems.append(_problem(path, option_path + "." + OPTION_ID, "duplicate option id '%s'" % str(id)))
+		else:
+			seen.append(id as String)
+		for key: String in [OPTION_LABEL, OPTION_NEXT]:
+			var value: Variant = dict.get(key)
+			if not (value is String and not (value as String).strip_edges().is_empty()):
+				problems.append(_problem(path, option_path + "." + key, "must be a non-empty string, not '%s'" % str(value)))
 	return problems
 
 

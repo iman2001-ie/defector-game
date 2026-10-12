@@ -117,3 +117,13 @@ process_material = SubResource("ParticleProcessMaterial_debris")
 visible = false
 material = SubResource("CanvasItemMaterial_add")
 script = ExtResource("2_ring")
+
+[node name="Flash" type="CanvasLayer" parent="."]
+layer = 15
+visible = false
+
+[node name="Rect" type="ColorRect" parent="Flash"]
+offset_right = 1920.0
+offset_bottom = 1080.0
+mouse_filter = 2
+color = Color(1, 1, 1, 0)

@@ -108,6 +108,15 @@ func test_boss_part_sfx_is_registered() -> void:
 	assert_eq(Audio.SFX[&"explosion_boss_part"], Audio.SFX[&"explosion_large"], "placeholder alias of explosion_large")
 
 
+## Story 7.5: the boss_death tier's sfx id is registered, as a placeholder alias
+## of the large explosion (Epic 8 replaces it).
+func test_boss_death_sfx_is_registered() -> void:
+	assert_eq(str(Config.section("feedback.tiers.boss_death").get("sfx")), "explosion_boss_death", "the tier names it")
+	assert_true(Audio.SFX.get(&"explosion_boss_death") is AudioStream, "registered")
+	assert_eq(Audio.SFX[&"explosion_boss_death"], Audio.SFX[&"explosion_large"], "placeholder alias of explosion_large")
+	assert_false(Audio.COMMS_SFX.has(&"explosion_boss_death"), "plays on the combat pool")
+
+
 func test_steal_oldest_when_full() -> void:
 	_free_all_players()
 	var pool: Array[AudioStreamPlayer] = _pool()

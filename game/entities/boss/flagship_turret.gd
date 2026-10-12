@@ -66,6 +66,13 @@ func start_firing(delay_s: float) -> void:
 	_set_glow(false)
 
 
+## Ends the fire cycle and hides the Glow (Story 7.5: the Flagship's DYING).
+func stop_firing() -> void:
+	_firing = false
+	_t = 0.0
+	_set_glow(false)
+
+
 func is_firing() -> bool:
 	return _firing
 

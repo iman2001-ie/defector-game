@@ -19,7 +19,13 @@
 			"lines": [
 				{ "speaker": "isolde", "text": "Enough. You have burned my fleet and reached my throne, Arden. I taught you well." },
 				{ "speaker": "isolde", "text": "So, General. What will you do with me now?" }
-			]
+			],
+			"choice": {
+				"options": [
+					{ "id": "surrender", "label": "OFFER SURRENDER", "next": "l3_isolde_refuse_surrender" },
+					{ "id": "destroy", "label": "DESTROY HER", "next": "l3_isolde_refuse_destroy" }
+				]
+			}
 		},
 		"l3_isolde_refuse_surrender": {
 			"mode": "story",

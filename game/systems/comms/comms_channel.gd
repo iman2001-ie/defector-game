@@ -1,6 +1,6 @@
 class_name CommsChannel
 extends Node
-## The single dialogue delivery path (Stories 5.1-5.4, architecture "Comms
+## The single dialogue delivery path (Stories 5.1-5.4 and 7.5, architecture "Comms
 ## Channel"). Listens to Events.comms_sequence_requested, owns the story and
 ## combat queues and the `story` pause reason, drives the CommsPanel (story)
 ## and CommsBox (combat) views and emits Events.comms_sequence_finished. Every
@@ -62,8 +62,24 @@ extends Node
 ##   story sequences still play. Events.wave_cleared lifts it. A wave_cleared
 ##   between the cut-off line's start and its cut-off moment voids the
 ##   silence, so it never carries into the next wave.
+## - Choice (Story 7.5, the Final Choice): a story sequence with a `choice`
+##   block plays its lines as usual. On the advance after its last line the
+##   panel stays open on that line with its cue hidden, the channel pushes the
+##   `final_choice` reason (`story` stays) and shows the FinalChoice view with
+##   the options. While the choice is up, `comms_advance` presses and releases
+##   are consumed and do nothing (and advance() does nothing). A click on an
+##   option emits Events.final_choice_made(id), sets GameState.final_choice,
+##   hides the view, pops `final_choice`, plays `comms_handover` and plays the
+##   option's `next` story lines in the same panel (current_sequence() is the
+##   `next` id meanwhile). When `next` ends, the normal finish runs (queue,
+##   panel close, pop `story`) and emits `finished` once, with the requested
+##   id; nothing is emitted for `next`, which nobody requested. Without a
+##   `final_choice` view the sequence logs an error and finishes as a plain
+##   story (no event); an unknown `next` logs an error and finishes at once.
 
 const PAUSE_REASON: StringName = &"story"
+## The pause reason held while the Final Choice buttons are up (Story 7.5).
+const CHOICE_REASON: StringName = &"final_choice"
 const MENU_REASON: StringName = &"menu"
 const ADVANCE_ACTION: StringName = &"comms_advance"
 const OPEN_SFX: StringName = &"comms_open"
@@ -84,9 +100,21 @@ enum CutPhase { NONE, TYPING, HOLD }
 
 @export var panel: CommsPanel
 @export var box: CommsBox
+## The Final Choice view (Story 7.5); only needed by a sequence with a `choice`.
+@export var final_choice: FinalChoice
 
-## Id of the story sequence on the panel; &"" while idle.
+## Id of the story sequence on the panel (a choice's `next` while its response
+## plays); &"" while idle.
 var _current: StringName = &""
+## Id of the story sequence that was requested (and is finished); differs from
+## _current only while a choice's response plays.
+var _requested: StringName = &""
+## The `choice.options` of the requested sequence; empty without a choice.
+var _choice_options: Array = []
+## True while the Final Choice buttons are up.
+var _choosing: bool = false
+## True while a choice's `next` response plays.
+var _in_response: bool = false
 var _lines: Array = []
 var _index: int = 0
 var _armed: bool = false
@@ -151,10 +179,14 @@ func _ready() -> void:
 	_cutoff_shake_s = Config.num("comms.cutoff_shake_s")
 	Events.comms_sequence_requested.connect(_on_events_comms_sequence_requested)
 	Events.wave_cleared.connect(_on_events_wave_cleared)
+	if final_choice != null:
+		final_choice.chosen.connect(_on_final_choice_chosen)
 
 
 func _exit_tree() -> void:
 	_stop_cut_sfx()
+	if final_choice != null and is_instance_valid(final_choice) and final_choice.chosen.is_connected(_on_final_choice_chosen):
+		final_choice.chosen.disconnect(_on_final_choice_chosen)
 	if Events.comms_sequence_requested.is_connected(_on_events_comms_sequence_requested):
 		Events.comms_sequence_requested.disconnect(_on_events_comms_sequence_requested)
 	if Events.wave_cleared.is_connected(_on_events_wave_cleared):
@@ -170,6 +202,17 @@ func current_sequence() -> StringName:
 
 func is_showing() -> bool:
 	return _current != &""
+
+
+## True while the Final Choice buttons are up (Story 7.5).
+func is_choosing() -> bool:
+	return _choosing
+
+
+## The story sequence that was requested and will be finished (the choice
+## parent while its response plays); &"" while idle.
+func requested_sequence() -> StringName:
+	return _requested
 
 
 ## Index of the line on the panel (tests).
@@ -242,9 +285,16 @@ func _on_events_comms_sequence_requested(sequence_id: StringName) -> void:
 func _start(sequence_id: StringName) -> void:
 	var seq: Dictionary = Config.sequence(sequence_id)
 	_current = sequence_id
+	_requested = sequence_id
 	_lines = seq.get("lines", []) as Array
 	_index = 0
 	_armed = false
+	_choosing = false
+	_in_response = false
+	_choice_options = []
+	var choice: Variant = seq.get(DialogueValidator.CHOICE_KEY)
+	if choice is Dictionary and (choice as Dictionary).get(DialogueValidator.CHOICE_OPTIONS_KEY) is Array:
+		_choice_options = (choice as Dictionary)[DialogueValidator.CHOICE_OPTIONS_KEY] as Array
 	if box != null:
 		# A combat line still fading out doesn't linger under the dim.
 		box.hide_now()
@@ -274,6 +324,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not event.is_action(ADVANCE_ACTION):
 		return
 	get_viewport().set_input_as_handled()
+	if _choosing:
+		# Only the FinalChoice buttons answer while the choice is up.
+		_armed = false
+		return
 	if event.is_echo():
 		return
 	if event.is_pressed():
@@ -288,7 +342,7 @@ func _unhandled_input(event: InputEvent) -> void:
 ## Completes a typing line, else shows the next one; after the last line the
 ## sequence finishes. Does nothing while idle.
 func advance() -> void:
-	if not is_showing():
+	if not is_showing() or _choosing:
 		return
 	if panel != null and panel.is_typing():
 		panel.complete_line()
@@ -307,8 +361,13 @@ func _speaker_at(index: int) -> String:
 
 
 func _finish() -> void:
-	var finished_id: StringName = _current
+	if not _in_response and not _choice_options.is_empty() and _show_choice():
+		return
+	var finished_id: StringName = _requested
 	Log.info("comms", "Story sequence '%s' finished" % finished_id)
+	_requested = &""
+	_choice_options = []
+	_in_response = false
 	if not _queue.is_empty():
 		# Still showing while `finished` goes out, so a story requested by a
 		# listener queues behind the ones already waiting.
@@ -326,6 +385,64 @@ func _finish() -> void:
 	Events.comms_sequence_finished.emit(finished_id)
 	if not is_showing() and not is_playing_combat():
 		_start_next_combat()
+
+
+# --- Choice (Story 7.5) ------------------------------------------------------------
+
+## Shows the Final Choice for the requested sequence: the panel stays on its
+## last line with the cue hidden, `final_choice` is pushed and the view shows
+## the options. Returns false (after a Log.error) without a view, so the
+## sequence finishes as a plain story.
+func _show_choice() -> bool:
+	if final_choice == null or not is_instance_valid(final_choice):
+		Log.error("comms", "CommsChannel has no final_choice view; '%s' finishes without its choice" % _requested)
+		return false
+	_choosing = true
+	_armed = false
+	if panel != null:
+		panel.set_cue_visible(false)
+	PauseArbiter.push(CHOICE_REASON)
+	final_choice.show_options(_choice_options)
+	Log.info("comms", "Story sequence '%s': final choice shown" % _requested)
+	return true
+
+
+## An option was clicked: the event, GameState, the view hidden, the
+## `final_choice` reason popped, then the option's `next` response in the same
+## panel (an unknown `next` logs an error and finishes at once).
+func _on_final_choice_chosen(id: StringName) -> void:
+	if not _choosing:
+		return
+	var option: Dictionary = {}
+	for raw: Variant in _choice_options:
+		if raw is Dictionary and StringName(str((raw as Dictionary).get(DialogueValidator.OPTION_ID, ""))) == id:
+			option = raw
+			break
+	if option.is_empty():
+		Log.error("comms", "Final choice '%s' is not an option of '%s'; ignored" % [id, _requested])
+		return
+	_choosing = false
+	Events.final_choice_made.emit(id)
+	GameState.final_choice = id
+	if final_choice != null and is_instance_valid(final_choice):
+		final_choice.hide_options()
+	PauseArbiter.pop(CHOICE_REASON)
+	_in_response = true
+	var next_id: StringName = StringName(str(option.get(DialogueValidator.OPTION_NEXT, "")))
+	var lines: Variant = Config.sequence(next_id).get("lines")
+	if not Config.dialogue_is_story(next_id) or not (lines is Array) or (lines as Array).is_empty():
+		Log.error("comms", "Final choice '%s': next '%s' is not a known story sequence; '%s' finishes" % [id, next_id, _requested])
+		_finish()
+		return
+	_current = next_id
+	_lines = lines as Array
+	_index = 0
+	_armed = false
+	if panel != null:
+		panel.set_cue_visible(true)
+	Audio.play_sfx(HANDOVER_SFX, 0.0)
+	_show_line()
+	Log.info("comms", "Final choice '%s': response '%s' started (%d lines)" % [id, next_id, _lines.size()])
 
 
 # --- Combat ------------------------------------------------------------------------

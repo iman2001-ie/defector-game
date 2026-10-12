@@ -3,6 +3,7 @@ extends GutTest
 ## (UX: panel 410,300 1100x300; text block 812 px with a portrait, 1036 px
 ## without), theme items, mouse transparency, the speaker name / accent /
 ## portrait, and the typewriter (visible_characters tween, runs while paused).
+## Story 7.5: the cue on/off call (hidden while the Final Choice is up).
 
 const PANEL_SCENE: PackedScene = preload("res://systems/comms/comms_panel.tscn")
 const THEME_PATH: String = "res://ui/theme/defector_theme.tres"
@@ -151,6 +152,27 @@ func test_open_and_close() -> void:
 	panel.close()
 	assert_false(panel.visible)
 	assert_false(panel.is_typing(), "close kills the tween")
+
+
+## Story 7.5: the channel hides the cue while the Final Choice is up; open()
+## always shows it again.
+func test_cue_on_off() -> void:
+	var panel: CommsPanel = _make()
+	var cue: Label = _label(panel, "Panel/Cue")
+	panel.open()
+	panel.show_line(&"isolde", "Choose.")
+	assert_true(panel.is_cue_visible(), "the cue shows by default")
+	assert_true(cue.is_visible_in_tree())
+	panel.set_cue_visible(false)
+	assert_false(panel.is_cue_visible(), "hidden")
+	assert_false(cue.is_visible_in_tree())
+	assert_true((panel.get_node("Panel/Text") as Control).is_visible_in_tree(), "the line stays")
+	panel.set_cue_visible(true)
+	assert_true(cue.is_visible_in_tree(), "shown again")
+	panel.set_cue_visible(false)
+	panel.close()
+	panel.open()
+	assert_true(panel.is_cue_visible(), "open() shows the cue again")
 
 
 ## Story 5.5: the opening story scene turns the dim off; the default keeps it.

@@ -4,12 +4,20 @@ extends Node2D
 ## Debris and Shockwave play only when listed in the tier's extras. Frees itself
 ## after LIFETIME_S. Visual only: no collision, no gameplay effect.
 ##
+## The `white_flash` extra (Story 7.5, the Boss-death tier) shows the `Flash`
+## child: a full-screen white ColorRect on its own CanvasLayer (layer 15, above
+## the HUD at 10 and below Comms at 20). It starts at feedback.white_flash.alpha
+## and fades linearly to 0 over feedback.white_flash.duration_s (capped at
+## LIFETIME_S), then hides. It runs on the explosion's own _process, so it
+## freezes with the game. Other unknown extras (`red_vignette`) are ignored.
+##
 ## Created only by Spawner: setup(params) stores values before add_child, and
 ## _ready() applies them.
 
 const EXTRA_SPARKS: StringName = &"sparks"
 const EXTRA_DEBRIS: StringName = &"debris"
 const EXTRA_SHOCKWAVE: StringName = &"shockwave"
+const EXTRA_WHITE_FLASH: StringName = &"white_flash"
 ## Seconds the shockwave ring takes to expand and fade.
 const SHOCKWAVE_S: float = 0.45
 ## Seconds until the node frees itself; at least every child's lifetime.
@@ -22,11 +30,16 @@ var _spawn_position: Vector2 = Vector2.ZERO
 var _has_spawn_position: bool = false
 var _elapsed: float = 0.0
 var _freed: bool = false
+## The white flash's starting alpha and fade time (white_flash extra only).
+var _flash_alpha: float = 0.0
+var _flash_s: float = 0.0
 
 @onready var _burst: GPUParticles2D = $Burst
 @onready var _sparks: GPUParticles2D = $Sparks
 @onready var _debris: GPUParticles2D = $Debris
 @onready var _shockwave: ShockwaveRing = $Shockwave
+@onready var _flash: CanvasLayer = $Flash
+@onready var _flash_rect: ColorRect = $Flash/Rect
 
 
 ## Stores params; nothing is applied until _ready(). Keys: position (global),
@@ -53,6 +66,13 @@ func _ready() -> void:
 	_shockwave.visible = extras.has(EXTRA_SHOCKWAVE)
 	if _shockwave.visible:
 		_shockwave.set_progress(0.0)
+	_flash.visible = false
+	if extras.has(EXTRA_WHITE_FLASH):
+		_flash_alpha = clampf(Config.num("feedback.white_flash.alpha"), 0.0, 1.0)
+		_flash_s = minf(Config.num("feedback.white_flash.duration_s"), LIFETIME_S)
+		if _flash_alpha > 0.0 and _flash_s > 0.0:
+			_flash.visible = true
+			_set_flash_alpha(_flash_alpha)
 
 
 func _process(delta: float) -> void:
@@ -61,6 +81,31 @@ func _process(delta: float) -> void:
 	_elapsed += delta
 	if _shockwave.visible:
 		_shockwave.set_progress(_elapsed / SHOCKWAVE_S)
+	if _flash.visible:
+		_step_flash()
 	if _elapsed >= LIFETIME_S:
 		_freed = true
 		queue_free()
+
+
+## True while the white flash shows.
+func is_flashing() -> bool:
+	return _flash != null and _flash.visible
+
+
+## The white flash's current alpha (0 when it isn't showing).
+func flash_alpha() -> float:
+	return _flash_rect.color.a if is_flashing() else 0.0
+
+
+## Linear fade from _flash_alpha to 0 over _flash_s, then hidden.
+func _step_flash() -> void:
+	if _elapsed >= _flash_s:
+		_set_flash_alpha(0.0)
+		_flash.visible = false
+		return
+	_set_flash_alpha(_flash_alpha * (1.0 - _elapsed / _flash_s))
+
+
+func _set_flash_alpha(alpha: float) -> void:
+	_flash_rect.color = Color(1.0, 1.0, 1.0, alpha)

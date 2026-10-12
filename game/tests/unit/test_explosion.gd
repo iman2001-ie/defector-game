@@ -1,9 +1,14 @@
 extends GutTest
 ## Explosion: setup/ready, children per extras, particle limits, shockwave ring,
-## self-free after LIFETIME_S.
+## self-free after LIFETIME_S. Story 7.5: the white_flash extra (a full-screen
+## white flash between the HUD and Comms layers, fading linearly).
 
 const EXPLOSION_SCENE: PackedScene = preload("res://entities/effects/explosion.tscn")
 const PARTICLES: Array[String] = ["Burst", "Sparks", "Debris"]
+
+
+func after_each() -> void:
+	Config.load_data()
 
 
 func _make(extras: Array, scale: float = 1.0, pos: Vector2 = Vector2(400, 300)) -> Explosion:
@@ -55,11 +60,64 @@ func test_debris_and_shockwave() -> void:
 
 
 func test_unknown_extras_ignored() -> void:
-	var e: Explosion = _make([&"white_flash", &"red_vignette"])
+	var e: Explosion = _make([&"red_vignette", &"glitter"])
 	assert_true(_emitting(e, "Burst"))
 	assert_false(_emitting(e, "Sparks"))
 	assert_false(_emitting(e, "Debris"))
 	assert_false((e.get_node("Shockwave") as Node2D).visible)
+	assert_false(e.is_flashing(), "no flash")
+
+
+# --- White flash (Story 7.5) -----------------------------------------------------
+
+func test_white_flash_layer_sits_between_the_hud_and_comms() -> void:
+	var e: Explosion = EXPLOSION_SCENE.instantiate() as Explosion
+	var flash: CanvasLayer = e.get_node_or_null("Flash") as CanvasLayer
+	assert_not_null(flash, "a Flash CanvasLayer")
+	if flash != null:
+		var level: Node = (load("res://scenes/level/level.tscn") as PackedScene).instantiate()
+		var hud: int = (level.get_node("HUD") as CanvasLayer).layer
+		var comms: int = (level.get_node("Comms") as CanvasLayer).layer
+		level.free()
+		assert_gt(flash.layer, hud, "above the HUD")
+		assert_lt(flash.layer, comms, "below Comms")
+		assert_false(flash.visible, "hidden in the scene")
+		var rect: ColorRect = flash.get_node("Rect") as ColorRect
+		assert_eq(rect.get_rect(), Rect2(Vector2.ZERO, Playfield.SIZE), "full screen")
+		assert_eq(rect.mouse_filter, Control.MOUSE_FILTER_IGNORE)
+	e.free()
+
+
+func test_white_flash_fades_linearly_over_its_duration() -> void:
+	var alpha: float = Config.num("feedback.white_flash.alpha")
+	var duration: float = Config.num("feedback.white_flash.duration_s")
+	assert_eq([alpha, duration], [0.7, 0.3], "shipped flash")
+	var e: Explosion = _make([&"white_flash"], 4.0)
+	var rect: ColorRect = e.get_node("Flash/Rect") as ColorRect
+	assert_true(e.is_flashing(), "the flash shows")
+	assert_almost_eq(e.flash_alpha(), alpha, 0.0001, "0 s: full alpha")
+	assert_eq(Color(rect.color.r, rect.color.g, rect.color.b), Color.WHITE, "white")
+	e._process(duration / 2.0)
+	assert_almost_eq(e.flash_alpha(), alpha / 2.0, 0.0001, "half way: half alpha")
+	e._process(duration / 2.0)
+	assert_false(e.is_flashing(), "end: hidden")
+	assert_eq(e.flash_alpha(), 0.0, "end: alpha 0")
+	assert_almost_eq(rect.color.a, 0.0, 0.0001)
+	assert_false(e.is_queued_for_deletion(), "the explosion itself lives to LIFETIME_S")
+
+
+func test_white_flash_never_outlasts_the_explosion() -> void:
+	(Config.tuning["feedback"] as Dictionary)["white_flash"] = {"alpha": 0.5, "duration_s": 5.0}
+	var e: Explosion = _make([&"white_flash"])
+	e._process(Explosion.LIFETIME_S - 0.01)
+	assert_true(e.is_flashing(), "still fading just before LIFETIME_S")
+	assert_almost_eq(e.flash_alpha(), 0.5 * 0.01 / Explosion.LIFETIME_S, 0.0001, "capped at LIFETIME_S")
+
+
+func test_white_flash_only_with_its_extra() -> void:
+	var e: Explosion = _make([&"debris", &"shockwave"], 2.0)
+	assert_false(e.is_flashing())
+	assert_eq(e.flash_alpha(), 0.0)
 
 
 func test_particle_settings() -> void:

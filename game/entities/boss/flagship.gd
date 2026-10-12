@@ -1,7 +1,7 @@
 class_name Flagship
 extends Enemy
 ## Isolde's Flagship, the Level 3 boss (Story 7.3: Phase 1, FR49, FR52, FR53;
-## Story 7.4: Phase 2, FR50).
+## Story 7.4: Phase 2, FR50; Story 7.5: Phase 3, FR51, FR54, FR30 boss death).
 ##
 ## An armoured hull (`boss.hull`) with 4 FlagshipTurret children (`Turrets/*`)
 ## and an invulnerable FlagshipCore (`Core`), all Enemy areas on the `enemies`
@@ -12,8 +12,7 @@ extends Enemy
 ## below reaches a part before the hull.
 ##
 ## Phase state machine (`match` + _enter_phase), in the order Stories 7.4-7.7
-## rely on: ARRIVING, TURRETS, CORE, FINAL_CHOICE, DESPERATE, DYING. Stories
-## 7.3 and 7.4 build the first three:
+## rely on: ARRIVING, TURRETS, CORE, FINAL_CHOICE, DESPERATE, DYING:
 ## - ARRIVING: flies straight down from (centre, hull.arrive_from_y) to
 ##   (centre, hull.station_y) over hull.arrival_s, then enters TURRETS (or CORE
 ##   if every turret already died on the way in).
@@ -34,17 +33,33 @@ extends Enemy
 ##   rolls drops.wasp. This is the architecture's one exception to "only the
 ##   WaveDirector decides what spawns". Launches and core shots run only in
 ##   the CORE branch of step; entering any other phase stops the core cycle and
-##   hides its Glow, and Wasps already alive stay (decision F16). If the core
-##   dies before Story 7.5 builds FINAL_CHOICE, the Flagship logs one INFO
-##   line and stays in CORE (F3 moves the wave on).
+##   hides its Glow, and Wasps already alive stay (decision F16).
+## - FINAL_CHOICE (Story 7.5): _ready arms the core's hp floor
+##   (boss.final_choice_hp). In CORE, the first hit that would take the core to
+##   the floor or below clamps it there and makes it invulnerable (decision
+##   F7, FlagshipCore.apply_damage); the hp-change handler then enters
+##   FINAL_CHOICE once: the core attack and the launches stop (live Wasps
+##   stay), boss_phase_changed(3) and boss_hp_changed(50, 300, 3) go out, then
+##   Events.comms_sequence_requested(FINAL_CHOICE_SEQUENCE). The Flagship waits
+##   for Events.comms_sequence_finished of that id (the channel emits it once
+##   the chosen response has played) and then enters DESPERATE once; every
+##   other id, and a finished outside FINAL_CHOICE, is ignored.
+## - DESPERATE: the core is vulnerable again and runs start_desperate() (the
+##   alternating radials, the aimed spread, the red pulse).
+## - DYING: the core's death in any phase enters it (only DESPERATE allows that
+##   with valid data). Part attacks stop, the hull and every live part leave
+##   their collision layer (layer 0), and Feedback.boss_death(global_position)
+##   plays the chain once. After feedback.boss_death_chain_s of game time the
+##   Flagship logs one INFO line, emits Events.boss_defeated exactly once and
+##   frees itself; launched Wasps stay.
 ## Every phase entry emits Events.boss_phase_changed(phase) and
 ## Events.boss_hp_changed(current, max, phase). _ready emits boss_started and
 ## enters ARRIVING.
 ##
 ## HP: the combined HP is the sum of max(part hp, 0) over the turrets and the
 ## core (300 with shipped data); `hp` holds it and _max_hp() is the full sum.
-## Every part hp change re-emits boss_hp_changed. The Flagship never dies and
-## never resolves before Story 7.5 (no boss_defeated); the WaveDirector frees it.
+## Every part hp change re-emits boss_hp_changed. The Flagship itself never
+## takes damage; the WaveDirector resolves the boss wave on boss_defeated.
 ##
 ## Created by Spawner.spawn_boss, which sets `spawner`; _ready hands it to the
 ## parts (children are ready before their parent). A `position` param is
@@ -56,6 +71,10 @@ enum Phase { ARRIVING, TURRETS, CORE, FINAL_CHOICE, DESPERATE, DYING }
 
 const SECTION: String = "boss.hull"
 const WASP_ID: StringName = &"wasp"
+## The story sequence FINAL_CHOICE requests (Isolde's lead-in and the choice).
+const FINAL_CHOICE_SEQUENCE: StringName = &"l3_final_choice"
+## Slack for DYING's float steps (120 steps of 1/60 s reach 2.0 s).
+const DYING_EPSILON_S: float = 0.0001
 
 var _phase: Phase = Phase.ARRIVING
 ## Seconds spent in the current phase.
@@ -65,7 +84,10 @@ var _turrets: Array[FlagshipTurret] = []
 var _core: FlagshipCore = null
 var _max_total: int = 0
 var _all_turrets_logged: bool = false
-var _core_destroyed_logged: bool = false
+## Seconds DYING lasts before boss_defeated (feedback.boss_death_chain_s).
+var _death_chain_s: float = 0.0
+## Set once boss_defeated has been emitted.
+var _defeated: bool = false
 var _arrive_from: Vector2 = Vector2.ZERO
 var _station: Vector2 = Vector2.ZERO
 var _arrival_s: float = 0.0
@@ -99,15 +121,23 @@ func _ready() -> void:
 	_arrival_s = maxf(Config.num(_tuning_key("arrival_s")), 0.0)
 	_stagger_s = maxf(Config.num("boss.turrets.stagger_s"), 0.0)
 	_read_launch_tuning()
+	_death_chain_s = maxf(Config.num("feedback.boss_death_chain_s"), 0.0)
 	if _core != null:
 		_core_offset = _core.position
+		_core.set_hp_floor(Config.int_("boss.final_choice_hp"))
 	for part: FlagshipPart in _parts:
 		part.spawner = spawner
 		part.hp_changed.connect(_on_part_hp_changed)
 	global_position = _arrive_from
+	Events.comms_sequence_finished.connect(_on_events_comms_sequence_finished)
 	Log.info("combat", "Flagship arriving (%d HP)" % _max_total)
 	Events.boss_started.emit()
 	_enter_phase(Phase.ARRIVING)
+
+
+func _exit_tree() -> void:
+	if Events.comms_sequence_finished.is_connected(_on_events_comms_sequence_finished):
+		Events.comms_sequence_finished.disconnect(_on_events_comms_sequence_finished)
 
 
 func _physics_process(delta: float) -> void:
@@ -135,6 +165,15 @@ func step(delta: float) -> void:
 				if _launch_t >= _launch_interval:
 					_launch_t -= _launch_interval
 					_launch_wasps()
+		Phase.DESPERATE:
+			if _core_alive():
+				_core.step(delta)
+		Phase.DYING:
+			if not _defeated and _t + DYING_EPSILON_S >= _death_chain_s:
+				_defeated = true
+				Log.info("combat", "Flagship destroyed: boss defeated")
+				Events.boss_defeated.emit()
+				queue_free()
 
 
 # --- Damage and targeting --------------------------------------------------------
@@ -245,9 +284,23 @@ func _enter_phase(new_phase: Phase) -> void:
 			if _core_alive():
 				_core.invulnerable = false
 				_core.start_attacking()
+		Phase.FINAL_CHOICE:
+			if _core_alive():
+				_core.invulnerable = true
+		Phase.DESPERATE:
+			if _core_alive():
+				_core.invulnerable = false
+				_core.start_desperate()
+		Phase.DYING:
+			_stop_parts()
 	Log.info("combat", "Flagship phase %s" % Phase.keys()[new_phase])
 	Events.boss_phase_changed.emit(int(new_phase))
 	_emit_hp()
+	match new_phase:
+		Phase.FINAL_CHOICE:
+			Events.comms_sequence_requested.emit(FINAL_CHOICE_SEQUENCE)
+		Phase.DYING:
+			Feedback.boss_death(global_position)
 
 
 func _emit_hp() -> void:
@@ -264,10 +317,30 @@ func _on_part_hp_changed(_part_hp: int) -> void:
 		# still reaches its station.
 		if _phase == Phase.TURRETS:
 			_enter_phase(Phase.CORE)
-	if not _core_destroyed_logged and _core != null and is_instance_valid(_core) and _core.is_dead():
-		_core_destroyed_logged = true
-		# Story 7.5 replaces this with the 50 HP clamp and FINAL_CHOICE.
+	if _phase == Phase.DYING or _core == null or not is_instance_valid(_core):
+		return
+	if _core.is_dead():
 		Log.info("combat", "Flagship: core destroyed")
+		_enter_phase(Phase.DYING)
+	elif _phase == Phase.CORE and _core.invulnerable:
+		# The core's hp floor clamped it (FlagshipCore.apply_damage).
+		_enter_phase(Phase.FINAL_CHOICE)
+
+
+func _on_events_comms_sequence_finished(sequence_id: StringName) -> void:
+	if sequence_id == FINAL_CHOICE_SEQUENCE and _phase == Phase.FINAL_CHOICE:
+		_enter_phase(Phase.DESPERATE)
+
+
+## DYING: no part attacks any more, and the hull and every live part leave
+## their collision layer (no hits, no contact, no targeting by overlap).
+func _stop_parts() -> void:
+	collision_layer = 0
+	for part: FlagshipPart in _parts:
+		if is_instance_valid(part):
+			part.collision_layer = 0
+			if part is FlagshipTurret:
+				(part as FlagshipTurret).stop_firing()
 
 
 func _core_alive() -> bool:

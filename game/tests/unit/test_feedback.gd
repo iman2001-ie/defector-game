@@ -1,6 +1,7 @@
 extends GutTest
 ## Feedback: tier rows from tuning, impact (explosion + shake + hit-stop + SFX),
-## hit-stop overlap rules, reset, prewarm, registration.
+## hit-stop overlap rules, reset, prewarm, registration. Story 7.5: the
+## boss-death chain (boss_death, step_chain, the pause freeze, reset).
 
 const CONTAINERS: Array[String] = ["Projectiles", "Enemies", "Asteroids", "Effects"]
 
@@ -12,6 +13,10 @@ var _camera: ShakeCamera
 
 func after_each() -> void:
 	Feedback.reset()
+	PauseArbiter.clear()
+	Log.sink = Callable()
+	Config.load_data()
+	Feedback.load_tiers()
 	_world = null
 	_effects = null
 	_spawner = null
@@ -409,6 +414,9 @@ func test_prewarm_spawns_one_per_tier_off_screen_silently() -> void:
 		var row_scale: float = Feedback.tier_row(i).get("explosion_scale", -1.0) as float
 		assert_eq(e.scale, Vector2(row_scale, row_scale), "%s scale" % ImpactTier.NAMES[i])
 	assert_eq(explosions[2].extras, [&"debris", &"shockwave"] as Array[StringName], "large extras")
+	assert_false(explosions[ImpactTier.BOSS_DEATH].extras.has(&"white_flash"), "no screen flash at prewarm")
+	assert_false(explosions[ImpactTier.BOSS_DEATH].is_flashing())
+	assert_eq(Feedback.tier_row(ImpactTier.BOSS_DEATH).get("extras"), [&"white_flash"] as Array[StringName], "the tier row keeps its flash")
 	assert_eq(_camera.current_amplitude(), 0.0, "no shake")
 	assert_eq(Engine.time_scale, 1.0, "no hit-stop")
 	assert_eq(Audio.newest_player(), before, "no sound")
@@ -417,3 +425,165 @@ func test_prewarm_spawns_one_per_tier_off_screen_silently() -> void:
 func test_prewarm_without_spawner_is_harmless() -> void:
 	Feedback.prewarm()
 	assert_eq(Engine.time_scale, 1.0)
+
+
+# --- Boss-death chain (Story 7.5) ------------------------------------------------
+
+const CHAIN_DT: float = 1.0 / 60.0
+const CHAIN_POS: Vector2 = Vector2(960, 170)
+
+
+func _chain_offsets() -> Array[Vector2]:
+	var out: Array[Vector2] = []
+	for pair: Variant in Config.section("feedback").get("boss_death_chain_offsets_px", []) as Array:
+		out.append(Vector2(float((pair as Array)[0]), float((pair as Array)[1])))
+	return out
+
+
+func test_chain_tuning() -> void:
+	assert_eq(Config.num("feedback.boss_death_chain_s"), 2.0, "2 s chain")
+	assert_eq(_chain_offsets(), [Vector2(0, 124), Vector2(-270, 40), Vector2(270, 40), Vector2(0, 0)] as Array[Vector2], "the core, the hull ends, the hull centre")
+
+
+func test_boss_death_plays_the_full_impact_first() -> void:
+	_setup_listeners()
+	Feedback.boss_death(CHAIN_POS)
+	var explosions: Array[Explosion] = _explosions()
+	assert_eq(explosions.size(), 1, "explosion 0 inside the call")
+	if explosions.size() == 1:
+		var e: Explosion = explosions[0]
+		assert_eq(e.global_position, CHAIN_POS + Vector2(0, 124), "at pos + offset 0")
+		assert_eq(e.scale, Vector2(4, 4), "Boss-death scale")
+		assert_eq(e.extras, [&"white_flash"] as Array[StringName], "with the tier's extras")
+		assert_true(e.is_flashing(), "the white flash")
+	assert_almost_eq(_camera.current_amplitude(), 20.0, 0.0001, "20 px shake")
+	assert_true(Feedback.is_hit_stopped(), "150 ms hit-stop")
+	assert_eq(Engine.time_scale, 0.0)
+	assert_eq(Audio.newest_player().stream, Audio.SFX[&"explosion_boss_death"], "the tier sfx")
+	assert_eq(Feedback.chain_pending(), 3, "3 more to come")
+
+
+func test_chain_spreads_the_explosions_evenly_over_chain_s() -> void:
+	_setup_listeners()
+	var offsets: Array[Vector2] = _chain_offsets()
+	Feedback.boss_death(CHAIN_POS)
+	var seen: int = 1
+	var times: Array[float] = [0.0]
+	var flashes: int = 1
+	var sfx_after: Array[bool] = []
+	var t: float = 0.0
+	for i: int in 120:
+		var before: AudioStreamPlayer = Audio.newest_player()
+		Feedback.step_chain(CHAIN_DT)
+		t += CHAIN_DT
+		var explosions: Array[Explosion] = _explosions()
+		if explosions.size() > seen:
+			assert_eq(explosions.size(), seen + 1, "one explosion at a time")
+			var e: Explosion = explosions.back()
+			assert_eq(e.global_position, CHAIN_POS + offsets[seen], "explosion %d at pos + its offset" % seen)
+			assert_eq(e.scale, Vector2(4, 4), "explosion %d at the Boss-death scale" % seen)
+			assert_eq(e.extras, [] as Array[StringName], "explosion %d has no extras" % seen)
+			if e.is_flashing():
+				flashes += 1
+			sfx_after.append(Audio.newest_player() != before and Audio.newest_player().stream == Audio.SFX[&"explosion_boss_death"])
+			times.append(t)
+			seen = explosions.size()
+	assert_eq(seen, 4, "4 explosions in total")
+	assert_eq(times.size(), 4)
+	for k: int in mini(times.size(), 4):
+		assert_almost_eq(times[k], float(k) * 2.0 / 3.0, CHAIN_DT + 0.0001, "explosion %d at k * chain_s / (N - 1)" % k)
+	assert_eq(flashes, 1, "the flash only on the first")
+	assert_eq(sfx_after, [true, true, true] as Array[bool], "each later explosion plays the tier sfx")
+	assert_eq(Feedback.chain_pending(), 0, "nothing left")
+	Feedback.step_chain(1.0)
+	assert_eq(_explosions().size(), 4, "a finished chain plays nothing more")
+
+
+func test_chain_freezes_while_the_tree_is_paused() -> void:
+	_setup_listeners()
+	Feedback.boss_death(CHAIN_POS)
+	PauseArbiter.push(&"menu")
+	Feedback._process(1.0)
+	assert_eq(_explosions().size(), 1, "paused: frozen")
+	assert_eq(Feedback.chain_pending(), 3)
+	PauseArbiter.pop(&"menu")
+	Feedback._process(0.7)
+	assert_eq(_explosions().size(), 2, "unpaused: the chain goes on")
+
+
+func test_reset_drops_the_pending_chain() -> void:
+	_setup_listeners()
+	Feedback.boss_death(CHAIN_POS)
+	Feedback.reset()
+	assert_eq(Feedback.chain_pending(), 0, "dropped")
+	Feedback.step_chain(3.0)
+	assert_eq(_explosions().size(), 1, "only the first played")
+
+
+func test_chain_without_a_spawner_plays_no_explosion_and_no_error() -> void:
+	var lines: Array[String] = []
+	Log.sink = func(level: String, category: String, msg: String) -> void: lines.append(Log.format(level, category, msg))
+	Feedback.boss_death(CHAIN_POS)
+	for i: int in 130:
+		Feedback.step_chain(CHAIN_DT)
+	assert_eq(Feedback.chain_pending(), 0, "the chain ran out")
+	assert_eq(Audio.newest_player().stream, Audio.SFX[&"explosion_boss_death"], "the sfx still plays")
+	for line: String in lines:
+		assert_false(line.begins_with("[ERROR]"), "no error: %s" % line)
+
+
+func test_a_single_offset_plays_at_once() -> void:
+	(Config.tuning["feedback"] as Dictionary)["boss_death_chain_offsets_px"] = [[5, -5]]
+	Feedback.load_tiers()
+	_setup_listeners()
+	Feedback.boss_death(CHAIN_POS)
+	assert_eq(_explosions().size(), 1)
+	assert_eq(_explosions()[0].global_position, CHAIN_POS + Vector2(5, -5))
+	assert_eq(Feedback.chain_pending(), 0, "nothing queued")
+
+
+func test_load_tiers_rereads_the_chain() -> void:
+	(Config.tuning["feedback"] as Dictionary)["boss_death_chain_offsets_px"] = [[0, 0], [100, 0]]
+	(Config.tuning["feedback"] as Dictionary)["boss_death_chain_s"] = 1.0
+	Feedback.load_tiers()
+	_setup_listeners()
+	Feedback.boss_death(CHAIN_POS)
+	assert_eq(Feedback.chain_pending(), 1)
+	Feedback.step_chain(0.9)
+	assert_eq(_explosions().size(), 1, "not before 1.0 s")
+	Feedback.step_chain(0.1)
+	assert_eq(_explosions().size(), 2, "at chain_s")
+	assert_eq(_explosions()[1].global_position, CHAIN_POS + Vector2(100, 0))
+
+
+func test_no_chain_offsets_plays_one_impact_at_pos() -> void:
+	(Config.tuning["feedback"] as Dictionary)["boss_death_chain_offsets_px"] = []
+	Feedback.load_tiers()
+	_setup_listeners()
+	Feedback.boss_death(CHAIN_POS)
+	assert_push_error("feedback.boss_death_chain_offsets_px is empty; one boss_death impact instead")
+	var explosions: Array[Explosion] = _explosions()
+	assert_eq(explosions.size(), 1, "exactly one explosion")
+	if explosions.size() == 1:
+		assert_eq(explosions[0].global_position, CHAIN_POS, "at pos")
+		assert_eq(explosions[0].scale, Vector2(4, 4), "the Boss-death impact")
+	assert_eq(Feedback.chain_pending(), 0, "nothing queued")
+
+
+func test_malformed_chain_offsets_are_skipped() -> void:
+	var lines: Array[String] = []
+	Log.sink = func(level: String, category: String, msg: String) -> void: lines.append(Log.format(level, category, msg))
+	(Config.tuning["feedback"] as Dictionary)["boss_death_chain_offsets_px"] = [[0, 0], "x", [1]]
+	Feedback.load_tiers()
+	assert_push_error("feedback.boss_death_chain_offsets_px entry x is not an [x, y] pair; skipped")
+	assert_push_error("feedback.boss_death_chain_offsets_px entry [1] is not an [x, y] pair; skipped")
+	var errors: Array[String] = []
+	for line: String in lines:
+		if line.begins_with("[ERROR][data]"):
+			errors.append(line)
+	assert_eq(errors.size(), 2, "one data error per malformed entry: %s" % [errors])
+	_setup_listeners()
+	Feedback.boss_death(CHAIN_POS)
+	assert_eq(_explosions().size(), 1, "only the valid offset plays")
+	assert_eq(_explosions()[0].global_position, CHAIN_POS)
+	assert_eq(Feedback.chain_pending(), 0, "nothing queued")

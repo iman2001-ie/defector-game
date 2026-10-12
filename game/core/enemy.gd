@@ -14,7 +14,8 @@ extends Area2D
 ## (where the hp, tier and hitbox_ratio live; default "enemies.<type_id>"),
 ## _max_hp() (the hp set in _ready; default the section's hp), _hitbox_shape()
 ## (default a circle of sprite_px / 2 * hitbox_ratio) and is_targetable()
-## (whether homing shots and allies may pick it; default true).
+## (whether homing shots and allies may pick it; default true). Story 7.5 adds
+## _death_feedback() (the impact a kill plays; default the tier's).
 
 signal resolved
 
@@ -107,11 +108,18 @@ func _die() -> void:
 	if _dead:
 		return
 	_dead = true
-	Feedback.impact(tier, global_position)
+	_death_feedback()
 	Events.enemy_killed.emit(type_id, global_position, _last_hit_by_ally)
 	_drop_loot()
 	resolved.emit()
 	queue_free()
+
+
+## The feedback a kill plays (Story 7.5 hook): the tier's impact at the enemy.
+## The Flagship core overrides it to play nothing (the Flagship's death chain,
+## Feedback.boss_death, is the feedback).
+func _death_feedback() -> void:
+	Feedback.impact(tier, global_position)
 
 
 ## The no-kill exit (decision F18, Story 6.2): the enemy leaves the wave

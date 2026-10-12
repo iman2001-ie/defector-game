@@ -15,6 +15,11 @@ extends GutTest
 ## combat until Events.wave_cleared.
 ## Decision #40: advancing a story line plays comms_click (same speaker) or
 ## comms_handover (speaker change); completing or closing plays none.
+## Story 7.5: a `choice` sequence shows the FinalChoice after its last line
+## (story + final_choice reasons, cue hidden, clicks consumed); a pick emits
+## final_choice_made, stores GameState.final_choice, pops final_choice and
+## plays the option's `next` in the same panel; `finished` comes once, for the
+## requested id, after `next` ends.
 ## Input goes through get_viewport().push_input like a real click. Under GUT
 ## the root viewport reports a mouse button as handled even when no node
 ## consumed it, so is_input_handled() can't tell who did: a Probe node added
@@ -35,6 +40,7 @@ class Probe:
 
 const PANEL_SCENE: PackedScene = preload("res://systems/comms/comms_panel.tscn")
 const BOX_SCENE: PackedScene = preload("res://systems/comms/comms_box.tscn")
+const CHOICE_SCENE: PackedScene = preload("res://systems/comms/final_choice.tscn")
 const MENU_SCENE: PackedScene = preload("res://ui/menus/pause_menu.tscn")
 const CHANNEL_DIR: String = "res://tests/fixtures/dialogue/channel/"
 const CLICK_AT: Vector2 = Vector2(960, 900)
@@ -53,6 +59,9 @@ var _hide_s: float = 0.0
 var _channel: CommsChannel
 var _panel: CommsPanel
 var _box: CommsBox
+var _final_choice: FinalChoice
+## Every Events.final_choice_made (Story 7.5).
+var _choices: Array[StringName] = []
 var _finished: Array[StringName] = []
 ## Snapshot taken inside each `finished` handler: [story active, panel visible].
 var _at_finish: Array = []
@@ -80,16 +89,24 @@ func before_each() -> void:
 	add_child_autofree(_panel)
 	_box = BOX_SCENE.instantiate() as CommsBox
 	add_child_autofree(_box)
+	_final_choice = CHOICE_SCENE.instantiate() as FinalChoice
+	add_child_autofree(_final_choice)
+	_choices.clear()
+	Events.final_choice_made.connect(_on_choice_made)
 	_channel = CommsChannel.new()
 	_channel.panel = _panel
 	_channel.box = _box
+	_channel.final_choice = _final_choice
 	add_child_autofree(_channel)
 
 
 func after_each() -> void:
 	Events.comms_sequence_finished.disconnect(_on_finished)
+	Events.final_choice_made.disconnect(_on_choice_made)
+	GameState.final_choice = &""
 	Log.sink = Callable()
 	_channel = null
+	_final_choice = null
 	_panel = null
 	_box = null
 	_probe = null
@@ -1078,3 +1095,187 @@ func test_cut_off_freezes_under_a_pause() -> void:
 		if _channel._combat_left_s < left:
 			break
 	assert_lt(_channel._combat_left_s, left, "resumes after the pause")
+
+
+# --- Choice (Story 7.5) ----------------------------------------------------------------
+
+## Clicks choice_a through both lead-in lines (complete + advance each) up to
+## the Final Choice.
+func _to_choice(id: StringName = &"choice_a") -> void:
+	_request(id)
+	for i: int in 4:
+		_click()
+
+
+func _on_choice_made(choice: StringName) -> void:
+	_choices.append(choice)
+
+
+func _button(index: int) -> Button:
+	return _final_choice.buttons()[index]
+
+
+func test_choice_is_shown_after_the_lead_in() -> void:
+	_request(&"choice_a")
+	assert_eq(_name(), "ISOLDE")
+	_click()
+	_click()
+	assert_eq(_channel.line_index(), 1, "the last lead-in line")
+	assert_false(_channel.is_choosing(), "not before the last line's advance")
+	_click()
+	assert_false(_final_choice.visible, "still on the line")
+	_click()
+	assert_true(_channel.is_choosing(), "choosing")
+	assert_true(PauseArbiter.has_reason(&"story"), "story stays")
+	assert_true(PauseArbiter.has_reason(&"final_choice"), "final_choice pushed")
+	assert_true(get_tree().paused)
+	assert_true(_final_choice.visible, "FinalChoice shown")
+	assert_true(_final_choice.is_shown())
+	assert_eq(_button(0).text, "OFFER SURRENDER", "label as-is from the data")
+	assert_eq(_button(1).text, "DESTROY HER")
+	assert_eq(_final_choice.option_ids(), [&"surrender", &"destroy"] as Array[StringName])
+	assert_true(_panel.visible, "the panel stays open")
+	assert_eq(_text().text, "Lead-in two. Choose.", "on the last line")
+	assert_false(_panel.is_cue_visible(), "the cue is hidden")
+	assert_eq(_finished, [] as Array[StringName], "no finished yet")
+	assert_eq(_channel.current_sequence(), &"choice_a")
+	assert_eq(_count_lines("[INFO][comms] Story sequence 'choice_a': final choice shown"), 1)
+	# Clicks outside the buttons are consumed and do nothing.
+	assert_true(_push(true), "press consumed")
+	assert_true(_push(false), "release consumed")
+	_channel.advance()
+	assert_true(_channel.is_choosing(), "still choosing")
+	assert_true(_final_choice.visible)
+	assert_eq(_text().text, "Lead-in two. Choose.")
+	assert_eq(_finished, [] as Array[StringName])
+	assert_eq(_choices, [] as Array[StringName], "no choice made")
+
+
+func test_pick_destroy_plays_the_destroy_response() -> void:
+	_to_choice()
+	assert_true(_channel.is_choosing())
+	_button(1).pressed.emit()
+	assert_eq(_choices, [&"destroy"] as Array[StringName], "final_choice_made once")
+	assert_eq(GameState.final_choice, &"destroy", "stored")
+	assert_false(_channel.is_choosing())
+	assert_false(_final_choice.visible, "FinalChoice hidden")
+	assert_false(PauseArbiter.has_reason(&"final_choice"), "final_choice popped")
+	assert_true(PauseArbiter.has_reason(&"story"), "story still there")
+	assert_true(get_tree().paused, "still paused for the response")
+	assert_true(_panel.visible)
+	assert_eq(_name(), "VALE", "Vale's line first")
+	assert_eq(_text().text, "Destroy line.")
+	assert_eq(_channel.line_index(), 0)
+	assert_eq(_channel.current_sequence(), &"resp_d", "the next id plays")
+	assert_eq(_channel.requested_sequence(), &"choice_a")
+	assert_true(_panel.is_cue_visible(), "the cue is back")
+	assert_eq(Audio.newest_player().stream, Audio.SFX[&"comms_handover"], "comms_handover")
+	assert_eq(_finished, [] as Array[StringName])
+	_button(0).pressed.emit()
+	assert_eq(_choices, [&"destroy"] as Array[StringName], "a second click does nothing")
+
+
+func test_pick_surrender_plays_the_surrender_response() -> void:
+	_to_choice()
+	_button(0).pressed.emit()
+	assert_eq(_choices, [&"surrender"] as Array[StringName])
+	assert_eq(GameState.final_choice, &"surrender")
+	assert_eq(_channel.current_sequence(), &"resp_s")
+	assert_eq(_name(), "VALE")
+	assert_eq(_text().text, "Surrender line.")
+
+
+func test_response_end_finishes_the_requested_id_once() -> void:
+	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_CONFINED_HIDDEN)
+	_to_choice()
+	_button(1).pressed.emit()
+	_click()
+	_click()
+	assert_eq(_name(), "ISOLDE", "then Isolde")
+	assert_eq(_text().text, "Defiance.")
+	_click()
+	assert_eq(_finished, [] as Array[StringName], "not before the last release")
+	_click()
+	assert_false(_channel.is_showing(), "done")
+	assert_false(_panel.visible, "panel closed")
+	assert_eq(PauseArbiter.reasons(), [] as Array[StringName], "no pause reasons")
+	assert_false(get_tree().paused)
+	assert_eq(_finished, [&"choice_a"] as Array[StringName], "one finished, with the requested id")
+	assert_eq(_at_finish, [[false, false]], "story popped and panel closed before finished")
+	assert_eq(_channel.current_sequence(), &"")
+	assert_eq(_channel.requested_sequence(), &"")
+	assert_eq(_count_lines("[INFO][comms] Story sequence 'choice_a' finished"), 1)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(_finished, [&"choice_a"] as Array[StringName], "nothing for resp_d, ever")
+
+
+func test_line_0_of_the_response_needs_a_fresh_press_and_release() -> void:
+	_to_choice()
+	_push(true)
+	_button(1).pressed.emit()
+	assert_true(_push(false), "a release left over from the choice is consumed")
+	assert_eq(_channel.line_index(), 0, "and ignored")
+	assert_true(_panel.is_typing(), "line 0 still typing")
+	_click()
+	assert_false(_panel.is_typing(), "a fresh click completes it")
+
+
+func test_a_real_click_on_a_button_chooses() -> void:
+	_to_choice()
+	var centre: Vector2 = _button(1).get_global_rect().get_center()
+	var seen: int = _probe.seen
+	for pressed: bool in [true, false]:
+		var event: InputEventMouseButton = _mouse(pressed)
+		event.position = centre
+		event.global_position = centre
+		get_viewport().push_input(event, true)
+	assert_eq(_choices, [&"destroy"] as Array[StringName], "the button took the click")
+	assert_eq(_probe.seen, seen, "the GUI consumed it")
+	assert_eq(_channel.line_index(), 0, "the click didn't advance the response")
+	assert_eq(_name(), "VALE")
+
+
+func test_a_story_queued_behind_a_choice_plays_after_it() -> void:
+	_request(&"choice_a")
+	_request(&"story_b")
+	assert_eq(_channel.queued(), [&"story_b"] as Array[StringName])
+	for i: int in 4:
+		_click()
+	assert_true(_channel.is_choosing(), "the choice before the queued story")
+	_button(0).pressed.emit()
+	for i: int in 4:
+		_click()
+	assert_eq(_finished, [&"choice_a"] as Array[StringName], "the choice finished")
+	assert_eq(_channel.current_sequence(), &"story_b", "the queued story plays next")
+	assert_true(PauseArbiter.has_reason(&"story"), "without unpausing")
+	_click_to_end()
+	assert_eq(_finished, [&"choice_a", &"story_b"] as Array[StringName])
+	assert_false(PauseArbiter.is_paused())
+
+
+func test_without_a_final_choice_view_it_finishes_as_a_plain_story() -> void:
+	_channel.final_choice = null
+	_to_choice()
+	assert_push_error("CommsChannel has no final_choice view; 'choice_a' finishes without its choice")
+	assert_false(_channel.is_choosing())
+	assert_false(_final_choice.visible)
+	assert_eq(_finished, [&"choice_a"] as Array[StringName], "a plain finish")
+	assert_eq(_choices, [] as Array[StringName], "no event")
+	assert_eq(GameState.final_choice, &"", "nothing stored")
+	assert_false(PauseArbiter.is_paused(), "no pause left")
+
+
+func test_an_unknown_next_finishes_at_once() -> void:
+	_request(&"choice_bad_next")
+	_click()
+	_click()
+	assert_true(_channel.is_choosing())
+	_button(0).pressed.emit()
+	assert_push_error("Final choice 'surrender': next 'no_such_response' is not a known story sequence; 'choice_bad_next' finishes")
+	assert_eq(_choices, [&"surrender"] as Array[StringName], "the choice still counts")
+	assert_eq(GameState.final_choice, &"surrender")
+	assert_eq(_finished, [&"choice_bad_next"] as Array[StringName], "finished at once")
+	assert_false(_channel.is_showing())
+	assert_false(_panel.visible)
+	assert_false(PauseArbiter.is_paused(), "no pause left")

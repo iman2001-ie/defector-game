@@ -3,9 +3,12 @@ extends GutTest
 ## F6 pressed through DebugTools jumps from wave 1 to the boss wave: the
 ## Flagship spawns through the Spawner with its cover asteroids, the BossBar
 ## shows (the WaveBar fades out), and nothing logs an error. The player is
-## debug_invincible and the router's scene change is a recorder. Feel,
-## readability, difficulty and cover usefulness are operator checks, not
-## claimed here.
+## debug_invincible and the router's scene change is a recorder. Story 7.5:
+## the turrets killed and the core taken to 50 open the real Final Choice
+## (panel, choice, pause; the pause menu refuses), a click picks DESTROY HER,
+## the response plays, the Flagship goes DESPERATE, and the core's death ends
+## in boss_defeated and the level clear. Feel, readability, fairness,
+## difficulty and cover usefulness are operator checks, not claimed here.
 
 const LEVEL_SCENE: PackedScene = preload("res://scenes/level/level.tscn")
 const LEVEL_ID: String = "dev_boss"
@@ -40,6 +43,7 @@ func _reset_game_state() -> void:
 	GameState.current_level_id = ""
 	GameState.is_retry = false
 	GameState.shown_hints.clear()
+	GameState.final_choice = &""
 
 
 func _capture(level: String, category: String, msg: String) -> void:
@@ -140,3 +144,119 @@ func test_f6_jumps_to_the_flagship_and_shows_the_boss_bar() -> void:
 		assert_gt(bosses[0].global_position.y, Config.num("boss.hull.arrive_from_y"), "flying in under physics")
 	assert_eq(_lines_containing("[ERROR]"), [] as Array[String], "no error")
 	assert_eq(_scene_calls, [] as Array[String], "no scene change")
+
+
+# --- Story 7.5: the Final Choice, DESPERATE and the boss death on the real level ----
+
+const CLICK_AT: Vector2 = Vector2(960, 1000)
+
+
+## One LMB press or release at `at` through the root viewport (GUI first,
+## then _unhandled_input), like a real click.
+func _push_click(pressed: bool, at: Vector2 = CLICK_AT) -> void:
+	var event: InputEventMouseButton = InputEventMouseButton.new()
+	event.button_index = MOUSE_BUTTON_LEFT
+	event.pressed = pressed
+	event.button_mask = MOUSE_BUTTON_MASK_LEFT if pressed else 0
+	event.position = at
+	event.global_position = at
+	get_viewport().push_input(event, true)
+
+
+func _click_at(at: Vector2 = CLICK_AT) -> void:
+	_push_click(true, at)
+	_push_click(false, at)
+
+
+func test_final_choice_desperate_and_boss_death_on_dev_boss() -> void:
+	_make_level()
+	var finished: Array[StringName] = []
+	var choices: Array[StringName] = []
+	var defeated: Array[int] = []
+	var cleared: Array[int] = []
+	var on_finished: Callable = func(id: StringName) -> void: finished.append(id)
+	var on_choice: Callable = func(id: StringName) -> void: choices.append(id)
+	var on_defeated: Callable = func() -> void: defeated.append(1)
+	var on_cleared: Callable = func(id: int) -> void: cleared.append(id)
+	Events.comms_sequence_finished.connect(on_finished)
+	Events.final_choice_made.connect(on_choice)
+	Events.boss_defeated.connect(on_defeated)
+	Events.level_cleared.connect(on_cleared)
+	_press(&"debug_skip_to_boss")
+	var bosses: Array[Flagship] = _flagships()
+	assert_eq(bosses.size(), 1, "the Flagship is present")
+	if bosses.size() != 1:
+		_disconnect_all([on_finished, on_choice, on_defeated, on_cleared])
+		return
+	var boss: Flagship = bosses[0]
+	boss.step(Config.num("boss.hull.arrival_s"))
+	assert_eq(boss.phase(), Flagship.Phase.TURRETS)
+	for turret: FlagshipTurret in boss.turrets():
+		turret.apply_damage(turret.hp, null)
+	assert_eq(boss.phase(), Flagship.Phase.CORE)
+	var core: FlagshipCore = boss.core()
+	core.apply_damage(core.hp - 50, null)
+	assert_eq(core.hp, 50, "the core at 50")
+	assert_eq(boss.phase(), Flagship.Phase.FINAL_CHOICE)
+	var boss_bar: BossBar = _level.get_node("HUD/BossBar") as BossBar
+	assert_eq(boss_bar.current(), 50, "the boss bar at the final marker")
+	# Isolde's lead-in in the real story panel, paused.
+	var channel: CommsChannel = _level.get_node("Comms/CommsChannel") as CommsChannel
+	var panel: CommsPanel = _level.get_node("Comms/CommsPanel") as CommsPanel
+	var view: FinalChoice = _level.get_node("Comms/FinalChoice") as FinalChoice
+	var menu: PauseMenu = _level.get_node("Overlay/PauseMenu") as PauseMenu
+	assert_eq(channel.current_sequence(), &"l3_final_choice", "the lead-in plays")
+	assert_true(panel.visible, "the story panel")
+	assert_eq((panel.get_node("Panel/Name") as Label).text, "ISOLDE")
+	assert_true(PauseArbiter.has_reason(&"story"), "combat paused")
+	assert_true(get_tree().paused)
+	for i: int in 4:
+		_click_at()
+	assert_true(channel.is_choosing(), "the choice is up after the lead-in")
+	assert_true(view.visible, "FinalChoice shown")
+	assert_eq(view.buttons()[0].text, "OFFER SURRENDER")
+	assert_eq(view.buttons()[1].text, "DESTROY HER")
+	assert_false(panel.is_cue_visible(), "no click-to-continue cue")
+	assert_true(PauseArbiter.has_reason(&"final_choice"), "final_choice keeps combat paused")
+	assert_true(PauseArbiter.has_reason(&"story"))
+	menu.open()
+	assert_false(menu.is_shown(), "Esc's pause menu refuses during the choice")
+	assert_false(PauseArbiter.has_reason(&"menu"))
+	_click_at()
+	assert_true(channel.is_choosing(), "a click outside the buttons does nothing")
+	assert_eq(finished, [] as Array[StringName])
+	# Pick DESTROY HER with a real click on the button.
+	_click_at(view.buttons()[1].get_global_rect().get_center())
+	assert_eq(choices, [&"destroy"] as Array[StringName], "final_choice_made once")
+	assert_eq(GameState.final_choice, &"destroy")
+	assert_false(PauseArbiter.has_reason(&"final_choice"), "final_choice popped")
+	assert_eq(channel.current_sequence(), &"l3_isolde_refuse_destroy", "the destroy response")
+	assert_eq((panel.get_node("Panel/Name") as Label).text, "VALE", "Vale's line first")
+	assert_eq(boss.phase(), Flagship.Phase.FINAL_CHOICE, "still waiting for the response")
+	for i: int in 4:
+		_click_at()
+	assert_false(panel.visible, "the panel closed")
+	assert_eq(PauseArbiter.reasons(), [] as Array[StringName], "no pause reason left")
+	assert_eq(finished, [&"l3_final_choice"] as Array[StringName], "one finished, for the requested id")
+	assert_eq(boss.phase(), Flagship.Phase.DESPERATE, "DESPERATE")
+	assert_false(core.invulnerable, "the core is damageable")
+	assert_true(core.is_targetable())
+	assert_true(core.is_desperate())
+	# Kill the core: DYING, the chain, then boss_defeated and the level clear.
+	core.apply_damage(core.hp, null)
+	assert_eq(boss.phase(), Flagship.Phase.DYING)
+	assert_true(Feedback.is_hit_stopped(), "the boss-death hit-stop")
+	await wait_seconds(Config.num("feedback.boss_death_chain_s") + 0.8)
+	assert_eq(defeated.size(), 1, "boss_defeated once")
+	assert_eq(_flagships().size(), 0, "the Flagship is gone")
+	assert_eq(Feedback.chain_pending(), 0, "the chain played out")
+	assert_eq(cleared, [0] as Array[int], "the boss wave resolved and dev_boss cleared")
+	assert_eq(_lines_containing("[ERROR]"), [] as Array[String], "no error")
+	_disconnect_all([on_finished, on_choice, on_defeated, on_cleared])
+
+
+func _disconnect_all(callables: Array) -> void:
+	var signals: Array[Signal] = [Events.comms_sequence_finished, Events.final_choice_made, Events.boss_defeated, Events.level_cleared]
+	for i: int in signals.size():
+		if signals[i].is_connected(callables[i]):
+			signals[i].disconnect(callables[i])

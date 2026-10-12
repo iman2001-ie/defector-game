@@ -2,7 +2,8 @@ extends GutTest
 ## DialogueValidator (Stories 5.1-5.4): one problem per defect, each naming the
 ## file and the sequence id; story text is capped at 200 characters, a combat
 ## sequence has exactly one line of at most 50; is_interruption() leaves out
-## the cut-off line. Story 5.4: the cut_off_at / after rules.
+## the cut-off line. Story 5.4: the cut_off_at / after rules. Story 7.5: the
+## Final Choice `choice` rules.
 
 const SRC: String = "res://data/dialogue/test.json"
 const MAX: int = 200
@@ -233,3 +234,87 @@ func test_after_bad_values() -> void:
 
 func test_cut_off_line_is_not_an_interruption() -> void:
 	assert_false(DialogueValidator.is_interruption(_seq("combat", [_cut_line({"cut_off_at": 39})])))
+
+
+# --- Choice (Story 7.5) --------------------------------------------------------------
+
+func _option(id: Variant, label: Variant, next: Variant) -> Dictionary:
+	return {"id": id, "label": label, "next": next}
+
+
+func _good_options() -> Array:
+	return [_option("surrender", "OFFER SURRENDER", "refuse_s"), _option("destroy", "DESTROY HER", "refuse_d")]
+
+
+## A story sequence with the given `choice` value.
+func _choice_seq(choice: Variant, mode: String = "story") -> Dictionary:
+	var seq: Dictionary = _seq(mode, [_line("isolde", "Choose.")])
+	seq["choice"] = choice
+	return seq
+
+
+func _choice_problems(choice: Variant, mode: String = "story") -> Array[String]:
+	return DialogueValidator.validate_sequence("fc", _choice_seq(choice, mode), SRC, MAX, CMAX)
+
+
+func test_choice_constants() -> void:
+	assert_eq(DialogueValidator.CHOICE_KEY, "choice")
+	assert_eq(DialogueValidator.CHOICE_IDS, ["surrender", "destroy"] as Array[String])
+	assert_eq(DialogueValidator.CHOICE_OPTIONS, 2)
+
+
+func test_valid_choice_has_no_problems() -> void:
+	assert_eq(_choice_problems({"options": _good_options()}), [] as Array[String])
+	var reversed: Array = _good_options()
+	reversed.reverse()
+	assert_eq(_choice_problems({"options": reversed}), [] as Array[String], "either order")
+
+
+func test_choice_only_in_story_sequences() -> void:
+	_only_problem(_choice_problems({"options": _good_options()}, "combat"), "sequences.fc.choice: choice is only allowed in story sequences")
+
+
+func test_choice_not_an_object() -> void:
+	_only_problem(_choice_problems([]), "sequences.fc.choice: is not an object")
+	_only_problem(_choice_problems("surrender"), "sequences.fc.choice: is not an object")
+
+
+func test_choice_options_missing_or_not_an_array() -> void:
+	_only_problem(_choice_problems({}), "sequences.fc.choice.options: missing or not an array")
+	_only_problem(_choice_problems({"options": {}}), "sequences.fc.choice.options: missing or not an array")
+
+
+func test_choice_needs_exactly_two_options() -> void:
+	_only_problem(_choice_problems({"options": [_option("surrender", "A", "x")]}), "choice.options: has 1 options, exactly 2 allowed")
+	_only_problem(_choice_problems({"options": []}), "choice.options: has 0 options, exactly 2 allowed")
+	var three: Array = _good_options()
+	three.append(_option("surrender", "C", "z"))
+	var problems: Array[String] = _choice_problems({"options": three})
+	assert_eq(problems.size(), 2, "the count and the duplicate, one problem each: %s" % [problems])
+	if problems.size() == 2:
+		assert_string_contains(problems[0], "has 3 options, exactly 2 allowed")
+		assert_string_contains(problems[1], "choice.options[2].id: duplicate option id 'surrender'")
+
+
+func test_choice_option_not_an_object() -> void:
+	_only_problem(_choice_problems({"options": [_option("surrender", "A", "x"), 7]}), "choice.options[1]: is not an object")
+
+
+func test_choice_option_id_unknown_or_missing() -> void:
+	_only_problem(_choice_problems({"options": [_option("surrender", "A", "x"), _option("spare", "B", "y")]}), "choice.options[1].id: must be one of surrender, destroy, not 'spare'")
+	_only_problem(_choice_problems({"options": [_option("surrender", "A", "x"), {"label": "B", "next": "y"}]}), "choice.options[1].id: must be one of surrender, destroy")
+	_only_problem(_choice_problems({"options": [_option(1, "A", "x"), _option("destroy", "B", "y")]}), "choice.options[0].id")
+
+
+func test_choice_option_id_duplicate() -> void:
+	_only_problem(_choice_problems({"options": [_option("destroy", "A", "x"), _option("destroy", "B", "y")]}), "choice.options[1].id: duplicate option id 'destroy'")
+
+
+func test_choice_option_label_must_be_a_non_empty_string() -> void:
+	for bad: Variant in ["", "   ", 3, null]:
+		_only_problem(_choice_problems({"options": [_option("surrender", bad, "x"), _option("destroy", "B", "y")]}), "choice.options[0].label: must be a non-empty string")
+
+
+func test_choice_option_next_must_be_a_non_empty_string() -> void:
+	for bad: Variant in ["", " ", 4.0, null]:
+		_only_problem(_choice_problems({"options": [_option("surrender", "A", "x"), _option("destroy", "B", bad)]}), "choice.options[1].next: must be a non-empty string")

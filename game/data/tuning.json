@@ -182,7 +182,10 @@
 			"aimed_bullets": 3,
 			"aimed_speed_px_s": 400,
 			"aimed_interval_s": 2.0,
-			"aimed_telegraph_s": 0.3
+			"aimed_telegraph_s": 0.3,
+			"radial_bullets": 12,
+			"aimed_spread_deg": 15,
+			"pulse_hz": 2.0
 		},
 		"phase1_medium_asteroids": 2
 	},
@@ -301,6 +304,8 @@
 			}
 		},
 		"boss_death_chain_s": 2.0,
+		"boss_death_chain_offsets_px": [[0, 124], [-270, 40], [270, 40], [0, 0]],
+		"white_flash": { "alpha": 0.7, "duration_s": 0.3 },
 		"player_death_pause_s": 1.5
 	},
 	"damage": {
@@ -328,7 +333,8 @@
 		"pause_menu": { "panel_w": 520, "panel_padding_px": 40, "heading_px": 48, "heading_gap_px": 40, "button_w": 400, "button_h": 72, "button_gap_px": 24 },
 		"comms_panel": { "x": 410, "y": 300, "w": 1100, "h": 300, "padding_px": 32, "portrait_px": 200, "portrait_gap_px": 24, "name_h_px": 36, "name_gap_px": 8, "cue_h_px": 24 },
 		"comms_box": { "x": 32, "y": 24, "w": 560, "h": 96, "edge_px": 4, "padding_px": 4, "portrait_px": 72, "portrait_gap_px": 12, "name_h_px": 32, "text_line_h_px": 25, "text_lines": 2 },
-		"hint_pill": { "center_y": 560, "h": 52, "padding_px": 24, "gap_px": 12, "fade_in_s": 0.2, "fade_out_s": 0.2, "show_s": 5.0, "move_dismiss_px": 150 }
+		"hint_pill": { "center_y": 560, "h": 52, "padding_px": 24, "gap_px": 12, "fade_in_s": 0.2, "fade_out_s": 0.2, "show_s": 5.0, "move_dismiss_px": 150 },
+		"final_choice": { "button_w": 480, "button_h": 120, "button_gap_px": 48, "buttons_top_y": 680, "font_px": 28 }
 	},
 	"audio": {
 		"music_fade_out_s": 0.5

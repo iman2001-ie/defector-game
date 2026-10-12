@@ -1,4 +1,4 @@
-[gd_scene load_steps=23 format=3]
+[gd_scene load_steps=24 format=3]
 
 [ext_resource type="Script" path="res://scenes/level/level.gd" id="1_level"]
 [ext_resource type="PackedScene" path="res://entities/player/player.tscn" id="2_player"]
@@ -21,6 +21,7 @@
 [ext_resource type="Script" path="res://ui/hud/hint_pill.gd" id="19_hint_pill"]
 [ext_resource type="Script" path="res://ui/hud/convoy_bar.gd" id="20_convoy_bar"]
 [ext_resource type="Script" path="res://ui/hud/boss_bar.gd" id="21_boss_bar"]
+[ext_resource type="PackedScene" path="res://systems/comms/final_choice.tscn" id="22_final_choice"]
 
 [sub_resource type="Environment" id="Environment_glow"]
 background_mode = 3
@@ -169,15 +170,18 @@ script = ExtResource("6_banner")
 [node name="Comms" type="CanvasLayer" parent="."]
 layer = 20
 
-[node name="CommsChannel" type="Node" parent="Comms" node_paths=PackedStringArray("panel", "box")]
+[node name="CommsChannel" type="Node" parent="Comms" node_paths=PackedStringArray("panel", "box", "final_choice")]
 process_mode = 3
 script = ExtResource("16_comms_channel")
 panel = NodePath("../CommsPanel")
 box = NodePath("../CommsBox")
+final_choice = NodePath("../FinalChoice")
 
 [node name="CommsBox" parent="Comms" instance=ExtResource("18_comms_box")]
 
 [node name="CommsPanel" parent="Comms" instance=ExtResource("17_comms_panel")]
+
+[node name="FinalChoice" parent="Comms" instance=ExtResource("22_final_choice")]
 
 [node name="Overlay" type="CanvasLayer" parent="."]
 layer = 30
