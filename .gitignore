@@ -1,5 +1,7 @@
 .bmad-loop/runs/
 .bmad-loop/cache/
+# bmad-loop run archives (full run logs, may hold local paths)
+.bmad-loop/archive/
 .bmad-loop/policy.toml
 _bmad/render/
 

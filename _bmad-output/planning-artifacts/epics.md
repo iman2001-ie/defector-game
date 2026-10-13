@@ -1817,6 +1817,7 @@ So that every shot and explosion feels as big as it looks.
 **Given** optional combat and boss tracks are included
 **When** levels and the boss wave play
 **Then** the right track plays, and the music drops out during Tarek's silence beat
+**And** when Level 3 clears, the level or boss music stops before the end screen (or the end screen starts its own track), so the boss track never carries on into it (DW-100)
 
 **Given** every new audio file
 **When** I check `game/assets/CREDITS.md`
