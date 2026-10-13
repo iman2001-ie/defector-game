@@ -2,7 +2,7 @@
 title: 'Story 7.2: Play Level 2: The Blockade'
 type: 'feature'
 created: '2026-10-11'
-status: 'awaiting-operator'
+status: done
 operator_actions:
   - 'Play Level 2 from the title in a debug build ("<GODOT_DIR>/Godot_v4.7.2-stable_win64.exe" --path game) with the F1 overlay on, from the briefing to the clear, and confirm that no wave soft-locks and that the level takes about 3-4 minutes plus dialogue.'
   - 'During that run, judge whether the asteroids give usable cover against the Needles, and whether in wave 5 the Bastions (row y 250, same columns as the Needles at y 160) hide the Needles too much; if so, raise a layout or design change rather than editing code silently.'
@@ -193,3 +193,14 @@ Status: awaiting-operator
 - The tests run with an invincible player and kill enemies directly, so pacing, difficulty and cover are unproven until the playtest.
 - The 90 px rows are global. They make missile splash usually reach the next Wasp row, and they bring Bastions closer to the rows below them.
 - If a combat line is still playing at the W5 50 % mark, the cut-off is delayed behind it. This is unlikely in play.
+
+## Operator Confirmation
+
+Confirmed 2026-10-13: the external actions this story owed were carried out.
+
+- Play Level 2 from the title in a debug build ("<GODOT_DIR>/Godot_v4.7.2-stable_win64.exe" --path game) with the F1 overlay on, from the briefing to the clear, and confirm that no wave soft-locks and that the level takes about 3-4 minutes plus dialogue.
+- During that run, judge whether the asteroids give usable cover against the Needles, and whether in wave 5 the Bastions (row y 250, same columns as the Needles at y 160) hide the Needles too much; if so, raise a layout or design change rather than editing code silently.
+- Confirm Tarek's fall at 50 % of wave 5 lands as the beat: the shield glide, the line cut mid-word, the static, shake and music stop, the fire trail and the exit, then Ryn's report after the clear. Watch for the cut-off being delayed behind another combat line.
+- Play Level 1 again and judge whether the tighter 90 px formation rows still read well, and whether missiles are now too strong against formations (a hit on a back-row Wasp now usually also splash-kills the Wasp in front of it); any retune goes in game/data/tuning.json with a GDD decision-log entry.
+
+_Appended by the bmad-loop orchestrator (`bmad-loop confirm`, #335): a human confirmed these external actions out of band, and the story was advanced from `awaiting-operator` to `done`._
