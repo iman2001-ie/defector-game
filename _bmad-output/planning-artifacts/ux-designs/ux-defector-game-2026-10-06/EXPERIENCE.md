@@ -20,7 +20,7 @@ DEFECTOR is a Windows PC game played at a desk with mouse and keyboard, in a sin
 ## Information Architecture
 
 - **Boot → Title:** `DEFECTOR` logo, then PLAY · LEVEL SELECT · QUIT.
-  - **Play** continues at the highest unlocked level.
+  - **Play** always starts Level 1 (through the opening) with 0 energy; Level Select starts any unlocked level, also with 0 energy (GDD #60).
   - **Level Select:** three level cards by name; locked cards are greyed and can't be clicked. BACK returns to the title.
 - **Story scene:** the opening sequence plays before Level 1 on a fresh start only.
 - **Level:** briefing (paused) → waves → debrief (paused) → next level. **On retry or restart, the briefing is skipped** and the level starts at wave 1 straight away (same rule as the opening).
@@ -65,7 +65,7 @@ The player learns one rule: **a centred panel with a dimmed screen means read th
 | Story panel | Opens with the comms-open SFX and types at 45 chars/s. A click completes the current line; the next click advances. The click is consumed so it never fires the laser. Esc opens the pause menu on top; closing the menu returns to the story pause |
 | Interruption box | Types out at 45 chars/s like the story panel (a cut-off line types slower, see Cut-off). One short line (≤ 50 chars), auto-wrapping to at most 2 lines at 22px (name 24px) and clipped to the box. Slides in from the left over 0.15 s and stays for `max(5.0, chars/45 + 3.0)` s, then fades out over 0.6 s (ease-out). Keys in with the story panel's radio cues, played quieter: `comms_open` without its beep (`comms_open_nobeep`) when it opens fresh, `comms_handover` / `comms_click` when it follows straight on from another line (GDD decisions #41, #42). Click-through (it ignores the mouse). Story lines preempt it. At most 3 queued |
 | Cut-off | The line types at 16 chars/s, so the cut lands at `cut_off_at / 16` s (about 2.4 s for the dev line's 39 characters, 2.5 s for Level 2's 40). The text stops mid-word and ends in `...`, an 18 px / 0.9 s camera shake fires and 2.5 s of softened recorded static plays, with a 0.2 s fade-out at its very end. The box holds the cut text for 2.5 s, then hides at once with no fade as the static ends (about 5 s in all). Further interruptions are silenced until the wave clears (GDD decision #43, UX decision #25) |
-| Control hint | Fades in over 0.2 s. Fades out once the action is performed or after 5 s. Each hint shows once per session; retries don't repeat it | Move and fire are two hints shown in sequence: `MOVE THE MOUSE TO FLY` (dismissed after 150 px of movement), then `[HOLD LMB] FIRE` (dismissed on first shot). Only one pill shows at a time; a newer hint waits for the current one to fade
+| Control hint | Fades in over 0.2 s. Fades out once the action is performed or after 5 s. Each hint shows once per session; retries don't repeat it, except in Level 1, where the hints show on every run, retries included (GDD #60) | Move and fire are two hints shown in sequence: `MOVE THE MOUSE TO FLY` (dismissed after 150 px of movement), then `[HOLD LMB] FIRE` (dismissed on first shot). Only one pill shows at a time; a newer hint waits for the current one to fade
 | Missile cooldown ring | Appears full when the missile fires and empties clockwise over 1.5 s; hidden when ready. Freezes with the game while paused |
 | Wave bar | Fills smoothly (0.2 s tween) and never goes backwards within an attempt |
 | Boss bar | Replaces the wave bar with a 0.3 s cross-fade when the Flagship arrives |

@@ -340,16 +340,19 @@ func _crossed(info: Dictionary, at: float) -> bool:
 	return resolved / total >= at and (resolved - 1.0) / total < at
 
 
-## [save_version, highest_unlocked_level, energy] read straight from the test
-## save ([] when there is none).
+## [save_version, highest_unlocked_level] read straight from the test save
+## ([] when there is none); the energy is never saved (playtest 2026-10-13), so
+## a save holding any other key reads as ["unexpected keys", <keys>].
 func _read_save() -> Array:
 	var file: ConfigFile = ConfigFile.new()
 	if file.load(TEST_SAVE) != OK:
 		return []
+	var keys: PackedStringArray = file.get_section_keys("progress")
+	if keys != PackedStringArray(["save_version", "highest_unlocked_level"]):
+		return ["unexpected keys", keys]
 	return [
 		file.get_value("progress", "save_version"),
 		file.get_value("progress", "highest_unlocked_level"),
-		file.get_value("progress", "energy"),
 	]
 
 
@@ -456,7 +459,7 @@ func _play_wave_3_into_the_boss(taunt_on: bool) -> void:
 ## opens with Vale's line), the response clicked through, DESPERATE, the core
 ## killed; then boss_defeated once and Isolde's final line as the paused story
 ## outro (ISOLDE) with no clear, no save and no scene change yet; after its
-## click-through, level_cleared(3) once, the save [1, 3, energy] and one change
+## click-through, level_cleared(3) once, the save [1, 3] and one change
 ## to the story scene with ending_council pending before the end screen (the
 ## shipped council_epilogue flag), still exactly once 0.3 s later.
 func _drive_flagship_to_the_epilogue(option: int, choice: StringName, response: StringName) -> void:
@@ -522,7 +525,7 @@ func _drive_flagship_to_the_epilogue(option: int, choice: StringName, response: 
 	# The clear, the save and the council epilogue's story scene.
 	assert_eq(_cleared, [3] as Array[int], "level_cleared(3) once, after the click-through")
 	assert_true(_director().is_level_cleared(), "the director cleared the level")
-	assert_eq(_read_save(), [1, 3, GameState.energy], "the save written with level 3 and the energy")
+	assert_eq(_read_save(), [1, 3], "the save written with level 3 (no energy)")
 	assert_eq(_scene_calls, [SceneRouter.STORY_SCENE_PATH] as Array[String], "the router opened the story scene once")
 	assert_eq(SceneRouter.story_sequence(), ENDING, "ending_council pending")
 	assert_eq(SceneRouter.story_next_level(), SceneRouter.STORY_NEXT_END, "before the end screen")
@@ -681,6 +684,6 @@ func test_council_epilogue_off_goes_straight_to_the_end_screen() -> void:
 	assert_eq(SceneRouter.story_sequence(), &"", "no story pending")
 	assert_eq(SceneRouter.story_next_level(), 0, "no story target pending")
 	assert_eq(GameState.current_level_id, "", "no level id on the end screen")
-	assert_eq(_read_save(), [1, 3, GameState.energy], "the save written")
+	assert_eq(_read_save(), [1, 3], "the save written")
 	assert_false(_requested.has(ENDING), "the epilogue never requested")
 	_assert_clean_log()

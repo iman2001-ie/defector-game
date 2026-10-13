@@ -71,7 +71,7 @@ FR12: When hearts reach 0, the player-death feedback plays, followed by a 1.5 s 
 **Energy, Shield and Barrage**
 
 FR13: Energy ranges 0–100. Destroyed enemies and asteroids drop 10-energy orbs per the drop table (Wasp/Hunter 15%, Lancer/Maul 25%, Needle 30%, Bastion 100% ×2 orbs, asteroid S/M/L 10%/30%/60%, Flagship turret 100%). Orbs drift down at 120 px/s, are magnet-pulled within 160 px of the ship, and despawn after 6 s.
-FR14: Energy carries into the next level and is saved on level clear. It resets to 0 on death or level restart.
+FR14: Energy carries into the next level and is saved on level clear. It resets to 0 on death or level restart. *(Superseded by GDD decision #60, 2026-10-13: energy is not saved; Play and Level Select start at 0; a death's Retry resets to 0; Restart Level puts back the attempt's starting energy.)*
 FR15: Shield (E) costs 50 energy and gives 4.0 s of full invulnerability, including contact damage, shown as a visible bubble. It cannot be stacked or refreshed while active.
 FR16: Barrage (Q) costs 100 energy and fires 12 homing micro-missiles over 2.0 s (one every ~0.17 s). Each deals 6 damage and seeks the nearest enemy. Asteroids block them.
 FR17: Pressing E or Q without enough energy does nothing except play a short "denied" sound and flash the energy bar.
@@ -140,7 +140,7 @@ FR55 (COULD): A council epilogue after the final line.
 
 **Game flow, save and HUD**
 
-FR56: The title screen offers Play (continue at the highest unlocked level), Level Select (locked levels shown greyed out) and Quit.
+FR56: The title screen offers Play (continue at the highest unlocked level), Level Select (locked levels shown greyed out) and Quit. *(Superseded by GDD decision #60, 2026-10-13: Play always starts Level 1.)*
 FR57: The pause menu (Esc) offers Resume, Restart Level and Quit to Title.
 FR58: Clearing a level unlocks the next one. Unlocked levels and current energy are saved to the per-user app data folder on level clear.
 FR59: The game defaults to borderless fullscreen, supports windowed mode, and letterboxes the playfield to keep 16:9.
@@ -153,7 +153,7 @@ FR62: The HUD shows hearts, an energy bar (with markers at 50 and 100), the miss
 FR63: Audio: about 15–20 SFX cues; explosion volume and pitch scale with the size tier; distinct cues for player hit, energy pickup, ability denied, comms open, and comms cut-off (static burst, then silence). Optional music: one combat track and one boss track. No voice acting.
 FR64: Art: clean neon/vector 2D on dark space backgrounds. Colour language: Coalition cyan/teal, Sovereignty enemies and all enemy projectiles magenta/red, energy orbs gold, asteroids desaturated grey-brown with a rim light. Two space backgrounds plus the throne-world arc (Level 3 only). Portraits for Isolde, Tarek and Ryn (Vale optional).
 FR65: The game ships as a zipped Windows executable on the public GitHub repo's releases page, with a README covering the controls and the story premise.
-FR66: Control hints: short on-screen key prompts (not dialogue) teach the controls in Level 1: move and hold LMB in W1, RMB missile in W2, and E Shield / Q Barrage when the player first reaches 50 / 100 energy. Each hint shows once per session and fades after the action is performed or 5 s.
+FR66: Control hints: short on-screen key prompts (not dialogue) teach the controls in Level 1: move and hold LMB in W1, RMB missile in W2, and E Shield / Q Barrage when the player first reaches 50 / 100 energy. Each hint shows once per session and fades after the action is performed or 5 s. *(GDD decision #60, 2026-10-13: Level 1 shows its hints on every run.)*
 
 ### NonFunctional Requirements
 

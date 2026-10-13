@@ -1,7 +1,9 @@
 extends GutTest
 ## SaveManager (Story 4.2): the [progress] ConfigFile round trip, the defaults
 ## for a missing file (INFO) and for a corrupt file, a missing or unknown
-## save_version or bad values (WARN), and no file I/O at construction. Every
+## save_version or a bad unlock value (WARN), and no file I/O at construction.
+## Playtest 2026-10-13: only save_version and highest_unlocked_level are saved
+## and loaded; an older save's `energy` key is ignored without a WARN. Every
 ## test uses its own user://test_*.cfg path, never the real save.
 
 const SAVE_MANAGER_SCRIPT: GDScript = preload("res://autoloads/save_manager.gd")
@@ -54,19 +56,20 @@ func _write_raw(text: String) -> void:
 
 
 ## Writes [progress] with the given values; a null value leaves the key out.
-func _write_progress(version: Variant, highest: Variant, energy: Variant) -> void:
+## `old_energy` is the key an older save carried (left out by default).
+func _write_progress(version: Variant, highest: Variant, old_energy: Variant = null) -> void:
 	var file: ConfigFile = ConfigFile.new()
 	if version != null:
 		file.set_value("progress", "save_version", version)
 	if highest != null:
 		file.set_value("progress", "highest_unlocked_level", highest)
-	if energy != null:
-		file.set_value("progress", "energy", energy)
+	if old_energy != null:
+		file.set_value("progress", "energy", old_energy)
 	assert_eq(file.save(TEST_SAVE), OK, "fixture written")
 
 
 func _assert_defaults(progress: Dictionary, what: String) -> void:
-	assert_eq(progress, {"highest_unlocked_level": 1, "energy": 0}, what)
+	assert_eq(progress, {"highest_unlocked_level": 1}, what)
 
 
 func _assert_one_warn(what: String) -> void:
@@ -108,12 +111,42 @@ func test_round_trip() -> void:
 	assert_eq(raw.load(TEST_SAVE), OK, "raw ConfigFile reads it")
 	assert_eq(raw.get_value("progress", "save_version"), 1)
 	assert_eq(raw.get_value("progress", "highest_unlocked_level"), 2)
-	assert_eq(raw.get_value("progress", "energy"), 40)
-	assert_typeof(raw.get_value("progress", "energy"), TYPE_INT)
+	assert_typeof(raw.get_value("progress", "highest_unlocked_level"), TYPE_INT)
 	GameState.highest_unlocked_level = 1
-	GameState.energy = 0
-	assert_eq(SaveManager.load_progress(), {"highest_unlocked_level": 2, "energy": 40})
+	assert_eq(SaveManager.load_progress(), {"highest_unlocked_level": 2})
 	assert_eq(_lines_starting("[WARN][save]").size(), 0, "no WARN")
+
+
+## Playtest 2026-10-13: energy is never saved, whatever GameState holds.
+func test_save_writes_no_energy_key() -> void:
+	GameState.highest_unlocked_level = 3
+	GameState.energy = 75
+	assert_true(SaveManager.save())
+	var raw: ConfigFile = ConfigFile.new()
+	assert_eq(raw.load(TEST_SAVE), OK)
+	assert_eq(raw.get_sections(), PackedStringArray(["progress"]), "one section")
+	assert_eq(raw.get_section_keys("progress"), PackedStringArray(["save_version", "highest_unlocked_level"]), "no energy key")
+	assert_false(raw.has_section_key("progress", "energy"))
+
+
+## A save written before playtest 2026-10-13 still has an `energy` key: it
+## loads with the unlock kept, the energy ignored and no WARN, whatever the
+## old value was.
+func test_old_save_with_an_energy_key_loads_without_a_warn() -> void:
+	for old_energy: Variant in [40, 0, -5, "forty", 2.5]:
+		_lines.clear()
+		_delete(TEST_SAVE)
+		_write_progress(1, 2, old_energy)
+		assert_eq(SaveManager.load_progress(), {"highest_unlocked_level": 2}, "energy %s: the unlock kept" % var_to_str(old_energy))
+		assert_eq(_lines_starting("[WARN][save]").size(), 0, "energy %s: no WARN" % var_to_str(old_energy))
+		assert_eq(_lines_starting("[INFO][save] Save loaded").size(), 1, "energy %s: loaded" % var_to_str(old_energy))
+
+
+func test_load_progress_has_only_the_unlock_key() -> void:
+	_write_progress(1, 3)
+	var progress: Dictionary = SaveManager.load_progress()
+	assert_eq(progress.keys(), ["highest_unlocked_level"])
+	assert_false(progress.has("energy"))
 
 
 func test_corrupt_file_gives_defaults_with_warn() -> void:
@@ -124,39 +157,37 @@ func test_corrupt_file_gives_defaults_with_warn() -> void:
 
 
 func test_unknown_version_gives_defaults_with_warn() -> void:
-	_write_progress(2, 2, 40)
+	_write_progress(2, 2)
 	_assert_defaults(SaveManager.load_progress(), "save_version 2")
 	_assert_one_warn("save_version 2")
 
 
 func test_missing_version_gives_defaults_with_warn() -> void:
-	_write_progress(null, 2, 40)
+	_write_progress(null, 2)
 	_assert_defaults(SaveManager.load_progress(), "no save_version")
 	_assert_one_warn("no save_version")
 
 
 func test_non_int_version_gives_defaults_with_warn() -> void:
-	_write_progress("1", 2, 40)
+	_write_progress("1", 2)
 	_assert_defaults(SaveManager.load_progress(), "string save_version")
 	_assert_one_warn("string save_version")
 
 
 func test_bad_values_give_defaults_with_warn() -> void:
 	var cases: Array[Array] = [
-		[0, 40, "highest 0"],
-		[2, -5, "energy -5"],
-		["2", 40, "string highest"],
-		[2, "forty", "string energy"],
-		[2.0, 40, "float highest"],
-		[null, 40, "missing highest"],
-		[2, null, "missing energy"],
+		[0, "highest 0"],
+		[-1, "highest -1"],
+		["2", "string highest"],
+		[2.0, "float highest"],
+		[null, "missing highest"],
 	]
 	for row: Array in cases:
 		_lines.clear()
 		_delete(TEST_SAVE)
-		_write_progress(1, row[0], row[1])
-		_assert_defaults(SaveManager.load_progress(), str(row[2]))
-		_assert_one_warn(str(row[2]))
+		_write_progress(1, row[0])
+		_assert_defaults(SaveManager.load_progress(), str(row[1]))
+		_assert_one_warn(str(row[1]))
 
 
 # --- Save -------------------------------------------------------------------------

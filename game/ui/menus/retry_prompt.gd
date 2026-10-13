@@ -10,7 +10,7 @@ extends Control
 ## prompt with RETRY focused (focus ring hidden). Later failures are ignored,
 ## and so is any failure after Events.level_cleared (the first outcome wins,
 ## DW-75: a convoy loss can't fail a cleared level). RETRY calls
-## SceneRouter.restart_level(), QUIT TO TITLE SceneRouter.goto_title(); a
+## SceneRouter.retry_level() (energy 0), QUIT TO TITLE SceneRouter.goto_title(); a
 ## second press does nothing.
 ##
 ## Runs while paused (PROCESS_MODE_ALWAYS). It captures the mouse only while
@@ -149,7 +149,7 @@ func _on_retry_pressed() -> void:
 	if not _shown or _leaving:
 		return
 	_leaving = true
-	SceneRouter.restart_level()
+	SceneRouter.retry_level()
 
 
 func _on_quit_pressed() -> void:

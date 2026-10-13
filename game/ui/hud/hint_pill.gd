@@ -20,7 +20,9 @@ extends Control
 ## hint shows. Once per session: a hint is recorded in GameState.shown_hints
 ## when it starts showing, and a shown, showing or queued hint is never queued
 ## again, so retries (scene reloads) never repeat it; a hint that was only
-## queued when the scene reloaded can still show later.
+## queued when the scene reloaded can still show later. A level with
+## "teach_controls": true (Level 1) clears GameState.shown_hints at its start,
+## so its hints show on every run (playtest 2026-10-13).
 ##
 ## Never pauses and never touches PauseArbiter or the comms. PAUSABLE: the fade
 ## tweens (created on the pill, default pause mode) and the show_s Timer child

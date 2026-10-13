@@ -5,6 +5,7 @@
 	"music": "combat",
 	"convoy": true,
 	"ally": "tarek",
+	"teach_controls": true,
 	"intro_sequence": null,
 	"outro_sequence": "l1_tarek_closing",
 	"waves": [

@@ -1,8 +1,9 @@
 class_name TitleScreen
 extends Control
 ## The title screen (Story 4.1, FR56; UX "Title screen"): the DEFECTOR logo and
-## PLAY · LEVEL SELECT · QUIT. PLAY continues at the highest unlocked level
-## (Story 4.2); LEVEL SELECT (Story 4.3) opens Level Select.
+## PLAY · LEVEL SELECT · QUIT. PLAY always starts a new run at level 1, through
+## the opening (playtest 2026-10-13); LEVEL SELECT (Story 4.3) opens Level
+## Select.
 ##
 ## Healthy config: the layout comes from `ui.title` (logo centre y and size,
 ## button size, gap and first top; the button stack is centred horizontally).
@@ -11,10 +12,9 @@ extends Control
 ## That branch never calls a Config getter (each would assert on the empty
 ## data); it keeps the positions authored in title.tscn, which match the UX.
 ##
-## PLAY -> SceneRouter.start_level(GameState.highest_unlocked_level) with the
-## energy goto_title() restored from the save (the debug F7 unlock doesn't change
-## it); LEVEL SELECT -> SceneRouter.goto_level_select() (GameState untouched);
-## QUIT -> quit_game (logged).
+## PLAY -> SceneRouter.start_new("1") (energy 0; the unlock and the debug F7
+## flag don't change it); LEVEL SELECT -> SceneRouter.goto_level_select()
+## (GameState untouched); QUIT -> quit_game (logged).
 ## A second press does nothing. Colours, sizes and button styles come from the
 ## shared Theme (type `Title`), copied onto the children in code. Mouse-only:
 ## no button takes focus.
@@ -105,7 +105,7 @@ func _on_play_pressed() -> void:
 	if _leaving or _config_failed:
 		return
 	_leaving = true
-	SceneRouter.start_level(str(GameState.highest_unlocked_level))
+	SceneRouter.start_new(SceneRouter.OPENING_LEVEL_ID)
 
 
 func _on_level_select_pressed() -> void:

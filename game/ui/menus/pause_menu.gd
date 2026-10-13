@@ -10,7 +10,8 @@ extends Control
 ## only `menu`, so an underlying story pause stays. Over a story pause the menu
 ## hides its own Dim (the comms panel's dim is already up: one dim, never
 ## stacked). RESTART LEVEL calls
-## SceneRouter.restart_level(), QUIT TO TITLE SceneRouter.goto_title(); the menu
+## SceneRouter.restart_level() (back to the attempt's starting energy), QUIT TO
+## TITLE SceneRouter.goto_title(); the menu
 ## stays visible until the scene changes and a `_leaving` guard ignores every
 ## later press and Esc.
 ##

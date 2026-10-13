@@ -7,13 +7,15 @@ extends Node
 ##   [progress]
 ##   save_version=1
 ##   highest_unlocked_level=2
-##   energy=40
+##
+## Energy is not saved (playtest 2026-10-13: every menu start begins at 0). An
+## older save's `energy` key is ignored, so it still loads.
 ##
 ## - load_progress(): reads it. A missing file gives the defaults (INFO); a
 ##   corrupt file, a missing or unknown save_version, or a missing, non-int or
 ##   out-of-range value gives the defaults with a WARN. Never crashes and never
 ##   calls a Config getter (it also runs while Config.load_error is set).
-## - save(): writes GameState.highest_unlocked_level and GameState.energy. Only
+## - save(): writes GameState.highest_unlocked_level. Only
 ##   SceneRouter.complete_level() calls it (saving happens only on a level clear).
 ##
 ## No file I/O happens in _ready. Tests point save_path at their own
@@ -24,26 +26,24 @@ const DEFAULT_SAVE_PATH: String = "user://save.cfg"
 const SECTION: String = "progress"
 const KEY_VERSION: String = "save_version"
 const KEY_HIGHEST: String = "highest_unlocked_level"
-const KEY_ENERGY: String = "energy"
 const DEFAULT_HIGHEST: int = 1
-const DEFAULT_ENERGY: int = 0
 
 ## Where the save lives. Tests inject a test path.
 var save_path: String = DEFAULT_SAVE_PATH
 
 
-## The defaults: level 1 unlocked, no energy.
+## The defaults: level 1 unlocked.
 func defaults() -> Dictionary:
-	return {KEY_HIGHEST: DEFAULT_HIGHEST, KEY_ENERGY: DEFAULT_ENERGY}
+	return {KEY_HIGHEST: DEFAULT_HIGHEST}
 
 
-## Reads the save: {"highest_unlocked_level": int, "energy": int}. Any problem
-## gives the defaults (missing file: INFO; anything else: WARN).
+## Reads the save: {"highest_unlocked_level": int}. Any problem gives the
+## defaults (missing file: INFO; anything else: WARN).
 func load_progress() -> Dictionary:
 	var file: ConfigFile = ConfigFile.new()
 	var err: Error = file.load(save_path)
 	if err == ERR_FILE_NOT_FOUND:
-		Log.info("save", "No save at %s; using defaults (level %d, energy %d)" % [save_path, DEFAULT_HIGHEST, DEFAULT_ENERGY])
+		Log.info("save", "No save at %s; using defaults (level %d)" % [save_path, DEFAULT_HIGHEST])
 		return defaults()
 	if err != OK:
 		Log.warn("save", "Save %s could not be read (%s); using defaults" % [save_path, error_string(err)])
@@ -56,26 +56,24 @@ func load_progress() -> Dictionary:
 		Log.warn("save", "Unknown save_version %d in %s; using defaults" % [int(version), save_path])
 		return defaults()
 	var highest: Variant = _value(file, KEY_HIGHEST)
-	var energy: Variant = _value(file, KEY_ENERGY)
-	if not (highest is int) or not (energy is int) or int(highest) < 1 or int(energy) < 0:
-		Log.warn("save", "Save %s has bad values (highest_unlocked_level=%s, energy=%s); using defaults" % [save_path, var_to_str(highest), var_to_str(energy)])
+	if not (highest is int) or int(highest) < 1:
+		Log.warn("save", "Save %s has a bad value (highest_unlocked_level=%s); using defaults" % [save_path, var_to_str(highest)])
 		return defaults()
-	Log.info("save", "Save loaded from %s (level %d unlocked, energy %d)" % [save_path, int(highest), int(energy)])
-	return {KEY_HIGHEST: int(highest), KEY_ENERGY: int(energy)}
+	Log.info("save", "Save loaded from %s (level %d unlocked)" % [save_path, int(highest)])
+	return {KEY_HIGHEST: int(highest)}
 
 
-## Writes save_version, GameState.highest_unlocked_level and GameState.energy to
-## save_path. Returns false (and logs an ERROR) when the write fails.
+## Writes save_version and GameState.highest_unlocked_level to save_path.
+## Returns false (and logs an ERROR) when the write fails.
 func save() -> bool:
 	var file: ConfigFile = ConfigFile.new()
 	file.set_value(SECTION, KEY_VERSION, SAVE_VERSION)
 	file.set_value(SECTION, KEY_HIGHEST, GameState.highest_unlocked_level)
-	file.set_value(SECTION, KEY_ENERGY, GameState.energy)
 	var err: Error = file.save(save_path)
 	if err != OK:
 		Log.error("save", "Save to %s failed (%s)" % [save_path, error_string(err)])
 		return false
-	Log.info("save", "Saved to %s (level %d unlocked, energy %d)" % [save_path, GameState.highest_unlocked_level, GameState.energy])
+	Log.info("save", "Saved to %s (level %d unlocked)" % [save_path, GameState.highest_unlocked_level])
 	return true
 
 

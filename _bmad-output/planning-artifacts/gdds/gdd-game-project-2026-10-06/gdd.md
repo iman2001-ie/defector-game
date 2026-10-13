@@ -96,7 +96,7 @@ inputs:
 - **Level loss:** either of these restarts the current level from wave 1:
   - Player hearts reach 0.
   - The convoy bar reaches 0 (Level 1 only).
-- **Retries:** unlimited. On retry, hearts refill to full and energy resets to 0.
+- **Retries:** unlimited. On retry after a death, hearts refill to full and energy resets to 0. Restart Level from the pause menu puts back the energy the attempt started with (decision #60).
 - **Game win:** the Flagship is destroyed, Isolde's final line plays, and the end screen appears. The council epilogue is COULD scope.
 
 ---
@@ -149,8 +149,9 @@ All values below are **initial tuning**, chosen to be easy to change. They are e
 | Max energy | 100 |
 | Energy orb value | 10 |
 | Orb behaviour | Drifts down at 120 px/s. Magnet pull within 160 px of the ship. Despawns after 6 s. |
-| Carry-over | Energy carries into the next level and is saved on level clear |
-| On death or level restart | Energy resets to 0 |
+| Carry-over | Energy carries into the next level. It is not saved: Play and Level Select always start at 0 (decision #60) |
+| On death | Energy resets to 0 on Retry |
+| On Restart Level (pause menu) | Energy goes back to what the attempt started with (decision #60) |
 | **Shield** (E) | Costs 50. Full invulnerability, including contact damage, for 4.0 s. Shown as a visible bubble. Cannot be stacked or refreshed while active. |
 | **Barrage** (Q) | Costs 100. Fires 12 homing micro-missiles over 2.0 s, one every ~0.17 s. Each deals 6 damage and seeks the nearest enemy. Asteroids block them. |
 
@@ -315,7 +316,7 @@ N/A. DEFECTOR is single-player only. Multiplayer is out of scope (see Out of Sco
 ### Player Progression
 
 - **Narrative progression:** the opening comms sequence leads into Level 1, Level 2, and Level 3. Clearing a level unlocks the next one.
-- **No character progression:** the player has no XP, upgrades, or shop. The only resource that carries between levels is **energy** (saved on level clear, wiped on death).
+- **No character progression:** the player has no XP, upgrades, or shop. The only resource that carries between levels is **energy** (carried on level clear, wiped on death; every menu start begins at 0, decision #60).
 - **Wave progress bar:** a top-centre bar is split into one segment per wave.
   - The current segment fills by the percentage of that wave's enemies destroyed.
   - In Level 3, the boss bar replaces it once the Flagship arrives.
@@ -469,7 +470,7 @@ N/A. DEFECTOR is single-player only. Multiplayer is out of scope (see Out of Sco
   - The playfield scales with letterboxing to keep 16:9.
 - **Save:** unlocked levels and current energy, written to the per-user app data folder on level clear.
 - **Menus:**
-  - **Title screen:** Play (continue at the highest unlocked level), Level Select (locked levels are shown greyed out), Quit.
+  - **Title screen:** Play (always starts Level 1 through the opening, with 0 energy, decision #60), Level Select (locked levels are shown greyed out), Quit.
   - **Pause (Esc):** Resume, Restart Level, Quit to Title.
 - **Data-driven content:** dialogue, wave compositions, and tuning values live in data files, not code. This lets the designer change content without code changes.
   - Surrender-prompt beats sit behind on/off flags, so they can be cut without editing scripts.

@@ -1,9 +1,10 @@
 extends GutTest
 ## PauseMenu (Story 4.4): Esc (the `pause` action) toggles it. Opening pushes the
 ## `menu` reason (blocked by `death` / `final_choice`, allowed over `story`);
-## RESUME or Esc pops only `menu`. RESTART LEVEL -> SceneRouter.restart_level(),
-## QUIT TO TITLE -> SceneRouter.goto_title(); the scene change is a recorder and
-## the save is a test file.
+## RESUME or Esc pops only `menu`. RESTART LEVEL -> SceneRouter.restart_level()
+## (back to the energy the attempt started with, GameState.level_start_energy;
+## playtest 2026-10-13), QUIT TO TITLE -> SceneRouter.goto_title() (energy 0);
+## the scene change is a recorder and the save is a test file.
 
 const MENU_SCENE: PackedScene = preload("res://ui/menus/pause_menu.tscn")
 const THEME_PATH: String = "res://ui/theme/defector_theme.tres"
@@ -33,6 +34,7 @@ func after_each() -> void:
 	GameState.highest_unlocked_level = 1
 	GameState.all_levels_unlocked = false
 	GameState.energy = 0
+	GameState.level_start_energy = 0
 	GameState.current_level_id = ""
 	GameState.is_retry = false
 	Config.load_data()
@@ -332,14 +334,17 @@ func test_resume_press_while_hidden_does_nothing() -> void:
 
 # --- Leaving ----------------------------------------------------------------------
 
-func test_restart_reloads_the_level() -> void:
+func test_restart_reloads_the_level_with_the_start_energy() -> void:
 	var menu: PauseMenu = _make()
-	GameState.energy = 40
+	GameState.level_start_energy = 40
+	GameState.energy = 80
 	GameState.current_level_id = "2"
 	_esc(menu)
 	_button(menu, "Restart").pressed.emit()
 	assert_eq(_calls, [SceneRouter.LEVEL_SCENE_PATH] as Array[String], "level.tscn once")
-	assert_eq(GameState.energy, 0)
+	assert_eq(GameState.energy, 40, "back to the 40 the attempt started with, not 80")
+	assert_eq(GameState.level_start_energy, 40, "the new attempt starts with it too")
+	assert_has(_lines, "[INFO][scene] Restart: reloading level '2'", "the router's restart, not a death retry")
 	assert_true(GameState.is_retry)
 	assert_eq(GameState.current_level_id, "2")
 	assert_false(FileAccess.file_exists(TEST_SAVE), "no save written")
@@ -361,7 +366,7 @@ func test_quit_goes_to_the_title() -> void:
 	_button(menu, "Quit").pressed.emit()
 	assert_eq(_calls, [SceneRouter.TITLE_SCENE_PATH] as Array[String], "title.tscn once")
 	assert_eq(GameState.current_level_id, "", "goto_title ran")
-	assert_eq(GameState.energy, 0, "energy restored from the (missing) save")
+	assert_eq(GameState.energy, 0, "goto_title zeroes the energy")
 	assert_false(FileAccess.file_exists(TEST_SAVE), "no save written")
 	assert_true(menu.visible, "stays visible until the scene changes")
 	_button(menu, "Quit").pressed.emit()

@@ -2,8 +2,9 @@ extends GutTest
 ## Title screen (Story 4.1, FR56): the DEFECTOR logo and PLAY · LEVEL SELECT ·
 ## QUIT (Story 4.3) at the ui.title layout; with Config.load_error set, the
 ## Error label replaces the buttons and no Config getter is called. PLAY ->
-## SceneRouter.start_level(GameState.highest_unlocked_level) (Story 4.2; a
-## recorder here; level 1 goes through the opening story, Story 5.5), LEVEL
+## SceneRouter.start_new("1"): always a new run at level 1 with 0 energy,
+## whatever the unlock or the debug F7 flag (playtest 2026-10-13; a recorder
+## here; level 1 goes through the opening story, Story 5.5), LEVEL
 ## SELECT -> SceneRouter.goto_level_select() (GameState untouched), QUIT ->
 ## the injected quit_game; a second press does nothing. The title declares the
 ## VISIBLE mouse mode and logs its ready time.
@@ -41,6 +42,7 @@ func after_each() -> void:
 	GameState.highest_unlocked_level = 1
 	GameState.all_levels_unlocked = false
 	GameState.energy = 0
+	GameState.level_start_energy = 0
 	GameState.current_level_id = ""
 	GameState.is_retry = false
 	Feedback.reset()
@@ -238,18 +240,24 @@ func test_play_starts_level_1_through_the_opening() -> void:
 	assert_eq(SceneRouter.story_sequence(), &"opening_main")
 	assert_eq(SceneRouter.story_next_level(), 1)
 	assert_false(GameState.is_retry)
-	assert_eq(GameState.energy, 25, "energy unchanged")
+	assert_eq(GameState.energy, 0, "a new run starts at 0")
 
 
-func test_play_continues_at_the_highest_unlocked_level() -> void:
+## Playtest 2026-10-13: PLAY no longer continues at the highest unlocked level.
+func test_play_starts_level_1_with_0_energy_even_when_further_unlocked() -> void:
 	GameState.highest_unlocked_level = 3
 	GameState.energy = 60
 	var title: TitleScreen = _make()
 	_play(title).pressed.emit()
-	assert_eq(_calls, [SceneRouter.LEVEL_SCENE_PATH] as Array[String], "one change to the level")
-	assert_eq(GameState.current_level_id, "3", "the highest unlocked level")
-	assert_eq(GameState.energy, 60, "the restored energy")
+	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH] as Array[String], "the opening, not level 3")
+	assert_eq(SceneRouter.story_next_level(), 1, "then level 1")
+	assert_eq(GameState.energy, 0, "0 energy, not 60")
+	assert_eq(GameState.highest_unlocked_level, 3, "the unlock is kept")
 	assert_false(FileAccess.file_exists(TEST_SAVE), "PLAY writes no save")
+	SceneRouter.finish_story()
+	assert_eq(GameState.current_level_id, "1", "level 1 loads after the opening")
+	assert_eq(GameState.energy, 0)
+	assert_eq(GameState.level_start_energy, 0, "the attempt starts at 0")
 
 
 func test_f7_flag_does_not_change_play() -> void:
@@ -257,7 +265,8 @@ func test_f7_flag_does_not_change_play() -> void:
 	GameState.all_levels_unlocked = true
 	var title: TitleScreen = _make()
 	_play(title).pressed.emit()
-	assert_eq(GameState.current_level_id, "2", "real progress, not the debug unlock")
+	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH] as Array[String], "still the opening")
+	assert_eq(SceneRouter.story_next_level(), 1, "still level 1")
 
 
 func test_second_press_is_ignored() -> void:

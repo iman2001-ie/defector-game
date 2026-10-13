@@ -53,6 +53,7 @@ func after_each() -> void:
 	_delete_save()
 	SaveManager.save_path = SaveManager.DEFAULT_SAVE_PATH
 	GameState.energy = 0
+	GameState.level_start_energy = 0
 	GameState.current_level_id = ""
 	GameState.is_retry = false
 	GameState.highest_unlocked_level = 1
@@ -240,8 +241,11 @@ func test_no_pending_story_goes_to_the_title() -> void:
 
 # --- Acceptance -------------------------------------------------------------------
 
+## Playtest 2026-10-13: PLAY is always a new run from level 1 at 0 energy,
+## whatever the unlock.
 func test_title_play_opens_with_the_story_then_level_1() -> void:
 	GameState.energy = 10
+	GameState.highest_unlocked_level = 3
 	var title: TitleScreen = TITLE_SCENE.instantiate() as TitleScreen
 	title.quit_game = func() -> void: pass
 	add_child_autofree(title)
@@ -256,7 +260,8 @@ func test_title_play_opens_with_the_story_then_level_1() -> void:
 	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH, SceneRouter.LEVEL_SCENE_PATH] as Array[String], "then the level")
 	assert_eq(GameState.current_level_id, "1")
 	assert_false(GameState.is_retry)
-	assert_eq(GameState.energy, 10, "energy kept")
+	assert_eq(GameState.energy, 0, "a new run starts at 0")
+	assert_eq(GameState.level_start_energy, 0)
 
 
 func test_level_select_card_1_opens_with_the_story_then_level_1() -> void:
@@ -276,11 +281,12 @@ func test_level_select_card_1_opens_with_the_story_then_level_1() -> void:
 	assert_false(GameState.is_retry)
 
 
-func test_retry_after_the_opening_never_replays_it() -> void:
+func test_retry_and_restart_after_the_opening_never_replay_it() -> void:
 	_make_with(&"opening_main", 1)
 	_click_through()
+	SceneRouter.retry_level()
 	SceneRouter.restart_level()
-	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH, SceneRouter.LEVEL_SCENE_PATH, SceneRouter.LEVEL_SCENE_PATH] as Array[String])
+	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH, SceneRouter.LEVEL_SCENE_PATH, SceneRouter.LEVEL_SCENE_PATH, SceneRouter.LEVEL_SCENE_PATH] as Array[String])
 	assert_true(GameState.is_retry)
 
 

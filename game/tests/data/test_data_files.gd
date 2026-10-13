@@ -76,12 +76,25 @@ const LEVEL_NAMES: Dictionary = {
 const NO_MAUL_NO_CONVOY_LEVELS: Array[int] = [2, 3]
 
 
+## Per-level optional keys (playtest 2026-10-13) that a campaign level may add
+## on top of the level_dev key set: Level 1's "teach_controls".
+const OPTIONAL_LEVEL_KEYS: Array[String] = ["teach_controls"]
+
+
+## The level's top-level keys without OPTIONAL_LEVEL_KEYS (unsorted).
+static func _shared_keys(data: Dictionary) -> Array:
+	var keys: Array = data.keys()
+	for key: String in OPTIONAL_LEVEL_KEYS:
+		keys.erase(key)
+	return keys
+
+
 func test_campaign_levels_have_their_names_ids_and_key_set() -> void:
 	var dev: Variant = JSON.parse_string(FileAccess.get_file_as_string(LEVELS_DIR + "level_dev.json"))
 	assert_true(dev is Dictionary, "level_dev.json parses")
 	if not (dev is Dictionary):
 		return
-	var dev_keys: Array = (dev as Dictionary).keys()
+	var dev_keys: Array = _shared_keys(dev as Dictionary)
 	dev_keys.sort()
 	for i: int in LEVEL_NAMES:
 		var path: String = LEVELS_DIR + "level_%d.json" % i
@@ -90,7 +103,7 @@ func test_campaign_levels_have_their_names_ids_and_key_set() -> void:
 		if not (parsed is Dictionary):
 			continue
 		var data: Dictionary = parsed
-		var keys: Array = data.keys()
+		var keys: Array = _shared_keys(data)
 		keys.sort()
 		assert_eq(keys, dev_keys, "%s has the level_dev key set" % path)
 		assert_eq(data.get("id"), float(i), "%s id" % path)
@@ -129,9 +142,9 @@ func _wave_type_totals(wave: Dictionary) -> Dictionary:
 func test_level_1_cargo_ambush_shape() -> void:
 	var data: Dictionary = Config.level("1")
 	assert_false(data.is_empty(), "level_1.json loads")
-	var keys: Array = data.keys()
+	var keys: Array = _shared_keys(data)
 	keys.sort()
-	var dev_keys: Array = Config.level("dev").keys()
+	var dev_keys: Array = _shared_keys(Config.level("dev"))
 	dev_keys.sort()
 	assert_eq(keys, dev_keys, "the level_dev key set")
 	assert_eq(data.get("id"), 1.0, "id 1")
@@ -204,9 +217,9 @@ func test_level_2_blockade_shape() -> void:
 	assert_eq(Config.num("waves.formation.spacing_px.y"), 90.0, "formation rows 90 px apart (decision #53)")
 	var data: Dictionary = Config.level("2")
 	assert_false(data.is_empty(), "level_2.json loads")
-	var keys: Array = data.keys()
+	var keys: Array = _shared_keys(data)
 	keys.sort()
-	var dev_keys: Array = Config.level("dev").keys()
+	var dev_keys: Array = _shared_keys(Config.level("dev"))
 	dev_keys.sort()
 	assert_eq(keys, dev_keys, "the level_dev key set")
 	assert_eq(data.get("id"), 2.0, "id 2")
@@ -308,9 +321,9 @@ func _wave_counted(wave: Dictionary, gated_on: bool) -> int:
 func test_level_3_siege_shape() -> void:
 	var data: Dictionary = Config.level("3")
 	assert_false(data.is_empty(), "level_3.json loads")
-	var keys: Array = data.keys()
+	var keys: Array = _shared_keys(data)
 	keys.sort()
-	var dev_keys: Array = Config.level("dev").keys()
+	var dev_keys: Array = _shared_keys(Config.level("dev"))
 	dev_keys.sort()
 	assert_eq(keys, dev_keys, "the level_dev key set")
 	assert_eq(data.get("id"), 3.0, "id 3")
@@ -1492,7 +1505,7 @@ func test_dev_convoy_level_shape() -> void:
 	var data: Dictionary = Config.level("dev_convoy")
 	assert_false(data.is_empty(), "level_dev_convoy.json loads")
 	var dev: Dictionary = Config.level("dev")
-	var keys: Array = data.keys()
+	var keys: Array = _shared_keys(data)
 	keys.sort()
 	var dev_keys: Array = dev.keys()
 	dev_keys.sort()
@@ -1577,9 +1590,9 @@ func test_convoy_is_a_bool_and_only_on_in_dev_levels_and_level_1() -> void:
 func test_dev_ally_level_shape() -> void:
 	var data: Dictionary = Config.level("dev_ally")
 	assert_false(data.is_empty(), "level_dev_ally.json loads")
-	var keys: Array = data.keys()
+	var keys: Array = _shared_keys(data)
 	keys.sort()
-	var dev_keys: Array = Config.level("dev").keys()
+	var dev_keys: Array = _shared_keys(Config.level("dev"))
 	dev_keys.sort()
 	assert_eq(keys, dev_keys, "the level_dev key set")
 	assert_eq(data.get("id"), 0.0)
@@ -1631,9 +1644,9 @@ func test_allies_tuning_ranges() -> void:
 func test_dev_tarek_fall_level_shape() -> void:
 	var data: Dictionary = Config.level("dev_tarek_fall")
 	assert_false(data.is_empty(), "level_dev_tarek_fall.json loads")
-	var keys: Array = data.keys()
+	var keys: Array = _shared_keys(data)
 	keys.sort()
-	var dev_keys: Array = Config.level("dev").keys()
+	var dev_keys: Array = _shared_keys(Config.level("dev"))
 	dev_keys.sort()
 	assert_eq(keys, dev_keys, "the level_dev key set")
 	assert_eq(data.get("id"), 0.0)
@@ -1810,9 +1823,9 @@ func test_boss_bar_tuning() -> void:
 func test_dev_boss_level_shape() -> void:
 	var data: Dictionary = Config.level("dev_boss")
 	assert_false(data.is_empty(), "level_dev_boss.json loads")
-	var keys: Array = data.keys()
+	var keys: Array = _shared_keys(data)
 	keys.sort()
-	var dev_keys: Array = Config.level("dev").keys()
+	var dev_keys: Array = _shared_keys(Config.level("dev"))
 	dev_keys.sort()
 	assert_eq(keys, dev_keys, "the level_dev key set")
 	assert_eq(data.get("id"), 0.0)
@@ -2049,3 +2062,19 @@ func test_end_screen_ui_tuning() -> void:
 	assert_lte(w, Playfield.SIZE.x, "the button fits the screen width")
 	assert_gte(top_y, last_bottom, "the button below the texts")
 	assert_lte(top_y + Config.num("ui.end_screen.button_h"), Playfield.SIZE.y, "the button on screen")
+
+
+## Playtest 2026-10-13: level 1 always teaches the controls ("teach_controls":
+## true clears the session's shown hints at its start); levels 2 and 3 don't.
+func test_only_level_1_teaches_the_controls() -> void:
+	var expected: Dictionary = {"1": true, "2": false, "3": false}
+	for id: String in expected:
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(LEVELS_DIR + "level_%s.json" % id))
+		assert_true(parsed is Dictionary, "level_%s.json parses" % id)
+		if not (parsed is Dictionary):
+			continue
+		var value: Variant = (parsed as Dictionary).get("teach_controls", false)
+		var teaches: bool = value is bool and bool(value)
+		assert_eq(teaches, expected[id], "level_%s teach_controls" % id)
+		if id == "1":
+			assert_typeof(value, TYPE_BOOL, "level_1 teach_controls is a JSON bool")

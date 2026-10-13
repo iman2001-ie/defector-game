@@ -171,3 +171,18 @@ func test_the_real_player_dismisses_move_then_fire() -> void:
 	await _wait_faded(pill)
 	assert_eq(pill.showing_hint(), &"")
 	assert_false(get_tree().paused)
+
+
+## Playtest 2026-10-13: only a level with "teach_controls": true (level 1)
+## clears the shown hints; level_dev_hints has no such key, so every record
+## survives the level start and neither hint shows.
+func test_a_level_without_teach_controls_keeps_the_shown_hints() -> void:
+	for id: StringName in [&"move", &"fire", &"missile", &"shield"]:
+		GameState.shown_hints[id] = true
+	GameState.is_retry = true
+	_make_level()
+	assert_eq(_hints, [&"move_fire"] as Array[StringName], "the trigger still fires")
+	for id: StringName in [&"move", &"fire", &"missile", &"shield"]:
+		assert_true(GameState.shown_hints.has(id), "%s still recorded" % id)
+	assert_eq(_pill().showing_hint(), &"", "move doesn't show again")
+	assert_eq(_pill().queued(), [] as Array[StringName])

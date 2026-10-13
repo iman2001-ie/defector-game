@@ -64,6 +64,8 @@ func after_each() -> void:
 
 func _reset_game_state() -> void:
 	GameState.energy = 0
+	GameState.level_start_energy = 0
+	GameState.shown_hints.clear()
 	GameState.current_level_id = ""
 	GameState.is_retry = false
 	GameState.highest_unlocked_level = 1
@@ -224,6 +226,7 @@ func test_level_cleared_reaches_the_router() -> void:
 	assert_eq(GameState.current_level_id, "2", "level 2 starts")
 	assert_eq(GameState.highest_unlocked_level, 2, "level 2 unlocked")
 	assert_eq(GameState.energy, 35, "energy carried")
+	assert_eq(GameState.level_start_energy, 35, "level 2's attempt starts with the carried energy")
 	assert_true(FileAccess.file_exists(TEST_SAVE), "save written")
 
 
@@ -1295,6 +1298,26 @@ func test_has_convoy_reads_only_a_true_bool() -> void:
 	assert_false(level_script.call("has_convoy", {}), "missing key")
 	assert_false(level_script.call("has_convoy", {"convoy": 1.0}), "not a bool")
 	assert_false(level_script.call("has_convoy", {"convoy": null}))
+
+
+## Playtest 2026-10-13: only the boolean true makes a level clear the shown
+## control hints at start.
+func test_teaches_controls_reads_only_a_true_bool() -> void:
+	var level_script: GDScript = load("res://scenes/level/level.gd") as GDScript
+	assert_true(level_script.call("teaches_controls", {"teach_controls": true}))
+	assert_false(level_script.call("teaches_controls", {"teach_controls": false}))
+	assert_false(level_script.call("teaches_controls", {}), "missing key")
+	assert_false(level_script.call("teaches_controls", {"teach_controls": 1.0}), "not a bool")
+	assert_false(level_script.call("teaches_controls", {"teach_controls": "true"}), "a string")
+	assert_false(level_script.call("teaches_controls", {"teach_controls": null}))
+
+
+func test_dev_level_keeps_the_shown_hints() -> void:
+	GameState.shown_hints[&"move"] = true
+	GameState.shown_hints[&"missile"] = true
+	_make_level()
+	assert_true(GameState.shown_hints.has(&"move"), "no teach_controls: records kept")
+	assert_true(GameState.shown_hints.has(&"missile"))
 
 
 func test_convoy_hp_persists_across_a_wave_change() -> void:

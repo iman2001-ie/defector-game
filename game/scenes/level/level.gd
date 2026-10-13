@@ -29,6 +29,11 @@ extends Node2D
 ## none). Only "throne_world" (Level 3) draws
 ## anything until Epic 8; an absent or null key is "" and draws nothing.
 ##
+## Control hints (playtest 2026-10-13): when the level JSON has
+## "teach_controls": true (level 1), the level clears GameState.shown_hints at
+## start, so its hints show on every run, retries included. Any other value
+## leaves the session's shown hints alone.
+##
 ## Kill share (Story 6.4, FR34): on a level that spawned an ally, the level
 ## tallies Events.enemy_killed (all kills, and those with by_ally) and, when the
 ## attempt's outcome is decided (the first Events.level_cleared or
@@ -111,6 +116,8 @@ func _ready() -> void:
 		Log.error("scene", "Level '%s' could not be loaded; nothing started" % level_id)
 		return
 	var id: int = int(data.get("id", 0)) if (data.get("id") is float or data.get("id") is int) else 0
+	if teaches_controls(data):
+		GameState.shown_hints.clear()
 	Events.level_started.emit(id)
 	# The HUD energy bar shows the attempt's starting energy (0 on a retry).
 	GameState.emit_energy()
@@ -217,6 +224,12 @@ static func background_id(data: Dictionary) -> String:
 		return value as String
 	Log.warn("scene", "Level background %s is not null or a string; no background drawn" % JSON.stringify(value))
 	return ""
+
+
+## True only when the level data's "teach_controls" is the boolean true.
+static func teaches_controls(data: Dictionary) -> bool:
+	var value: Variant = data.get("teach_controls", false)
+	return value is bool and value
 
 
 ## True only when the level data's "convoy" is the boolean true.

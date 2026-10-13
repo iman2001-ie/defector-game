@@ -480,3 +480,36 @@ func test_energy_hints_show_on_level_1() -> void:
 	var barrage_at: int = -1 if pill.showing_hint() == &"barrage" else queue.find(&"barrage")
 	assert_lt(shield_at, barrage_at, "shield before barrage")
 	assert_true(GameState.shown_hints.has(&"move"), "move recorded as shown")
+
+
+# --- Playtest 2026-10-13: level 1 always teaches the controls --------------------
+
+## level_1.json has "teach_controls": true, so the level clears the session's
+## shown hints at start: a retry shows move / fire again, and the earlier
+## missile and energy-hint records are gone too.
+func test_a_retry_of_level_1_shows_the_control_hints_again() -> void:
+	for id: StringName in [&"move", &"fire", &"missile", &"shield", &"barrage"]:
+		GameState.shown_hints[id] = true
+	GameState.is_retry = true
+	_make_level()
+	assert_eq(_hints, [&"move_fire"] as Array[StringName], "move_fire requested at level start")
+	assert_eq(_pill().showing_hint(), &"move", "move shows again")
+	assert_true(_pill().queued().has(&"fire"), "fire is queued again")
+	assert_true(GameState.shown_hints.has(&"move"), "move recorded again as it shows")
+	for id: StringName in [&"fire", &"missile", &"shield", &"barrage"]:
+		assert_false(GameState.shown_hints.has(id), "%s record cleared at level start" % id)
+
+
+## A real reload of level 1 after its hints showed shows them again.
+func test_a_reload_of_level_1_shows_move_and_fire_again() -> void:
+	_make_level()
+	assert_eq(_pill().showing_hint(), &"move", "first run: move shows")
+	assert_true(GameState.shown_hints.has(&"move"))
+	_level.queue_free()
+	await wait_process_frames(2)
+	_hints.clear()
+	GameState.is_retry = true
+	_make_level()
+	assert_eq(_hints, [&"move_fire"] as Array[StringName], "the trigger fires again")
+	assert_eq(_pill().showing_hint(), &"move", "move shows again on the reload")
+	assert_true(_pill().queued().has(&"fire"), "fire is queued again")

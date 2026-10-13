@@ -3,7 +3,8 @@ extends GutTest
 ## and is_retry. Story 3.3: the energy API (max_energy, add_energy clamp and
 ## energy_changed, emit_energy). Story 4.2: highest_unlocked_level,
 ## all_levels_unlocked (debug F7) and is_level_unlocked. Story 7.5:
-## final_choice (default &"", never saved).
+## final_choice (default &"", never saved). Playtest 2026-10-13:
+## level_start_energy (default 0, the energy a level attempt started with).
 
 const GAME_STATE_SCRIPT: GDScript = preload("res://autoloads/game_state.gd")
 
@@ -15,6 +16,7 @@ func before_each() -> void:
 func after_each() -> void:
 	Config.load_data()
 	GameState.energy = 0
+	GameState.level_start_energy = 0
 	GameState.current_level_id = ""
 	GameState.is_retry = false
 	GameState.highest_unlocked_level = 1
@@ -26,6 +28,7 @@ func after_each() -> void:
 func test_defaults() -> void:
 	var state: Node = GAME_STATE_SCRIPT.new()
 	assert_eq(state.get("energy"), 0)
+	assert_eq(state.get("level_start_energy"), 0)
 	assert_eq(state.get("current_level_id"), "")
 	assert_eq(state.get("is_retry"), false)
 	assert_eq(state.get("highest_unlocked_level"), 1)
@@ -50,6 +53,7 @@ func test_is_level_unlocked_with_the_f7_flag() -> void:
 
 func test_field_types() -> void:
 	assert_typeof(GameState.energy, TYPE_INT)
+	assert_typeof(GameState.level_start_energy, TYPE_INT)
 	assert_typeof(GameState.current_level_id, TYPE_STRING)
 	assert_typeof(GameState.is_retry, TYPE_BOOL)
 

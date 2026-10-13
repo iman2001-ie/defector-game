@@ -4,15 +4,19 @@ extends Node
 ## current_level_id once it has resolved its id. Energy logic (Story 3.3):
 ## add_energy() clamps into 0..max_energy() and emits Events.energy_changed;
 ## emit_energy() announces the current value (the level does it at start).
-## Story 4.2: energy carries into the next level, highest_unlocked_level tracks
-## progression, and SaveManager persists both (only on a level clear, through
-## SceneRouter.complete_level()); SceneRouter.goto_title() restores them from
-## the save.
+## Story 4.2: energy carries into the next level and highest_unlocked_level
+## tracks progression; SaveManager persists the unlock only (on a level clear,
+## through SceneRouter.complete_level()) and SceneRouter.goto_title() restores
+## it from the save. Energy is never saved (playtest 2026-10-13).
 
-## Energy carried by the player (0..energy.max). Reset to 0 only by
-## SceneRouter.restart_level() (written directly; the reloaded level announces
-## it) and restored from the save by goto_title(); death itself leaves it alone.
+## Energy carried by the player (0..energy.max). Set to 0 by every menu start
+## (SceneRouter.start_new, goto_title) and by a death's Retry; the pause menu's
+## Restart puts back level_start_energy. Written directly; the reloaded level
+## announces it. Death itself leaves it alone.
 var energy: int = 0
+## The energy the current level attempt started with, recorded by SceneRouter
+## when it loads a level; Restart Level puts it back.
+var level_start_energy: int = 0
 ## Level file key of the level being played (data/levels/level_<id>.json, e.g.
 ## "dev"); "" until a level scene has started.
 var current_level_id: String = ""
@@ -24,9 +28,11 @@ var highest_unlocked_level: int = 1
 ## Debug F7: every level counts as unlocked. In memory only: never saved and
 ## never reset by goto_title(); PLAY still continues the real progress.
 var all_levels_unlocked: bool = false
-## Story 5.8: control hints shown this session; never saved or reset. The HUD
-## HintPill adds a hint id when the hint starts showing and never queues a
-## recorded one again, so retries, restarts and the title don't repeat it.
+## Story 5.8: control hints shown this session; never saved. The HUD HintPill
+## adds a hint id when the hint starts showing and never queues a recorded one
+## again, except that a level whose data has "teach_controls": true (level 1)
+## clears it at level start, so level 1 always teaches the controls, retries
+## included (playtest 2026-10-13).
 var shown_hints: Dictionary[StringName, bool] = {}
 ## Story 7.5: the Final Choice the player made (&"surrender" | &"destroy"), set
 ## by CommsChannel when an option is clicked; &"" until then. Kept for a

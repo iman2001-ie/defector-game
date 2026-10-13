@@ -2,8 +2,9 @@ extends GutTest
 ## RetryPrompt (Story 3.2): hidden until Events.level_failed, then a pausable
 ## feedback.player_death_pause_s beat, then PauseArbiter.push(&"death") and
 ## the dim + loss reason + RETRY / QUIT TO TITLE (ui.retry_prompt layout).
-## RETRY -> SceneRouter.restart_level(), QUIT -> SceneRouter.goto_title(); the
-## scene change is a recorder here.
+## RETRY -> SceneRouter.retry_level() (a death's retry starts at 0 energy, not
+## at the attempt's start energy; playtest 2026-10-13), QUIT ->
+## SceneRouter.goto_title(); the scene change is a recorder here.
 
 const PROMPT_SCENE: PackedScene = preload("res://ui/menus/retry_prompt.tscn")
 const THEME_PATH: String = "res://ui/theme/defector_theme.tres"
@@ -35,6 +36,7 @@ func after_each() -> void:
 	GameState.highest_unlocked_level = 1
 	GameState.all_levels_unlocked = false
 	GameState.energy = 0
+	GameState.level_start_energy = 0
 	GameState.current_level_id = ""
 	GameState.is_retry = false
 	Config.load_data()
@@ -237,14 +239,17 @@ func test_reason_texts() -> void:
 
 # --- Buttons ----------------------------------------------------------------------
 
-func test_retry_restarts_the_level() -> void:
+func test_retry_restarts_the_level_with_0_energy() -> void:
 	var prompt: RetryPrompt = _make()
 	GameState.energy = 60
+	GameState.level_start_energy = 40
 	GameState.current_level_id = "dev"
 	prompt.show_prompt(&"hearts")
 	assert_true(PauseArbiter.is_paused())
 	_retry(prompt).pressed.emit()
-	assert_eq(GameState.energy, 0)
+	assert_eq(GameState.energy, 0, "0, not the 40 the attempt started with")
+	assert_eq(GameState.level_start_energy, 0, "the retried attempt starts at 0")
+	assert_has(_lines, "[INFO][scene] Retry: reloading level 'dev'", "the router's retry, not a restart")
 	assert_true(GameState.is_retry)
 	assert_eq(GameState.current_level_id, "dev")
 	assert_false(PauseArbiter.is_paused(), "not paused")

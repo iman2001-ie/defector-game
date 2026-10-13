@@ -49,11 +49,10 @@ func _delete_save() -> void:
 		DirAccess.remove_absolute(TEST_SAVE)
 
 
-func _write_save(highest: int, energy: int) -> void:
+func _write_save(highest: int) -> void:
 	var file: ConfigFile = ConfigFile.new()
 	file.set_value("progress", "save_version", 1)
 	file.set_value("progress", "highest_unlocked_level", highest)
-	file.set_value("progress", "energy", energy)
 	assert_eq(file.save(TEST_SAVE), OK, "fixture save written")
 
 
@@ -243,15 +242,15 @@ func test_mouse_mode_visible_and_ready_line() -> void:
 # --- BACK TO TITLE ----------------------------------------------------------------
 
 func test_back_goes_to_the_title_once() -> void:
-	_write_save(3, 20)
+	_write_save(3)
 	GameState.energy = 80
 	GameState.highest_unlocked_level = 3
 	var screen: EndScreen = _make()
 	_back(screen).pressed.emit()
 	_back(screen).pressed.emit()
 	assert_eq(_calls, [SceneRouter.TITLE_SCENE_PATH] as Array[String], "one change to the title")
-	assert_eq(GameState.energy, 20, "progress restored from the save")
-	assert_eq(GameState.highest_unlocked_level, 3)
+	assert_eq(GameState.energy, 0, "energy zeroed (never saved)")
+	assert_eq(GameState.highest_unlocked_level, 3, "unlock restored from the save")
 	assert_eq(_lines_starting("[INFO][scene] Going to the title screen").size(), 1, "one title line")
 
 
@@ -293,11 +292,12 @@ func test_bad_config_keeps_the_authored_layout_and_calls_no_getter() -> void:
 
 
 func test_bad_config_button_still_goes_to_the_title() -> void:
-	_write_save(2, 10)
+	_write_save(2)
+	GameState.energy = 10
 	var screen: EndScreen = _make_bad()
 	_back(screen).pressed.emit()
 	_back(screen).pressed.emit()
 	assert_eq(_calls, [SceneRouter.TITLE_SCENE_PATH] as Array[String], "one change to the title")
-	assert_eq(GameState.highest_unlocked_level, 2, "progress restored from the save")
-	assert_eq(GameState.energy, 10)
+	assert_eq(GameState.highest_unlocked_level, 2, "unlock restored from the save")
+	assert_eq(GameState.energy, 0, "energy zeroed")
 	assert_eq(_lines_starting("[ERROR][data]"), [] as Array[String], "no Config getter called")

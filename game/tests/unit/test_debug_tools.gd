@@ -77,11 +77,10 @@ func _on_resumed() -> void:
 	_order.append("resumed")
 
 
-func _write_save(highest: int, energy: int) -> void:
+func _write_save(highest: int) -> void:
 	var file: ConfigFile = ConfigFile.new()
 	file.set_value("progress", "save_version", 1)
 	file.set_value("progress", "highest_unlocked_level", highest)
-	file.set_value("progress", "energy", energy)
 	assert_eq(file.save(TEST_SAVE), OK, "fixture save written")
 
 
@@ -324,11 +323,12 @@ func test_reload_data_returns_true_and_clears_pause() -> void:
 	assert_eq(_restarts, 1)
 
 
-## DW-61: a playtest restart after a retry gets the saved progress back, and the
-## pauses are still held at the restart call and dropped after it.
+## DW-61: a playtest restart after a retry gets the saved unlock back with 0
+## energy (energy is never saved, playtest 2026-10-13), and the pauses are still
+## held at the restart call and dropped after it.
 func test_f5_after_a_retry_restores_the_save_and_clears_after_restart() -> void:
-	_write_save(2, 40)
-	GameState.energy = 0
+	_write_save(2)
+	GameState.energy = 55
 	GameState.highest_unlocked_level = 1
 	GameState.is_retry = true
 	PauseArbiter.push(&"death")
@@ -336,7 +336,7 @@ func test_f5_after_a_retry_restores_the_save_and_clears_after_restart() -> void:
 	_tools.restart_scene = _order_restart
 	PauseArbiter.resumed.connect(_on_resumed)
 	assert_true(_tools.reload_data(), "reload succeeded")
-	assert_eq(GameState.energy, 40, "saved energy restored")
+	assert_eq(GameState.energy, 0, "energy zeroed")
 	assert_eq(GameState.highest_unlocked_level, 2, "saved unlock restored")
 	assert_false(GameState.is_retry, "retry flag cleared")
 	assert_eq(_order, ["restart paused=true", "resumed"] as Array[String], "paused at the restart call, resumed once after it")
@@ -358,8 +358,8 @@ func test_f5_without_a_save_gives_the_defaults() -> void:
 func test_f5_failed_reload_leaves_game_state_and_pauses_alone() -> void:
 	_write_tuning(8.0)
 	Config.load_data(TEMP_TUNING, Config.DEFAULT_FLAGS_PATH)
-	_write_save(2, 40)
-	GameState.energy = 0
+	_write_save(2)
+	GameState.energy = 25
 	GameState.highest_unlocked_level = 1
 	GameState.is_retry = true
 	PauseArbiter.push(&"death")
@@ -367,7 +367,7 @@ func test_f5_failed_reload_leaves_game_state_and_pauses_alone() -> void:
 	_write_tuning(0.0, "{ not json")
 	assert_false(_tools.reload_data(), "reload refused")
 	assert_eq(_restarts, 0, "restart not called")
-	assert_eq(GameState.energy, 0, "energy unchanged")
+	assert_eq(GameState.energy, 25, "energy unchanged")
 	assert_eq(GameState.highest_unlocked_level, 1, "unlock unchanged")
 	assert_true(GameState.is_retry, "retry flag unchanged")
 	assert_eq(PauseArbiter.reasons(), [&"death"] as Array[StringName], "pauses unchanged")

@@ -190,7 +190,8 @@ The sections below resolve: state management, data format and access, save, the 
 - On the first attempt of a level, `energy` keeps its carried value.
 - On death, retry or restart: `GameState.energy = 0`, then reload the level.
 - On level clear: `SaveManager.save()` writes the current energy and the new unlock.
-- From the title screen, "Play" and "Level Select" load the saved energy.
+- From the title screen, "Play" (always Level 1) and "Level Select" start a new run with 0 energy through `SceneRouter.start_new(id)` (GDD #60, 2026-10-13). Energy is not saved.
+- Retry after a death (`SceneRouter.retry_level()`) reloads with 0 energy; the pause menu's Restart Level (`SceneRouter.restart_level()`) reloads with `GameState.level_start_energy`, the energy the attempt started with (recorded when a level loads).
 - Built (Story 4.2): `SceneRouter.goto_title()` restores `energy` and `highest_unlocked_level` from the save (F13), so in-memory mid-level energy never leaks across menus. `SceneRouter.complete_level(n)` does the clear: unlock, save, then the next level with the carried energy.
 
 ### Data Persistence
@@ -210,7 +211,7 @@ energy=40
 - A missing file means defaults (`highest_unlocked_level=1`, `energy=0`).
 - A corrupt file or unknown `save_version` gives `Log.warn` and defaults. The game never crashes on a bad save.
 - Writes go through `SaveManager.save()` only. No other script touches `user://save.cfg`.
-- Built (Story 4.2): `autoloads/save_manager.gd` (autoload `SaveManager`, no `class_name`). `load_progress() -> Dictionary` (`highest_unlocked_level`, `energy`; never calls a `Config` getter), `save() -> bool`, `save_path` (default `DEFAULT_SAVE_PATH`; tests inject `user://test_*.cfg`). No file I/O in `_ready`. The only caller of `save()` is `SceneRouter.complete_level`; the only caller of `load_progress()` is `SceneRouter.goto_title`.
+- Built (Story 4.2): `autoloads/save_manager.gd` (autoload `SaveManager`, no `class_name`). `load_progress() -> Dictionary` (`highest_unlocked_level` only since GDD #60; an old save's `energy` key is ignored; never calls a `Config` getter), `save() -> bool`, `save_path` (default `DEFAULT_SAVE_PATH`; tests inject `user://test_*.cfg`). No file I/O in `_ready`. The only caller of `save()` is `SceneRouter.complete_level`; the only caller of `load_progress()` is `SceneRouter.goto_title`.
 
 ### Asset Management
 

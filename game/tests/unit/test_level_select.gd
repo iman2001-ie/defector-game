@@ -2,8 +2,9 @@ extends GutTest
 ## Level Select (Story 4.3, FR56): one card per campaign level
 ## (progression.level_count) with its LEVEL n number and uppercased JSON name,
 ## locked cards disabled at ui.level_select.locked_alpha with LOCKED shown, and
-## BACK. An unlocked card -> SceneRouter.start_level(str(n)) (a recorder here;
-## card 1 goes through the opening story, Story 5.5),
+## BACK. An unlocked card -> SceneRouter.start_new(str(n)), a new run with 0
+## energy (playtest 2026-10-13; a recorder here; card 1 goes through the
+## opening story, Story 5.5),
 ## BACK -> SceneRouter.goto_title(); a second press does nothing. With
 ## Config.load_error set no card is built, no Config getter runs and only BACK
 ## works. The save is a test file and is never written.
@@ -40,6 +41,7 @@ func after_each() -> void:
 	GameState.highest_unlocked_level = 1
 	GameState.all_levels_unlocked = false
 	GameState.energy = 0
+	GameState.level_start_energy = 0
 	GameState.current_level_id = ""
 	GameState.is_retry = false
 	Feedback.reset()
@@ -52,11 +54,10 @@ func _delete_save() -> void:
 		DirAccess.remove_absolute(TEST_SAVE)
 
 
-func _write_save(highest: int, energy: int) -> void:
+func _write_save(highest: int) -> void:
 	var file: ConfigFile = ConfigFile.new()
 	file.set_value("progress", "save_version", 1)
 	file.set_value("progress", "highest_unlocked_level", highest)
-	file.set_value("progress", "energy", energy)
 	assert_eq(file.save(TEST_SAVE), OK, "fixture save written")
 
 
@@ -299,9 +300,10 @@ func test_f7_flag_unlocks_every_card() -> void:
 
 # --- Presses ----------------------------------------------------------------------
 
-func test_pick_unlocked_starts_the_level_with_the_restored_energy() -> void:
+func test_pick_unlocked_starts_the_level_with_0_energy() -> void:
 	GameState.highest_unlocked_level = 2
 	GameState.energy = 40
+	GameState.level_start_energy = 40
 	GameState.is_retry = true
 	var screen: LevelSelectScreen = _make()
 	_card(screen, 2).pressed.emit()
@@ -310,13 +312,14 @@ func test_pick_unlocked_starts_the_level_with_the_restored_energy() -> void:
 	_back(screen).pressed.emit()
 	assert_eq(_calls, [SceneRouter.LEVEL_SCENE_PATH] as Array[String], "one change to the level")
 	assert_eq(GameState.current_level_id, "2")
-	assert_eq(GameState.energy, 40, "energy kept")
+	assert_eq(GameState.energy, 0, "a new run starts at 0")
+	assert_eq(GameState.level_start_energy, 0, "the attempt starts at 0")
 	assert_false(GameState.is_retry, "a fresh attempt")
 	assert_false(FileAccess.file_exists(TEST_SAVE), "no save written")
 
 
-func test_energy_restored_by_goto_title_reaches_the_level() -> void:
-	_write_save(3, 55)
+func test_unlock_restored_by_goto_title_reaches_the_level_with_0_energy() -> void:
+	_write_save(3)
 	GameState.energy = 90
 	SceneRouter.goto_title()
 	SceneRouter.goto_level_select()
@@ -324,7 +327,7 @@ func test_energy_restored_by_goto_title_reaches_the_level() -> void:
 	_card(screen, 3).pressed.emit()
 	assert_eq(_calls, [SceneRouter.TITLE_SCENE_PATH, SceneRouter.LEVEL_SELECT_SCENE_PATH, SceneRouter.LEVEL_SCENE_PATH] as Array[String])
 	assert_eq(GameState.current_level_id, "3")
-	assert_eq(GameState.energy, 55, "the saved energy")
+	assert_eq(GameState.energy, 0, "0 energy, not the in-memory 90")
 
 
 func test_pick_locked_does_nothing() -> void:
@@ -340,18 +343,19 @@ func test_pick_locked_does_nothing() -> void:
 
 
 func test_back_goes_to_the_title() -> void:
-	_write_save(2, 30)
+	_write_save(2)
+	GameState.energy = 30
 	var screen: LevelSelectScreen = _make()
 	_back(screen).pressed.emit()
 	_back(screen).pressed.emit()
 	_card(screen, 1).pressed.emit()
 	assert_eq(_calls, [SceneRouter.TITLE_SCENE_PATH] as Array[String], "one change to the title")
 	assert_eq(GameState.highest_unlocked_level, 2, "goto_title restored the save")
-	assert_eq(GameState.energy, 30, "goto_title restored the save")
+	assert_eq(GameState.energy, 0, "goto_title zeroed the energy")
 	var file: ConfigFile = ConfigFile.new()
 	assert_eq(file.load(TEST_SAVE), OK, "save still there")
 	assert_eq(file.get_value("progress", "highest_unlocked_level"), 2, "save untouched")
-	assert_eq(file.get_value("progress", "energy"), 30, "save untouched")
+	assert_eq(file.get_section_keys("progress"), PackedStringArray(["save_version", "highest_unlocked_level"]), "save untouched")
 
 
 func test_no_save_written_on_any_path() -> void:

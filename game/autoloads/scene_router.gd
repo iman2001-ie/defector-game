@@ -10,18 +10,21 @@ extends Node
 ## end of the frame), so `resumed` never reaches the dead level's Player while it
 ## is still in the tree, and the new scene's _ready pushes are not wiped (DW-61).
 ##
-## - goto_title(): the title screen (scenes/title/title.tscn). Restores energy
-##   and highest_unlocked_level from the save (F13: in-memory mid-level energy
-##   never leaks across menus) and clears the retry flag through
-##   restore_saved_progress() (which F5 also calls), then clears the level id.
+## - goto_title(): the title screen (scenes/title/title.tscn). Restores
+##   highest_unlocked_level from the save, zeroes the energy and clears the
+##   retry flag through restore_saved_progress() (which F5 also calls), then
+##   clears the level id.
 ## - goto_level_select(): the Level Select screen
-##   (scenes/title/level_select.tscn, Story 4.3). Leaves GameState alone (the
-##   title's goto_title() already restored energy and unlocks) and writes no save.
+##   (scenes/title/level_select.tscn, Story 4.3). Leaves GameState alone and
+##   writes no save.
+## - start_new(id): a new run from a menu (PLAY always starts level 1, a Level
+##   Select card any unlocked level): energy 0, then start_level(id) (playtest
+##   2026-10-13).
 ## - start_level(id): a fresh (non-retry) attempt of level `id` in level.tscn,
 ##   carrying the current energy. Refused (logged) while Config.load_error is set.
 ##   Level OPENING_LEVEL_ID ("1") goes through the opening story first
 ##   (goto_story(OPENING_SEQUENCE, 1), Story 5.5, R15): PLAY and Level Select
-##   both call start_level, so both get it.
+##   both reach start_level, so both get it.
 ## - goto_story(id, next_level): the comms-only story scene
 ##   (scenes/story/story.tscn) for sequence `id`, then level `next_level`, or the
 ##   end screen when `next_level` is STORY_NEXT_END (Story 7.8, the council
@@ -33,10 +36,11 @@ extends Node
 ##   straight into level.tscn (never the opening again), or goes to the end
 ##   screen (goto_end()) when the target is STORY_NEXT_END; with none pending it
 ##   warns and goes to the title.
-## - restart_level(): retry is a scene reload (ADR-004). It wipes energy, marks
-##   the attempt as a retry and reloads level.tscn, which reads
-##   GameState.current_level_id, so the same level runs again from wave 1. There
-##   is no retry counter and no limit.
+## - retry_level() / restart_level(): both reload level.tscn as a retry
+##   (ADR-004), which reads GameState.current_level_id, so the same level runs
+##   again from wave 1. A death's Retry wipes the energy to 0; the pause menu's
+##   Restart Level puts back the energy the attempt started with
+##   (GameState.level_start_energy, playtest 2026-10-13). No counter, no limit.
 ## - complete_level(n): a cleared campaign level (1..progression.level_count)
 ##   raises the unlock, saves (the only save in the game) and starts level n+1
 ##   with the carried energy. After the last level it plays the council epilogue
@@ -141,12 +145,26 @@ func toggle_window_mode() -> void:
 	Log.info("scene", "Window mode: %s" % label)
 
 
-## Retry: reloads level.tscn with the same GameState.current_level_id, with 0
-## energy and is_retry set.
+## Retry after a death: reloads level.tscn with the same
+## GameState.current_level_id, with 0 energy and is_retry set.
+func retry_level() -> void:
+	_reload_level(0, "Retry")
+
+
+## Pause menu Restart Level: reloads level.tscn with the same
+## GameState.current_level_id and is_retry set, with the energy the attempt
+## started with (GameState.level_start_energy), so a restart neither wipes nor
+## banks energy.
 func restart_level() -> void:
+	_reload_level(GameState.level_start_energy, "Restart")
+
+
+## A new run from a menu (title PLAY, a Level Select card): 0 energy, then
+## start_level(id). Refused like start_level while Config.load_error is set
+## (the energy is still zeroed; it is never saved).
+func start_new(id: String) -> void:
 	GameState.energy = 0
-	GameState.is_retry = true
-	_change_to(LEVEL_SCENE_PATH, "Retry: reloading level '%s'" % GameState.current_level_id)
+	start_level(id)
 
 
 ## Starts level `id` (data/levels/level_<id>.json) as a fresh attempt: sets
@@ -210,32 +228,31 @@ func finish_story() -> void:
 	_load_level(str(next_level))
 
 
-## The title screen: progress restored from the save (restore_saved_progress()),
-## no level id. Writes no save.
+## The title screen: the unlock restored from the save and energy 0
+## (restore_saved_progress()), no level id. Writes no save.
 func goto_title() -> void:
 	restore_saved_progress()
 	GameState.current_level_id = ""
 	_change_to(TITLE_SCENE_PATH, "Going to the title screen")
 
 
-## Restores GameState.energy and highest_unlocked_level from the save (clamped
-## into 0..max energy and 1..progression.level_count while the config is
-## healthy) and clears is_retry. Touches no other field, changes no scene and
-## writes no save. goto_title() and the debug F5 reload call it.
+## Restores highest_unlocked_level from the save (clamped into
+## 1..progression.level_count while the config is healthy), zeroes the energy
+## (energy is never saved; every menu start begins at 0) and clears is_retry.
+## Touches no other field, changes no scene and writes no save. goto_title()
+## and the debug F5 reload call it.
 func restore_saved_progress() -> void:
 	var progress: Dictionary = SaveManager.load_progress()
 	var highest: int = int(progress.get(SaveManager.KEY_HIGHEST, SaveManager.DEFAULT_HIGHEST))
-	var energy: int = int(progress.get(SaveManager.KEY_ENERGY, SaveManager.DEFAULT_ENERGY))
 	if Config.load_error.is_empty():
 		highest = clampi(highest, 1, maxi(Config.int_("progression.level_count"), 1))
-		energy = clampi(energy, 0, maxi(GameState.max_energy(), 0))
 	GameState.highest_unlocked_level = highest
-	GameState.energy = energy
+	GameState.energy = 0
 	GameState.is_retry = false
 
 
-## The Level Select screen. Touches no GameState field (energy and unlocks are
-## the values goto_title() restored from the save) and writes no save.
+## The Level Select screen. Touches no GameState field (a card starts its level
+## through start_new, at 0 energy) and writes no save.
 func goto_level_select() -> void:
 	_change_to(LEVEL_SELECT_SCENE_PATH, "Going to level select")
 
@@ -274,11 +291,22 @@ func goto_end() -> void:
 	_change_to(END_SCENE_PATH, "Going to the end screen")
 
 
-## Sets the level id, clears is_retry and loads level.tscn (energy kept).
+## Sets the level id, clears is_retry, records the attempt's starting energy
+## (GameState.level_start_energy) and loads level.tscn (energy kept).
 func _load_level(id: String) -> void:
 	GameState.current_level_id = id
 	GameState.is_retry = false
+	GameState.level_start_energy = GameState.energy
 	_change_to(LEVEL_SCENE_PATH, "Starting level '%s'" % id)
+
+
+## Reloads level.tscn as a retry of the current level with `energy`, which is
+## also the new attempt's starting energy.
+func _reload_level(energy: int, label: String) -> void:
+	GameState.energy = energy
+	GameState.level_start_energy = energy
+	GameState.is_retry = true
+	_change_to(LEVEL_SCENE_PATH, "%s: reloading level '%s'" % [label, GameState.current_level_id])
 
 
 func _change_to(path: String, message: String) -> void:

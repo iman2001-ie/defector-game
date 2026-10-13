@@ -8,9 +8,9 @@ extends Control
 ##
 ## A level is unlocked when GameState.is_level_unlocked(n) (the debug F7 flag
 ## counts). A locked card is disabled, drawn at ui.level_select.locked_alpha and
-## shows LOCKED. An unlocked card -> SceneRouter.start_level(str(n)), which keeps
-## the energy goto_title() restored from the save; BACK ->
-## SceneRouter.goto_title(). A second press does nothing. Writes no save.
+## shows LOCKED. An unlocked card -> SceneRouter.start_new(str(n)), a new run
+## with 0 energy (playtest 2026-10-13); BACK -> SceneRouter.goto_title(). A
+## second press does nothing. Writes no save.
 ##
 ## Healthy config: the layout comes from `ui.level_select`. Fatal config
 ## (Config.load_error set; normally unreachable because the title hides its
@@ -79,7 +79,7 @@ func _on_card_pressed(n: int) -> void:
 	if _leaving or _config_failed or not GameState.is_level_unlocked(n):
 		return
 	_leaving = true
-	SceneRouter.start_level(str(n))
+	SceneRouter.start_new(str(n))
 
 
 func _on_back_pressed() -> void:

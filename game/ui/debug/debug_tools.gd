@@ -224,8 +224,8 @@ func refresh_overlay() -> void:
 ## F5: asks Config to reload tuning and flags. Config validates the new files
 ## and keeps its previous data if either fails to load or drops or retypes a
 ## key; then nothing restarts and GameState and the pauses stay as they are.
-## On success it restores the saved energy and unlocks and clears is_retry
-## (SceneRouter.restore_saved_progress(), with the new clamps), restarts the
+## On success it restores the saved unlock, zeroes the energy and clears
+## is_retry (SceneRouter.restore_saved_progress(), with the new clamps), restarts the
 ## scene, and only then drops the pauses, so `resumed` never reaches the
 ## outgoing scene's Player in the tree (DW-61). Returns true when the scene
 ## restarted.
