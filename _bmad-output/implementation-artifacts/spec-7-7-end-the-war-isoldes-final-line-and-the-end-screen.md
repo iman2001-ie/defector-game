@@ -2,7 +2,7 @@
 title: 'Story 7.7: End the War: Isolde''s Final Line and the End Screen'
 type: 'feature'
 created: '2026-10-12'
-status: 'awaiting-operator'
+status: done
 operator_actions:
   - 'Play Level 3 from Level Select in a debug build ("<GODOT_DIR>/Godot_v4.7.2-stable_win64.exe" --path game) with the F1 overlay on, through the Flagship and the Final Choice, and confirm that after the death chain Isolde''s final line ("My finest general... Remember, Arden. I made you.") shows once as a paused story line, that clicking it through opens the end screen, and that no wave or boss phase soft-locks on the way.'
   - 'On the end screen, judge how DEFECTOR, the closing line, "Thanks for playing" and the BACK TO TITLE button read over the placeholder throne-world arc at the DESIGN.md layout; then click BACK TO TITLE and confirm the title opens with Level 3 still unlocked (the save was written).'
@@ -218,3 +218,13 @@ Status: awaiting-operator
 **Residual risks:**
 - How the final line lands, how the end screen reads and whether the closing-line wording fits are not verified. They are owed to the operator through `operator_actions`.
 - The AC3 run is a scripted headless run (invincible player, direct damage, synthetic clicks), not real play.
+
+## Operator Confirmation
+
+Confirmed 2026-10-13: the external actions this story owed were carried out.
+
+- Play Level 3 from Level Select in a debug build ("<GODOT_DIR>/Godot_v4.7.2-stable_win64.exe" --path game) with the F1 overlay on, through the Flagship and the Final Choice, and confirm that after the death chain Isolde's final line ("My finest general... Remember, Arden. I made you.") shows once as a paused story line, that clicking it through opens the end screen, and that no wave or boss phase soft-locks on the way.
+- On the end screen, judge how DEFECTOR, the closing line, "Thanks for playing" and the BACK TO TITLE button read over the placeholder throne-world arc at the DESIGN.md layout; then click BACK TO TITLE and confirm the title opens with Level 3 still unlocked (the save was written).
+- Confirm or reword the end screen's closing line "The Sovereignty has fallen. The war is over." (decision #57, provisional; the text is EndScreen.TEXT_CLOSING in game/scenes/end/end_screen.gd), and record any change in the decision log.
+
+_Appended by the bmad-loop orchestrator (`bmad-loop confirm`, #335): a human confirmed these external actions out of band, and the story was advanced from `awaiting-operator` to `done`._
