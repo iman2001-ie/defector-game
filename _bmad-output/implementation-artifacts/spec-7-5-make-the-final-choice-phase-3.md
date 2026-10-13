@@ -2,7 +2,7 @@
 title: "Story 7.5: Make the Final Choice (Phase 3)"
 type: 'feature'
 created: '2026-10-12'
-status: 'awaiting-operator'
+status: done
 operator_actions:
   - 'Run "<GODOT_DIR>/Godot_v4.7.2-stable_win64.exe" --path game res://scenes/level/level.tscn -- --level=dev_boss in a debug build, press F6, destroy the four turrets and damage the core to 50 HP. Confirm the fight pauses, Isolde''s lead-in plays, and the OFFER SURRENDER / DESTROY HER buttons appear below the panel with a coalition hover glow, no timer, and Esc not opening the pause menu.'
   - 'Pick each option on separate runs. Confirm Vale''s line and then Isolde''s matching refusal play, the panel closes, and the desperate barrage starts with no error in the log.'
@@ -278,3 +278,16 @@ Status: awaiting-operator
 - The player can die during the 2 s boss-death chain, from leftover launched Wasps or bullets (#39, F16); the operator should judge it.
 - The `boss_defeated` emission and the last chain explosion run on separate clocks, so they can land up to a frame apart. F3 or F6 during DYING leaves the chain playing (debug only).
 - The real-level test waits about 2.8 s of real time for the chain, so it may be slow on a loaded machine.
+
+## Operator Confirmation
+
+Confirmed 2026-10-13: the external actions this story owed were carried out.
+
+- Run "<GODOT_DIR>/Godot_v4.7.2-stable_win64.exe" --path game res://scenes/level/level.tscn -- --level=dev_boss in a debug build, press F6, destroy the four turrets and damage the core to 50 HP. Confirm the fight pauses, Isolde's lead-in plays, and the OFFER SURRENDER / DESTROY HER buttons appear below the panel with a coalition hover glow, no timer, and Esc not opening the pause menu.
+- Pick each option on separate runs. Confirm Vale's line and then Isolde's matching refusal play, the panel closes, and the desperate barrage starts with no error in the log.
+- Judge the desperate phase: whether the alternating 12-bullet radials (every other one turned 15 degrees), the aimed 3-bullet spread and their glows are readable and fair to dodge, and whether the red pulse reads. Any retune goes in game/data/tuning.json (boss.desperate) with a GDD decision-log entry.
+- Kill the core and judge the boss death: the 4 chain explosions over 2 s, the single white flash (comfort and photosensitivity), the shake and the hit-stop. Confirm the wave and level then clear.
+- Decide whether the player should stay vulnerable to leftover boss Wasps and bullets during the 2 s death chain (today a death there fails the level, per decisions #39 and F16).
+- Confirm or overrule the provisional readings in GDD decision-log row 56, and update the row status accordingly.
+
+_Appended by the bmad-loop orchestrator (`bmad-loop confirm`, #335): a human confirmed these external actions out of band, and the story was advanced from `awaiting-operator` to `done`._
