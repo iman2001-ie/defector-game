@@ -2,7 +2,7 @@
 title: "Story 7.4: Break the Exposed Core (Phase 2)"
 type: 'feature'
 created: '2026-10-12'
-status: 'awaiting-operator'
+status: done
 operator_actions:
   - 'Run "<GODOT_DIR>/Godot_v4.7.2-stable_win64.exe" --path game res://scenes/level/level.tscn -- --level=dev_boss in a debug build, press F6, destroy all four turrets, and confirm the Flagship enters Phase 2: the core opens up, the boss bar drains from the 66.7 % marker as you hit the core, and no error appears in the log.'
   - 'In that run, judge whether the 0.6 s core glow reads clearly before each 12-bullet radial burst and whether the bursts are fair to dodge; any retune goes in game/data/tuning.json (boss.core) with a GDD decision-log entry.'
@@ -190,3 +190,15 @@ Status: awaiting-operator
 - Until Story 7.5, the core can be killed in `CORE`; the Flagship then stays in `CORE` and F3 moves the wave on. Killing the core logs one known WARN (`explosion_boss_death` is not registered yet; Story 7.5).
 - F3 frees the Flagship but leaves launched Wasps alive (uncounted, debug only).
 - The Story 7.2 as-built entry names the splash key `missiles.splash_radius_px`; the real key is `weapons.missile.splash_radius_px` (pre-existing doc slip, not changed).
+
+## Operator Confirmation
+
+Confirmed 2026-10-13: the external actions this story owed were carried out.
+
+- Run "<GODOT_DIR>/Godot_v4.7.2-stable_win64.exe" --path game res://scenes/level/level.tscn -- --level=dev_boss in a debug build, press F6, destroy all four turrets, and confirm the Flagship enters Phase 2: the core opens up, the boss bar drains from the 66.7 % marker as you hit the core, and no error appears in the log.
+- In that run, judge whether the 0.6 s core glow reads clearly before each 12-bullet radial burst and whether the bursts are fair to dodge; any retune goes in game/data/tuning.json (boss.core) with a GDD decision-log entry.
+- Judge the Wasp launches: every 10 s up to 5 Wasps fly out of the core to their slots below the Flagship (never more than 10 alive) and then dive like wave Wasps. Note whether one missile killing two stacked boss Wasps (rows 60 px apart) is acceptable.
+- Destroy all four turrets while the Flagship is still flying in and confirm it still reaches its station and then opens the core (Phase 2).
+- Confirm or overrule the provisional readings in GDD decision-log row 55 (radial layout, first burst and first launch one full period after Phase 2 starts, launch origin and the 10 fixed slots, the launch count rule, core death before Story 7.5, F6 freeing launched Wasps), and update the row status accordingly.
+
+_Appended by the bmad-loop orchestrator (`bmad-loop confirm`, #335): a human confirmed these external actions out of band, and the story was advanced from `awaiting-operator` to `done`._
