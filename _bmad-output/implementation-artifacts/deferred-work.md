@@ -961,3 +961,12 @@ source_spec: `spec-7-7-end-the-war-isoldes-final-line-and-the-end-screen.md`
 severity: medium
 reason: Audio is an autoload and music is stopped only by a `music: stop` action (Audio.apply_music_action); SceneRouter._change_to and EndScreen._ready never touch music. This is the same carry-over every scene change already has (e.g. a level to the title). No music track ships until Story 8.1, so nothing is audible today; Epic 8's audio pass should decide the end screen's music (stop, fade, or an ending theme). The Story 7.7 as-built entry now states the carry-over.
 status: open
+
+### DW-101: After the Flagship's core is destroyed the player can still die during the 2 s death chain, to leftover boss Wasps and bullets already in flight, which fails the level after the boss is beaten.
+origin: operator playtest 2026-10-13 (Story 7.5 operator action 5)
+location: game/entities/boss (Flagship DYING) / game/entities/player/player.gd is_safe / game/systems/waves/wave_director.gd
+source_spec: `spec-7-5-make-the-final-choice-phase-3.md`
+severity: medium
+reason: By design today (decisions #39 and F16: the player is safe only from level_cleared, and launched Wasps stay alive), flagged by the Story 7.5 review and passed to the operator, who decided the boss's death must end the danger at once.
+status: open
+decision: 2026-10-13 Boss death ends the fight — The moment the Flagship's core is destroyed (the start of the 2 s death chain / DYING), the fight is over: (1) the Player becomes safe at once, exactly as after level_cleared (decision #39's is_safe(): no damage, no hazard contact, cannot die or emit level_failed); (2) every remaining enemy (launched Wasps and anything else alive) explodes during the death chain through the normal Spawner/Feedback paths, staggered with or alongside the chain explosions, with no energy drops and no kill/progress side effects that could re-trigger beats; (3) every enemy bullet in flight fizzles (removed with the small blocked-shot effect); no new enemy shots or launches start. The wave and level then clear as today. Amend decision #39 (safe from the boss's death, not only from level_cleared) and F16, add a GDD decision-log row, update the Story 7.5 notes/ACs in epics.md and the architecture boss section, and add tests: a hit during DYING costs nothing; leftover Wasps and bullets are gone by the end of the chain; level_cleared still fires once.

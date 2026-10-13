@@ -1,1 +1,11 @@
-{}
+{
+  "DW-101": {
+    "answered_at": "2026-10-13",
+    "bundle_name": "",
+    "effect": "build",
+    "intent": "The moment the Flagship's core is destroyed (the start of the 2 s death chain / DYING), the fight is over: (1) the Player becomes safe at once, exactly as after level_cleared (decision #39's is_safe(): no damage, no hazard contact, cannot die or emit level_failed); (2) every remaining enemy (launched Wasps and anything else alive) explodes during the death chain through the normal Spawner/Feedback paths, staggered with or alongside the chain explosions, with no energy drops and no kill/progress side effects that could re-trigger beats; (3) every enemy bullet in flight fizzles (removed with the small blocked-shot effect); no new enemy shots or launches start. The wave and level then clear as today. Amend decision #39 (safe from the boss's death, not only from level_cleared) and F16, add a GDD decision-log row, update the Story 7.5 notes/ACs in epics.md and the architecture boss section, and add tests: a hit during DYING costs nothing; leftover Wasps and bullets are gone by the end of the chain; level_cleared still fires once.",
+    "key": "custom",
+    "label": "Boss death ends the fight",
+    "resolution": ""
+  }
+}
