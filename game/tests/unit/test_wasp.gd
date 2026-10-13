@@ -211,7 +211,7 @@ func test_dive_heads_for_the_player_at_dive_speed() -> void:
 	player.global_position = Vector2(100, 900)
 	wasp.step(0.1)
 	var moved: Vector2 = wasp.global_position - start
-	assert_almost_eq(moved.length(), 60.0, 0.01, "600 px/s")
+	assert_almost_eq(moved.length(), Config.num("enemies.wasp.dive_speed_px_s") * 0.1, 0.01, "dive_speed_px_s")
 	assert_almost_eq(moved.normalized().dot(expected_dir), 1.0, 0.0001, "snapshotted direction")
 
 
@@ -222,7 +222,7 @@ func test_dive_without_a_player_goes_straight_down() -> void:
 	var start: Vector2 = wasp.global_position
 	wasp.step(0.1)
 	assert_almost_eq(wasp.global_position.x, start.x, 0.0001)
-	assert_almost_eq(wasp.global_position.y, start.y + 60.0, 0.01)
+	assert_almost_eq(wasp.global_position.y, start.y + Config.num("enemies.wasp.dive_speed_px_s") * 0.1, 0.01, "dive_speed_px_s, straight down")
 
 
 func test_start_dive_ignored_outside_hold() -> void:

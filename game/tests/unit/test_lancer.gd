@@ -275,7 +275,7 @@ func test_fire_cycle_through_a_real_spawner() -> void:
 		muzzle_at_fire = (lancer.get_node("Muzzle") as Node2D).global_position
 		if lancer.state() == Lancer.State.TELEGRAPH:
 			assert_ne(lancer.global_position, before_step, "moving")
-	assert_almost_eq(tele, 0.3, DT * 1.5, "telegraph_s")
+	assert_almost_eq(tele, Config.num("enemies.lancer.telegraph_s"), DT * 1.5, "telegraph_s")
 	assert_eq(lancer.state(), Lancer.State.STRAFE, "back to STRAFE")
 	assert_false(lancer.is_glowing(), "glow off")
 	var bullets: Array[Projectile] = _bullets()
@@ -286,7 +286,7 @@ func test_fire_cycle_through_a_real_spawner() -> void:
 	bullet.set_physics_process(false)
 	assert_true(bullet is EnemyBullet, "an EnemyBullet")
 	assert_almost_eq(bullet.global_position, muzzle_at_fire, Vector2(0.001, 0.001), "spawned at Muzzle")
-	assert_almost_eq(bullet.velocity.length(), 450.0, 0.001, "450 px/s")
+	assert_almost_eq(bullet.velocity.length(), Config.num("enemies.lancer.bullet_speed_px_s"), 0.01, "bullet_speed_px_s")
 	var expected: Vector2 = (Vector2(960, 900) - muzzle_at_fire).normalized()
 	assert_almost_eq(bullet.velocity.normalized().dot(expected), 1.0, 0.0001, "aimed at the player")
 	assert_eq(bullet.damage, Config.int_("damage.bullet_hearts"), "damage.bullet_hearts")
@@ -325,7 +325,7 @@ func test_shot_without_a_player_goes_straight_down() -> void:
 	assert_eq(bullets.size(), 1)
 	if bullets.size() == 1:
 		bullets[0].set_physics_process(false)
-		assert_almost_eq(bullets[0].velocity, Vector2(0, 450), Vector2(0.0001, 0.0001))
+		assert_almost_eq(bullets[0].velocity, Vector2(0, Config.num("enemies.lancer.bullet_speed_px_s")), Vector2(0.001, 0.01), "straight down at bullet_speed_px_s")
 
 
 func test_player_on_the_muzzle_shoots_straight_down() -> void:
@@ -342,7 +342,7 @@ func test_player_on_the_muzzle_shoots_straight_down() -> void:
 	assert_eq(bullets.size(), 1)
 	if bullets.size() == 1:
 		bullets[0].set_physics_process(false)
-		assert_almost_eq(bullets[0].velocity, Vector2(0, 450), Vector2(0.0001, 0.0001))
+		assert_almost_eq(bullets[0].velocity, Vector2(0, Config.num("enemies.lancer.bullet_speed_px_s")), Vector2(0.001, 0.01), "straight down at bullet_speed_px_s")
 
 
 ## DW-40 (decision #38): fire_interval_s is the full shot period and includes
@@ -353,12 +353,14 @@ func test_cycle_repeats_every_full_period() -> void:
 	var lancer: Lancer = _spawn({"position": Vector2(700, 160)})
 	if lancer == null:
 		return
+	var interval: float = Config.num("enemies.lancer.fire_interval_s")
+	var telegraph: float = Config.num("enemies.lancer.telegraph_s")
 	var t: float = 0.0
 	var shots: Array[float] = []
 	var glow_starts: Array[float] = []
 	var was_glowing: bool = false
-	# 3 shots by ~6.5 s (at ~2.0, ~4.0, ~6.0 s); the 4th lands at ~8.0 s.
-	while t < 3.0 * 2.0 + 0.5:
+	# 3 shots by 3.25 periods (at ~1, ~2, ~3 periods); the 4th lands at ~4.
+	while t < interval * 3.25:
 		var before: int = _bullets().size()
 		lancer.step(DT)
 		t += DT
@@ -367,17 +369,17 @@ func test_cycle_repeats_every_full_period() -> void:
 		was_glowing = lancer.is_glowing()
 		if _bullets().size() > before:
 			shots.append(t)
-	assert_eq(_bullets().size(), 3, "one shot per 2.0 s")
+	assert_eq(_bullets().size(), 3, "one shot per fire_interval_s")
 	assert_eq(shots.size(), 3, "three separate shots")
 	if shots.size() != 3:
 		return
-	assert_almost_eq(shots[0], 2.0, DT * 2.5, "first shot fire_interval_s after STRAFE begins")
-	assert_almost_eq(shots[1] - shots[0], 2.0, DT * 2.5, "shot to shot = fire_interval_s")
-	assert_almost_eq(shots[2] - shots[1], 2.0, DT * 2.5, "shot to shot = fire_interval_s")
+	assert_almost_eq(shots[0], interval, DT * 2.5, "first shot fire_interval_s after STRAFE begins")
+	assert_almost_eq(shots[1] - shots[0], interval, DT * 2.5, "shot to shot = fire_interval_s")
+	assert_almost_eq(shots[2] - shots[1], interval, DT * 2.5, "shot to shot = fire_interval_s")
 	assert_eq(glow_starts.size(), 3, "one telegraph per shot")
 	if glow_starts.size() == 3:
 		for i: int in 3:
-			assert_almost_eq(shots[i] - glow_starts[i], 0.3, DT * 1.5, "glows for the last telegraph_s")
+			assert_almost_eq(shots[i] - glow_starts[i], telegraph, DT * 1.5, "glows for the last telegraph_s")
 
 
 ## A telegraph at least as long as the interval clamps the strafe time to 0:
@@ -553,9 +555,9 @@ func _aims_at_player(bullet: EnemyBullet) -> bool:
 
 
 func test_convoy_aim_chance_from_tuning() -> void:
-	assert_eq(Config.num("enemies.lancer.convoy_aim_chance"), 0.5)
-	assert_eq(Config.int_("damage.convoy_aimed"), 5)
-	assert_eq(Config.int_("damage.convoy_stray"), 2)
+	assert_between(Config.num("enemies.lancer.convoy_aim_chance"), 0.0, 1.0, "convoy_aim_chance is a probability")
+	assert_gte(Config.int_("damage.convoy_stray"), 0, "convoy_stray >= 0")
+	assert_gte(Config.int_("damage.convoy_aimed"), Config.int_("damage.convoy_stray"), "an aimed shot costs at least a stray")
 
 
 func test_rng_is_a_seedable_member() -> void:
@@ -584,7 +586,7 @@ func test_chance_one_always_aims_at_a_convoy_ship() -> void:
 		assert_not_null(ship, "shot %d points at a ship centre" % i)
 		if ship != null:
 			hit[ship.name] = true
-		assert_almost_eq(bullet.velocity.length(), 450.0, 0.001, "bullet_speed_px_s")
+		assert_almost_eq(bullet.velocity.length(), Config.num("enemies.lancer.bullet_speed_px_s"), 0.01, "bullet_speed_px_s")
 		assert_eq(bullet.damage, Config.int_("damage.bullet_hearts"), "its own heart damage is unchanged")
 	assert_eq(hit.size(), 3, "every ship can be picked")
 
@@ -715,7 +717,7 @@ func test_convoy_shot_with_the_muzzle_on_the_ship_centre_goes_straight_down() ->
 	if bullet == null:
 		return
 	assert_true(bullet.targets_convoy)
-	assert_almost_eq(bullet.velocity, Vector2(0, 450), Vector2(0.0001, 0.0001))
+	assert_almost_eq(bullet.velocity, Vector2(0, Config.num("enemies.lancer.bullet_speed_px_s")), Vector2(0.001, 0.01), "straight down at bullet_speed_px_s")
 	assert_eq(Lancer._aim_at(Vector2(5, 5), Vector2(5, 5)), Vector2.DOWN)
 	assert_almost_eq(Lancer._aim_at(Vector2(0, 0), Vector2(3, 4)), Vector2(0.6, 0.8), Vector2(0.0001, 0.0001))
 

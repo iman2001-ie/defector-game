@@ -102,25 +102,20 @@ func test_tier_names_in_enum_order() -> void:
 		assert_eq(ImpactTier.from_name(ImpactTier.NAMES[i]), i, ImpactTier.NAMES[i])
 
 
+## Every tier row matches its raw feedback.tiers.<name> row in tuning (so a
+## retune flows straight through) and every number is a sane, non-negative one.
 func test_tier_rows_from_tuning() -> void:
-	# name: [scale, shake_px, shake_s, hit_stop_ms]
-	var expected: Dictionary = {
-		ImpactTier.SMALL: [0.5, 0.0, 0.0, 0.0],
-		ImpactTier.MEDIUM: [1.0, 4.0, 0.15, 0.0],
-		ImpactTier.LARGE: [2.0, 8.0, 0.25, 40.0],
-		ImpactTier.BOSS_PART: [1.5, 6.0, 0.2, 30.0],
-		ImpactTier.BOSS_DEATH: [4.0, 20.0, 1.0, 150.0],
-		ImpactTier.PLAYER_HIT: [0.5, 6.0, 0.2, 50.0],
-		ImpactTier.PLAYER_DEATH: [2.0, 12.0, 0.5, 100.0],
-	}
-	for tier: int in expected:
+	var raw_tiers: Dictionary = (Config.tuning["feedback"] as Dictionary)["tiers"] as Dictionary
+	for tier: int in ImpactTier.NAMES.size():
 		var row: Dictionary = Feedback.tier_row(tier)
-		var values: Array = expected[tier]
 		var label: String = ImpactTier.NAMES[tier]
-		assert_almost_eq(row.get("explosion_scale", -1.0) as float, values[0] as float, 0.0001, label + " scale")
-		assert_almost_eq(row.get("shake_px", -1.0) as float, values[1] as float, 0.0001, label + " shake_px")
-		assert_almost_eq(row.get("shake_s", -1.0) as float, values[2] as float, 0.0001, label + " shake_s")
-		assert_almost_eq(row.get("hit_stop_ms", -1.0) as float, values[3] as float, 0.0001, label + " hit_stop_ms")
+		assert_true(raw_tiers.has(label), "tuning has feedback.tiers.%s" % label)
+		var raw: Dictionary = raw_tiers.get(label, {}) as Dictionary
+		for key: String in ["explosion_scale", "shake_px", "shake_s", "hit_stop_ms"]:
+			var tuned: float = float(raw.get(key, -2.0))
+			assert_gte(tuned, 0.0, "%s %s >= 0" % [label, key])
+			assert_almost_eq(row.get(key, -1.0) as float, tuned, 0.0001, "%s %s from tuning" % [label, key])
+		assert_gt(row.get("explosion_scale", -1.0) as float, 0.0, label + " scale > 0")
 	assert_eq(Feedback.tier_row(ImpactTier.SMALL).get("extras"), [&"sparks"] as Array[StringName])
 	assert_eq(Feedback.tier_row(ImpactTier.MEDIUM).get("extras"), [&"debris"] as Array[StringName])
 	assert_eq(Feedback.tier_row(ImpactTier.LARGE).get("extras"), [&"debris", &"shockwave"] as Array[StringName])
@@ -440,9 +435,14 @@ func _chain_offsets() -> Array[Vector2]:
 	return out
 
 
+## The Boss-death tier's explosion scale, as a node scale.
+func _boss_death_scale() -> Vector2:
+	return Vector2.ONE * Config.num("feedback.tiers.boss_death.explosion_scale")
+
+
 func test_chain_tuning() -> void:
-	assert_eq(Config.num("feedback.boss_death_chain_s"), 2.0, "2 s chain")
-	assert_eq(_chain_offsets(), [Vector2(0, 124), Vector2(-270, 40), Vector2(270, 40), Vector2(0, 0)] as Array[Vector2], "the core, the hull ends, the hull centre")
+	assert_gt(Config.num("feedback.boss_death_chain_s"), 0.0, "the chain has a duration")
+	assert_gte(_chain_offsets().size(), 2, "a chain of at least two explosions")
 
 
 func test_boss_death_plays_the_full_impact_first() -> void:
@@ -452,27 +452,29 @@ func test_boss_death_plays_the_full_impact_first() -> void:
 	assert_eq(explosions.size(), 1, "explosion 0 inside the call")
 	if explosions.size() == 1:
 		var e: Explosion = explosions[0]
-		assert_eq(e.global_position, CHAIN_POS + Vector2(0, 124), "at pos + offset 0")
-		assert_eq(e.scale, Vector2(4, 4), "Boss-death scale")
+		assert_eq(e.global_position, CHAIN_POS + _chain_offsets()[0], "at pos + offset 0")
+		assert_eq(e.scale, _boss_death_scale(), "Boss-death scale")
 		assert_eq(e.extras, [&"white_flash"] as Array[StringName], "with the tier's extras")
 		assert_true(e.is_flashing(), "the white flash")
-	assert_almost_eq(_camera.current_amplitude(), 20.0, 0.0001, "20 px shake")
-	assert_true(Feedback.is_hit_stopped(), "150 ms hit-stop")
+	assert_almost_eq(_camera.current_amplitude(), Config.num("feedback.tiers.boss_death.shake_px"), 0.0001, "the tier's shake")
+	assert_true(Feedback.is_hit_stopped(), "the tier's hit-stop")
 	assert_eq(Engine.time_scale, 0.0)
 	assert_eq(Audio.newest_player().stream, Audio.SFX[&"explosion_boss_death"], "the tier sfx")
-	assert_eq(Feedback.chain_pending(), 3, "3 more to come")
+	assert_eq(Feedback.chain_pending(), _chain_offsets().size() - 1, "the rest of the chain to come")
 
 
 func test_chain_spreads_the_explosions_evenly_over_chain_s() -> void:
 	_setup_listeners()
 	var offsets: Array[Vector2] = _chain_offsets()
+	var count: int = offsets.size()
+	var chain_s: float = Config.num("feedback.boss_death_chain_s")
 	Feedback.boss_death(CHAIN_POS)
 	var seen: int = 1
 	var times: Array[float] = [0.0]
 	var flashes: int = 1
 	var sfx_after: Array[bool] = []
 	var t: float = 0.0
-	for i: int in 120:
+	for i: int in ceili(chain_s / CHAIN_DT) + 2:
 		var before: AudioStreamPlayer = Audio.newest_player()
 		Feedback.step_chain(CHAIN_DT)
 		t += CHAIN_DT
@@ -481,22 +483,25 @@ func test_chain_spreads_the_explosions_evenly_over_chain_s() -> void:
 			assert_eq(explosions.size(), seen + 1, "one explosion at a time")
 			var e: Explosion = explosions.back()
 			assert_eq(e.global_position, CHAIN_POS + offsets[seen], "explosion %d at pos + its offset" % seen)
-			assert_eq(e.scale, Vector2(4, 4), "explosion %d at the Boss-death scale" % seen)
+			assert_eq(e.scale, _boss_death_scale(), "explosion %d at the Boss-death scale" % seen)
 			assert_eq(e.extras, [] as Array[StringName], "explosion %d has no extras" % seen)
 			if e.is_flashing():
 				flashes += 1
 			sfx_after.append(Audio.newest_player() != before and Audio.newest_player().stream == Audio.SFX[&"explosion_boss_death"])
 			times.append(t)
 			seen = explosions.size()
-	assert_eq(seen, 4, "4 explosions in total")
-	assert_eq(times.size(), 4)
-	for k: int in mini(times.size(), 4):
-		assert_almost_eq(times[k], float(k) * 2.0 / 3.0, CHAIN_DT + 0.0001, "explosion %d at k * chain_s / (N - 1)" % k)
+	assert_eq(seen, count, "one explosion per offset")
+	assert_eq(times.size(), count)
+	for k: int in mini(times.size(), count):
+		assert_almost_eq(times[k], float(k) * chain_s / float(count - 1), CHAIN_DT + 0.0001, "explosion %d at k * chain_s / (N - 1)" % k)
 	assert_eq(flashes, 1, "the flash only on the first")
-	assert_eq(sfx_after, [true, true, true] as Array[bool], "each later explosion plays the tier sfx")
+	var all_sfx: Array[bool] = []
+	all_sfx.resize(count - 1)
+	all_sfx.fill(true)
+	assert_eq(sfx_after, all_sfx, "each later explosion plays the tier sfx")
 	assert_eq(Feedback.chain_pending(), 0, "nothing left")
 	Feedback.step_chain(1.0)
-	assert_eq(_explosions().size(), 4, "a finished chain plays nothing more")
+	assert_eq(_explosions().size(), count, "a finished chain plays nothing more")
 
 
 func test_chain_freezes_while_the_tree_is_paused() -> void:
@@ -505,9 +510,9 @@ func test_chain_freezes_while_the_tree_is_paused() -> void:
 	PauseArbiter.push(&"menu")
 	Feedback._process(1.0)
 	assert_eq(_explosions().size(), 1, "paused: frozen")
-	assert_eq(Feedback.chain_pending(), 3)
+	assert_eq(Feedback.chain_pending(), _chain_offsets().size() - 1)
 	PauseArbiter.pop(&"menu")
-	Feedback._process(0.7)
+	Feedback._process(Config.num("feedback.boss_death_chain_s") / float(_chain_offsets().size() - 1) + 0.05)
 	assert_eq(_explosions().size(), 2, "unpaused: the chain goes on")
 
 
@@ -516,7 +521,7 @@ func test_reset_drops_the_pending_chain() -> void:
 	Feedback.boss_death(CHAIN_POS)
 	Feedback.reset()
 	assert_eq(Feedback.chain_pending(), 0, "dropped")
-	Feedback.step_chain(3.0)
+	Feedback.step_chain(Config.num("feedback.boss_death_chain_s") + 1.0)
 	assert_eq(_explosions().size(), 1, "only the first played")
 
 
@@ -524,7 +529,7 @@ func test_chain_without_a_spawner_plays_no_explosion_and_no_error() -> void:
 	var lines: Array[String] = []
 	Log.sink = func(level: String, category: String, msg: String) -> void: lines.append(Log.format(level, category, msg))
 	Feedback.boss_death(CHAIN_POS)
-	for i: int in 130:
+	for i: int in ceili(Config.num("feedback.boss_death_chain_s") / CHAIN_DT) + 10:
 		Feedback.step_chain(CHAIN_DT)
 	assert_eq(Feedback.chain_pending(), 0, "the chain ran out")
 	assert_eq(Audio.newest_player().stream, Audio.SFX[&"explosion_boss_death"], "the sfx still plays")
@@ -566,7 +571,7 @@ func test_no_chain_offsets_plays_one_impact_at_pos() -> void:
 	assert_eq(explosions.size(), 1, "exactly one explosion")
 	if explosions.size() == 1:
 		assert_eq(explosions[0].global_position, CHAIN_POS, "at pos")
-		assert_eq(explosions[0].scale, Vector2(4, 4), "the Boss-death impact")
+		assert_eq(explosions[0].scale, _boss_death_scale(), "the Boss-death impact")
 	assert_eq(Feedback.chain_pending(), 0, "nothing queued")
 
 

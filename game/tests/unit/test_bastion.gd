@@ -117,6 +117,35 @@ func _deg_from_down(v: Vector2) -> float:
 	return rad_to_deg(Vector2.DOWN.angle_to(v))
 
 
+## Tuned fire-cycle numbers.
+func _interval() -> float:
+	return Config.num("enemies.bastion.fire_interval_s")
+
+
+func _telegraph() -> float:
+	return Config.num("enemies.bastion.telegraph_s")
+
+
+func _per_turret() -> int:
+	return Config.int_("enemies.bastion.spread_bullets")
+
+
+## Bullets in one volley from `turrets` turrets (bastion.tscn has 2).
+func _volley(turrets: int = 2) -> int:
+	return turrets * _per_turret()
+
+
+## The spread's angles from straight down, evenly spaced from -spread_deg to
+## +spread_deg (0 for a single bullet), sorted.
+func _expected_angles() -> Array[float]:
+	var count: int = _per_turret()
+	var spread: float = Config.num("enemies.bastion.spread_deg")
+	var out: Array[float] = []
+	for i: int in count:
+		out.append(0.0 if count == 1 else -spread + 2.0 * spread * float(i) / float(count - 1))
+	return out
+
+
 # --- Base stats ---------------------------------------------------------------
 
 func test_hp_tier_and_scene() -> void:
@@ -286,8 +315,8 @@ func test_telegraph_then_spread_through_a_real_spawner() -> void:
 		return
 	assert_eq(bastion.spawner, _spawner, "Spawner injected itself")
 	assert_eq(bastion.state(), Bastion.State.DRIFT)
-	var t: float = _step_until(bastion, Bastion.State.TELEGRAPH, 4.0)
-	assert_almost_eq(t, 2.0, DT * 1.5, "fire_interval_s - telegraph_s of drifting")
+	var t: float = _step_until(bastion, Bastion.State.TELEGRAPH, _interval() + 1.0)
+	assert_almost_eq(t, _interval() - _telegraph(), DT * 1.5, "fire_interval_s - telegraph_s of drifting")
 	assert_true(bastion.is_glowing(), "every turret glows")
 	var e: float = Config.num("enemies.bastion.turret_glow_energy")
 	for turret: Node in bastion.get_node("Turrets").get_children():
@@ -305,28 +334,28 @@ func test_telegraph_then_spread_through_a_real_spawner() -> void:
 		origins.clear()
 		for turret: Node in bastion.get_node("Turrets").get_children():
 			origins.append((turret as Node2D).global_position)
-	assert_almost_eq(tele, 0.5, DT * 1.5, "telegraph_s")
+	assert_almost_eq(tele, _telegraph(), DT * 1.5, "telegraph_s")
 	assert_eq(bastion.state(), Bastion.State.DRIFT, "back to DRIFT")
 	assert_false(bastion.is_glowing(), "glows hidden")
 	var bullets: Array[Projectile] = _bullets()
-	assert_eq(bullets.size(), 6, "3 bullets per turret")
-	if bullets.size() != 6:
+	assert_eq(bullets.size(), _volley(), "spread_bullets per turret")
+	if bullets.size() != _volley():
 		return
+	var expected: Array[float] = _expected_angles()
 	for origin: Vector2 in origins:
 		var angles: Array[float] = []
 		for bullet: Projectile in bullets:
 			bullet.set_physics_process(false)
 			if bullet.global_position.distance_to(origin) < EPS:
 				assert_true(bullet is EnemyBullet, "an EnemyBullet")
-				assert_almost_eq(bullet.velocity.length(), 350.0, EPS, "350 px/s")
+				assert_almost_eq(bullet.velocity.length(), Config.num("enemies.bastion.bullet_speed_px_s"), 0.01, "bullet_speed_px_s")
 				assert_eq(bullet.damage, Config.int_("damage.bullet_hearts"), "damage.bullet_hearts")
 				angles.append(_deg_from_down(bullet.velocity))
 		angles.sort()
-		assert_eq(angles.size(), 3, "3 bullets from turret at %s" % origin)
-		if angles.size() == 3:
-			assert_almost_eq(angles[0], -15.0, EPS, "-15 deg")
-			assert_almost_eq(angles[1], 0.0, EPS, "straight down")
-			assert_almost_eq(angles[2], 15.0, EPS, "+15 deg")
+		assert_eq(angles.size(), expected.size(), "spread_bullets from turret at %s" % origin)
+		if angles.size() == expected.size():
+			for i: int in angles.size():
+				assert_almost_eq(angles[i], expected[i], EPS, "bullet %d evenly spaced across +-spread_deg" % i)
 
 
 func test_spread_is_not_aimed_at_the_player() -> void:
@@ -341,13 +370,19 @@ func test_spread_is_not_aimed_at_the_player() -> void:
 	_step_until(bastion, Bastion.State.TELEGRAPH, 4.0)
 	_step_until(bastion, Bastion.State.DRIFT, 2.0)
 	var bullets: Array[Projectile] = _bullets()
-	assert_eq(bullets.size(), 6)
-	var centre: int = 0
+	assert_eq(bullets.size(), _volley())
+	# Centred straight down: the angles cancel out, wherever the player is.
+	var angle_sum: float = 0.0
 	for bullet: Projectile in bullets:
 		bullet.set_physics_process(false)
-		if absf(_deg_from_down(bullet.velocity)) < EPS:
-			centre += 1
-	assert_eq(centre, 2, "each spread is centred straight down")
+		angle_sum += _deg_from_down(bullet.velocity)
+	assert_almost_eq(angle_sum, 0.0, EPS * float(bullets.size()), "each spread is centred straight down")
+	if _per_turret() % 2 == 1:
+		var centre: int = 0
+		for bullet: Projectile in bullets:
+			if absf(_deg_from_down(bullet.velocity)) < EPS:
+				centre += 1
+		assert_eq(centre, 2, "an odd spread has one bullet straight down per turret")
 
 
 ## DW-40 (decision #38): fire_interval_s is the full volley period and includes
@@ -362,8 +397,9 @@ func test_cycle_repeats_every_full_period() -> void:
 	var volleys: Array[float] = []
 	var glow_starts: Array[float] = []
 	var was_glowing: bool = false
-	# 3 volleys by ~8.0 s (at ~2.5, ~5.0, ~7.5 s); the 4th lands at ~10.0 s.
-	while t < 3.0 * 2.5 + 0.5:
+	var interval: float = _interval()
+	# 3 volleys by 3.25 periods (at ~1, ~2, ~3 periods); the 4th lands at ~4.
+	while t < interval * 3.25:
 		var before: int = _bullets().size()
 		bastion.step(DT)
 		t += DT
@@ -372,23 +408,23 @@ func test_cycle_repeats_every_full_period() -> void:
 		was_glowing = bastion.is_glowing()
 		if _bullets().size() > before:
 			volleys.append(t)
-	assert_eq(_bullets().size(), 18, "one 6-bullet volley per 2.5 s, none extra")
+	assert_eq(_bullets().size(), 3 * _volley(), "one volley per fire_interval_s, none extra")
 	assert_eq(volleys.size(), 3, "three separate volleys")
 	if volleys.size() != 3:
 		return
-	assert_almost_eq(volleys[0], 2.5, DT * 2.5, "first volley fire_interval_s after DRIFT begins")
-	assert_almost_eq(volleys[1] - volleys[0], 2.5, DT * 2.5, "volley to volley = fire_interval_s")
-	assert_almost_eq(volleys[2] - volleys[1], 2.5, DT * 2.5, "volley to volley = fire_interval_s")
+	assert_almost_eq(volleys[0], interval, DT * 2.5, "first volley fire_interval_s after DRIFT begins")
+	assert_almost_eq(volleys[1] - volleys[0], interval, DT * 2.5, "volley to volley = fire_interval_s")
+	assert_almost_eq(volleys[2] - volleys[1], interval, DT * 2.5, "volley to volley = fire_interval_s")
 	assert_eq(glow_starts.size(), 3, "one telegraph per volley")
 	if glow_starts.size() == 3:
 		for i: int in 3:
-			assert_almost_eq(volleys[i] - glow_starts[i], 0.5, DT * 1.5, "glows for the last telegraph_s")
+			assert_almost_eq(volleys[i] - glow_starts[i], _telegraph(), DT * 1.5, "glows for the last telegraph_s")
 	# The drift timer restarts after each volley: DRIFT -> TELEGRAPH takes
 	# fire_interval_s - telegraph_s again.
-	_step_until(bastion, Bastion.State.TELEGRAPH, 4.0)
-	_step_until(bastion, Bastion.State.DRIFT, 2.0)
+	_step_until(bastion, Bastion.State.TELEGRAPH, interval + 1.0)
+	_step_until(bastion, Bastion.State.DRIFT, _telegraph() + 1.0)
 	assert_eq(bastion.state(), Bastion.State.DRIFT, "back in DRIFT after a volley")
-	assert_almost_eq(_step_until(bastion, Bastion.State.TELEGRAPH, 4.0), 2.0, DT * 1.5,
+	assert_almost_eq(_step_until(bastion, Bastion.State.TELEGRAPH, interval + 1.0), interval - _telegraph(), DT * 1.5,
 		"fire_interval_s - telegraph_s after the volley")
 
 
@@ -429,10 +465,10 @@ func test_no_fire_while_entering() -> void:
 		bastion.step(DT)
 		t += DT
 		assert_false(bastion.is_glowing())
-	assert_gt(t, 2.5, "the entry takes longer than fire_interval_s")
+	assert_gt(t, _interval(), "the entry takes longer than fire_interval_s")
 	assert_eq(_projectiles.get_child_count(), 0, "never fires while entering")
-	var drift: float = _step_until(bastion, Bastion.State.TELEGRAPH, 4.0)
-	assert_almost_eq(drift, 2.0, DT * 1.5, "timer starts when DRIFT begins")
+	var drift: float = _step_until(bastion, Bastion.State.TELEGRAPH, _interval() + 1.0)
+	assert_almost_eq(drift, _interval() - _telegraph(), DT * 1.5, "timer starts when DRIFT begins")
 
 
 func test_no_spawner_runs_the_cycle_without_firing() -> void:
@@ -459,7 +495,7 @@ func test_turret_count_mismatch_warns_and_uses_the_scene() -> void:
 	assert_eq(bastion.turret_count(), 2, "the scene's turrets")
 	_step_until(bastion, Bastion.State.TELEGRAPH, 4.0)
 	_step_until(bastion, Bastion.State.DRIFT, 2.0)
-	assert_eq(_bullets().size(), 6, "two spreads")
+	assert_eq(_bullets().size(), _volley(2), "two spreads")
 	assert_eq(_warns().size(), 1, "still one WARN")
 
 
@@ -600,7 +636,7 @@ func test_bastion_bullet_is_a_stray_on_the_convoy() -> void:
 	_step_until(bastion, Bastion.State.TELEGRAPH, 4.0)
 	_step_until(bastion, Bastion.State.DRIFT, 2.0)
 	var bullets: Array[Projectile] = _bullets()
-	assert_eq(bullets.size(), 6, "one volley")
+	assert_eq(bullets.size(), _volley(), "one volley")
 	if bullets.is_empty():
 		return
 	for bullet: Projectile in bullets:

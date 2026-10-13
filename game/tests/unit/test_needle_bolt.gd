@@ -1,7 +1,8 @@
 extends GutTest
 ## NeedleBolt (Story 2.6): an EnemyBullet with layers 8/81, an elongated
-## magenta streak with a white core, a capsule long enough for 1600 px/s that
-## follows velocity, asteroid cover (a Needle firing through a real Spawner at
+## magenta streak with a white core, a capsule long enough for the tuned bolt
+## speed (and for a faster velocity) that follows velocity, asteroid cover (a
+## Needle firing through a real Spawner at
 ## a stand-in behind a real medium asteroid) and no tunnelling through physics.
 
 const BOLT_SCENE: PackedScene = preload("res://entities/projectiles/needle_bolt.tscn")
@@ -105,9 +106,18 @@ func test_capsule_is_long_enough_for_the_bolt_speed() -> void:
 	if capsule == null:
 		return
 	assert_gte(capsule.radius, 8.0, "radius >= 8")
-	var per_tick: float = Config.num("enemies.needle.bolt_speed_px_s") / float(Engine.physics_ticks_per_second)
+	var tuned: float = Config.num("enemies.needle.bolt_speed_px_s")
+	var per_tick: float = tuned / float(Engine.physics_ticks_per_second)
 	assert_gte(capsule.height, per_tick, "height >= bolt_speed_px_s / 60")
 	assert_gte(capsule.height, 27.0, "GDD: >= 27 px")
+	# A bolt faster than the tuning (a later retune, a debug spawn) still fits.
+	var fast: NeedleBolt = _make(Vector2(960, 540), Vector2(0, tuned * 2.0))
+	var fast_capsule: CapsuleShape2D = _hitbox(fast).shape as CapsuleShape2D
+	assert_gte(fast_capsule.height, per_tick * 2.0, "height >= its own speed / 60")
+	assert_false(is_same(fast_capsule, capsule), "each fitted bolt has its own capsule")
+	var probe: Node = autofree(BOLT_SCENE.instantiate())
+	var scene_capsule: CapsuleShape2D = (probe.get_node("Hitbox") as CollisionShape2D).shape as CapsuleShape2D
+	assert_gte(capsule.height, scene_capsule.height, "never shorter than the scene's capsule")
 
 
 func test_capsule_and_streak_follow_velocity() -> void:

@@ -38,7 +38,7 @@ const ARC_HEIGHT_PX: float = 200.0
 ## largest tuned screen shake (the feedback tiers' shake_px and
 ## comms.cutoff_shake_px; ShakeCamera offsets the view by up to that much),
 ## which test_edge_margin_exceeds_every_tuned_shake checks.
-const EDGE_MARGIN_PX: float = 40.0
+const EDGE_MARGIN_PX: float = 64.0
 const ARC_SEGMENTS: int = 160
 ## A dark, desaturated violet disc (#1A1426) and a slightly lighter rim (#42365C).
 const PLANET_COLOR: Color = Color(0.101961, 0.078431, 0.149020, 1.0)

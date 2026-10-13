@@ -126,8 +126,8 @@ func _sfx_played(id: StringName) -> bool:
 func test_stats_layers_hull_and_trail() -> void:
 	var maul: Maul = _make({"position": Vector2(960, 300)})
 	assert_eq(maul.type_id, &"maul")
-	assert_eq(maul.hp, Config.int_("enemies.maul.hp"))
-	assert_eq(maul.hp, 6)
+	assert_eq(maul.hp, Config.int_("enemies.maul.hp"), "hp from tuning")
+	assert_gte(maul.hp, 2, "takes more than one hit (the ally-kill test needs >= 2)")
 	assert_eq(maul.tier, ImpactTier.MEDIUM)
 	assert_eq(maul.sprite_px, 96.0, "medium-tier sprite size")
 	var node: Node = maul
@@ -422,7 +422,7 @@ func test_shot_down_by_an_ally_is_a_kill_with_loot() -> void:
 	var bolt: Projectile = Projectile.new()
 	bolt.from_ally = true
 	autofree(bolt)
-	maul.apply_damage(5, bolt)
+	maul.apply_damage(Config.int_("enemies.maul.hp") - 1, bolt)
 	assert_false(maul.is_dead(), "alive at 1 HP")
 	maul.apply_damage(1, bolt)
 	assert_true(maul.is_dead())

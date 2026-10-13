@@ -7,7 +7,7 @@ extends GutTest
 ## turret death (Boss-part tier, enemy_killed, the orb), the combined HP events,
 ## hitbox layout, contact and targeting. Phase 2: the move to CORE when the 4th
 ## turret dies, core damage, the core's start-to-start radial cadence and glow,
-## the 12-bullet radial burst, the Wasp launches (slots, cap, not counted,
+## the evenly spaced radial burst, the Wasp launches (slots, cap, not counted,
 ## drops), leaving CORE and targeting. Phase 3 (Story 7.5): the 50 HP clamp
 ## into FINAL_CHOICE and its comms request, the wait for its own `finished`,
 ## DESPERATE (the alternating radials, the aimed spread, the shared glow, the
@@ -223,6 +223,45 @@ func _deg_from_down(v: Vector2) -> float:
 	return rad_to_deg(Vector2.DOWN.angle_to(v))
 
 
+## A run length of at least `base` seconds that sits more than two ticks from
+## every shot time firsts[j] + k * periods[j], so the tick grid never decides
+## whether a shot lands inside the run (the timing tests derive their run
+## length from the tuned periods).
+func _clear_duration(base: float, firsts: Array[float], periods: Array[float]) -> float:
+	var d: float = base
+	for attempt: int in 240:
+		var clear: bool = true
+		for j: int in firsts.size():
+			if periods[j] <= 0.0:
+				continue
+			var phase: float = fposmod(d - firsts[j], periods[j])
+			if phase < 2.0 * DT or periods[j] - phase < 2.0 * DT:
+				clear = false
+		if clear:
+			return d
+		d += DT
+	return d
+
+
+## The sorted angles from straight down of a spread of `count` bullets evenly
+## spaced from -spread_deg to +spread_deg around `centre_deg` (one bullet at
+## the centre when count is 1), as FlagshipTurret.spread_velocities fires them.
+func _spread_angles(count: int, spread_deg: float, centre_deg: float = 0.0) -> Array[float]:
+	var out: Array[float] = []
+	for i: int in count:
+		var a: float = 0.0 if count == 1 else -spread_deg + 2.0 * spread_deg * float(i) / float(count - 1)
+		out.append(centre_deg + a)
+	return out
+
+
+## The Boss-death chain offsets from tuning (the first is the core).
+func _chain_offsets() -> Array[Vector2]:
+	var out: Array[Vector2] = []
+	for pair: Variant in Config.section("feedback").get("boss_death_chain_offsets_px", []) as Array:
+		out.append(Vector2(float((pair as Array)[0]), float((pair as Array)[1])))
+	return out
+
+
 func _newest_explosion() -> Explosion:
 	for i: int in range(_effects.get_child_count() - 1, -1, -1):
 		var e: Explosion = _effects.get_child(i) as Explosion
@@ -325,14 +364,24 @@ func test_staggered_start_to_start_cadence_and_glow_window() -> void:
 	var interval: float = Config.num("boss.turrets.fire_interval_s")
 	var stagger: float = Config.num("boss.turrets.stagger_s")
 	var telegraph: float = Config.num("boss.turrets.telegraph_s")
-	assert_eq([interval, stagger, telegraph], [3.0, 0.75, 0.5], "shipped cadence")
+	var per_shot: int = Config.int_("boss.turrets.spread_bullets")
+	assert_gt(interval, 0.0, "a positive period")
+	assert_between(telegraph, 0.0, interval, "the glow fits inside the period")
+	assert_gte(stagger, 0.0, "a non-negative stagger")
 	var turrets: Array[FlagshipTurret] = boss.turrets()
-	var shots: Array = [[], [], [], []]
+	var shots: Array = []
+	var firsts: Array[float] = []
+	var periods: Array[float] = []
+	for i: int in turrets.size():
+		shots.append([])
+		firsts.append(float(i) * stagger + interval)
+		periods.append(interval)
 	## [t, turret index, glowing] samples, taken after each step.
 	var samples: Array[Array] = []
 	var seen: int = 0
 	var t: float = 0.0
-	var duration: float = 9.4
+	# About three periods plus the stagger, so every turret fires several times.
+	var duration: float = _clear_duration(interval * 3.0 + stagger * float(turrets.size() - 1) / 2.0, firsts, periods)
 	while t < duration:
 		boss.step(DT)
 		t += DT
@@ -345,7 +394,7 @@ func test_staggered_start_to_start_cadence_and_glow_window() -> void:
 				if is_equal_approx(b.global_position.x, turrets[i].global_position.x):
 					from_turret += 1
 			if from_turret > 0:
-				assert_eq(from_turret, 3, "turret %d fires 3 bullets per shot" % i)
+				assert_eq(from_turret, per_shot, "turret %d fires spread_bullets per shot" % i)
 				(shots[i] as Array).append(t)
 			samples.append([t, i, turrets[i].is_glowing()])
 	for i: int in turrets.size():
@@ -355,6 +404,7 @@ func test_staggered_start_to_start_cadence_and_glow_window() -> void:
 			expected.append(float(i) * stagger + interval + float(k) * interval)
 			k += 1
 		var got: Array = shots[i]
+		assert_gte(expected.size(), 2, "turret %d fires at least twice in the run" % i)
 		assert_eq(got.size(), expected.size(), "turret %d shot count by %.1f s" % [i, duration])
 		for n: int in mini(got.size(), expected.size()):
 			assert_almost_eq(float(got[n]), expected[n], DT + EPS, "turret %d shot %d at i*stagger + interval + k*interval" % [i, n])
@@ -379,28 +429,32 @@ func test_staggered_start_to_start_cadence_and_glow_window() -> void:
 		checked += 1
 		var in_window: bool = lead < telegraph and st >= float(i) * stagger
 		assert_eq(sample[2], in_window, "turret %d glow at %.3f s (next shot in %.3f s)" % [i, st, lead])
-	assert_gt(checked, 1000, "the glow was checked across the run")
+	assert_gt(checked, samples.size() / 2, "the glow was checked across the run")
 
 
-func test_spread_is_three_unaimed_bullets_at_350() -> void:
+## A turret shot is spread_bullets unaimed bullets, evenly spaced from
+## -spread_deg to +spread_deg around straight down, at bullet_speed_px_s.
+func test_spread_is_unaimed_and_evenly_spaced_at_the_tuned_speed() -> void:
 	var boss: Flagship = _spawn_at_station()
 	var turret: FlagshipTurret = boss.turrets()[0]
+	var count: int = Config.int_("boss.turrets.spread_bullets")
 	var t: float = 0.0
-	while _bullets().is_empty() and t < 4.0:
+	while _bullets().is_empty() and t < Config.num("boss.turrets.fire_interval_s") + 1.0:
 		boss.step(DT)
 		t += DT
 	var bullets: Array[Projectile] = _bullets()
-	assert_eq(bullets.size(), 3, "turret 0 fires first, alone")
+	assert_eq(bullets.size(), count, "turret 0 fires first, alone")
 	var angles: Array[float] = []
 	for b: Projectile in bullets:
 		assert_eq(b.global_position, turret.global_position, "from the turret")
-		assert_almost_eq(b.velocity.length(), 350.0, 0.01, "350 px/s")
+		assert_almost_eq(b.velocity.length(), Config.num("boss.turrets.bullet_speed_px_s"), 0.01, "bullet_speed_px_s")
 		assert_eq(b.damage, Config.int_("damage.bullet_hearts"))
 		angles.append(_deg_from_down(b.velocity))
 	angles.sort()
-	assert_almost_eq(angles[0], -15.0, 0.01)
-	assert_almost_eq(angles[1], 0.0, 0.01)
-	assert_almost_eq(angles[2], 15.0, 0.01)
+	var expected: Array[float] = _spread_angles(count, Config.num("boss.turrets.spread_deg"))
+	assert_eq(angles.size(), expected.size())
+	for i: int in mini(angles.size(), expected.size()):
+		assert_almost_eq(angles[i], expected[i], 0.01, "bullet %d evenly spaced across +-spread_deg" % i)
 
 
 func test_spread_velocities_helper() -> void:
@@ -622,14 +676,17 @@ func test_core_start_to_start_cadence_and_glow_window() -> void:
 	var boss: Flagship = _spawn_in_core()
 	var interval: float = Config.num("boss.core.radial_interval_s")
 	var charge: float = Config.num("boss.core.charge_s")
-	assert_eq([interval, charge], [3.0, 0.6], "shipped cadence")
+	var per_burst: int = Config.int_("boss.core.radial_bullets")
+	assert_gt(interval, 0.0, "a positive period")
+	assert_between(charge, 0.0, interval, "the charge fits inside the period")
 	var core: FlagshipCore = boss.core()
 	var shots: Array[float] = []
 	## [t, glowing] samples, taken after each step.
 	var samples: Array[Array] = []
 	var seen: int = 0
 	var t: float = 0.0
-	var duration: float = 9.4
+	var duration: float = _clear_duration(interval * 3.15, [interval] as Array[float], [interval] as Array[float])
+	var expected_bursts: int = floori(duration / interval)
 	while t < duration:
 		boss.step(DT)
 		t += DT
@@ -637,10 +694,10 @@ func test_core_start_to_start_cadence_and_glow_window() -> void:
 		var fresh: int = bullets.size() - seen
 		seen = bullets.size()
 		if fresh > 0:
-			assert_eq(fresh, 12, "12 bullets per burst")
+			assert_eq(fresh, per_burst, "radial_bullets per burst")
 			shots.append(t)
 		samples.append([t, core.is_glowing()])
-	assert_eq(shots.size(), 3, "3 bursts by %.1f s" % duration)
+	assert_eq(shots.size(), expected_bursts, "%d bursts by %.2f s" % [expected_bursts, duration])
 	for k: int in shots.size():
 		assert_almost_eq(shots[k], interval + float(k) * interval, DT + EPS, "burst %d at interval + k*interval (one full period after CORE)" % k)
 	var checked: int = 0
@@ -652,26 +709,30 @@ func test_core_start_to_start_cadence_and_glow_window() -> void:
 			continue
 		checked += 1
 		assert_eq(sample[1], lead < charge, "core glow at %.3f s (next burst in %.3f s)" % [st, lead])
-	assert_gt(checked, 400, "the glow was checked across the run")
+	assert_gt(checked, samples.size() / 2, "the glow was checked across the run")
 
 
-func test_radial_burst_is_12_bullets_30_degrees_apart_at_300() -> void:
+## A radial burst is radial_bullets bullets 360 / radial_bullets degrees apart,
+## the first straight down, at radial_speed_px_s.
+func test_radial_burst_is_evenly_spaced_at_the_tuned_speed() -> void:
 	var boss: Flagship = _spawn_in_core()
+	var count: int = Config.int_("boss.core.radial_bullets")
+	var step_deg: float = 360.0 / float(count)
 	var t: float = 0.0
-	while _bullets().is_empty() and t < 4.0:
+	while _bullets().is_empty() and t < Config.num("boss.core.radial_interval_s") + 1.0:
 		boss.step(DT)
 		t += DT
 	var bullets: Array[Projectile] = _bullets()
-	assert_eq(bullets.size(), 12, "one 12-bullet burst")
+	assert_eq(bullets.size(), count, "one radial_bullets burst")
 	var angles: Array[float] = []
 	for b: Projectile in bullets:
 		assert_eq(b.global_position, boss.core().global_position, "from the core centre")
-		assert_almost_eq(b.velocity.length(), 300.0, 0.01, "300 px/s")
+		assert_almost_eq(b.velocity.length(), Config.num("boss.core.radial_speed_px_s"), 0.01, "radial_speed_px_s")
 		assert_eq(b.damage, Config.int_("damage.bullet_hearts"))
 		angles.append(fposmod(_deg_from_down(b.velocity) + 0.001, 360.0) - 0.001)
 	angles.sort()
 	for i: int in angles.size():
-		assert_almost_eq(angles[i], 30.0 * float(i), 0.01, "bullet %d at %d degrees from straight down" % [i, 30 * i])
+		assert_almost_eq(angles[i], step_deg * float(i), 0.01, "bullet %d at %.2f degrees from straight down" % [i, step_deg * float(i)])
 
 
 func test_radial_velocities_helper() -> void:
@@ -819,14 +880,18 @@ func test_leaving_core_stops_shots_and_launches_and_keeps_the_wasps() -> void:
 
 # --- Phase 3: the Final Choice, DESPERATE and DYING (Story 7.5) -----------------------
 
-## Story 7.5: the shipped Phase 3 numbers these tests rely on.
+## Story 7.5: the Phase 3 tuning these tests rely on. The Final Choice HP is
+## still a literal in the clamp tests below; the cadence, counts and chain are
+## read from tuning, so they only need to be sane.
 func test_phase_3_tuning_used_here() -> void:
 	assert_eq(Config.int_("boss.final_choice_hp"), 50)
-	assert_eq(Config.num("boss.desperate.radial_interval_s"), 1.5)
-	assert_eq(Config.num("boss.desperate.aimed_interval_s"), 2.0)
-	assert_eq(Config.int_("boss.desperate.radial_bullets"), 12)
-	assert_eq(Config.int_("boss.desperate.radial_bursts"), 2)
-	assert_eq(Config.num("feedback.boss_death_chain_s"), 2.0)
+	assert_gt(Config.num("boss.desperate.radial_interval_s"), 0.0)
+	assert_gt(Config.num("boss.desperate.aimed_interval_s"), 0.0)
+	assert_gte(Config.int_("boss.desperate.radial_bullets"), 1)
+	assert_gte(Config.int_("boss.desperate.radial_bursts"), 1)
+	assert_gte(Config.int_("boss.desperate.aimed_bullets"), 1)
+	assert_gt(Config.num("feedback.boss_death_chain_s"), 0.0)
+	assert_gte(_chain_offsets().size(), 2, "a chain of at least two explosions")
 	assert_eq(Flagship.FINAL_CHOICE_SEQUENCE, &"l3_final_choice")
 
 
@@ -930,7 +995,10 @@ func test_final_choice_finished_enters_desperate_once() -> void:
 	assert_eq(_events.back(), ["boss_hp_changed", 40, 300, 4])
 
 
-func test_desperate_cadence_over_6_1_s() -> void:
+## DESPERATE over a run of at least 4 radial and 3 aimed periods: the
+## alternating radial bursts and the aimed spreads, each one full period apart,
+## their counts, speeds and angles from tuning, and the shared glow.
+func test_desperate_cadence_radials_and_aimed_spreads() -> void:
 	var player: Node2D = _add_player(Vector2(1300, 900))
 	var boss: Flagship = _spawn_in_desperate()
 	var core: FlagshipCore = boss.core()
@@ -939,7 +1007,16 @@ func test_desperate_cadence_over_6_1_s() -> void:
 	var radial_charge: float = Config.num("boss.desperate.radial_charge_s")
 	var aimed_interval: float = Config.num("boss.desperate.aimed_interval_s")
 	var aimed_telegraph: float = Config.num("boss.desperate.aimed_telegraph_s")
-	assert_eq([radial_interval, radial_charge, aimed_interval, aimed_telegraph], [1.5, 0.4, 2.0, 0.3], "shipped cadence")
+	var radial_speed: float = Config.num("boss.desperate.radial_speed_px_s")
+	var aimed_speed: float = Config.num("boss.desperate.aimed_speed_px_s")
+	var radial_count: int = Config.int_("boss.desperate.radial_bullets")
+	var radial_bursts: int = Config.int_("boss.desperate.radial_bursts")
+	var aimed_count: int = Config.int_("boss.desperate.aimed_bullets")
+	if is_equal_approx(radial_speed, aimed_speed):
+		pending("radial and aimed bullets share a speed; this test tells them apart by speed")
+		return
+	var periods: Array[float] = [radial_interval, aimed_interval]
+	var duration: float = _clear_duration(maxf(radial_interval * 4.0, aimed_interval * 3.0) + 0.1, periods, periods)
 	## [t, radial bullets, aimed bullets] per tick that fired.
 	var shots: Array[Array] = []
 	var radial_angles: Array[Array] = []
@@ -947,7 +1024,7 @@ func test_desperate_cadence_over_6_1_s() -> void:
 	var samples: Array[Array] = []
 	var seen: int = _bullets().size()
 	var t: float = 0.0
-	while t < 6.1:
+	while t < duration:
 		boss.step(DT)
 		t += DT
 		var bullets: Array[Projectile] = _bullets()
@@ -959,9 +1036,9 @@ func test_desperate_cadence_over_6_1_s() -> void:
 			assert_eq(b.global_position, origin, "from the core centre")
 			assert_eq(b.damage, Config.int_("damage.bullet_hearts"))
 			var speed: float = b.velocity.length()
-			if is_equal_approx(speed, 300.0):
+			if absf(speed - radial_speed) < 0.05:
 				radial.append(fposmod(_deg_from_down(b.velocity) + 0.001, 360.0) - 0.001)
-			elif is_equal_approx(speed, 400.0):
+			elif absf(speed - aimed_speed) < 0.05:
 				aimed.append(_deg_from_down(b.velocity))
 			else:
 				fail_test("unexpected bullet speed %.2f" % speed)
@@ -978,30 +1055,34 @@ func test_desperate_cadence_over_6_1_s() -> void:
 	var aimed_times: Array[float] = []
 	for shot: Array in shots:
 		if int(shot[1]) > 0:
-			assert_eq(shot[1], 12, "12 bullets per radial burst")
+			assert_eq(shot[1], radial_count, "radial_bullets per radial burst")
 			radial_times.append(shot[0])
 		if int(shot[2]) > 0:
-			assert_eq(shot[2], 3, "3 bullets per aimed spread")
+			assert_eq(shot[2], aimed_count, "aimed_bullets per aimed spread")
 			aimed_times.append(shot[0])
-	assert_eq(radial_times.size(), 4, "radials at 1.5, 3.0, 4.5, 6.0")
+	assert_eq(radial_times.size(), floori(duration / radial_interval), "one radial per radial_interval_s")
 	for k: int in radial_times.size():
-		assert_almost_eq(radial_times[k], radial_interval * float(k + 1), DT + EPS, "radial %d at 1.5 * %d" % [k + 1, k + 1])
-	assert_eq(aimed_times.size(), 3, "aimed spreads at 2.0, 4.0, 6.0")
+		assert_almost_eq(radial_times[k], radial_interval * float(k + 1), DT + EPS, "radial %d at radial_interval_s * %d" % [k + 1, k + 1])
+	assert_eq(aimed_times.size(), floori(duration / aimed_interval), "one aimed spread per aimed_interval_s")
 	for k: int in aimed_times.size():
-		assert_almost_eq(aimed_times[k], aimed_interval * float(k + 1), DT + EPS, "aimed spread %d at 2.0 * %d" % [k + 1, k + 1])
-	# Bursts 1 and 3 fly straight down (0, 30, ...); bursts 2 and 4 sit 15 degrees on, in the gaps.
+		assert_almost_eq(aimed_times[k], aimed_interval * float(k + 1), DT + EPS, "aimed spread %d at aimed_interval_s * %d" % [k + 1, k + 1])
+	# Burst k sits (k mod radial_bursts) / radial_bursts of a gap on, so the
+	# alternating bursts fill each other's gaps.
+	var gap: float = 360.0 / float(radial_count)
 	for k: int in radial_angles.size():
-		var offset: float = 0.0 if k % 2 == 0 else 15.0
+		var offset: float = float(k % radial_bursts) * gap / float(radial_bursts)
 		var angles: Array = radial_angles[k]
 		for i: int in angles.size():
-			assert_almost_eq(float(angles[i]), offset + 30.0 * float(i), 0.01, "burst %d bullet %d" % [k + 1, i])
+			assert_almost_eq(float(angles[i]), offset + gap * float(i), 0.01, "burst %d bullet %d" % [k + 1, i])
 	var aim_deg: float = _deg_from_down(player.global_position - origin)
+	var expected_aimed: Array[float] = _spread_angles(aimed_count, Config.num("boss.desperate.aimed_spread_deg"), aim_deg)
 	for k: int in aimed_angles.size():
 		var angles: Array = aimed_angles[k]
-		assert_almost_eq(float(angles[0]), aim_deg - 15.0, 0.01, "spread %d: -15 degrees" % (k + 1))
-		assert_almost_eq(float(angles[1]), aim_deg, 0.01, "spread %d: the centre bullet at the player" % (k + 1))
-		assert_almost_eq(float(angles[2]), aim_deg + 15.0, 0.01, "spread %d: +15 degrees" % (k + 1))
-	# The Glow shows in each radial's last 0.4 s and each aimed spread's last 0.3 s (edges skipped).
+		assert_eq(angles.size(), expected_aimed.size(), "spread %d size" % (k + 1))
+		for i: int in mini(angles.size(), expected_aimed.size()):
+			assert_almost_eq(float(angles[i]), expected_aimed[i], 0.01, "spread %d bullet %d: evenly across +-aimed_spread_deg around the player" % [k + 1, i])
+	# The Glow shows in each radial's last radial_charge_s and each aimed
+	# spread's last aimed_telegraph_s (edges skipped).
 	var checked: int = 0
 	for sample: Array in samples:
 		var st: float = sample[0]
@@ -1016,7 +1097,7 @@ func test_desperate_cadence_over_6_1_s() -> void:
 		checked += 1
 		var expected: bool = radial_lead < radial_charge or aimed_lead < aimed_telegraph
 		assert_eq(sample[1], expected, "glow at %.3f s (radial in %.3f, aimed in %.3f)" % [st, radial_lead, aimed_lead])
-	assert_gt(checked, 250, "the glow was checked across the run")
+	assert_gt(checked, samples.size() / 2, "the glow was checked across the run")
 	assert_true(core.is_pulsing(), "the pulse is on")
 
 
@@ -1031,16 +1112,21 @@ func test_desperate_rotation_helper() -> void:
 
 
 func test_desperate_aimed_spread_without_a_player_flies_down() -> void:
+	var aimed_speed: float = Config.num("boss.desperate.aimed_speed_px_s")
+	if is_equal_approx(aimed_speed, Config.num("boss.desperate.radial_speed_px_s")):
+		pending("radial and aimed bullets share a speed; this test tells them apart by speed")
+		return
 	var boss: Flagship = _spawn_in_desperate()
-	_step_for(boss, 2.0 + DT)
+	_step_for(boss, Config.num("boss.desperate.aimed_interval_s") + DT)
 	var aimed: Array[float] = []
 	for b: Projectile in _bullets():
-		if is_equal_approx(b.velocity.length(), 400.0):
+		if absf(b.velocity.length() - aimed_speed) < 0.05:
 			aimed.append(_deg_from_down(b.velocity))
 	aimed.sort()
-	assert_eq(aimed.size(), 3)
-	if aimed.size() == 3:
-		assert_almost_eq(aimed[1], 0.0, 0.01, "straight down with no player")
+	var expected: Array[float] = _spread_angles(Config.int_("boss.desperate.aimed_bullets"), Config.num("boss.desperate.aimed_spread_deg"))
+	assert_eq(aimed.size(), expected.size(), "one aimed spread")
+	for i: int in mini(aimed.size(), expected.size()):
+		assert_almost_eq(aimed[i], expected[i], 0.01, "bullet %d: centred straight down with no player" % i)
 
 
 func test_desperate_pulse_is_a_steady_sine_toward_red() -> void:
@@ -1131,24 +1217,24 @@ func test_core_death_enters_dying_then_boss_defeated_after_the_chain() -> void:
 	var explosions: Array[Explosion] = _live_explosions()
 	assert_eq(explosions.size(), 1, "one explosion at once: the chain's first, no core impact of its own")
 	if explosions.size() == 1:
-		assert_eq(explosions[0].global_position, hull_pos + Vector2(0, 124), "at the core (pos + the first offset)")
-		assert_eq(explosions[0].scale, Vector2(4, 4), "scale 4")
+		assert_eq(explosions[0].global_position, hull_pos + _chain_offsets()[0], "at the core (pos + the first offset)")
+		assert_eq(explosions[0].scale, Vector2.ONE * Config.num("feedback.tiers.boss_death.explosion_scale"), "the Boss-death scale")
 		assert_true(explosions[0].is_flashing(), "the white flash")
-	assert_almost_eq(_camera.current_amplitude(), 20.0, EPS, "20 px shake")
-	assert_true(Feedback.is_hit_stopped(), "the 150 ms hit-stop")
-	assert_eq(Feedback.chain_pending(), 3)
+	assert_almost_eq(_camera.current_amplitude(), Config.num("feedback.tiers.boss_death.shake_px"), EPS, "the Boss-death shake")
+	assert_true(Feedback.is_hit_stopped(), "the Boss-death hit-stop")
+	assert_eq(Feedback.chain_pending(), _chain_offsets().size() - 1)
 	var defeated_at: float = -1.0
 	var t: float = 0.0
-	while t < 2.5:
+	while t < Config.num("feedback.boss_death_chain_s") + 0.5:
 		boss.step(DT)
 		Feedback.step_chain(DT)
 		t += DT
 		if defeated_at < 0.0 and not _events_named("boss_defeated").is_empty():
 			defeated_at = t
 	assert_eq(_events_named("boss_defeated").size(), 1, "boss_defeated exactly once")
-	assert_almost_eq(defeated_at, Config.num("feedback.boss_death_chain_s"), DT + EPS, "after the 2.0 s chain")
+	assert_almost_eq(defeated_at, Config.num("feedback.boss_death_chain_s"), DT + EPS, "after the chain")
 	assert_true(boss.is_queued_for_deletion(), "the Flagship frees itself")
-	assert_eq(_live_explosions().size(), 4, "4 explosions in total")
+	assert_eq(_live_explosions().size(), _chain_offsets().size(), "one explosion per chain offset")
 	assert_eq(_logged("[INFO][combat] Flagship destroyed").size(), 1, "one INFO line")
 	for wasp: Wasp in wasps:
 		assert_true(is_instance_valid(wasp) and not wasp.is_dead() and not wasp.is_queued_for_deletion(), "launched Wasps stay")

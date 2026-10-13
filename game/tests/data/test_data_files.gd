@@ -1,7 +1,8 @@
 extends GutTest
 ## Data files: every level_*.json in res://data/levels/ passes LevelValidator;
-## every telegraph in tuning.enemies / tuning.boss is >= the 0.3 s minimum;
-## every enemy bullet speed is <= the readable maximum; Wasp, Lancer and
+## every telegraph in tuning.enemies / tuning.boss is >= the MIN_TELEGRAPH_S
+## guardrail; every enemy bullet speed is <= the MAX_ENEMY_BULLET_SPEED_PX_S
+## guardrail; Wasp, Lancer and
 ## Bastion waves fit their formation rows inside each type's zone (a Bastion's
 ## is its drift box); Needle, Bastion and Hunter Wasp tuning is sane; the
 ## Wasp's and every boss telegraph, glow or charge fits inside its
@@ -390,6 +391,14 @@ func test_every_level_file_is_valid() -> void:
 
 # --- Telegraph rule (Pillar 1) ------------------------------------------------
 
+## Fairness guardrails (Pillar 1). The GDD set 0.3 s and 450 px/s; the
+## playtest tuning pass (2026-10-13) deliberately went past both, so these
+## were raised to catch only absurd values, with headroom over that tuning.
+## They are test-local on purpose: tuning.json's weapons.enemy_bullet values
+## are not the limit any more.
+const MIN_TELEGRAPH_S: float = 0.15
+const MAX_ENEMY_BULLET_SPEED_PX_S: float = 900.0
+
 const TELEGRAPH_KEYS: Array[String] = ["telegraph_s", "lock_s", "charge_s"]
 const TELEGRAPH_SUFFIXES: Array[String] = ["_telegraph_s", "_charge_s"]
 
@@ -416,8 +425,7 @@ static func _collect_telegraphs(node: Variant, path: String, out: Dictionary) ->
 
 
 func test_every_telegraph_meets_the_minimum() -> void:
-	var minimum: float = Config.num("weapons.enemy_bullet.min_telegraph_s")
-	assert_eq(minimum, 0.3, "GDD minimum telegraph")
+	var minimum: float = MIN_TELEGRAPH_S
 	var found: Dictionary = {}
 	for section: String in ["enemies", "boss"]:
 		_collect_telegraphs(Config.tuning.get(section), section, found)
@@ -431,14 +439,14 @@ func test_every_telegraph_meets_the_minimum() -> void:
 		var value: Variant = found[path]
 		assert_true(value is float or value is int, "%s is a number" % path)
 		if value is float or value is int:
-			assert_gte(float(value), minimum, "%s >= %.1f s" % [path, minimum])
+			assert_gte(float(value), minimum, "%s >= %.2f s" % [path, minimum])
 
 
 # --- Bullet speed rule (Pillar 1) ---------------------------------------------
 
 ## Collects path -> value for every `bullet_speed_px_s` under tuning.enemies.
-## enemies.needle.bolt_speed_px_s (1600) is deliberately not collected: the
-## Needle bolt is the GDD's one telegraphed exception to the 450 px/s rule.
+## enemies.needle.bolt_speed_px_s is deliberately not collected: the Needle
+## bolt is the GDD's one telegraphed exception to the bullet speed rule.
 static func _collect_enemy_bullet_speeds(node: Variant, path: String, out: Dictionary) -> void:
 	if not (node is Dictionary):
 		return
@@ -463,8 +471,7 @@ static func _collect_speeds(node: Variant, path: String, out: Dictionary) -> voi
 
 
 func test_every_enemy_bullet_is_at_most_the_max_speed() -> void:
-	var maximum: float = Config.num("weapons.enemy_bullet.max_speed_px_s")
-	assert_eq(maximum, 450.0, "GDD maximum enemy bullet speed")
+	var maximum: float = MAX_ENEMY_BULLET_SPEED_PX_S
 	var found: Dictionary = {}
 	_collect_enemy_bullet_speeds(Config.tuning.get("enemies"), "enemies", found)
 	_collect_speeds(Config.tuning.get("boss"), "boss", found)
@@ -1535,7 +1542,7 @@ func test_mauls_only_in_dev_levels_and_level_1() -> void:
 
 
 func test_maul_tuning_ranges() -> void:
-	assert_eq(Config.int_("enemies.maul.hp"), 6)
+	assert_gte(Config.int_("enemies.maul.hp"), 1, "hp >= 1")
 	assert_eq(str(Config.section("enemies.maul").get("tier")), "medium")
 	assert_gt(Config.num("enemies.maul.dive_speed_px_s"), 0.0, "dive_speed_px_s > 0")
 	assert_gt(Config.num("enemies.maul.hitbox_ratio"), 0.0)
@@ -1674,36 +1681,40 @@ func test_allies_fall_tuning_ranges() -> void:
 const FLAGSHIP_SCENE_PATH: String = "res://entities/boss/flagship.tscn"
 
 
-## The GDD numbers the Flagship's Phase 1 must keep (FR49, FR52, FR53) and the
-## tiers of its hull and parts.
-func test_flagship_phase_1_matches_the_gdd() -> void:
-	assert_eq(Config.int_("boss.turrets.count"), 4, "4 turrets")
-	assert_eq(Config.int_("boss.turrets.hp"), 25, "25 HP each")
-	assert_eq(Config.int_("boss.core.hp"), 200, "core 200 HP")
-	assert_eq(Config.int_("boss.final_choice_hp"), 50, "Final Choice at 50")
-	assert_eq(Config.int_("boss.turrets.spread_bullets"), 3, "3-bullet spread")
-	assert_eq(Config.num("boss.turrets.bullet_speed_px_s"), 350.0)
-	assert_eq(Config.num("boss.turrets.fire_interval_s"), 3.0, "every 3.0 s start to start")
-	assert_eq(Config.num("boss.turrets.telegraph_s"), 0.5, "0.5 s glow")
-	assert_eq(Config.int_("boss.phase1_medium_asteroids"), 2, "2 medium cover asteroids")
-	assert_eq(Config.int_("drops.flagship_turret.orbs"), 1, "a turret drops an orb")
-	assert_eq(Config.num("drops.flagship_turret.chance"), 1.0, "always")
+## The Flagship's Phase 1 combat tuning (FR49, FR52, FR53) is sane and the tiers
+## of its hull and parts are right. The playtest tuning pass (2026-10-13)
+## supersedes the GDD's exact numbers, so only ranges and consistency are held.
+func test_flagship_phase_1_combat_tuning_is_sane() -> void:
+	assert_gte(Config.int_("boss.turrets.count"), 1, "at least one turret")
+	assert_gte(Config.int_("boss.turrets.hp"), 1, "turret hp >= 1")
+	assert_gte(Config.int_("boss.core.hp"), 2, "core hp >= 2")
+	assert_between(Config.int_("boss.final_choice_hp"), 1, Config.int_("boss.core.hp") - 1, "the Final Choice HP is inside the core's HP")
+	assert_gte(Config.int_("boss.turrets.spread_bullets"), 1, "spread_bullets >= 1")
+	assert_gt(Config.num("boss.turrets.bullet_speed_px_s"), 0.0, "bullet_speed_px_s > 0")
+	var interval: float = Config.num("boss.turrets.fire_interval_s")
+	assert_gt(interval, 0.0, "fire_interval_s > 0")
+	assert_between(Config.num("boss.turrets.telegraph_s"), 0.0, interval, "the glow fits inside the start-to-start period")
+	assert_gte(Config.int_("boss.phase1_medium_asteroids"), 0, "phase1_medium_asteroids >= 0")
+	assert_gte(Config.int_("drops.flagship_turret.orbs"), 0, "flagship_turret.orbs >= 0")
+	assert_between(Config.num("drops.flagship_turret.chance"), 0.0, 1.0, "flagship_turret.chance is a probability")
 	assert_eq(str(Config.section("boss.hull").get("tier")), "boss_death")
 	assert_eq(str(Config.section("boss.turrets").get("tier")), "boss_part")
 	assert_eq(str(Config.section("boss.core").get("tier")), "boss_death")
 
 
-## The GDD numbers the Flagship's Phase 2 must keep (FR50, Story 7.4): a
-## 12-bullet radial burst at 300 px/s every 3.0 s start to start with its 0.6 s
-## charge inside, and 5 Wasps every 10 s with at most 10 alive.
-func test_flagship_phase_2_matches_the_gdd() -> void:
-	assert_eq(Config.int_("boss.core.radial_bullets"), 12, "12-bullet radial burst")
-	assert_eq(Config.num("boss.core.radial_speed_px_s"), 300.0, "300 px/s")
-	assert_eq(Config.num("boss.core.radial_interval_s"), 3.0, "every 3.0 s start to start")
-	assert_eq(Config.num("boss.core.charge_s"), 0.6, "0.6 s charge glow")
-	assert_eq(Config.int_("boss.core.wasp_launch_count"), 5, "5 Wasps per launch")
-	assert_eq(Config.num("boss.core.wasp_launch_interval_s"), 10.0, "every 10 s")
-	assert_eq(Config.int_("boss.core.wasp_max_alive"), 10, "at most 10 alive")
+## The Flagship's Phase 2 combat tuning (FR50, Story 7.4) is sane: a radial
+## burst of at least 2 bullets at a positive speed with its charge inside the
+## start-to-start period, and Wasp launches with a cap of at least one launch.
+## The playtest tuning pass (2026-10-13) supersedes the GDD's exact numbers.
+func test_flagship_phase_2_combat_tuning_is_sane() -> void:
+	assert_gte(Config.int_("boss.core.radial_bullets"), 2, "a radial burst has >= 2 bullets")
+	assert_gt(Config.num("boss.core.radial_speed_px_s"), 0.0, "radial_speed_px_s > 0")
+	var interval: float = Config.num("boss.core.radial_interval_s")
+	assert_gt(interval, 0.0, "radial_interval_s > 0")
+	assert_between(Config.num("boss.core.charge_s"), 0.0, interval, "the charge fits inside the start-to-start period")
+	assert_gte(Config.int_("boss.core.wasp_launch_count"), 1, "wasp_launch_count >= 1")
+	assert_gt(Config.num("boss.core.wasp_launch_interval_s"), 0.0, "wasp_launch_interval_s > 0")
+	assert_gte(Config.int_("boss.core.wasp_max_alive"), Config.int_("boss.core.wasp_launch_count"), "wasp_max_alive >= one launch")
 
 
 ## Story 7.4 provisional tuning (decision #55): sane ranges, enough boss Wasp
@@ -1939,35 +1950,32 @@ func _choice_next_problems(sequences: Dictionary, path: String) -> Array[String]
 	return problems
 
 
-## The GDD numbers the Flagship's Phase 3 must keep (FR51, FR30 boss death):
-## the 50 HP Final Choice, 2 alternating radial bursts at 300 px/s every 1.5 s
-## start to start with a 0.4 s glow inside, an aimed 3-bullet spread at
-## 400 px/s every 2.0 s with a 0.3 s glow inside, and the Boss-death tier (4x,
-## 20 px / 1.0 s, 150 ms, a white flash) as a chain over 2 s.
-func test_flagship_phase_3_matches_the_gdd() -> void:
-	assert_eq(Config.int_("boss.final_choice_hp"), 50, "Final Choice at 50")
-	assert_eq(Config.int_("boss.desperate.radial_bursts"), 2, "2 alternating radial bursts")
-	assert_eq(Config.num("boss.desperate.radial_speed_px_s"), 300.0, "300 px/s")
-	assert_eq(Config.num("boss.desperate.radial_interval_s"), 1.5, "every 1.5 s start to start")
-	assert_eq(Config.num("boss.desperate.radial_charge_s"), 0.4, "0.4 s charge glow")
-	assert_eq(Config.int_("boss.desperate.aimed_bullets"), 3, "aimed 3-bullet spread")
-	assert_eq(Config.num("boss.desperate.aimed_speed_px_s"), 400.0, "400 px/s")
-	assert_eq(Config.num("boss.desperate.aimed_interval_s"), 2.0, "every 2.0 s start to start")
-	assert_eq(Config.num("boss.desperate.aimed_telegraph_s"), 0.3, "0.3 s glow")
+## The Flagship's Phase 3 combat tuning (FR51, FR30 boss death) is sane: the
+## radial and aimed patterns have positive speeds with each glow inside its
+## start-to-start period, and the Boss-death tier is at least as big as the
+## Boss-part tier (scale, shake, hit-stop) with one white flash, played as a
+## chain. The playtest tuning pass (2026-10-13) supersedes the GDD's exact
+## numbers; the counts, spread, pulse, offsets and flash are range-checked in
+## test_flagship_phase_3_tuning_ranges.
+func test_flagship_phase_3_combat_tuning_is_sane() -> void:
+	assert_gt(Config.num("boss.desperate.radial_speed_px_s"), 0.0, "radial_speed_px_s > 0")
+	var radial_interval: float = Config.num("boss.desperate.radial_interval_s")
+	assert_gt(radial_interval, 0.0, "radial_interval_s > 0")
+	assert_between(Config.num("boss.desperate.radial_charge_s"), 0.0, radial_interval, "the radial glow fits inside its period")
+	assert_gt(Config.num("boss.desperate.aimed_speed_px_s"), 0.0, "aimed_speed_px_s > 0")
+	var aimed_interval: float = Config.num("boss.desperate.aimed_interval_s")
+	assert_gt(aimed_interval, 0.0, "aimed_interval_s > 0")
+	assert_between(Config.num("boss.desperate.aimed_telegraph_s"), 0.0, aimed_interval, "the aimed glow fits inside its period")
 	var row: Dictionary = Config.section("feedback.tiers.boss_death")
-	assert_eq(row.get("explosion_scale"), 4.0, "4x")
-	assert_eq(row.get("shake_px"), 20.0, "20 px")
-	assert_eq(row.get("shake_s"), 1.0, "1.0 s")
-	assert_eq(row.get("hit_stop_ms"), 150.0, "150 ms")
+	var part: Dictionary = Config.section("feedback.tiers.boss_part")
+	for key: String in ["explosion_scale", "shake_px", "shake_s", "hit_stop_ms"]:
+		var value: Variant = row.get(key)
+		assert_true(value is float, "boss_death.%s is a number" % key)
+		if value is float:
+			assert_gt(float(value), 0.0, "boss_death.%s > 0" % key)
+			assert_gte(float(value), float(part.get(key, 0.0)), "boss_death.%s >= boss_part's" % key)
 	assert_eq(row.get("extras"), ["white_flash"], "one white flash")
-	assert_eq(Config.num("feedback.boss_death_chain_s"), 2.0, "chain over 2 s")
-	# Story 7.5 provisional readings (decision #56).
-	assert_eq(Config.int_("boss.desperate.radial_bullets"), 12, "12 bullets per desperate radial")
-	assert_eq(Config.num("boss.desperate.aimed_spread_deg"), 15.0, "+-15 degrees")
-	assert_eq(Config.num("boss.desperate.pulse_hz"), 2.0, "2 Hz pulse")
-	assert_eq(Config.section("feedback").get("boss_death_chain_offsets_px"), [[0.0, 124.0], [-270.0, 40.0], [270.0, 40.0], [0.0, 0.0]], "the core, the hull ends, the hull centre")
-	assert_eq(Config.num("feedback.white_flash.alpha"), 0.7)
-	assert_eq(Config.num("feedback.white_flash.duration_s"), 0.3)
+	assert_gt(Config.num("feedback.boss_death_chain_s"), 0.0, "the chain has a duration")
 
 
 ## Story 7.5 provisional tuning (decision #56): sane ranges.

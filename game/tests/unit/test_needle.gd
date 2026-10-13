@@ -290,7 +290,7 @@ func test_lock_freezes_the_line_red_then_fires_along_it() -> void:
 	assert_eq(needle.spawner, _spawner, "Spawner injected itself")
 	needle.step(DT)
 	var track: float = _step_until(needle, Needle.State.LOCKED, 3.0)
-	assert_almost_eq(track, 1.2, DT * 1.5, "track_s")
+	assert_almost_eq(track, Config.num("enemies.needle.track_s"), DT * 1.5, "track_s")
 	assert_true(needle.line_visible(), "line visible while locked")
 	_assert_color_near(needle.line_color(), DANGER_COLOR, "danger red, opaque")
 	assert_eq(_line(needle).width, 4.0)
@@ -307,7 +307,7 @@ func test_lock_freezes_the_line_red_then_fires_along_it() -> void:
 		if needle.state() == Needle.State.LOCKED:
 			assert_eq(needle.line_direction(), locked, "frozen")
 			assert_eq(_line(needle).get_point_position(1), end_before, "line not re-aimed")
-	assert_almost_eq(lock, 0.3, DT * 1.5, "lock_s")
+	assert_almost_eq(lock, Config.num("enemies.needle.lock_s"), DT * 1.5, "lock_s")
 	assert_eq(needle.state(), Needle.State.COOLDOWN)
 	assert_false(needle.line_visible(), "line hidden in cooldown")
 	var bolts: Array[Projectile] = _bolts()
@@ -317,7 +317,7 @@ func test_lock_freezes_the_line_red_then_fires_along_it() -> void:
 	var bolt: Projectile = bolts[0]
 	assert_true(bolt is NeedleBolt, "a NeedleBolt")
 	assert_almost_eq(bolt.global_position, origin, Vector2(0.001, 0.001), "spawned at Muzzle")
-	assert_almost_eq(bolt.velocity.length(), 1600.0, 0.001, "1600 px/s")
+	assert_almost_eq(bolt.velocity.length(), Config.num("enemies.needle.bolt_speed_px_s"), 0.05, "bolt_speed_px_s")
 	assert_almost_eq(bolt.velocity.normalized().dot(locked), 1.0, 0.000001, "along the locked line")
 	assert_eq(bolt.damage, Config.int_("damage.bullet_hearts"), "damage.bullet_hearts")
 
@@ -329,30 +329,40 @@ func test_cycle_cadence_and_reposition() -> void:
 	if needle == null:
 		return
 	needle.rng.seed = 7
+	var period: float = Config.num("enemies.needle.fire_interval_s")
+	var fire_at: float = Config.num("enemies.needle.track_s") + Config.num("enemies.needle.lock_s")
+	var anchored_for: float = Config.num("enemies.needle.reposition_interval_s")
 	needle.step(DT)
 	assert_eq(needle.state(), Needle.State.TRACKING, "anchored")
 	var shots: Array[float] = []
 	var t: float = 0.0
 	var seen: int = 0
-	while needle.state() != Needle.State.ANCHORING and t < 9.0:
+	while needle.state() != Needle.State.ANCHORING and t < anchored_for + period + 1.0:
 		needle.step(DT)
 		t += DT
 		var n: int = _bolts().size()
 		if n > seen:
 			shots.append(t)
 			seen = n
-	assert_eq(shots.size(), 2, "two shots per anchor")
-	if shots.size() == 2:
-		assert_almost_eq(shots[0], 1.5, DT * 2.5, "first shot at track + lock")
-		assert_almost_eq(shots[1], 5.5, DT * 6.5, "next cycle starts fire_interval_s later")
+	# Each state change can run up to one step over, so cycle k may drift by
+	# up to 3 * k steps from the ideal k * fire_interval_s.
+	assert_gte(shots.size(), 1, "at least one shot per anchor")
+	if shots.size() >= 1:
+		assert_almost_eq(shots[0], fire_at, DT * 2.5, "first shot at track + lock")
+	for k: int in range(1, shots.size()):
+		assert_almost_eq(shots[k] - shots[k - 1], period, DT * 3.5, "next cycle starts fire_interval_s later")
 	assert_eq(needle.state(), Needle.State.ANCHORING, "repositions")
-	assert_almost_eq(t, 8.0, DT * 1.5, "after reposition_interval_s anchored")
-	assert_eq(needle.anchor().y, 160.0, "stays on the top edge")
-	assert_gte(absf(needle.anchor().x - 960.0), 320.0, "at least reposition_min_distance_px away")
+	assert_gte(t, anchored_for - DT, "not before reposition_interval_s anchored")
+	if shots.size() >= 1:
+		# It moves only from COOLDOWN: after the last shot, before another track.
+		assert_between(t - shots.back(), 0.0, period - fire_at + DT * 1.5, "repositions in the cooldown after the last shot")
+		assert_lt(anchored_for - shots.back(), period, "no cycle was skipped before the reposition")
+	assert_eq(needle.anchor().y, Config.num("enemies.needle.anchor_y_px"), "stays on the top edge")
+	assert_gte(absf(needle.anchor().x - 960.0), Config.num("enemies.needle.reposition_min_distance_px"), "at least reposition_min_distance_px away")
 	assert_between(needle.anchor().x, 40.0, 1880.0, "on screen")
 	assert_false(needle.line_visible())
 	var travel: float = _step_until(needle, Needle.State.TRACKING, 5.0)
-	assert_almost_eq(travel, absf(needle.anchor().x - 960.0) / 400.0, DT * 1.5, "flies at reposition_speed_px_s")
+	assert_almost_eq(travel, absf(needle.anchor().x - 960.0) / Config.num("enemies.needle.reposition_speed_px_s"), DT * 1.5, "flies at reposition_speed_px_s")
 	assert_eq(needle.global_position, needle.anchor())
 
 
@@ -394,7 +404,8 @@ func test_reposition_never_interrupts_a_track_or_lock() -> void:
 		assert_ne(needle.state(), Needle.State.ANCHORING)
 		needle.step(DT)
 		t += DT
-	assert_almost_eq(t, 1.5, DT * 2.5, "waits for the cycle to reach COOLDOWN")
+	var fire_at: float = Config.num("enemies.needle.track_s") + Config.num("enemies.needle.lock_s")
+	assert_almost_eq(t, fire_at, DT * 2.5, "waits for the cycle to reach COOLDOWN")
 
 
 func test_no_spawner_runs_the_cycle_without_firing() -> void:
