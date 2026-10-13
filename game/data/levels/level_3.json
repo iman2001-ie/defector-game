@@ -7,6 +7,7 @@
 	"ally": "ryn",
 	"intro_sequence": "l3_briefing",
 	"outro_sequence": "l3_isolde_final",
+	"formation": { "top_y": 200, "spacing_y": 77 },
 	"waves": [
 		{
 			"spawns": [

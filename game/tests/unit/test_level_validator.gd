@@ -526,3 +526,24 @@ func test_flag_gated_row_taker_before_the_needle_is_a_problem() -> void:
 	_type_flags.erase(&"wasp")
 	assert_eq(problems.size(), 1, "%s" % [problems])
 	assert_eq(_count_containing(problems, "waves[0].spawns[1].type"), 1)
+
+
+## Playtest 2026-10-13: an optional `formation` rows override (top_y and / or
+## spacing_y, positive numbers, nothing else) and a boolean `teach_controls`.
+func test_formation_rows_and_teach_controls() -> void:
+	for good: Variant in [{"top_y": 200.0}, {"spacing_y": 77.0}, {"top_y": 200.0, "spacing_y": 77.0}, {}]:
+		var data: Dictionary = _valid()
+		data["formation"] = good
+		assert_eq(_validate(data), [] as Array[String], "formation %s" % good)
+	for bad: Variant in [null, 200.0, "rows", {"top_y": 0.0}, {"top_y": -5.0}, {"spacing_y": "77"}, {"top": 200.0}]:
+		var data: Dictionary = _valid()
+		data["formation"] = bad
+		_assert_one(data, "formation")
+	for good: Variant in [true, false]:
+		var data: Dictionary = _valid()
+		data["teach_controls"] = good
+		assert_eq(_validate(data), [] as Array[String], "teach_controls %s" % good)
+	for bad: Variant in [null, 1.0, "true"]:
+		var data: Dictionary = _valid()
+		data["teach_controls"] = bad
+		_assert_one(data, "teach_controls")

@@ -3,7 +3,8 @@ extends Enemy
 ## Needle: medium sniper that teaches cover (GDD FR21, FR25, FR6).
 ##
 ## A Needle flies (ANCHORING, at enemies.needle.reposition_speed_px_s) to an
-## anchor on the top edge (y anchor_y_px, x from its formation slot) and then
+## anchor on the top edge (y anchor_y_px plus the spawn's `row_shift_y`, which
+## a level that moves its formation rows sets, x from its formation slot) and then
 ## runs its attack cycle, one start every fire_interval_s:
 ##   TRACKING  track_s: the targeting line follows the player (enemy colour).
 ##   LOCKED    lock_s: the line freezes and turns red (the >= 0.3 s telegraph),
@@ -50,6 +51,7 @@ var _lock_s: float = 0.0
 var _cooldown_s: float = 0.0
 var _bolt_speed: float = 0.0
 var _anchor_y: float = 0.0
+var _row_shift_y: float = 0.0
 var _reposition_speed: float = 0.0
 var _min_distance: float = 0.0
 var _bolt_damage: int = 1
@@ -63,7 +65,14 @@ func _init() -> void:
 	rng.randomize()
 
 
-## Setup params are Enemy's (position, slot, entry); only the slot's x is used.
+## Enemy's params (position, slot, entry) plus an optional `row_shift_y`
+## (float): only the slot's x is used, and the anchor row moves by row_shift_y.
+func setup(params: Dictionary) -> void:
+	super(params)
+	var shift: Variant = params.get("row_shift_y", 0.0)
+	_row_shift_y = float(shift) if (shift is float or shift is int) else 0.0
+
+
 func _ready() -> void:
 	super()
 	_reposition_interval_s = Config.num(_tuning_key("reposition_interval_s"))
@@ -72,7 +81,7 @@ func _ready() -> void:
 	_lock_s = Config.num(_tuning_key("lock_s"))
 	_cooldown_s = maxf(fire_interval_s - _track_s - _lock_s, 0.0)
 	_bolt_speed = Config.num(_tuning_key("bolt_speed_px_s"))
-	_anchor_y = Config.num(_tuning_key("anchor_y_px"))
+	_anchor_y = Config.num(_tuning_key("anchor_y_px")) + _row_shift_y
 	_reposition_speed = Config.num(_tuning_key("reposition_speed_px_s"))
 	_min_distance = Config.num(_tuning_key("reposition_min_distance_px"))
 	_bolt_damage = Config.int_("damage.bullet_hearts")

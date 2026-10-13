@@ -508,3 +508,12 @@ func test_paused_tree_freezes_the_needle_and_its_bolts() -> void:
 	await wait_physics_frames(3)
 	assert_gt(needle.global_position.y, needle_before.y, "Needle moves again")
 	assert_gt(bolt.global_position.y, bolt_before.y, "bolt moves again")
+
+
+## Playtest 2026-10-13: a level that moves its formation rows passes
+## row_shift_y, and the Needle's anchor row moves with them.
+func test_row_shift_moves_the_anchor_row() -> void:
+	var needle: Needle = _make({"position": Vector2(960, 200), "slot": Vector2(960, 200), "entry": &"top", "row_shift_y": 40.0})
+	assert_eq(needle.anchor(), Vector2(960, Config.num("enemies.needle.anchor_y_px") + 40.0), "anchor_y_px + row_shift_y")
+	var plain: Needle = _make({"position": Vector2(960, 200), "slot": Vector2(960, 200), "entry": &"top", "row_shift_y": "bad"})
+	assert_eq(plain.anchor().y, Config.num("enemies.needle.anchor_y_px"), "a non-number shift is ignored")

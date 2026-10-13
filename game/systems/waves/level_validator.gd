@@ -84,6 +84,10 @@ static func validate(data: Dictionary, source: String, known_types: Array[String
 			problems.append(_problem(source, key, "must be null or a non-empty string"))
 	if not is_valid_ally(data.get("ally")):
 		problems.append(_problem(source, "ally", "must be null, \"tarek\" or \"ryn\""))
+	if data.has("formation") and not is_valid_formation_rows(data.get("formation")):
+		problems.append(_problem(source, "formation", "must be an object whose top_y / spacing_y are positive numbers"))
+	if data.has("teach_controls") and not (data.get("teach_controls") is bool):
+		problems.append(_problem(source, "teach_controls", "must be a boolean"))
 	var waves: Variant = data.get("waves")
 	if not (waves is Array):
 		problems.append(_problem(source, "waves", "missing or not an array"))
@@ -111,6 +115,20 @@ static func validate(data: Dictionary, source: String, known_types: Array[String
 ## True for a valid `ally` value: null (or absent) or one of ALLY_IDS.
 static func is_valid_ally(value: Variant) -> bool:
 	return value == null or (value is String and ALLY_IDS.has(value as String))
+
+
+## A level's optional `formation` rows override (playtest 2026-10-13): an
+## object with only `top_y` and / or `spacing_y`, each a positive number.
+static func is_valid_formation_rows(value: Variant) -> bool:
+	if not (value is Dictionary):
+		return false
+	for key: Variant in (value as Dictionary):
+		if not (key is String and (key == "top_y" or key == "spacing_y")):
+			return false
+		var number: Variant = (value as Dictionary)[key]
+		if not ((number is float or number is int) and float(number) > 0.0):
+			return false
+	return true
 
 
 static func _check_wave(wave: Dictionary, ctx: Dictionary, path: String, problems: Array[String]) -> void:

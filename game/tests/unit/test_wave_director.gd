@@ -1408,3 +1408,14 @@ func test_wait_uses_a_pausable_child_timer() -> void:
 	assert_eq(_story_events().size(), 1, "the chain continued")
 	await wait_process_frames(1)
 	assert_eq(_director.find_children("*", "Timer", false, false).size(), 0, "timer freed")
+
+
+## Playtest 2026-10-13: a level's `formation` object replaces the tuned top_y
+## and row spacing; a missing key or a non-number keeps the tuned value.
+func test_formation_rows_follow_the_level_override() -> void:
+	var tuned: Vector2 = Vector2(Config.num("waves.formation.top_y"), Config.num("waves.formation.spacing_px.y"))
+	assert_eq(WaveDirector.formation_rows({}), tuned, "no override")
+	assert_eq(WaveDirector.formation_rows({"formation": {"top_y": 200.0, "spacing_y": 77.0}}), Vector2(200, 77))
+	assert_eq(WaveDirector.formation_rows({"formation": {"top_y": 210.0}}), Vector2(210, tuned.y), "top_y only")
+	assert_eq(WaveDirector.formation_rows({"formation": {"spacing_y": "x"}}), tuned, "a non-number is ignored")
+	assert_eq(WaveDirector.formation_rows({"formation": 5.0}), tuned, "a non-object is ignored")

@@ -43,6 +43,11 @@ extends Node
 ## it never holds its slot (a sides entry only starts at the slot's y, so it may
 ## share a row with the next entry). The Needle takes a row: it anchors on and
 ## roams it.
+## A level may move its rows (playtest 2026-10-13, Level 3 under the throne
+## world): an optional `formation` object with `top_y` and/or `spacing_y`
+## replaces waves.formation.top_y / spacing_px.y for that level
+## (formation_rows()), and every spawn gets `row_shift_y`, the level's top_y
+## minus the tuned one, so the Needle's anchor row moves with the rows.
 ##
 ## Actions (Story 5.3) run in order inside each trigger's chain: spawn_group,
 ## wait (a pausable one-shot Timer child), comms (requests the sequence; a story
@@ -129,6 +134,8 @@ var _debug_resolving: bool = false
 var _gap_s: float = 0.0
 var _spacing: Vector2 = Vector2.ZERO
 var _top_y: float = 0.0
+## The level's top_y minus waves.formation.top_y (0 without an override).
+var _row_shift_y: float = 0.0
 var _width: float = 0.0
 
 
@@ -151,6 +158,23 @@ func _on_events_comms_sequence_finished(sequence_id: StringName) -> void:
 	_sequence_done.emit(sequence_id)
 
 
+## The level's formation rows as (top_y, spacing_y): the tuned
+## waves.formation.top_y / spacing_px.y, each replaced by the level data's
+## `formation.top_y` / `formation.spacing_y` when that is a number (the
+## LevelValidator reports anything else).
+static func formation_rows(data: Dictionary) -> Vector2:
+	var rows: Vector2 = Vector2(Config.num("waves.formation.top_y"), Config.num("waves.formation.spacing_px.y"))
+	var override: Variant = data.get("formation")
+	if override is Dictionary:
+		var top: Variant = (override as Dictionary).get("top_y")
+		var spacing: Variant = (override as Dictionary).get("spacing_y")
+		if top is float or top is int:
+			rows.x = float(top)
+		if spacing is float or spacing is int:
+			rows.y = float(spacing)
+	return rows
+
+
 ## Starts the level: its intro (if any, and not on a retry), then wave 1.
 ## `source` (the file path) prefixes every data error. Callers don't await it.
 func start_level(data: Dictionary, source: String) -> void:
@@ -158,8 +182,10 @@ func start_level(data: Dictionary, source: String) -> void:
 	_wave_index = -1
 	_source = source
 	_gap_s = Config.num("waves.gap_s")
-	_spacing = Vector2(Config.num("waves.formation.spacing_px.x"), Config.num("waves.formation.spacing_px.y"))
-	_top_y = Config.num("waves.formation.top_y")
+	var rows: Vector2 = formation_rows(data)
+	_spacing = Vector2(Config.num("waves.formation.spacing_px.x"), rows.y)
+	_top_y = rows.x
+	_row_shift_y = _top_y - Config.num("waves.formation.top_y")
 	_width = Playfield.SIZE.x
 	_level_id = int(data.get("id", 0)) if (data.get("id") is float or data.get("id") is int) else 0
 	_intro_sequence = str(data.get("intro_sequence", "")) if data.get("intro_sequence") is String else ""
@@ -384,6 +410,7 @@ func _spawn_entry(entry: Variant, path: String, serial: int) -> int:
 				"slot": slot,
 				"formation": formation,
 				"entry": entry_kind,
+				"row_shift_y": _row_shift_y,
 			})
 		if enemy == null:
 			failures += 1

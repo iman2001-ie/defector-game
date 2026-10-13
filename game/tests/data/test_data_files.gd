@@ -77,8 +77,9 @@ const NO_MAUL_NO_CONVOY_LEVELS: Array[int] = [2, 3]
 
 
 ## Per-level optional keys (playtest 2026-10-13) that a campaign level may add
-## on top of the level_dev key set: Level 1's "teach_controls".
-const OPTIONAL_LEVEL_KEYS: Array[String] = ["teach_controls"]
+## on top of the level_dev key set: Level 1's "teach_controls" and Level 3's
+## "formation" rows.
+const OPTIONAL_LEVEL_KEYS: Array[String] = ["teach_controls", "formation"]
 
 
 ## The level's top-level keys without OPTIONAL_LEVEL_KEYS (unsorted).
@@ -537,6 +538,7 @@ func test_zoned_formations_fit_their_top_zone() -> void:
 	var spacing: Vector2 = Vector2(Config.num("waves.formation.spacing_px.x"), Config.num("waves.formation.spacing_px.y"))
 	var top_y: float = Config.num("waves.formation.top_y")
 	var zone_y: Dictionary = {}
+	var shifted_levels: int = 0
 	var half: Dictionary = {}
 	var checked: Dictionary = {}
 	for type_id: StringName in ZONED_TYPES:
@@ -550,6 +552,12 @@ func test_zoned_formations_fit_their_top_zone() -> void:
 		if not (parsed is Dictionary) or not ((parsed as Dictionary).get("waves") is Array):
 			continue
 		var waves: Array = (parsed as Dictionary)["waves"]
+		# A level's own `formation` rows (playtest 2026-10-13) replace the tuned ones.
+		var rows: Vector2 = WaveDirector.formation_rows(parsed as Dictionary)
+		top_y = rows.x
+		spacing.y = rows.y
+		if (parsed as Dictionary).has("formation"):
+			shifted_levels += 1
 		for i: int in waves.size():
 			if not (waves[i] is Dictionary):
 				continue
@@ -583,6 +591,7 @@ func test_zoned_formations_fit_their_top_zone() -> void:
 					first_row += Formation.rows_used(formation, count, spacing, Playfield.SIZE.x)
 	for type_id: StringName in ZONED_TYPES:
 		assert_gt(int(checked[type_id]), 0, "at least one %s entry checked" % type_id)
+	assert_gt(shifted_levels, 0, "Level 3's own formation rows are checked too")
 
 
 func test_wasp_tuning_ranges() -> void:
@@ -615,6 +624,8 @@ func test_lancer_tuning_ranges() -> void:
 ## UX DESIGN.md: the enemy zone ends at y 432. Needle anchors must be fully on
 ## screen (y >= the needle half-height) and at or above this bottom edge.
 const ENEMY_ZONE_BOTTOM_Y: float = 432.0
+## The bottom of the top HUD band (UX DESIGN: 0, 0, 1920, 120).
+const HUD_BAND_BOTTOM_Y: float = 120.0
 
 
 func test_needle_tuning_ranges() -> void:
@@ -2078,3 +2089,14 @@ func test_only_level_1_teaches_the_controls() -> void:
 		assert_eq(teaches, expected[id], "level_%s teach_controls" % id)
 		if id == "1":
 			assert_typeof(value, TYPE_BOOL, "level_1 teach_controls is a JSON bool")
+
+
+## Playtest 2026-10-13: the throne world hangs from the top edge, so Level 3's
+## rows start below the planet's arc and the Flagship's hull clears the HUD
+## band; its lowest part stays inside the enemy zone.
+func test_level_3_sits_below_the_throne_world() -> void:
+	var rows: Vector2 = WaveDirector.formation_rows(Config.level("3"))
+	assert_gt(rows.x, LevelBackground.ARC_HEIGHT_PX, "Level 3's first row is below the planet arc")
+	assert_gt(rows.x, Config.num("waves.formation.top_y"), "Level 3's rows sit lower than the other levels'")
+	var hull_top: float = Config.num("boss.hull.station_y") - Config.num("boss.hull.height_px") / 2.0
+	assert_gte(hull_top, HUD_BAND_BOTTOM_Y, "the Flagship hull clears the top HUD band")

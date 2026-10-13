@@ -7,9 +7,12 @@ extends Node2D
 ## starts.
 ##
 ## Only the throne world draws anything for now: a code-drawn placeholder
-## planet arc (a large dark violet disc whose top rises a shallow ARC_HEIGHT_PX
-## above the bottom edge of the playfield, plus a thin, slightly lighter rim).
-## The GDD keeps the throne world to Level 3 alone, so it lands as a reveal.
+## planet arc (a large dark violet disc whose bottom hangs a shallow
+## ARC_HEIGHT_PX down from the top edge of the playfield, plus a thin, slightly
+## lighter rim): the siege is fought below the throne world, so it protrudes
+## from the top, behind the HUD band, the Flagship and the enemy rows (playtest
+## 2026-10-13; it rose from the bottom edge before). The GDD keeps the throne
+## world to Level 3 alone, so it lands as a reveal.
 ## space_1 and space_2 are known ids that draw nothing until Epic 8, which also
 ## replaces this placeholder with art. An empty id (dev levels) draws nothing
 ## and logs nothing; any other id logs one `[WARN][scene]` line and is treated
@@ -28,12 +31,12 @@ extends Node2D
 const IDS: Array[String] = ["space_1", "space_2", "throne_world"]
 const THRONE_WORLD: String = "throne_world"
 
-## The planet's radius; its centre sits below the playfield so only a shallow
-## arc of the disc shows along the bottom edge.
+## The planet's radius; its centre sits above the playfield so only a shallow
+## arc of the disc shows along the top edge.
 const PLANET_RADIUS_PX: float = 1600.0
-## How far the top of the arc rises above the playfield's bottom edge.
-const ARC_HEIGHT_PX: float = 200.0
-## The arc's ends sit this far below the bottom edge, so the closing chord of
+## How far the bottom of the arc hangs below the playfield's top edge.
+const ARC_HEIGHT_PX: float = 180.0
+## The arc's ends sit this far above the top edge, so the closing chord of
 ## the filled cap and the rim's cut ends stay off-screen. It must exceed the
 ## largest tuned screen shake (the feedback tiers' shake_px and
 ## comms.cutoff_shake_px; ShakeCamera offsets the view by up to that much),
@@ -67,22 +70,23 @@ func shows_throne_world() -> bool:
 	return _id == THRONE_WORLD
 
 
-## The planet's centre: horizontally centred, ARC_HEIGHT_PX of the disc above
-## the playfield's bottom edge.
+## The planet's centre: horizontally centred, ARC_HEIGHT_PX of the disc below
+## the playfield's top edge.
 static func planet_centre() -> Vector2:
-	return Vector2(Playfield.SIZE.x / 2.0, Playfield.SIZE.y + PLANET_RADIUS_PX - ARC_HEIGHT_PX)
+	return Vector2(Playfield.SIZE.x / 2.0, ARC_HEIGHT_PX - PLANET_RADIUS_PX)
 
 
 ## The visible arc of the planet's edge, left to right, ARC_SEGMENTS + 1 points;
-## both ends sit EDGE_MARGIN_PX below the playfield's bottom edge.
+## both ends sit EDGE_MARGIN_PX above the playfield's top edge.
 static func arc_points() -> PackedVector2Array:
 	var centre: Vector2 = planet_centre()
-	# The edge is at y = bottom + margin where cos(half) = (r - h - margin) / r.
+	# The edge is at y = -margin where cos(half) = (r - h - margin) / r.
 	var half: float = acos(clampf((PLANET_RADIUS_PX - ARC_HEIGHT_PX - EDGE_MARGIN_PX) / PLANET_RADIUS_PX, -1.0, 1.0))
 	var points: PackedVector2Array = PackedVector2Array()
 	points.resize(ARC_SEGMENTS + 1)
 	for i: int in ARC_SEGMENTS + 1:
-		var angle: float = -PI / 2.0 - half + 2.0 * half * float(i) / float(ARC_SEGMENTS)
+		# From the left end (angle PI / 2 + half) through the bottom (PI / 2) to the right.
+		var angle: float = PI / 2.0 + half - 2.0 * half * float(i) / float(ARC_SEGMENTS)
 		points[i] = centre + Vector2(cos(angle), sin(angle)) * PLANET_RADIUS_PX
 	return points
 

@@ -202,11 +202,15 @@ func _launched() -> Array[Wasp]:
 
 
 ## The 10 documented boss Wasp slots (decision #55), in fill order.
+## The boss Wasp slots from boss.core.wasp_slots: rows_y in order, each with
+## `columns` x positions spacing_x_px apart, centred on the screen.
 func _expected_slots() -> Array[Vector2]:
 	var out: Array[Vector2] = []
-	for y: float in [370.0, 430.0]:
-		for x: float in [640.0, 800.0, 960.0, 1120.0, 1280.0]:
-			out.append(Vector2(x, y))
+	var columns: int = Config.int_("boss.core.wasp_slots.columns")
+	var spacing: float = Config.num("boss.core.wasp_slots.spacing_x_px")
+	for raw: Variant in Config.section("boss.core.wasp_slots").get("rows_y", []) as Array:
+		for c: int in columns:
+			out.append(Vector2(Playfield.SIZE.x / 2.0 + (c - (columns - 1) / 2.0) * spacing, float(raw)))
 	return out
 
 
@@ -607,7 +611,7 @@ func test_no_part_hitbox_overlaps_the_hull() -> void:
 	assert_not_null(rect, "the hull hitbox is a rect")
 	if rect == null:
 		return
-	assert_eq(rect.size, Vector2(720, 160))
+	assert_eq(rect.size, Vector2(Config.num("boss.hull.width_px"), Config.num("boss.hull.height_px")))
 	var parts: Array[FlagshipPart] = []
 	parts.assign(boss.turrets())
 	parts.append(boss.core())

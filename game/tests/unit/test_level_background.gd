@@ -146,27 +146,31 @@ func test_placeholder_colours_are_dark_violet_and_never_enemy_colours() -> void:
 	assert_gt(LevelBackground.RIM_COLOR.v, LevelBackground.PLANET_COLOR.v, "the rim is a little lighter than the disc")
 
 
-func test_planet_arc_rises_from_the_bottom_edge() -> void:
+## Playtest 2026-10-13: the throne world hangs from the top edge, behind the
+## HUD band and the enemy rows, never reaching the player zone.
+func test_planet_arc_hangs_from_the_top_edge() -> void:
 	var centre: Vector2 = LevelBackground.planet_centre()
 	var radius: float = LevelBackground.PLANET_RADIUS_PX
 	assert_eq(centre.x, Playfield.SIZE.x / 2.0, "centred horizontally")
-	assert_gt(centre.y, Playfield.SIZE.y, "the centre sits below the playfield")
-	assert_almost_eq(centre.y - radius, Playfield.SIZE.y - LevelBackground.ARC_HEIGHT_PX, 0.001, "the top of the disc")
+	assert_lt(centre.y, 0.0, "the centre sits above the playfield")
+	assert_almost_eq(centre.y + radius, LevelBackground.ARC_HEIGHT_PX, 0.001, "the bottom of the disc")
 	assert_between(LevelBackground.ARC_HEIGHT_PX, 100.0, 300.0, "a shallow arc")
+	assert_lt(LevelBackground.ARC_HEIGHT_PX, Config.num("player.bounds_y.min"), "clear of the player zone")
 	var points: PackedVector2Array = LevelBackground.arc_points()
 	assert_gt(points.size(), 64, "a smooth arc")
-	var top: float = INF
+	var bottom: float = -INF
 	for p: Vector2 in points:
-		top = minf(top, p.y)
+		bottom = maxf(bottom, p.y)
 		assert_almost_eq(p.distance_to(centre), radius, 0.01, "on the planet's edge")
-	assert_almost_eq(top, Playfield.SIZE.y - LevelBackground.ARC_HEIGHT_PX, 0.5, "the arc peaks ARC_HEIGHT_PX above the bottom edge")
-	assert_gt(points[0].y, Playfield.SIZE.y, "starts below the bottom edge")
-	assert_gt(points[points.size() - 1].y, Playfield.SIZE.y, "ends below the bottom edge")
+	assert_almost_eq(bottom, LevelBackground.ARC_HEIGHT_PX, 0.5, "the arc hangs ARC_HEIGHT_PX below the top edge")
+	assert_lt(points[0].y, 0.0, "starts above the top edge")
+	assert_lt(points[points.size() - 1].y, 0.0, "ends above the top edge")
+	assert_almost_eq(points[0].y, -LevelBackground.EDGE_MARGIN_PX, 0.5, "the ends sit EDGE_MARGIN_PX off screen")
 	assert_lt(points[0].x, points[points.size() - 1].x, "left to right")
 
 
-## The cap's closing chord and the rim's cut ends sit EDGE_MARGIN_PX below the
-## bottom edge; ShakeCamera offsets the view by up to a shake's px, so the
+## The cap's closing chord and the rim's cut ends sit EDGE_MARGIN_PX above the
+## top edge; ShakeCamera offsets the view by up to a shake's px, so the
 ## margin must exceed every tuned shake (a later retune can't expose the chord).
 func test_edge_margin_exceeds_every_tuned_shake() -> void:
 	var largest: float = Config.num("comms.cutoff_shake_px")

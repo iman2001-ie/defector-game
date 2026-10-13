@@ -139,8 +139,8 @@
 		"hull": {
 			"tier": "boss_death",
 			"width_px": 720,
-			"height_px": 160,
-			"station_y": 170,
+			"height_px": 140,
+			"station_y": 190,
 			"arrive_from_y": -220,
 			"arrival_s": 3.0
 		},
@@ -171,7 +171,7 @@
 			"wasp_launch_interval_s": 10.0,
 			"wasp_max_alive": 10,
 			"glow_energy": 2.5,
-			"wasp_slots": { "columns": 5, "spacing_x_px": 160, "rows_y": [370, 430] }
+			"wasp_slots": { "columns": 5, "spacing_x_px": 160, "rows_y": [376, 430] }
 		},
 		"final_choice_hp": 50,
 		"desperate": {
@@ -304,7 +304,7 @@
 			}
 		},
 		"boss_death_chain_s": 2.0,
-		"boss_death_chain_offsets_px": [[0, 124], [-270, 40], [270, 40], [0, 0]],
+		"boss_death_chain_offsets_px": [[0, 114], [-270, 35], [270, 35], [0, 0]],
 		"white_flash": { "alpha": 0.7, "duration_s": 0.3 },
 		"player_death_pause_s": 1.5
 	},
