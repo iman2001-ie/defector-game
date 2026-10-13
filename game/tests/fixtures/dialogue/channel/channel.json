@@ -165,6 +165,31 @@
 					{ "id": "destroy", "label": "DESTROY HER", "next": "resp_d" }
 				]
 			}
+		},
+		"choice_fail": {
+			"mode": "story",
+			"lines": [
+				{ "speaker": "isolde", "text": "Give up." }
+			],
+			"choice": {
+				"options": [
+					{ "id": "surrender", "label": "SURRENDER", "next": "resp_accept", "fail": "surrender" },
+					{ "id": "refuse", "label": "REFUSE", "next": "resp_refuse" }
+				]
+			}
+		},
+		"resp_accept": {
+			"mode": "story",
+			"lines": [
+				{ "speaker": "isolde", "text": "Accepted." },
+				{ "speaker": "isolde", "text": "Executed." }
+			]
+		},
+		"resp_refuse": {
+			"mode": "story",
+			"lines": [
+				{ "speaker": "isolde", "text": "Refused." }
+			]
 		}
 	}
 }

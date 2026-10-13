@@ -259,8 +259,10 @@ func _choice_problems(choice: Variant, mode: String = "story") -> Array[String]:
 
 func test_choice_constants() -> void:
 	assert_eq(DialogueValidator.CHOICE_KEY, "choice")
-	assert_eq(DialogueValidator.CHOICE_IDS, ["surrender", "destroy"] as Array[String])
+	assert_eq(DialogueValidator.CHOICE_IDS, ["surrender", "destroy", "refuse"] as Array[String])
 	assert_eq(DialogueValidator.CHOICE_OPTIONS, 2)
+	assert_eq(DialogueValidator.OPTION_FAIL, "fail")
+	assert_eq(DialogueValidator.FAIL_REASONS, ["surrender"] as Array[String])
 
 
 func test_valid_choice_has_no_problems() -> void:
@@ -301,8 +303,8 @@ func test_choice_option_not_an_object() -> void:
 
 
 func test_choice_option_id_unknown_or_missing() -> void:
-	_only_problem(_choice_problems({"options": [_option("surrender", "A", "x"), _option("spare", "B", "y")]}), "choice.options[1].id: must be one of surrender, destroy, not 'spare'")
-	_only_problem(_choice_problems({"options": [_option("surrender", "A", "x"), {"label": "B", "next": "y"}]}), "choice.options[1].id: must be one of surrender, destroy")
+	_only_problem(_choice_problems({"options": [_option("surrender", "A", "x"), _option("spare", "B", "y")]}), "choice.options[1].id: must be one of surrender, destroy, refuse, not 'spare'")
+	_only_problem(_choice_problems({"options": [_option("surrender", "A", "x"), {"label": "B", "next": "y"}]}), "choice.options[1].id: must be one of surrender, destroy, refuse")
 	_only_problem(_choice_problems({"options": [_option(1, "A", "x"), _option("destroy", "B", "y")]}), "choice.options[0].id")
 
 
@@ -318,3 +320,32 @@ func test_choice_option_label_must_be_a_non_empty_string() -> void:
 func test_choice_option_next_must_be_a_non_empty_string() -> void:
 	for bad: Variant in ["", " ", 4.0, null]:
 		_only_problem(_choice_problems({"options": [_option("surrender", "A", "x"), _option("destroy", "B", bad)]}), "choice.options[1].next: must be a non-empty string")
+
+
+# --- Level 1 surrender choice (Epic 7 playtest D): "refuse" and "fail" -----------------
+
+## The Level 1 offer's shape: SURRENDER (fail "surrender") / REFUSE.
+func _surrender_options() -> Array:
+	var surrender: Dictionary = _option("surrender", "SURRENDER", "accept")
+	surrender["fail"] = "surrender"
+	return [surrender, _option("refuse", "REFUSE", "refuse")]
+
+
+func test_refuse_is_a_valid_option_id() -> void:
+	assert_eq(_choice_problems({"options": _surrender_options()}), [] as Array[String], "the Level 1 shape is valid")
+	assert_eq(_choice_problems({"options": [_option("refuse", "A", "x"), _option("destroy", "B", "y")]}), [] as Array[String], "refuse pairs with any other id")
+	_only_problem(_choice_problems({"options": [_option("refuse", "A", "x"), _option("refuse", "B", "y")]}), "choice.options[1].id: duplicate option id 'refuse'")
+
+
+func test_fail_is_optional() -> void:
+	assert_eq(_choice_problems({"options": _good_options()}), [] as Array[String], "no fail on either option")
+	var both: Array = _surrender_options()
+	(both[1] as Dictionary)["fail"] = "surrender"
+	assert_eq(_choice_problems({"options": both}), [] as Array[String], "fail on both options is allowed")
+
+
+func test_fail_must_be_a_known_reason() -> void:
+	for bad: Variant in ["hearts", "convoy", "", "SURRENDER", 1, null, true]:
+		var options: Array = _surrender_options()
+		(options[0] as Dictionary)["fail"] = bad
+		_only_problem(_choice_problems({"options": options}), "choice.options[0].fail: must be one of surrender, not '%s'" % str(bad))

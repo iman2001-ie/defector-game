@@ -25,15 +25,21 @@ extends RefCounted
 ## ImpactTier.NAMES or SHAKE_CUTOFF; `sfx` not a non-empty string; `music` not in
 ## LevelValidator.MUSIC_ACTIONS.
 ##
-## Choice (Story 7.5, the Final Choice), story sequences only:
-##   "choice": { "options": [ { "id": "surrender"|"destroy", "label": "...",
-##     "next": "<story sequence id>" }, { ... } ] }
+## Choice (Story 7.5, the Final Choice; also Isolde's Level 1 surrender offer
+## since the Epic 7 playtest, 2026-10-13), story sequences only:
+##   "choice": { "options": [ { "id": "surrender"|"destroy"|"refuse",
+##     "label": "...", "next": "<story sequence id>", "fail"?: "surrender" },
+##     { ... } ] }
+## An option's optional `fail` names the level_failed reason CommsChannel
+## raises once that option's `next` response has played (the surrender lose
+## ending).
 ## One problem each for: `choice` in a combat sequence; `choice` not an object;
 ## `options` missing or not an array; `options` not exactly CHOICE_OPTIONS
 ## entries; an option that isn't an object; an `id` not in CHOICE_IDS or
 ## repeating an earlier option's; a `label` or `next` that isn't a non-empty
-## string. Whether `next` names a known story sequence is a cross-file check
-## (the data test; CommsChannel logs an unknown one and finishes at once).
+## string; a `fail` not in FAIL_REASONS. Whether `next` names a known story
+## sequence is a cross-file check (the data test; CommsChannel logs an unknown
+## one and finishes at once).
 
 const SPEAKERS: Array[StringName] = [&"vale", &"isolde", &"tarek", &"ryn", &"system"]
 const MODES: Array[StringName] = [&"story", &"combat"]
@@ -58,8 +64,11 @@ const CHOICE_OPTIONS_KEY: String = "options"
 const OPTION_ID: String = "id"
 const OPTION_LABEL: String = "label"
 const OPTION_NEXT: String = "next"
+const OPTION_FAIL: String = "fail"
 ## The option ids a choice may use (each at most once).
-const CHOICE_IDS: Array[String] = ["surrender", "destroy"]
+const CHOICE_IDS: Array[String] = ["surrender", "destroy", "refuse"]
+## The level_failed reasons an option's `fail` may name.
+const FAIL_REASONS: Array[String] = ["surrender"]
 ## A choice has exactly this many options.
 const CHOICE_OPTIONS: int = 2
 
@@ -234,6 +243,8 @@ static func _choice_problems(seq: Dictionary, mode: StringName, path: String, se
 			var value: Variant = dict.get(key)
 			if not (value is String and not (value as String).strip_edges().is_empty()):
 				problems.append(_problem(path, option_path + "." + key, "must be a non-empty string, not '%s'" % str(value)))
+		if dict.has(OPTION_FAIL) and not (dict[OPTION_FAIL] is String and FAIL_REASONS.has(dict[OPTION_FAIL] as String)):
+			problems.append(_problem(path, option_path + "." + OPTION_FAIL, "must be one of %s, not '%s'" % [", ".join(FAIL_REASONS), str(dict[OPTION_FAIL])]))
 	return problems
 
 

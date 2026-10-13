@@ -22,17 +22,19 @@ extends Area2D
 ## no shot: the clock keeps running. Once the level outcome is decided
 ## (Events.level_cleared / level_failed) it never fires again but keeps patrolling.
 ##
-## Tarek's fall (Story 6.5, FR35): on Events.story_event_requested(&"tarek_fall")
-## a Tarek ally in PATROL stops firing and runs APPROACH (allies.fall.approach_s:
-## a smoothstep glide from where it is to Vale + (0, -shield_offset_px), re-read
-## every step) -> SHIELD (shield_s: holds that point, tracking Vale, while a
-## coalition ring of shield_radius_px flashes around Vale at shield_flash_hz)
-## -> FALLING (damaged hull, FireTrail on, exit_speed_px_s toward the nearer side
-## edge with an exit_drop downward drift) -> GONE (the first step outside
-## Playfield.RECT grown by ship_px: trail off, queue_free; it never returns this
-## attempt). Vale is looked up once (Groups.PLAYER) on the event; without one,
-## or once it is freed, the ship skips straight to FALLING from where it is.
-## Ryn, other events and a repeat event are ignored. The shield is visual only.
+## Tarek's fall (Story 6.5, FR35; reworked after the Epic 7 playtest,
+## 2026-10-13): the TarekFallScene director drives it. intercept(point) makes a
+## patrolling ship stop firing and run APPROACH (allies.fall.approach_s: a
+## smoothstep dash from where it is to `point`, between Vale and the incoming
+## Ram) -> SHIELD (holds there, with a coalition ring of shield_radius_px
+## flashing around the ship at shield_flash_hz, until it is hit). take_hit()
+## (the Ram strikes) -> FALLING (damaged hull, FireTrail on, spinning at
+## spin_deg_s while it drifts at exit_speed_px_s toward the nearer side edge
+## with an exit_drop downward slant: slow enough to watch) -> GONE (the first
+## step outside Playfield.RECT grown by ship_px: trail off, queue_free; it never
+## returns this attempt). Tarek is gravely injured, not killed: Ryn's report
+## says so. take_hit() from any earlier state falls at once; repeats are
+## ignored. The shield is visual only.
 ##
 ## Behaviour is enum State + match with _enter_state(); movement and firing run
 ## in step(delta), called from _physics_process. Firing runs only in PATROL.
@@ -75,14 +77,13 @@ var damage: int = 0
 var fire_interval_s: float = 0.0
 var shot_speed_px_s: float = 0.0
 var band_y: float = 0.0
-## allies.fall (Story 6.5).
+## allies.fall (Story 6.5, playtest 2026-10-13).
 var approach_s: float = 0.0
-var shield_s: float = 0.0
-var shield_offset_px: float = 0.0
 var shield_radius_px: float = 0.0
 var shield_flash_hz: float = 0.0
 var exit_speed_px_s: float = 0.0
 var exit_drop: float = 0.0
+var spin_deg_s: float = 0.0
 
 var _state: State = State.PATROL
 var _dir: int = 1
@@ -92,11 +93,11 @@ var _ended: bool = false
 var _warned_no_spawner: bool = false
 var _outline: PackedVector2Array = PackedVector2Array()
 var _damaged_outline: PackedVector2Array = PackedVector2Array()
-## Vale, looked up once on the fall event.
-var _player: Node2D = null
 ## Seconds in the current fall phase (APPROACH / SHIELD).
 var _phase_t: float = 0.0
 var _approach_from: Vector2 = Vector2.ZERO
+## Where intercept() sends the ship (between Vale and the Ram).
+var _intercept_point: Vector2 = Vector2.ZERO
 var _fall_velocity: Vector2 = Vector2.ZERO
 var _trail: GPUParticles2D = null
 
@@ -119,12 +120,11 @@ func _ready() -> void:
 	shot_speed_px_s = maxf(Config.num("allies.shot_speed_px_s"), 0.0)
 	band_y = (Config.num("allies.patrol_band_y.min") + Config.num("allies.patrol_band_y.max")) / 2.0
 	approach_s = maxf(Config.num("allies.fall.approach_s"), 0.0)
-	shield_s = maxf(Config.num("allies.fall.shield_s"), 0.0)
-	shield_offset_px = Config.num("allies.fall.shield_offset_px")
 	shield_radius_px = maxf(Config.num("allies.fall.shield_radius_px"), 0.0)
 	shield_flash_hz = maxf(Config.num("allies.fall.shield_flash_hz"), 0.0)
 	exit_speed_px_s = maxf(Config.num("allies.fall.exit_speed_px_s"), 0.0)
 	exit_drop = Config.num("allies.fall.exit_drop")
+	spin_deg_s = Config.num("allies.fall.spin_deg_s")
 	_trail = get_node_or_null("FireTrail") as GPUParticles2D
 	if _trail != null:
 		_trail.emitting = false
@@ -134,7 +134,6 @@ func _ready() -> void:
 	add_to_group(Groups.ALLIES)
 	Events.level_cleared.connect(_on_events_level_cleared)
 	Events.level_failed.connect(_on_events_level_failed)
-	Events.story_event_requested.connect(_on_events_story_event_requested)
 	global_position = Vector2(ship_px / 2.0, band_y)
 	_dir = 1
 	_fire_clock = 0.0
@@ -179,7 +178,7 @@ func _enter_state(next: State) -> void:
 			_fall_velocity = Vector2(side, exit_drop).normalized() * exit_speed_px_s
 			if _trail != null:
 				_trail.emitting = true
-			Log.info("scene", "Tarek's fall: damaged, leaving the fight")
+			Log.info("scene", "Tarek's fall: hit, leaving the fight")
 			queue_redraw()
 		State.GONE:
 			if _trail != null:
@@ -219,7 +218,7 @@ func damaged_outline() -> PackedVector2Array:
 	return _damaged_outline
 
 
-## True while the shield ring around Vale shows (SHIELD).
+## True while the shield ring around the ship shows (SHIELD).
 func shield_visible() -> bool:
 	return _state == State.SHIELD
 
@@ -236,57 +235,49 @@ func fire_trail() -> GPUParticles2D:
 
 # --- Tarek's fall -----------------------------------------------------------------
 
-## Starts the fall for a patrolling Tarek; anything else is ignored. Vale is
-## looked up here once and cached.
-func _on_events_story_event_requested(event_name: StringName) -> void:
-	if event_name != FALL_EVENT or ally_id != FALL_ALLY_ID or _state != State.PATROL:
+## Sends a patrolling ship to `point` (APPROACH, then SHIELD until take_hit()).
+## Returns false (and changes nothing) unless it is in PATROL.
+func intercept(point: Vector2) -> bool:
+	if _state != State.PATROL:
+		return false
+	_intercept_point = point
+	Log.info("scene", "Tarek's fall: %s moves to shield Vale" % ally_id)
+	_enter_state(State.APPROACH)
+	return true
+
+
+## The Ram strikes: FALLING from wherever the ship is. Ignored once falling or
+## gone.
+func take_hit() -> void:
+	if _state == State.FALLING or _state == State.GONE:
 		return
-	if not is_inside_tree():
-		return
-	_player = get_tree().get_first_node_in_group(Groups.PLAYER) as Node2D
-	Log.info("scene", "Tarek's fall: shielding Vale")
-	if _has_player():
-		_enter_state(State.APPROACH)
-	else:
-		_enter_state(State.FALLING)
+	_enter_state(State.FALLING)
 
 
-func _has_player() -> bool:
-	return is_instance_valid(_player) and not _player.is_queued_for_deletion()
-
-
-## The point the ship shields Vale from: Vale + (0, -shield_offset_px).
-func _shield_point() -> Vector2:
-	return _player.global_position + Vector2(0.0, -shield_offset_px)
+## The point intercept() sent the ship to.
+func intercept_point() -> Vector2:
+	return _intercept_point
 
 
 func _approach(delta: float) -> void:
-	if not _has_player():
-		_enter_state(State.FALLING)
-		return
 	_phase_t += maxf(delta, 0.0)
-	var target: Vector2 = _shield_point()
 	if approach_s <= 0.0 or _phase_t >= approach_s:
-		global_position = target
+		global_position = _intercept_point
 		_enter_state(State.SHIELD)
 		return
-	global_position = _approach_from.lerp(target, smoothstep(0.0, 1.0, _phase_t / approach_s))
+	global_position = _approach_from.lerp(_intercept_point, smoothstep(0.0, 1.0, _phase_t / approach_s))
 
 
 func _shield(delta: float) -> void:
-	if not _has_player():
-		_enter_state(State.FALLING)
-		return
-	global_position = _shield_point()
+	global_position = _intercept_point
 	_phase_t += maxf(delta, 0.0)
-	if _phase_t >= shield_s:
-		_enter_state(State.FALLING)
-		return
 	queue_redraw()
 
 
 func _fall(delta: float) -> void:
-	global_position += _fall_velocity * maxf(delta, 0.0)
+	var dt: float = maxf(delta, 0.0)
+	global_position += _fall_velocity * dt
+	rotation += deg_to_rad(spin_deg_s) * dt
 	if not Playfield.RECT.grow(ship_px).has_point(global_position):
 		_enter_state(State.GONE)
 
@@ -405,7 +396,7 @@ func _draw() -> void:
 	if _state == State.SHIELD and shield_radius_px > 0.0:
 		var ring: Color = OUTLINE_COLOR
 		ring.a = shield_alpha(_phase_t, shield_flash_hz)
-		draw_arc(Vector2(0.0, shield_offset_px), shield_radius_px, 0.0, TAU, SHIELD_SEGMENTS, ring, SHIELD_STROKE_PX, true)
+		draw_arc(Vector2.ZERO, shield_radius_px, 0.0, TAU, SHIELD_SEGMENTS, ring, SHIELD_STROKE_PX, true)
 
 
 ## A filled hull with a closed outline (no per-draw array allocation).

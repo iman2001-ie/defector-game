@@ -306,3 +306,28 @@ func test_convoy_loss_shows_convoy_lost() -> void:
 	await _wait_always(BEAT_S * 2.0)
 	assert_true(prompt.is_shown())
 	assert_eq(prompt.reason_text(), "CONVOY LOST")
+
+
+# --- Surrender (Epic 7 playtest D) -----------------------------------------------
+
+func test_surrender_text() -> void:
+	assert_eq(RetryPrompt.TEXT_SURRENDER, "EXECUTED AT DAWN")
+	assert_eq(RetryPrompt.text_for(&"surrender"), "EXECUTED AT DAWN")
+	assert_eq(RetryPrompt.text_for(&"hearts"), "HULL DESTROYED", "unchanged")
+	assert_eq(RetryPrompt.text_for(&"convoy"), "CONVOY LOST", "unchanged")
+
+
+func test_surrender_loss_shows_executed_at_dawn_without_a_warning() -> void:
+	var prompt: RetryPrompt = _make()
+	Events.level_failed.emit(&"surrender")
+	assert_true(prompt.is_pending(), "the same death beat")
+	await _wait_always(BEAT_S * 2.0)
+	assert_true(prompt.is_shown())
+	assert_eq(prompt.reason_text(), "EXECUTED AT DAWN")
+	assert_eq(_reason(prompt).text, "EXECUTED AT DAWN")
+	assert_eq(PauseArbiter.reasons(), [&"death"] as Array[StringName], "Retry follows as for any loss")
+	var warns: int = 0
+	for line: String in _lines:
+		if line.begins_with("[WARN]") and line.contains("unknown loss reason"):
+			warns += 1
+	assert_eq(warns, 0, "surrender is a known reason: no warning")

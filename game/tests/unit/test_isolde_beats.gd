@@ -1,7 +1,10 @@
 extends GutTest
 ## Story 5.6: Isolde's flag-gated interruption and surrender prompt on the real
 ## level.tscn running level_dev_isolde.json, and the debug-only `--level=<id>`
-## arg. The flag-off rows load a temp flags file the way F5 re-reads it
+## arg. Epic 7 playtest D: the surrender offer ends in a SURRENDER / REFUSE
+## choice; REFUSE plays Isolde's answer and the reinforcements come as before,
+## SURRENDER plays the accept lines and loses the level (&"surrender").
+## The flag-off rows load a temp flags file the way F5 re-reads it
 ## (Config.load_data(tuning, flags)); after_each restores the shipped data.
 
 const LEVEL_SCENE: PackedScene = preload("res://scenes/level/level.tscn")
@@ -12,15 +15,29 @@ const LEVEL_ID: String = "dev_isolde"
 const INTERRUPT: StringName = &"l1_w3_isolde_interrupt"
 const SURRENDER: StringName = &"l1_w5_surrender"
 const SURRENDER_TEXT: String = "You're outnumbered, General. Come home."
+const ACCEPT: StringName = &"l1_surrender_accept"
+const REFUSE: StringName = &"l1_surrender_refuse"
 
 var _level: Node2D
 var _cleared: Array[int] = []
 var _requested: Array[StringName] = []
 var _lines: Array[String] = []
+var _failed: Array[StringName] = []
+## Every comms_sequence_finished and level_failed in order ("finished:<id>" / "failed:<reason>").
+var _order: Array[String] = []
 
 
 func _on_level_cleared(id: int) -> void:
 	_cleared.append(id)
+
+
+func _on_level_failed(reason: StringName) -> void:
+	_failed.append(reason)
+	_order.append("failed:%s" % reason)
+
+
+func _on_comms_finished(id: StringName) -> void:
+	_order.append("finished:%s" % id)
 
 
 func _on_comms_requested(id: StringName) -> void:
@@ -35,14 +52,20 @@ func before_each() -> void:
 	_cleared.clear()
 	_requested.clear()
 	_lines.clear()
+	_failed.clear()
+	_order.clear()
 	SaveManager.save_path = TEST_SAVE
 	_reset_game_state()
 	Events.level_cleared.connect(_on_level_cleared)
+	Events.level_failed.connect(_on_level_failed)
+	Events.comms_sequence_finished.connect(_on_comms_finished)
 	Events.comms_sequence_requested.connect(_on_comms_requested)
 
 
 func after_each() -> void:
 	Events.level_cleared.disconnect(_on_level_cleared)
+	Events.level_failed.disconnect(_on_level_failed)
+	Events.comms_sequence_finished.disconnect(_on_comms_finished)
 	Events.comms_sequence_requested.disconnect(_on_comms_requested)
 	Log.sink = Callable()
 	_level = null
@@ -61,6 +84,7 @@ func _reset_game_state() -> void:
 	GameState.energy = 0
 	GameState.current_level_id = ""
 	GameState.is_retry = false
+	GameState.final_choice = &""
 
 
 ## Loads the shipped flags with `flag` set to `value` from a temp flags file,
@@ -136,12 +160,30 @@ func _kill_to_ratio(ratio: float) -> int:
 	return kills
 
 
-## Clicks through the story on the channel's advance path (as a click release does).
-func _click_through() -> void:
+func _final_choice() -> FinalChoice:
+	return _level.get_node("Comms/FinalChoice") as FinalChoice
+
+
+## Presses the FinalChoice button for option `id` (as a click on it does).
+func _choose(id: StringName) -> void:
+	var view: FinalChoice = _final_choice()
+	var index: int = view.option_ids().find(id)
+	assert_true(index >= 0, "the choice offers '%s'" % id)
+	if index >= 0:
+		view.buttons()[index].pressed.emit()
+
+
+## Clicks through the story on the channel's advance path (as a click release
+## does), answering the surrender offer with `choice` (REFUSE keeps the level
+## going).
+func _click_through(choice: StringName = &"refuse") -> void:
 	var channel: CommsChannel = _channel()
 	var clicks: int = 0
-	while channel.is_showing() and clicks < 10:
-		channel.advance()
+	while channel.is_showing() and clicks < 20:
+		if channel.is_choosing():
+			_choose(choice)
+		else:
+			channel.advance()
 		clicks += 1
 	assert_false(channel.is_showing(), "clicked through")
 
@@ -213,16 +255,85 @@ func test_shipped_flags_interrupt_then_surrender_then_reinforcements() -> void:
 	assert_true(panel.visible, "in the centred panel")
 	assert_eq((panel.get_node("Panel/Name") as Label).text, "ISOLDE")
 	assert_eq((panel.get_node("Panel/Text") as Label).text, SURRENDER_TEXT)
-	assert_eq(panel.find_children("*", "BaseButton", true, false).size(), 0, "no choice buttons")
+	assert_eq(panel.find_children("*", "BaseButton", true, false).size(), 0, "no buttons in the panel itself")
 	await get_tree().process_frame
 	assert_eq(_counted(), 5, "no reinforcements while the prompt is up")
+	# The two offer lines (complete + advance each), then SURRENDER / REFUSE.
+	var channel: CommsChannel = _channel()
+	for i: int in 4:
+		channel.advance()
+	assert_true(channel.is_choosing(), "the choice is up after Isolde's offer")
+	assert_true(_final_choice().visible, "in the Final Choice view")
+	assert_eq(_final_choice().option_ids(), [&"surrender", &"refuse"] as Array[StringName])
+	assert_eq(_final_choice().buttons()[0].text, "SURRENDER")
+	assert_eq(_final_choice().buttons()[1].text, "REFUSE")
+	assert_true(get_tree().paused, "still paused while choosing")
+	await get_tree().process_frame
+	assert_eq(_counted(), 5, "no reinforcements while choosing")
+	_choose(&"refuse")
+	assert_eq(GameState.final_choice, &"refuse", "the pick is stored")
+	assert_eq(channel.current_sequence(), REFUSE, "Isolde answers the refusal")
+	assert_eq((panel.get_node("Panel/Name") as Label).text, "ISOLDE")
 	_click_through()
 	assert_false(get_tree().paused, "the pause lifted")
+	assert_eq(_failed, [] as Array[StringName], "refusing loses nothing")
 	await get_tree().process_frame
 	assert_eq(_counted(), 9, "4 reinforcements spawned after the click-through")
 	await _kill_through_wave(2)
 	assert_true(_director().is_level_cleared(), "the level clears")
 	assert_eq(_cleared, [0] as Array[int], "level_cleared(0) once")
+
+
+## SURRENDER: the accept lines play, then (just before the surrender
+## sequence's comms_sequence_finished) the level is lost with &"surrender", so
+## the wave chain waiting on that sequence stops and the reinforcements never
+## come; Vale's ship powers down (scripted lock), nothing clears, and the retry
+## prompt shows "EXECUTED AT DAWN" after the death beat.
+func test_surrender_loses_the_level_after_the_accept_lines() -> void:
+	_make_level()
+	await _kill_through_wave(1)
+	assert_eq(_kill_to_ratio(0.30), 5, "5 of 14 reach 0.30")
+	var channel: CommsChannel = _channel()
+	var panel: CommsPanel = _level.get_node("Comms/CommsPanel") as CommsPanel
+	for i: int in 4:
+		channel.advance()
+	assert_true(channel.is_choosing(), "the choice is up")
+	_choose(&"surrender")
+	assert_eq(GameState.final_choice, &"surrender", "the pick is stored")
+	assert_eq(channel.current_sequence(), ACCEPT, "the accept lines play")
+	assert_eq(_failed, [] as Array[StringName], "not lost before the accept lines end")
+	var texts: Array[String] = []
+	var clicks: int = 0
+	while channel.is_showing() and clicks < 20:
+		var text: String = (panel.get_node("Panel/Text") as Label).text
+		if texts.is_empty() or texts[-1] != text:
+			texts.append(text)
+		channel.advance()
+		clicks += 1
+	assert_false(channel.is_showing(), "clicked through")
+	assert_eq(texts.size(), 3, "three accept lines")
+	if texts.size() == 3:
+		assert_eq(texts[2], "Guards, take the General. The execution is at dawn.", "Isolde orders the execution")
+	assert_eq(_failed, [&"surrender"] as Array[StringName], "level_failed(surrender) once")
+	assert_eq(_order, ["failed:surrender", "finished:%s" % SURRENDER] as Array[String], "before the surrender's finished")
+	assert_false(get_tree().paused, "the story pause lifted for the death beat")
+	var counted_at_fail: int = _counted()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(_counted(), counted_at_fail, "no reinforcements after a surrender")
+	var player: Player = _level.get_node("World/Player") as Player
+	assert_true(player.is_scripted_locked(), "Vale's ship powered down")
+	var resolved: int = _director().resolved_count()
+	assert_true(_kill_one_counted())
+	assert_eq(_director().resolved_count(), resolved, "a dead attempt's kills don't count")
+	var prompt: RetryPrompt = _level.get_node("Overlay/RetryPrompt") as RetryPrompt
+	var end_ms: int = Time.get_ticks_msec() + int((Config.num("feedback.player_death_pause_s") + 3.0) * 1000.0)
+	while not prompt.visible and Time.get_ticks_msec() < end_ms:
+		await get_tree().process_frame
+	assert_true(prompt.visible, "the retry prompt follows")
+	assert_eq(prompt.reason_text(), "EXECUTED AT DAWN", "the surrender headline")
+	assert_false(_director().is_level_cleared(), "the level never clears")
+	assert_eq(_cleared, [] as Array[int], "no level_cleared")
 
 
 ## Surrender off (flags file reloaded): no pause and no surrender request at

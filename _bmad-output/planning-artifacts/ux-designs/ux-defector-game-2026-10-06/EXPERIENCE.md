@@ -46,7 +46,8 @@ This is the core UX rule, from GDD decision #22.
 | Kind | When | Game paused? | Where | Advances |
 |---|---|---|---|---|
 | **Briefing / debrief** | Level start / level end; also the opening | Yes, with dim | Centred story panel | Click anywhere |
-| **Big mid-fight moment** | L1 surrender offer, L3 Final Choice lead-in (only these two) | Yes, with dim | Centred story panel | Click anywhere |
+| **Big mid-fight moment** | L1 surrender offer, L3 Final Choice lead-in (only these two); both end in a two-button choice (L1: SURRENDER / REFUSE, GDD #63) | Yes, with dim | Centred story panel, then the Final Choice buttons | Click anywhere, then a button |
+| **Scripted scene** | Tarek's fall (L2 W5, GDD #63): alarm, red lock-on line on Vale, Tarek intercepts, the Ram strikes in slow motion | No (controls lock, enemies hold fire, Vale can't be hit) | In the world, plus Tarek's cut-off line in the box | Control returns on its own about 1 s after the impact |
 | **Interruption** | At most 2 per level: Isolde mocks or an ally warns; Tarek's cut-off. Placed in the calm 2 s gap after the previous wave clears where the story allows (UX decision #27) | No | Bottom-centre box | Auto-dismisses |
 | **Control hint** | First time each control matters (Level 1) | No | Centre-low pill | Fades on use or after 5 s |
 
@@ -54,7 +55,7 @@ The player learns one rule: **a centred panel with a dimmed screen means read th
 
 ## Voice and Tone
 
-- **Microcopy is terse, military and uppercase:** `HULL DESTROYED`, `CONVOY LOST`, `PAUSED`, `RETRY`, `QUIT TO TITLE`, `click to continue ▸` (that cue stays lowercase so it reads as quiet).
+- **Microcopy is terse, military and uppercase:** `HULL DESTROYED`, `CONVOY LOST`, `EXECUTED AT DAWN` (the L1 surrender lose ending), `PAUSED`, `RETRY`, `QUIT TO TITLE`, `click to continue ▸` (that cue stays lowercase so it reads as quiet).
 - **Hints are key plus verb:** `[HOLD LMB] FIRE`, `[RMB] MISSILE`, `[E] SHIELD`, `[Q] BARRAGE`. Move is shown as `MOVE THE MOUSE TO FLY`.
 - Dialogue voice belongs to the characters (GDD cast rules). The UI itself never jokes.
 

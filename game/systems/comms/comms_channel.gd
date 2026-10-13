@@ -121,6 +121,10 @@ var _choice_options: Array = []
 var _choosing: bool = false
 ## True while a choice's `next` response plays.
 var _in_response: bool = false
+## The chosen option's `fail` reason (&"" for none): once its response has
+## played, _finish raises Events.level_failed with it (the Level 1 surrender
+## lose ending, playtest 2026-10-13).
+var _fail_reason: StringName = &""
 var _lines: Array = []
 var _index: int = 0
 var _armed: bool = false
@@ -297,6 +301,7 @@ func _start(sequence_id: StringName) -> void:
 	_armed = false
 	_choosing = false
 	_in_response = false
+	_fail_reason = &""
 	_choice_options = []
 	var choice: Variant = seq.get(DialogueValidator.CHOICE_KEY)
 	if choice is Dictionary and (choice as Dictionary).get(DialogueValidator.CHOICE_OPTIONS_KEY) is Array:
@@ -373,14 +378,17 @@ func _finish() -> void:
 	if not _in_response and not _choice_options.is_empty() and _show_choice():
 		return
 	var finished_id: StringName = _requested
+	var fail: StringName = _fail_reason
 	Log.info("comms", "Story sequence '%s' finished" % finished_id)
 	_requested = &""
 	_choice_options = []
 	_in_response = false
+	_fail_reason = &""
 	if not _queue.is_empty():
 		# Still showing while `finished` goes out, so a story requested by a
 		# listener queues behind the ones already waiting.
 		var next_id: StringName = _queue.pop_front()
+		_raise_fail(fail)
 		Events.comms_sequence_finished.emit(finished_id)
 		_start(next_id)
 		return
@@ -391,6 +399,10 @@ func _finish() -> void:
 	if panel != null:
 		panel.close()
 	PauseArbiter.pop(PAUSE_REASON)
+	# The loss goes out before `finished`, so the wave chain waiting on this
+	# sequence sees the failed level and stops (no reinforcements after a
+	# surrender).
+	_raise_fail(fail)
 	Events.comms_sequence_finished.emit(finished_id)
 	if not is_showing() and not is_playing_combat():
 		_start_next_combat()
@@ -416,9 +428,20 @@ func _show_choice() -> bool:
 	return true
 
 
+## A chosen option's `fail` reason (the Level 1 surrender): the level is lost
+## with it once the response has played, just before that sequence's
+## comms_sequence_finished. Nothing for &"".
+func _raise_fail(reason: StringName) -> void:
+	if reason.is_empty():
+		return
+	Log.info("comms", "Choice outcome: the level is lost ('%s')" % reason)
+	Events.level_failed.emit(reason)
+
+
 ## An option was clicked: the event, GameState, the view hidden, the
 ## `final_choice` reason popped, then the option's `next` response in the same
-## panel (an unknown `next` logs an error and finishes at once).
+## panel (an unknown `next` logs an error and finishes at once). An option with
+## `fail` loses the level once that response has played (_raise_fail).
 func _on_final_choice_chosen(id: StringName) -> void:
 	if not _choosing:
 		return
@@ -431,6 +454,8 @@ func _on_final_choice_chosen(id: StringName) -> void:
 		Log.error("comms", "Final choice '%s' is not an option of '%s'; ignored" % [id, _requested])
 		return
 	_choosing = false
+	var fail: Variant = option.get(DialogueValidator.OPTION_FAIL)
+	_fail_reason = StringName(fail as String) if fail is String else &""
 	Events.final_choice_made.emit(id)
 	GameState.final_choice = id
 	if final_choice != null and is_instance_valid(final_choice):

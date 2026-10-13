@@ -61,8 +61,8 @@
 				{ "size": "medium", "count": 2 }
 			],
 			"triggers": [
-				{ "when": "progress", "at": 0.5, "flag": "tarek_fall",
-					"actions": [ { "story_event": "tarek_fall" }, { "comms": "l2_w5_tarek_cutoff" } ] }
+				{ "when": "progress", "at": 0.75, "flag": "tarek_fall",
+					"actions": [ { "story_event": "tarek_fall" } ] }
 			]
 		}
 	]

@@ -15,7 +15,28 @@
 		"l1_w5_surrender": {
 			"mode": "story",
 			"lines": [
-				{ "speaker": "isolde", "text": "You're outnumbered, General. Come home." }
+				{ "speaker": "isolde", "text": "You're outnumbered, General. Come home." },
+				{ "speaker": "isolde", "text": "Power down your guns and surrender, and I will forgive everything. You have my word." }
+			],
+			"choice": {
+				"options": [
+					{ "id": "surrender", "label": "SURRENDER", "next": "l1_surrender_accept", "fail": "surrender" },
+					{ "id": "refuse", "label": "REFUSE", "next": "l1_surrender_refuse" }
+				]
+			}
+		},
+		"l1_surrender_accept": {
+			"mode": "story",
+			"lines": [
+				{ "speaker": "isolde", "text": "Good. Weapons cold. My escort will bring you in, Arden." },
+				{ "speaker": "isolde", "text": "Did you truly believe I would forgive a traitor? You always were too trusting." },
+				{ "speaker": "isolde", "text": "Guards, take the General. The execution is at dawn." }
+			]
+		},
+		"l1_surrender_refuse": {
+			"mode": "story",
+			"lines": [
+				{ "speaker": "isolde", "text": "Then you will die out here with your freighters. Mauls, finish them." }
 			]
 		},
 		"l1_tarek_closing": {

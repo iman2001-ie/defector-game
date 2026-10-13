@@ -3,8 +3,8 @@ extends GutTest
 ## level_id "1", by killing counted enemies through all five waves: the convoy
 ## and Tarek at the start, the control hints, Tarek's ambush warning in the
 ## calm after wave 2 clears and Isolde's interruption in the calm after wave 3
-## clears (Epic 7 playtest C), the surrender pause and the 4 Maul
-## reinforcements in wave 5, Tarek's closing story as the outro, then exactly
+## clears (Epic 7 playtest C), the surrender pause (answered REFUSE, Epic 7
+## playtest D) and the 4 Maul reinforcements in wave 5, Tarek's closing story as the outro, then exactly
 ## one level_cleared(1) and the router loading level 2. The flag-off row loads
 ## a temp flags file the way F5 re-reads it (Config.load_data(tuning, flags));
 ## after_each restores the shipped data. The convoy's HP is raised before the
@@ -144,6 +144,7 @@ func _reset_game_state() -> void:
 	GameState.highest_unlocked_level = 1
 	GameState.all_levels_unlocked = false
 	GameState.shown_hints.clear()
+	GameState.final_choice = &""
 
 
 ## Loads the shipped flags with `overrides` applied from a temp flags file, as
@@ -274,12 +275,22 @@ func _kill_to_ratio_without_mauls(wave: int, ratio: float) -> void:
 		await get_tree().process_frame
 
 
-## Clicks through the story on the channel's advance path (as a click release does).
-func _click_through() -> void:
+## Clicks through the story on the channel's advance path (as a click release
+## does), answering a choice (Isolde's surrender offer, Epic 7 playtest D) with
+## the FinalChoice button for `choice`: REFUSE keeps the level going.
+func _click_through(choice: StringName = &"refuse") -> void:
 	var channel: CommsChannel = _channel()
+	var view: FinalChoice = _level.get_node("Comms/FinalChoice") as FinalChoice
 	var clicks: int = 0
-	while channel.is_showing() and clicks < 10:
-		channel.advance()
+	while channel.is_showing() and clicks < 20:
+		if channel.is_choosing():
+			var index: int = view.option_ids().find(choice)
+			assert_true(index >= 0, "the choice offers '%s'" % choice)
+			if index < 0:
+				return
+			view.buttons()[index].pressed.emit()
+		else:
+			channel.advance()
 		clicks += 1
 	assert_false(channel.is_showing(), "clicked through")
 
@@ -431,9 +442,10 @@ func test_shipped_flags_play_level_1_to_the_clear() -> void:
 	await get_tree().process_frame
 	assert_eq(_spawned_in(5, &"maul"), 0, "no Maul while the prompt is up")
 	_click_through()
+	assert_eq(GameState.final_choice, &"refuse", "Vale refused (Epic 7 playtest D)")
 	assert_false(get_tree().paused, "the pause lifted")
 	await get_tree().process_frame
-	assert_eq(_spawned_in(5, &"maul"), 4, "4 Mauls after the click-through")
+	assert_eq(_spawned_in(5, &"maul"), 4, "4 Mauls after the refusal")
 	await _finish_level()
 	assert_eq(_requested, [TAREK_WARNING, INTERRUPT, SURRENDER, CLOSING] as Array[StringName], "comms request order")
 	assert_eq(_hints, [&"move_fire", &"missile"] as Array[StringName], "only the two data hints were requested")

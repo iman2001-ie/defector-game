@@ -37,7 +37,7 @@ inputs:
 ### Unique Selling Points (USPs)
 
 1. **Story inside the shooting.** All narrative runs through an in-game comms panel and scripted events. There are no cutscenes, and the player never leaves the action.
-2. **The surrender mirror.** Isolde tempts the player to surrender in Level 1. In the finale, the player offers her the same choice, and she refuses.
+2. **The surrender mirror.** Isolde tempts the player to surrender in Level 1, and the player really chooses: surrendering is a trap (she orders the execution, and the level is lost). In the finale, the player offers her the same choice, and she refuses (decision #63).
 3. **Size-scaled impact.** Every explosion, screen shake, and threat scales with object size, so the feel communicates danger.
 
 ---
@@ -376,7 +376,7 @@ N/A. DEFECTOR is single-player only. Multiplayer is out of scope (see Out of Sco
 | 2 | 10 Wasps plus 3 small and 1 medium asteroid | Control hint: RMB missile; asteroids block shots |
 | 3 | Ambush: 12 Wasps, 2 Lancers, 3 Mauls | Tarek warns of the ambush at wave start (interruption). Isolde's first condescending interruption once the ambush is underway (25% of the wave destroyed) |
 | 4 | 10 Wasps, 4 Lancers | Control hints: energy, E Shield, Q Barrage (each shown when first relevant) |
-| 5 | 16 Wasps and 3 Lancers, then 4 Mauls as reinforcements | Surrender Prompt in the wave: when 30% of the wave is destroyed, the game pauses and Isolde says "You're outnumbered, General. Come home." The player is not given a choice. When play resumes, the 4 Mauls arrive as reinforcements. |
+| 5 | 16 Wasps and 3 Lancers, then 4 Mauls as reinforcements | Surrender Prompt in the wave: when 30% of the wave is destroyed, the game pauses and Isolde says "You're outnumbered, General. Come home." and promises forgiveness. The player chooses SURRENDER or REFUSE (decision #63): SURRENDER is a trap, she orders Vale's execution and the level is lost ("EXECUTED AT DAWN", then Retry); REFUSE gets her answer and, when play resumes, the 4 Mauls arrive as reinforcements. |
 
 - Level clear: Tarek's closing line.
 
@@ -388,7 +388,7 @@ N/A. DEFECTOR is single-player only. Multiplayer is out of scope (see Out of Sco
 | 2 | 1 Bastion, 8 Wasps | |
 | 3 | 3 Needles, 3 Lancers, 2 medium asteroids | Isolde interruption |
 | 4 | 2 Bastions, 10 Wasps, 1 large asteroid | |
-| 5 | 2 Bastions, 2 Needles, 4 Lancers, 2 medium asteroids | When 50% of the wave is destroyed: Tarek shields Vale, and his line is cut off mid-sentence. This is an interruption, so the game does not pause. Then a strong screen shake (the dedicated cut-off shake, 18 px for 0.9 s; was large-tier, decision #43), his ship trails fire and leaves, and the comms channel goes silent until the wave clears. |
+| 5 | 2 Bastions, 2 Needles, 4 Lancers, 2 medium asteroids | When 75% of the wave is destroyed, Tarek's fall plays as a short scene (decision #63; no pause): an alarm and a red lock-on line mark Vale, Vale's controls lock and enemies hold fire, Tarek dashes between Vale and the threat ("Watch out! Get behind me, I've got you co..."), a Ram (a bigger Maul, too fast to dodge) dives at Vale and strikes Tarek in slow motion. On impact his line cuts to static with the strong cut-off shake (18 px for 0.9 s, decision #43), the music stops, and his burning ship spins away; he is gravely injured, not killed. Control returns and the comms channel stays silent until the wave clears. |
 
 - After the wave clears, Ryn reports that Tarek is alive but gravely injured, and that she is taking command.
 

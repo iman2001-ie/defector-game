@@ -25,6 +25,13 @@ extends Area2D
 ## the pre-warp position for one physics tick. No warp, no guard.
 ## PauseArbiter alone sets mouse_mode and tree.paused.
 ##
+## Scripted lock (playtest 2026-10-13, Tarek's fall): set_scripted_lock(true)
+## holds the ship where it is (the cursor is ignored), stops the weapons and
+## abilities and makes the ship invulnerable, so a cutscene can't be spoiled by
+## a stray move and the player can't be hit while they can't dodge; i-frame and
+## shield timers keep ticking. Releasing it warps the cursor onto the ship (as
+## after a pause, with the same one-tick guard) and re-checks hazard contacts.
+##
 ## Weapons: the laser and missile live in the Weapons child (PlayerWeapons).
 ## Player drives it each physics tick and keeps set_spawner, step_fire and
 ## step_missile as one-line delegators.
@@ -162,6 +169,10 @@ var _hull_radius: float = 0.0
 var _resume_pending: bool = false
 ## Where the resume warp put the cursor (the ship's position at resume).
 var _resume_target: Vector2 = Vector2.ZERO
+## True while a cutscene holds the ship (set_scripted_lock).
+var _scripted_lock: bool = false
+## The level_failed reason of the Level 1 surrender: the ship powers down.
+const SURRENDER_REASON: StringName = &"surrender"
 
 @onready var _hurtbox: CollisionShape2D = $Hurtbox
 @onready var _sprite: Sprite2D = $Sprite
@@ -202,6 +213,7 @@ func _ready() -> void:
 	_shield.ended.connect(_recheck_contacts)
 	PauseArbiter.resumed.connect(_on_resumed)
 	Events.level_cleared.connect(_on_level_cleared)
+	Events.level_failed.connect(_on_level_failed)
 	area_entered.connect(_on_area_entered)
 	area_exited.connect(_on_area_exited)
 	# The HUD's _ready runs after World/Player's, so the first value goes out deferred.
@@ -210,6 +222,11 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	if _dead:
+		return
+	if _scripted_lock:
+		step_iframes(delta)
+		step_shield(delta)
+		step_barrage(delta)
 		return
 	step_lock(get_viewport().get_mouse_position())
 	step_fire(Input.is_action_pressed(&"fire_laser"), delta)
@@ -242,9 +259,28 @@ func _fit_hull(px: float) -> void:
 
 # --- Hearts and i-frames ----------------------------------------------------------
 
-## True during i-frames, while the shield is up or while debug_invincible is on.
+## True during i-frames, while the shield is up, while a cutscene holds the ship
+## or while debug_invincible is on.
 func is_invulnerable() -> bool:
-	return _health.is_iframing() or _shield.is_active() or debug_invincible
+	return _health.is_iframing() or _shield.is_active() or _scripted_lock or debug_invincible
+
+
+## Holds (true) or releases (false) the ship for a cutscene: see "Scripted
+## lock" above. A repeat of the current state changes nothing.
+func set_scripted_lock(locked: bool) -> void:
+	if locked == _scripted_lock:
+		return
+	_scripted_lock = locked
+	if locked:
+		Log.info("scene", "Player: controls locked for a cutscene")
+		return
+	Log.info("scene", "Player: controls released")
+	_warp_cursor_to_ship()
+	_recheck_contacts()
+
+
+func is_scripted_locked() -> bool:
+	return _scripted_lock
 
 
 ## True once hearts reached 0 in this attempt.
@@ -264,6 +300,14 @@ func _on_level_cleared(_level_id: int) -> void:
 		return
 	_safe = true
 	_contacts.clear()
+
+
+## Events.level_failed: a surrender (the Level 1 choice, playtest 2026-10-13)
+## powers the ship down: it is held in place with its weapons cold until the
+## retry prompt (set_scripted_lock). Other reasons change nothing here.
+func _on_level_failed(reason: StringName) -> void:
+	if reason == SURRENDER_REASON and not _dead:
+		set_scripted_lock(true)
 
 
 ## Costs `amount` hearts (floored at 0) and starts the i-frames; the hit that
@@ -708,6 +752,12 @@ static func confine(mouse: Vector2, bounds_min: Vector2, bounds_max: Vector2) ->
 func _on_resumed() -> void:
 	if not is_inside_tree():
 		return
+	_warp_cursor_to_ship()
+
+
+## Puts the cursor on the ship and arms the one-tick guard (DW-20), only in the
+## CONFINED_HIDDEN gameplay mode.
+func _warp_cursor_to_ship() -> void:
 	if PauseArbiter.current_mouse_mode() == Input.MOUSE_MODE_CONFINED_HIDDEN:
 		_resume_target = global_position
 		_resume_pending = true

@@ -24,7 +24,7 @@ signal wave_started(wave_index: int, wave_count: int)
 signal wave_progress_changed(wave_index: int, ratio: float)
 signal wave_cleared(wave_index: int)
 signal level_cleared(level_id: int)
-signal level_failed(reason: StringName)              # &"hearts" | &"convoy"
+signal level_failed(reason: StringName)              # &"hearts" | &"convoy" | &"surrender"
 
 # Escort / boss
 signal convoy_hp_changed(current: int, max_hp: int)
@@ -40,7 +40,7 @@ signal comms_sequence_finished(sequence_id: StringName)
 ## or &"combat" (the box). A cut-off line carries the text as shown (cut to
 ## cut_off_at plus comms.cutoff_suffix). The PauseMenu keeps the combat ones.
 signal comms_line_shown(speaker: StringName, text: String, mode: StringName)
-signal final_choice_made(choice: StringName)         # &"surrender" | &"destroy"
+signal final_choice_made(choice: StringName)         # &"surrender" | &"destroy" | &"refuse" (Level 1)
 signal story_event_requested(event_name: StringName) # e.g. &"tarek_fall"
 ## Story 5.8: a WaveDirector `hint` action asks the HUD HintPill for control hints.
 signal hint_requested(hint_id: StringName)           # &"move_fire" | &"missile"

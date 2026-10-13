@@ -229,13 +229,24 @@
 		"ship_px": 64,
 		"shot_speed_px_s": 1200,
 		"fall": {
-			"approach_s": 1.0,
-			"shield_s": 1.5,
-			"shield_offset_px": 80,
-			"shield_radius_px": 72,
+			"approach_s": 0.8,
+			"shield_radius_px": 64,
 			"shield_flash_hz": 8,
-			"exit_speed_px_s": 320,
-			"exit_drop": 0.35
+			"exit_speed_px_s": 140,
+			"exit_drop": 0.5,
+			"spin_deg_s": 160
+		}
+	},
+	"story": {
+		"tarek_fall": {
+			"impact_s": 3.6,
+			"ram_travel_s": 0.45,
+			"ram_scale": 1.5,
+			"ram_start_y": -150,
+			"intercept_offset_px": 150,
+			"release_after_s": 1.2,
+			"line_pulse_hz": 4,
+			"slowmo": { "lead_s": 0.12, "scale": 0.2, "hold_s": 1.0, "ramp_s": 1.0 }
 		}
 	},
 	"waves": {

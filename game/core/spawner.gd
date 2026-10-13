@@ -2,9 +2,20 @@ class_name Spawner
 extends Node
 ## The only creator of gameplay entities. Looks the scene up in EntityRegistry,
 ## instantiates it, calls setup(params), then adds it to the matching World container.
+##
+## Held fire (playtest 2026-10-13, Tarek's fall): while hold_enemy_fire is true,
+## spawn_projectile refuses the enemy shot types (HELD_FIRE_TYPES) and returns
+## null, so a cutscene that locks the player's controls never lets a shot be
+## fired at them; enemies keep moving and telegraphing. Every enemy caller
+## already ignores the returned projectile.
+
+## The enemy shot types hold_enemy_fire refuses.
+const HELD_FIRE_TYPES: Array[StringName] = [&"enemy_bullet", &"needle_bolt"]
 
 ## The level/sandbox World node that holds the entity containers.
 @export var world: Node2D
+## While true, enemy shots are not spawned (see "Held fire").
+var hold_enemy_fire: bool = false
 
 var _projectiles: Node2D
 var _enemies: Node2D
@@ -48,6 +59,8 @@ func spawn_projectile(type_id: StringName, params: Dictionary) -> Projectile:
 		Log.error("spawn", "unknown projectile type '%s'" % type_id)
 		return null
 	if _projectiles == null:
+		return null
+	if hold_enemy_fire and HELD_FIRE_TYPES.has(type_id):
 		return null
 	var node: Node = scene.instantiate()
 	var projectile: Projectile = node as Projectile
@@ -102,6 +115,23 @@ func spawn_boss(type_id: StringName, params: Dictionary) -> Flagship:
 	boss.setup(params)
 	_enemies.add_child(boss)
 	return boss
+
+
+## Returns the spawned Ram (Tarek's fall, playtest 2026-10-13), or null without
+## an Enemies container. It is a visual-only story prop: no collision, never in
+## Groups.ENEMIES, never counted. params: see Ram.setup.
+func spawn_ram(params: Dictionary) -> Ram:
+	if _enemies == null:
+		return null
+	var node: Node = EntityRegistry.RAM.instantiate()
+	var ram: Ram = node as Ram
+	if ram == null:
+		Log.error("spawn", "ram scene is not a Ram")
+		node.queue_free()
+		return null
+	ram.setup(params)
+	_enemies.add_child(ram)
+	return ram
 
 
 ## Returns the spawned asteroid, or null for an unknown size or a missing container.

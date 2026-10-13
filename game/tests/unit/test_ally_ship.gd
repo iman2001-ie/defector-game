@@ -403,20 +403,12 @@ func test_fighter_outline_is_ship_px_nose_up_in_coalition() -> void:
 	assert_eq(AllyShip.OUTLINE_COLOR, Color("#22E6FF"))
 
 
-# --- Tarek's fall (Story 6.5, FR35) ---------------------------------------------------
+# --- Tarek's fall (Story 6.5, FR35; reworked in Epic 7 playtest D) ------------------
+## TarekFallScene drives the fall now: intercept(point) -> APPROACH -> SHIELD
+## (held until take_hit) -> FALLING (spinning) -> GONE.
 
 const FALL_EVENT: StringName = &"tarek_fall"
-## Vale + (0, -shield_offset_px).
-const OFFSET: Vector2 = Vector2(0, -80)
-
-
-## A stub Vale: a bare Node2D in Groups.PLAYER at `pos`.
-func _vale(pos: Vector2) -> Node2D:
-	var vale: Node2D = Node2D.new()
-	vale.global_position = pos
-	vale.add_to_group(Groups.PLAYER)
-	add_child_autofree(vale)
-	return vale
+const POINT: Vector2 = Vector2(900, 750)
 
 
 func _count_lines(text: String) -> int:
@@ -427,32 +419,40 @@ func _count_lines(text: String) -> int:
 	return n
 
 
-## Fires the event and steps until the ally is FALLING (at most 64 steps).
-func _to_falling(ally: AllyShip) -> void:
-	Events.story_event_requested.emit(FALL_EVENT)
+## Sends the ally to `point`, steps it into SHIELD (at most 64 steps).
+func _to_shield(ally: AllyShip, point: Vector2 = POINT) -> void:
+	assert_true(ally.intercept(point), "intercept accepted")
 	var guard: int = 64
-	while ally.state() != AllyShip.State.FALLING and guard > 0:
+	while ally.state() != AllyShip.State.SHIELD and guard > 0:
 		ally.step(STEP)
 		guard -= 1
+	assert_eq(ally.state(), AllyShip.State.SHIELD, "reached SHIELD")
+
+
+## Intercepts at `point`, holds the shield, then the hit: FALLING.
+func _to_falling(ally: AllyShip, point: Vector2 = POINT) -> void:
+	_to_shield(ally, point)
+	ally.take_hit()
 	assert_eq(ally.state(), AllyShip.State.FALLING, "reached FALLING")
 
 
 func test_fall_tuning() -> void:
-	assert_eq(Config.num("allies.fall.approach_s"), 1.0)
-	assert_eq(Config.num("allies.fall.shield_s"), 1.5)
-	assert_eq(Config.num("allies.fall.shield_offset_px"), 80.0)
-	assert_eq(Config.num("allies.fall.shield_radius_px"), 72.0)
+	assert_eq(Config.num("allies.fall.approach_s"), 0.8)
+	assert_eq(Config.num("allies.fall.shield_radius_px"), 64.0)
 	assert_eq(Config.num("allies.fall.shield_flash_hz"), 8.0)
-	assert_eq(Config.num("allies.fall.exit_speed_px_s"), 320.0)
-	assert_eq(Config.num("allies.fall.exit_drop"), 0.35)
+	assert_eq(Config.num("allies.fall.exit_speed_px_s"), 140.0)
+	assert_eq(Config.num("allies.fall.exit_drop"), 0.5)
+	assert_eq(Config.num("allies.fall.spin_deg_s"), 160.0)
+	var fall: Dictionary = (Config.tuning["allies"] as Dictionary)["fall"] as Dictionary
+	assert_false(fall.has("shield_s"), "the shield holds until the hit: no shield_s")
+	assert_false(fall.has("shield_offset_px"), "the director picks the point: no shield_offset_px")
 	var ally: AllyShip = _make()
-	assert_eq(ally.approach_s, 1.0, "cached in _ready")
-	assert_eq(ally.shield_s, 1.5)
-	assert_eq(ally.shield_offset_px, 80.0)
-	assert_eq(ally.shield_radius_px, 72.0)
+	assert_eq(ally.approach_s, 0.8, "cached in _ready")
+	assert_eq(ally.shield_radius_px, 64.0)
 	assert_eq(ally.shield_flash_hz, 8.0)
-	assert_eq(ally.exit_speed_px_s, 320.0)
-	assert_eq(ally.exit_drop, 0.35)
+	assert_eq(ally.exit_speed_px_s, 140.0)
+	assert_eq(ally.exit_drop, 0.5)
+	assert_eq(ally.spin_deg_s, 160.0)
 
 
 func test_fire_trail_node() -> void:
@@ -489,56 +489,82 @@ func test_fire_trail_node() -> void:
 	assert_eq(g.get_color(2).a, 0.0, "then transparent")
 
 
-func test_fall_starts_on_the_event() -> void:
+## The ally no longer listens to the story event: TarekFallScene drives it.
+func test_the_story_event_alone_changes_nothing() -> void:
 	var ally: AllyShip = _make()
-	_vale(Vector2(900, 900))
+	Events.story_event_requested.emit(FALL_EVENT)
+	assert_eq(ally.state(), AllyShip.State.PATROL, "still patrolling")
+	_steps(ally, 4)
+	assert_eq(ally.state(), AllyShip.State.PATROL)
+
+
+func test_intercept_starts_the_approach_and_stops_firing() -> void:
+	var ally: AllyShip = _make()
 	_wasp(Vector2(600, 300))
 	_steps(ally, 3)
 	var clock: float = ally.fire_clock()
-	Events.story_event_requested.emit(FALL_EVENT)
+	assert_true(ally.intercept(POINT), "accepted from PATROL")
 	assert_eq(ally.state(), AllyShip.State.APPROACH, "APPROACH at once")
-	assert_eq(_count_lines("[INFO][scene] Tarek's fall: shielding Vale"), 1, "one INFO line")
+	assert_eq(ally.intercept_point(), POINT)
+	assert_eq(_count_lines("[INFO][scene] Tarek's fall: tarek moves to shield Vale"), 1, "one INFO line")
 	assert_false(ally.is_damaged())
 	assert_false(ally.shield_visible())
 	_steps(ally, 40)
-	assert_eq(_bolts().size(), 0, "no shot from the event onward")
+	assert_eq(_bolts().size(), 0, "no shot from the intercept onward")
 	assert_eq(ally.fire_clock(), clock, "the fire clock stopped")
 
 
-func test_approach_is_a_smoothstep_blend_tracking_vale() -> void:
+func test_intercept_only_from_patrol() -> void:
 	var ally: AllyShip = _make()
-	var vale: Node2D = _vale(Vector2(900, 900))
+	assert_true(ally.intercept(POINT))
+	_steps(ally, 2)
+	var at: Vector2 = ally.global_position
+	assert_false(ally.intercept(Vector2(100, 100)), "refused in APPROACH")
+	assert_eq(ally.intercept_point(), POINT, "the point is kept")
+	assert_eq(ally.state(), AllyShip.State.APPROACH, "the approach was not restarted")
+	assert_eq(ally.global_position, at)
+	_steps(ally, 20)
+	assert_eq(ally.state(), AllyShip.State.SHIELD)
+	assert_false(ally.intercept(Vector2(100, 100)), "refused in SHIELD")
+	assert_eq(ally.global_position, POINT)
+	ally.take_hit()
+	assert_false(ally.intercept(Vector2(100, 100)), "refused in FALLING")
+	assert_eq(ally.state(), AllyShip.State.FALLING)
+	assert_eq(_count_lines("[INFO][scene] Tarek's fall: tarek moves to shield Vale"), 1, "one start")
+
+
+## approach_s 1.0 (eight exact steps) for an exact blend check.
+func test_approach_is_a_smoothstep_blend_to_the_point() -> void:
+	((Config.tuning["allies"] as Dictionary)["fall"] as Dictionary)["approach_s"] = 1.0
+	var ally: AllyShip = _make()
 	var start: Vector2 = ally.global_position
-	Events.story_event_requested.emit(FALL_EVENT)
+	ally.intercept(POINT)
 	for k: int in range(1, 9):
-		vale.global_position += Vector2(10, -5)
 		ally.step(STEP)
-		var target: Vector2 = vale.global_position + OFFSET
 		if k < 8:
 			assert_eq(ally.state(), AllyShip.State.APPROACH, "still approaching at step %d" % k)
-			var want: Vector2 = start.lerp(target, smoothstep(0.0, 1.0, float(k) / 8.0))
+			var want: Vector2 = start.lerp(POINT, smoothstep(0.0, 1.0, float(k) / 8.0))
 			assert_almost_eq(ally.global_position, want, Vector2(0.001, 0.001), "smoothstep blend at step %d" % k)
 	assert_eq(ally.state(), AllyShip.State.SHIELD, "SHIELD after approach_s")
-	assert_eq(ally.global_position, vale.global_position + OFFSET, "exactly at Vale + (0, -80)")
+	assert_eq(ally.global_position, POINT, "exactly at the intercept point")
 
 
-func test_shield_holds_over_vale_then_falls() -> void:
+func test_shield_holds_at_the_point_until_the_hit() -> void:
 	var ally: AllyShip = _make()
-	var vale: Node2D = _vale(Vector2(900, 900))
-	Events.story_event_requested.emit(FALL_EVENT)
-	_steps(ally, 8)
-	assert_eq(ally.state(), AllyShip.State.SHIELD)
+	_to_shield(ally)
 	assert_true(ally.shield_visible(), "the ring shows")
-	for k: int in range(1, 13):
-		vale.global_position += Vector2(-12, 3)
+	for k: int in 160:
 		ally.step(STEP)
-		assert_eq(ally.global_position, vale.global_position + OFFSET, "tracks Vale at step %d" % k)
-		if k < 12:
-			assert_eq(ally.state(), AllyShip.State.SHIELD)
-			assert_true(ally.shield_visible())
-			assert_eq(ally.to_global(Vector2(0, ally.shield_offset_px)), vale.global_position, "ring centred on Vale")
-	assert_eq(ally.state(), AllyShip.State.FALLING, "FALLING after shield_s")
+	assert_eq(ally.state(), AllyShip.State.SHIELD, "still shielding 20 s later: no timeout")
+	assert_eq(ally.global_position, POINT, "holds the point")
+	assert_true(ally.shield_visible())
+	assert_false(ally.is_damaged())
+	ally.take_hit()
+	assert_eq(ally.state(), AllyShip.State.FALLING, "the hit: FALLING")
 	assert_false(ally.shield_visible(), "the ring is gone")
+	assert_true(ally.is_damaged(), "damaged")
+	assert_true(ally.fire_trail().emitting, "the trail is on")
+	assert_eq(_count_lines("[INFO][scene] Tarek's fall: hit, leaving the fight"), 1)
 
 
 func test_shield_alpha_pulses_at_the_flash_rate() -> void:
@@ -548,36 +574,74 @@ func test_shield_alpha_pulses_at_the_flash_rate() -> void:
 	assert_almost_eq(AllyShip.shield_alpha(0.3, 0.0), 1.0, 0.0001, "no flash rate: steady")
 
 
+func test_take_hit_while_patrolling_falls_from_where_it_is() -> void:
+	var ally: AllyShip = _make()
+	_steps(ally, 2)
+	var at: Vector2 = ally.global_position
+	ally.take_hit()
+	assert_eq(ally.state(), AllyShip.State.FALLING, "straight to FALLING")
+	assert_eq(ally.global_position, at, "from where it is")
+	assert_true(ally.is_damaged())
+	assert_true(ally.fire_trail().emitting)
+
+
+func test_take_hit_mid_approach_falls_from_where_it_is() -> void:
+	var ally: AllyShip = _make()
+	ally.intercept(POINT)
+	_steps(ally, 3)
+	var at: Vector2 = ally.global_position
+	assert_ne(at, POINT, "not there yet")
+	ally.take_hit()
+	assert_eq(ally.state(), AllyShip.State.FALLING)
+	assert_eq(ally.global_position, at, "from where it is")
+
+
+func test_repeat_hits_change_nothing() -> void:
+	var ally: AllyShip = _make()
+	_to_falling(ally)
+	ally.step(STEP)
+	var at: Vector2 = ally.global_position
+	var turn: float = ally.rotation
+	ally.take_hit()
+	assert_eq(ally.state(), AllyShip.State.FALLING)
+	assert_eq(ally.global_position, at)
+	assert_eq(ally.rotation, turn)
+	assert_eq(_count_lines("[INFO][scene] Tarek's fall: hit, leaving the fight"), 1, "one hit")
+
+
 func test_falling_to_the_left_edge() -> void:
 	var ally: AllyShip = _make()
-	_vale(Vector2(400, 900))
-	_to_falling(ally)
-	assert_true(ally.is_damaged(), "damaged")
-	assert_true(ally.fire_trail().emitting, "the trail is on")
-	assert_eq(_count_lines("[INFO][scene] Tarek's fall: damaged, leaving the fight"), 1)
+	_to_falling(ally, Vector2(400, 750))
 	var p0: Vector2 = ally.global_position
 	ally.step(STEP)
-	var want: Vector2 = Vector2(-1.0, 0.35).normalized() * 320.0 * STEP
-	assert_almost_eq(ally.global_position - p0, want, Vector2(0.001, 0.001), "320 px/s left with the down drift")
+	var want: Vector2 = Vector2(-1.0, 0.5).normalized() * 140.0 * STEP
+	assert_almost_eq(ally.global_position - p0, want, Vector2(0.001, 0.001), "140 px/s left with the down drift")
 
 
 func test_falling_to_the_right_edge() -> void:
 	var ally: AllyShip = _make()
-	_vale(Vector2(1500, 900))
-	_to_falling(ally)
+	_to_falling(ally, Vector2(1500, 750))
 	var p0: Vector2 = ally.global_position
 	ally.step(STEP)
-	var want: Vector2 = Vector2(1.0, 0.35).normalized() * 320.0 * STEP
-	assert_almost_eq(ally.global_position - p0, want, Vector2(0.001, 0.001), "320 px/s right with the down drift")
+	var want: Vector2 = Vector2(1.0, 0.5).normalized() * 140.0 * STEP
+	assert_almost_eq(ally.global_position - p0, want, Vector2(0.001, 0.001), "140 px/s right with the down drift")
 
 
 func test_falling_at_the_midline_goes_right() -> void:
 	var ally: AllyShip = _make()
-	_vale(Vector2(960, 900))
-	_to_falling(ally)
+	_to_falling(ally, Vector2(960, 750))
 	var p0: Vector2 = ally.global_position
 	ally.step(STEP)
 	assert_gt(ally.global_position.x, p0.x, "x >= 960 heads right")
+
+
+func test_falling_spins_at_spin_deg_s() -> void:
+	var ally: AllyShip = _make()
+	_to_falling(ally)
+	assert_eq(ally.rotation, 0.0, "upright until it falls")
+	for k: int in range(1, 5):
+		ally.step(STEP)
+		assert_almost_eq(ally.rotation, deg_to_rad(160.0) * STEP * k, 0.0001, "spins at step %d" % k)
 
 
 func test_damaged_outline_has_the_right_wing_tip_broken_off() -> void:
@@ -602,11 +666,10 @@ func test_damaged_outline_has_the_right_wing_tip_broken_off() -> void:
 
 func test_gone_once_off_screen_and_freed() -> void:
 	var ally: AllyShip = _make()
-	_vale(Vector2(400, 900))
-	_to_falling(ally)
+	_to_falling(ally, Vector2(400, 750))
 	var bounds: Rect2 = Playfield.RECT.grow(64.0)
 	var trail: GPUParticles2D = ally.fire_trail()
-	var guard: int = 200
+	var guard: int = 400
 	while ally.state() == AllyShip.State.FALLING and guard > 0:
 		assert_true(bounds.has_point(ally.global_position), "still inside while FALLING")
 		ally.step(STEP)
@@ -626,122 +689,24 @@ func test_gone_once_off_screen_and_freed() -> void:
 
 func test_no_bolts_through_the_whole_fall() -> void:
 	var ally: AllyShip = _make()
-	_vale(Vector2(900, 900))
 	_wasp(Vector2(600, 300))
 	_steps(ally, 4)
 	assert_eq(_bolts().size(), 1, "firing while patrolling")
-	Events.story_event_requested.emit(FALL_EVENT)
-	var guard: int = 200
+	ally.intercept(POINT)
+	_steps(ally, 40)
+	ally.take_hit()
+	var guard: int = 400
 	while is_instance_valid(ally) and not ally.is_queued_for_deletion() and guard > 0:
 		ally.step(STEP)
 		guard -= 1
-	assert_eq(_bolts().size(), 1, "no bolt after the event")
-
-
-func test_no_player_goes_straight_to_falling() -> void:
-	var ally: AllyShip = _make()
-	_steps(ally, 2)
-	var at: Vector2 = ally.global_position
-	Events.story_event_requested.emit(FALL_EVENT)
-	assert_eq(ally.state(), AllyShip.State.FALLING, "no Vale: straight to FALLING")
-	assert_eq(ally.global_position, at, "from where it is")
-	assert_true(ally.is_damaged())
-	assert_true(ally.fire_trail().emitting)
-
-
-func test_player_freed_mid_approach_falls_from_where_it_is() -> void:
-	var ally: AllyShip = _make()
-	var vale: Node2D = _vale(Vector2(900, 900))
-	Events.story_event_requested.emit(FALL_EVENT)
-	_steps(ally, 3)
-	var at: Vector2 = ally.global_position
-	vale.free()
-	ally.step(STEP)
-	assert_eq(ally.state(), AllyShip.State.FALLING, "Vale gone: FALLING")
-	assert_eq(ally.global_position, at, "from where it is")
-
-
-func test_player_freed_mid_shield_falls_from_where_it_is() -> void:
-	var ally: AllyShip = _make()
-	var vale: Node2D = _vale(Vector2(900, 900))
-	Events.story_event_requested.emit(FALL_EVENT)
-	_steps(ally, 8)
-	assert_eq(ally.state(), AllyShip.State.SHIELD)
-	var at: Vector2 = ally.global_position
-	vale.free()
-	ally.step(STEP)
-	assert_eq(ally.state(), AllyShip.State.FALLING, "Vale gone: FALLING")
-	assert_eq(ally.global_position, at, "from where it is")
-
-
-func test_ryn_ignores_the_event() -> void:
-	var ally: AllyShip = _make("ryn")
-	_vale(Vector2(900, 900))
-	_wasp(Vector2(600, 300))
-	Events.story_event_requested.emit(FALL_EVENT)
-	assert_eq(ally.state(), AllyShip.State.PATROL, "Ryn keeps patrolling")
-	_steps(ally, 4)
-	assert_eq(_bolts().size(), 1, "and firing")
-	assert_eq(_count_lines("[INFO][scene] Tarek's fall: shielding Vale"), 0)
-
-
-func test_tarek_ignores_other_events() -> void:
-	var ally: AllyShip = _make()
-	_vale(Vector2(900, 900))
-	Events.story_event_requested.emit(&"dev_evt")
-	assert_eq(ally.state(), AllyShip.State.PATROL)
-
-
-func test_repeat_event_mid_fall_changes_nothing() -> void:
-	var ally: AllyShip = _make()
-	_vale(Vector2(900, 900))
-	Events.story_event_requested.emit(FALL_EVENT)
-	_steps(ally, 3)
-	var at: Vector2 = ally.global_position
-	Events.story_event_requested.emit(FALL_EVENT)
-	assert_eq(ally.state(), AllyShip.State.APPROACH, "still APPROACH")
-	assert_eq(ally.global_position, at)
-	_steps(ally, 5)
-	assert_eq(ally.state(), AllyShip.State.SHIELD, "the approach was not restarted")
-	Events.story_event_requested.emit(FALL_EVENT)
-	assert_eq(ally.state(), AllyShip.State.SHIELD)
-	_steps(ally, 12)
-	assert_eq(ally.state(), AllyShip.State.FALLING)
-	Events.story_event_requested.emit(FALL_EVENT)
-	assert_eq(ally.state(), AllyShip.State.FALLING)
-	assert_eq(_count_lines("[INFO][scene] Tarek's fall: shielding Vale"), 1, "one start")
+	assert_eq(_bolts().size(), 1, "no bolt after the intercept")
 
 
 func test_zero_approach_ends_on_the_first_step() -> void:
 	((Config.tuning["allies"] as Dictionary)["fall"] as Dictionary)["approach_s"] = 0.0
 	var ally: AllyShip = _make()
-	var vale: Node2D = _vale(Vector2(900, 900))
-	Events.story_event_requested.emit(FALL_EVENT)
+	ally.intercept(POINT)
 	assert_eq(ally.state(), AllyShip.State.APPROACH)
 	ally.step(STEP)
 	assert_eq(ally.state(), AllyShip.State.SHIELD, "approach over in one step")
-	assert_eq(ally.global_position, vale.global_position + OFFSET)
-
-
-func test_zero_shield_ends_on_the_first_step() -> void:
-	((Config.tuning["allies"] as Dictionary)["fall"] as Dictionary)["shield_s"] = 0.0
-	var ally: AllyShip = _make()
-	_vale(Vector2(900, 900))
-	Events.story_event_requested.emit(FALL_EVENT)
-	_steps(ally, 8)
-	assert_eq(ally.state(), AllyShip.State.SHIELD)
-	ally.step(STEP)
-	assert_eq(ally.state(), AllyShip.State.FALLING, "shield over in one step")
-
-
-func test_zero_approach_and_shield() -> void:
-	var fall: Dictionary = (Config.tuning["allies"] as Dictionary)["fall"] as Dictionary
-	fall["approach_s"] = 0.0
-	fall["shield_s"] = 0.0
-	var ally: AllyShip = _make()
-	_vale(Vector2(900, 900))
-	Events.story_event_requested.emit(FALL_EVENT)
-	ally.step(STEP)
-	assert_eq(ally.state(), AllyShip.State.SHIELD)
-	ally.step(STEP)
-	assert_eq(ally.state(), AllyShip.State.FALLING)
+	assert_eq(ally.global_position, POINT)

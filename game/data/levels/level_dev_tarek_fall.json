@@ -27,7 +27,7 @@
 			],
 			"triggers": [
 				{ "when": "progress", "at": 0.5, "flag": "tarek_fall",
-					"actions": [ { "story_event": "tarek_fall" }, { "comms": "l2_w5_tarek_cutoff" } ] },
+					"actions": [ { "story_event": "tarek_fall" } ] },
 				{ "when": "wave_clear", "actions": [ { "wait": 0.5 } ] }
 			]
 		},

@@ -46,6 +46,9 @@ const ENERGY_ORB: PackedScene = preload("res://entities/pickups/energy_orb.tscn"
 const CONVOY: PackedScene = preload("res://entities/allies/convoy.tscn")
 ## The invincible wingman (Story 6.4), spawned once by a level with "ally": "tarek"|"ryn".
 const ALLY_SHIP: PackedScene = preload("res://entities/allies/ally_ship.tscn")
+## The Ram that strikes Tarek (Tarek's fall, playtest 2026-10-13): a story prop,
+## spawned only by TarekFallScene through Spawner.spawn_ram.
+const RAM: PackedScene = preload("res://entities/story/ram.tscn")
 
 
 ## The known enemy type ids (Config validates level files against them).

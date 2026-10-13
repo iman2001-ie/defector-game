@@ -28,6 +28,9 @@ const FONT_SIZE_BUTTON: StringName = &"button"
 const PAUSE_REASON: StringName = &"death"
 const TEXT_HULL: String = "HULL DESTROYED"
 const TEXT_CONVOY: String = "CONVOY LOST"
+## The surrender lose ending (playtest 2026-10-13): Vale surrendered in Level 1
+## and Isolde, who never meant to forgive, ordered the execution.
+const TEXT_SURRENDER: String = "EXECUTED AT DAWN"
 const TEXT_RETRY: String = "RETRY"
 const TEXT_QUIT: String = "QUIT TO TITLE"
 
@@ -105,6 +108,8 @@ static func button_rects(canvas_w: float, button: Vector2, gap: float, top_y: fl
 static func text_for(reason: StringName) -> String:
 	if reason == &"convoy":
 		return TEXT_CONVOY
+	if reason == &"surrender":
+		return TEXT_SURRENDER
 	return TEXT_HULL
 
 
@@ -117,7 +122,7 @@ func show_prompt(reason: StringName) -> void:
 	_pending = false
 	_shown = true
 	_reason = reason
-	if reason != &"hearts" and reason != &"convoy":
+	if reason != &"hearts" and reason != &"convoy" and reason != &"surrender":
 		Log.warn("scene", "Retry prompt: unknown loss reason '%s', showing %s" % [reason, TEXT_HULL])
 	_reason_label.text = text_for(reason)
 	PauseArbiter.push(PAUSE_REASON)

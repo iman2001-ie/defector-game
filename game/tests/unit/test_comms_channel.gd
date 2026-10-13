@@ -111,6 +111,10 @@ func after_each() -> void:
 	Events.comms_sequence_finished.disconnect(_on_finished)
 	Events.final_choice_made.disconnect(_on_choice_made)
 	Events.comms_line_shown.disconnect(_on_line_shown)
+	if Events.comms_sequence_finished.is_connected(_on_outcome_finished):
+		Events.comms_sequence_finished.disconnect(_on_outcome_finished)
+	if Events.level_failed.is_connected(_on_outcome_failed):
+		Events.level_failed.disconnect(_on_outcome_failed)
 	GameState.final_choice = &""
 	Log.sink = Callable()
 	_channel = null
@@ -1292,6 +1296,103 @@ func test_an_unknown_next_finishes_at_once() -> void:
 	assert_false(_channel.is_showing())
 	assert_false(_panel.visible)
 	assert_false(PauseArbiter.is_paused(), "no pause left")
+
+
+# --- Choice outcome `fail` (Epic 7 playtest D) -------------------------------------------
+
+## Every comms_sequence_finished and level_failed in order.
+var _outcomes: Array[String] = []
+
+
+func _on_outcome_finished(id: StringName) -> void:
+	_outcomes.append("finished:%s" % id)
+
+
+func _on_outcome_failed(reason: StringName) -> void:
+	_outcomes.append("failed:%s" % reason)
+
+
+## Watches finished / level_failed order, requests choice_fail and clicks its
+## one line up to the choice.
+func _to_fail_choice() -> void:
+	_outcomes.clear()
+	Events.comms_sequence_finished.connect(_on_outcome_finished)
+	Events.level_failed.connect(_on_outcome_failed)
+	_request(&"choice_fail")
+	_click()
+	_click()
+	assert_true(_channel.is_choosing(), "the choice is up")
+	assert_eq(_final_choice.option_ids(), [&"surrender", &"refuse"] as Array[StringName])
+
+
+## after_each disconnects too, so a failed assert can't leak the watchers.
+func _end_fail_watch() -> void:
+	Events.comms_sequence_finished.disconnect(_on_outcome_finished)
+	Events.level_failed.disconnect(_on_outcome_failed)
+
+
+func test_a_fail_option_loses_the_level_after_its_response() -> void:
+	_to_fail_choice()
+	_button(0).pressed.emit()
+	assert_eq(_choices, [&"surrender"] as Array[StringName])
+	assert_eq(_channel.current_sequence(), &"resp_accept", "the response plays")
+	assert_eq(_outcomes, [] as Array[String], "nothing lost at the click")
+	_click()
+	_click()
+	assert_eq(_text().text, "Executed.", "the last response line")
+	assert_eq(_outcomes, [] as Array[String], "nothing lost before the response ends")
+	_click()
+	_click()
+	assert_false(_channel.is_showing(), "done")
+	assert_eq(_outcomes, ["failed:surrender", "finished:choice_fail"] as Array[String], "level_failed once, right before finished")
+	assert_false(PauseArbiter.is_paused(), "no pause left for the death beat")
+	assert_eq(_count_lines("[INFO][comms] Choice outcome: the level is lost ('surrender')"), 1)
+	await get_tree().process_frame
+	assert_eq(_outcomes.size(), 2, "nothing more later")
+	_end_fail_watch()
+
+
+func test_an_option_without_fail_loses_nothing() -> void:
+	_to_fail_choice()
+	_button(1).pressed.emit()
+	assert_eq(_choices, [&"refuse"] as Array[StringName], "refuse is a valid pick")
+	assert_eq(GameState.final_choice, &"refuse")
+	assert_eq(_channel.current_sequence(), &"resp_refuse")
+	_click_to_end()
+	assert_false(_channel.is_showing())
+	assert_eq(_outcomes, ["finished:choice_fail"] as Array[String], "finished, no level_failed")
+	await get_tree().process_frame
+	assert_eq(_outcomes, ["finished:choice_fail"] as Array[String])
+	_end_fail_watch()
+
+
+func test_the_fail_reason_does_not_leak_into_the_next_choice() -> void:
+	_to_fail_choice()
+	_button(0).pressed.emit()
+	_click_to_end()
+	assert_eq(_outcomes, ["failed:surrender", "finished:choice_fail"] as Array[String])
+	_outcomes.clear()
+	_request(&"choice_a")
+	for i: int in 4:
+		_click()
+	assert_true(_channel.is_choosing())
+	_button(0).pressed.emit()
+	_click_to_end()
+	assert_eq(_outcomes, ["finished:choice_a"] as Array[String], "choice_a's surrender carries no fail")
+	_end_fail_watch()
+
+
+func test_a_fail_with_a_queued_story_still_comes_before_finished() -> void:
+	_to_fail_choice()
+	_request(&"story_b")
+	_button(0).pressed.emit()
+	for i: int in 4:
+		_click()
+	assert_eq(_outcomes, ["failed:surrender", "finished:choice_fail"] as Array[String], "the loss, then finished")
+	assert_eq(_channel.current_sequence(), &"story_b", "the queued story plays next")
+	_click_to_end()
+	assert_eq(_outcomes, ["failed:surrender", "finished:choice_fail", "finished:story_b"] as Array[String], "the loss is raised once")
+	_end_fail_watch()
 
 
 # --- Line log (Epic 7 playtest C) ------------------------------------------------------

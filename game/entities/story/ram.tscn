@@ -1,0 +1,18 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://entities/story/ram.gd" id="1_ram"]
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_add"]
+blend_mode = 1
+
+[node name="Ram" type="Node2D"]
+script = ExtResource("1_ram")
+
+[node name="Trail" type="Polygon2D" parent="."]
+material = SubResource("CanvasItemMaterial_add")
+color = Color(1, 0.121569, 0.294118, 1)
+polygon = PackedVector2Array(-22, -40, 22, -40, 10, -84, 0, -150, -10, -84)
+
+[node name="Hull" type="Polygon2D" parent="."]
+color = Color(1, 0.168627, 0.839216, 1)
+polygon = PackedVector2Array(0, 74, 14, 44, 34, 30, 60, 10, 44, -10, 54, -42, 26, -34, 12, -44, -12, -44, -26, -34, -54, -42, -44, -10, -60, 10, -34, 30, -14, 44)

@@ -332,3 +332,80 @@ func test_spawn_ally_without_allies_returns_null() -> void:
 		if line.begins_with("[DEBUG][spawn]") and line.contains("ally not spawned"):
 			refused += 1
 	assert_eq(refused, 1, "one DEBUG line for the refused spawn")
+
+
+# --- Tarek's fall (Epic 7 playtest D): held fire and the Ram ---------------------
+
+const SHOT_PARAMS: Dictionary = {"position": Vector2(400, 300), "velocity": Vector2(0, 450), "damage": 1}
+
+
+func test_hold_enemy_fire_is_off_by_default() -> void:
+	var spawner: Spawner = _make_spawner(_world)
+	assert_false(spawner.hold_enemy_fire)
+	assert_eq(Spawner.HELD_FIRE_TYPES, [&"enemy_bullet", &"needle_bolt"] as Array[StringName])
+
+
+func test_hold_enemy_fire_refuses_the_enemy_shots() -> void:
+	var spawner: Spawner = _make_spawner(_world)
+	spawner.hold_enemy_fire = true
+	for type_id: StringName in [&"enemy_bullet", &"needle_bolt"]:
+		assert_null(spawner.spawn_projectile(type_id, SHOT_PARAMS), "%s refused while fire is held" % type_id)
+	assert_eq(_projectiles.get_child_count(), 0, "nothing spawned")
+
+
+func test_hold_enemy_fire_keeps_the_friendly_shots() -> void:
+	var spawner: Spawner = _make_spawner(_world)
+	spawner.hold_enemy_fire = true
+	for type_id: StringName in [&"laser_bolt", &"ally_bolt"]:
+		var shot: Projectile = spawner.spawn_projectile(type_id, {"position": Vector2(400, 700), "velocity": Vector2(0, -1800), "damage": 1})
+		assert_not_null(shot, "%s still spawns" % type_id)
+		if shot != null:
+			shot.set_physics_process(false)
+			assert_eq(shot.get_parent(), _projectiles)
+
+
+func test_releasing_the_hold_spawns_enemy_shots_again() -> void:
+	var spawner: Spawner = _make_spawner(_world)
+	spawner.hold_enemy_fire = true
+	assert_null(spawner.spawn_projectile(&"enemy_bullet", SHOT_PARAMS))
+	spawner.hold_enemy_fire = false
+	var bullet: Projectile = spawner.spawn_projectile(&"enemy_bullet", SHOT_PARAMS)
+	assert_true(bullet is EnemyBullet, "spawned again")
+	if bullet != null:
+		bullet.set_physics_process(false)
+
+
+func test_registry_has_the_ram() -> void:
+	assert_not_null(EntityRegistry.RAM)
+	var ram: Node = EntityRegistry.RAM.instantiate()
+	assert_true(ram is Ram)
+	ram.free()
+	assert_false(EntityRegistry.ENEMIES.has(&"ram"), "not an enemy type")
+	assert_false(EntityRegistry.enemy_types().has(&"ram"), "never in a level file")
+
+
+func test_spawn_ram_parents_into_enemies_outside_the_enemy_groups() -> void:
+	var spawner: Spawner = _make_spawner(_world)
+	var ram: Ram = spawner.spawn_ram({"from": Vector2(900, -150), "to": Vector2(900, 750), "travel_s": 0.45, "scale": 1.5})
+	assert_not_null(ram)
+	if ram == null:
+		return
+	ram.set_physics_process(false)
+	assert_eq(ram.get_parent(), _enemies, "under World/Enemies")
+	assert_eq(ram.global_position, Vector2(900, -150), "setup ran before add_child")
+	assert_eq(ram.travel_s, 0.45)
+	assert_false(ram.is_in_group(Groups.ENEMIES), "not in Groups.ENEMIES")
+	assert_false(ram.is_in_group(&"counted"), "never counted")
+	var node: Node = ram
+	assert_false(node is Enemy, "not an Enemy")
+	assert_false(node is CollisionObject2D, "no collision")
+
+
+func test_spawn_ram_without_enemies_returns_null() -> void:
+	var world: Node2D = Node2D.new()
+	add_child_autofree(world)
+	var spawner: Spawner = _make_spawner(world)
+	assert_push_error("Projectiles")
+	assert_push_error("Enemies")
+	assert_push_error("Asteroids")
+	assert_null(spawner.spawn_ram({"from": Vector2.ZERO, "to": Vector2(0, 100), "travel_s": 0.1}))
