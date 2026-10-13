@@ -1,8 +1,20 @@
 class_name CommsBox
 extends Control
-## The combat comms box (Story 5.2, UX "Interruption box"): a small top-left
-## box with a speaker-accent left edge, a placeholder portrait, the speaker's
-## uppercase name and one short typed line. No dim, no cue, never pauses.
+## The combat comms box (Story 5.2, UX "Interruption box"; moved by Epic 7
+## playtest C): a bottom-centre box with a speaker-accent left edge, a
+## placeholder portrait, the speaker's uppercase name and one short typed line.
+## No dim, no cue, never pauses. It rises into place (from `ui.comms_box.rise_px`
+## lower, fading in) over comms.box_rise_in_s.
+##
+## See-through: while visible, each frame (step_see_through) it checks whether
+## the Player (Groups.PLAYER) or an enemy projectile (Groups.PROJECTILES on the
+## CollisionLayers.ENEMY_SHOTS layer; player shots are ignored) is inside the box
+## rect grown by `see_through_margin_px`; if so the Box panel's alpha eases
+## down to `see_through_alpha`, else back up to 1, at `see_through_fade_per_s`
+## alpha per second. The see-through factor lives on the Box panel's modulate,
+## the rise-in and the fade-out on the root modulate, so they compose. Enemy
+## shots are tracked from SceneTree.node_added / node_removed, so the per-frame
+## check allocates nothing.
 ##
 ## A view only: it never reads dialogue data, and only CommsChannel calls it
 ## (show_line, cut_off, dismiss, hide_now, is_typing, is_open). A cut-off line
@@ -10,16 +22,18 @@ extends Control
 ## `comms.cutoff_chars_per_s`, and cut_off shows it with the cut suffix. Mouse-transparent
 ## (MOUSE_FILTER_IGNORE on it and every child), so clicks reach the game.
 ## The process mode is inherited (pausable in the level), and every tween is
-## created on the box with the default pause mode, so the slide, the typewriter
+## created on the box with the default pause mode, so the rise, the typewriter
 ## and the fade freeze while the tree is paused and resume where they were.
 ##
 ## The text font, font sizes, the line spacing and the box style come from the shared Theme
 ## (type `CommsBox`); the text colour and the speaker accents are the
 ## `CommsPanel` colours, shared with the story panel. The portrait frame is the
 ## only per-node style override; the `Edge` colour is set on the ColorRect.
-## Layout numbers come from `ui.comms_box`, speaker names and the portrait flag
-## from `comms.speakers`, the typing speeds and the slide / fade times from
-## `comms`. All are cached in _ready.
+## Layout numbers come from `ui.comms_box` (the box is `w` x `h`, centred
+## horizontally on the Playfield, its bottom `bottom_margin_px` above the
+## screen's bottom), speaker names and the portrait flag from `comms.speakers`,
+## the typing speeds and the rise / fade times from `comms`. All are cached in
+## _ready.
 
 const THEME_TYPE: StringName = &"CommsBox"
 ## Colours shared with the story panel.
@@ -30,8 +44,8 @@ const FONT_SIZE_TEXT: StringName = &"text"
 const FONT_SIZE_NAME: StringName = &"name"
 const CONSTANT_LINE_SPACING: StringName = &"line_spacing"
 ## The text font: a FontVariation of the default font whose spacing_top /
-## spacing_bottom trim the 22 px line box (31 px) to a 25 px line height, so two
-## lines fill the 50 px text rect exactly.
+## spacing_bottom trim the 28 px line box (39 px) to a 33 px line height
+## (`ui.comms_box.text_line_h_px`), so two lines fill the 66 px text rect exactly.
 const FONT_TEXT: StringName = &"text"
 ## Keys of the layout() result.
 const RECT_BOX: StringName = &"box"
@@ -53,15 +67,27 @@ var _portrait_gap: float = 0.0
 var _name_h: float = 0.0
 var _line_h: float = 0.0
 var _lines: int = 0
-## `comms.box_slide_in_s` / `comms.box_fade_out_s`.
-var _slide_s: float = 0.0
+## `ui.comms_box.rise_px` and the see-through numbers.
+var _rise_px: float = 0.0
+var _see_through_alpha: float = 1.0
+var _see_through_margin: float = 0.0
+var _see_through_fade_per_s: float = 0.0
+## The box rect grown by the see-through margin (canvas coordinates).
+var _see_through_rect: Rect2 = Rect2()
+## The Box panel's current see-through alpha (1 = opaque).
+var _see_through: float = 1.0
+## Live enemy-shot candidates (Area2D on the enemy-shots layer), tracked from
+## node_added / node_removed; the group is checked per frame.
+var _enemy_shots: Array[Area2D] = []
+## `comms.box_rise_in_s` / `comms.box_fade_out_s`.
+var _rise_s: float = 0.0
 var _fade_s: float = 0.0
 ## `comms.speakers`: speaker id (String) -> {"name", "portrait"}.
 var _speakers: Dictionary = {}
 var _text_color: Color = Color.WHITE
 var _frame_style: StyleBox = null
 var _type_tween: Tween = null
-var _slide_tween: Tween = null
+var _rise_tween: Tween = null
 var _fade_tween: Tween = null
 var _speaker: StringName = &""
 
@@ -80,11 +106,15 @@ func _init() -> void:
 func _ready() -> void:
 	chars_per_s = Config.num("comms.chars_per_s")
 	cutoff_chars_per_s = Config.num("comms.cutoff_chars_per_s")
-	_slide_s = maxf(Config.num("comms.box_slide_in_s"), 0.0)
+	_rise_s = maxf(Config.num("comms.box_rise_in_s"), 0.0)
 	_fade_s = maxf(Config.num("comms.box_fade_out_s"), 0.0)
-	_box_rect = Rect2(
-		Config.num("ui.comms_box.x"), Config.num("ui.comms_box.y"),
-		maxf(Config.num("ui.comms_box.w"), 1.0), maxf(Config.num("ui.comms_box.h"), 1.0))
+	_box_rect = box_rect(Playfield.SIZE, maxf(Config.num("ui.comms_box.w"), 1.0),
+		maxf(Config.num("ui.comms_box.h"), 1.0), maxf(Config.num("ui.comms_box.bottom_margin_px"), 0.0))
+	_rise_px = maxf(Config.num("ui.comms_box.rise_px"), 0.0)
+	_see_through_alpha = clampf(Config.num("ui.comms_box.see_through_alpha"), 0.0, 1.0)
+	_see_through_margin = maxf(Config.num("ui.comms_box.see_through_margin_px"), 0.0)
+	_see_through_fade_per_s = maxf(Config.num("ui.comms_box.see_through_fade_per_s"), 0.0)
+	_see_through_rect = _box_rect.grow(_see_through_margin)
 	_edge = maxf(Config.num("ui.comms_box.edge_px"), 0.0)
 	_padding = maxf(Config.num("ui.comms_box.padding_px"), 0.0)
 	_portrait_px = maxf(Config.num("ui.comms_box.portrait_px"), 0.0)
@@ -105,12 +135,34 @@ func _ready() -> void:
 	visible = false
 
 
+func _enter_tree() -> void:
+	_enemy_shots.clear()
+	get_tree().node_added.connect(_on_tree_node_added)
+	get_tree().node_removed.connect(_on_tree_node_removed)
+	# Shots already in the tree (one-off; later ones arrive through node_added).
+	for node: Node in get_tree().get_nodes_in_group(Groups.PROJECTILES):
+		_on_tree_node_added(node)
+
+
+func _exit_tree() -> void:
+	if get_tree().node_added.is_connected(_on_tree_node_added):
+		get_tree().node_added.disconnect(_on_tree_node_added)
+	if get_tree().node_removed.is_connected(_on_tree_node_removed):
+		get_tree().node_removed.disconnect(_on_tree_node_removed)
+	_enemy_shots.clear()
+
+
+func _process(delta: float) -> void:
+	if visible:
+		step_see_through(delta)
+
+
 # --- Channel API ------------------------------------------------------------------
 
 ## Shows one line: the uppercase name from comms.speakers in the speaker's
 ## accent, the accent edge, the portrait only when the speaker has one (the
-## text block re-laid out for either variant). The box slides in from the left
-## edge of the screen and the text types from the first character. With
+## text block re-laid out for either variant). The box rises into place and
+## fades in, and the text types from the first character. With
 ## `cut_off_at >= 0` (a cut-off line, Story 5.4) it types only to `cut_off_at`
 ## characters over cut_off_at / cutoff_chars_per_s and stays there (never -1).
 func show_line(speaker: StringName, text: String, cut_off_at: int = -1) -> void:
@@ -131,9 +183,8 @@ func show_line(speaker: StringName, text: String, cut_off_at: int = -1) -> void:
 		_apply_frame(accent)
 	_apply_layout(with_portrait)
 	_text.text = text
-	modulate.a = 1.0
 	visible = true
-	_slide_in()
+	_rise_in()
 	_type(cut_off_at)
 
 
@@ -144,6 +195,10 @@ func dismiss() -> void:
 		return
 	_kill_tween(_fade_tween)
 	_fade_tween = null
+	# The fade takes over the root alpha from a rise still running.
+	_kill_tween(_rise_tween)
+	_rise_tween = null
+	_box.position.y = _box_rect.position.y
 	if _fade_s <= 0.0:
 		_hide()
 		return
@@ -196,6 +251,43 @@ func current_speaker() -> StringName:
 	return _speaker
 
 
+## The Box panel's see-through alpha (1 = opaque, see_through_alpha at most see-through).
+func see_through() -> float:
+	return _see_through
+
+
+## The rect the Player or an enemy shot must be inside to make the box see-through.
+func see_through_rect() -> Rect2:
+	return _see_through_rect
+
+
+## The box rect in canvas coordinates: `w` x `h`, centred horizontally on
+## `canvas`, its bottom `bottom_margin` above the canvas bottom.
+static func box_rect(canvas: Vector2, w: float, h: float, bottom_margin: float) -> Rect2:
+	return Rect2((canvas.x - w) / 2.0, canvas.y - bottom_margin - h, w, h)
+
+
+## One see-through step of `delta` seconds: eases the Box panel's alpha towards
+## see_through_alpha while the Player or an enemy shot is under the box (see
+## is_covering), else towards 1. Allocates nothing.
+func step_see_through(delta: float) -> void:
+	var target: float = _see_through_alpha if is_covering() else 1.0
+	_see_through = move_toward(_see_through, target, _see_through_fade_per_s * maxf(delta, 0.0))
+	_box.modulate.a = _see_through
+
+
+## True while the Player or a live enemy projectile (Groups.PROJECTILES on the
+## enemy-shots layer) is inside see_through_rect() (screen position).
+func is_covering() -> bool:
+	var player: Node = get_tree().get_first_node_in_group(Groups.PLAYER)
+	if player is CanvasItem and _covers(player as CanvasItem):
+		return true
+	for shot: Area2D in _enemy_shots:
+		if _is_enemy_shot(shot) and _covers(shot):
+			return true
+	return false
+
+
 ## The box, edge, portrait, name and text rects (keys RECT_*). The box rect is
 ## in canvas coordinates (x, y, w, h); the others are local to the box. The
 ## portrait is centred vertically (inset = (h - portrait_px) / 2) after the
@@ -217,15 +309,43 @@ static func layout(x: float, y: float, w: float, h: float, edge: float, padding:
 
 # --- Internals ---------------------------------------------------------------------
 
-## Slides Box from x = -w to its x over box_slide_in_s.
-func _slide_in() -> void:
-	var to_x: float = _box_rect.position.x
-	if _slide_s <= 0.0:
-		_box.position.x = to_x
+## Raises Box from rise_px below its y into place while the root alpha fades
+## from 0 to 1, both over box_rise_in_s (sine ease-out).
+func _rise_in() -> void:
+	var to_y: float = _box_rect.position.y
+	_box.position.x = _box_rect.position.x
+	if _rise_s <= 0.0:
+		_box.position.y = to_y
+		modulate.a = 1.0
 		return
-	_box.position.x = -_box_rect.size.x
-	_slide_tween = create_tween()
-	_slide_tween.tween_property(_box, ^"position:x", to_x, _slide_s).from(-_box_rect.size.x)
+	_box.position.y = to_y + _rise_px
+	modulate.a = 0.0
+	_rise_tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_rise_tween.tween_property(_box, ^"position:y", to_y, _rise_s).from(to_y + _rise_px)
+	_rise_tween.tween_property(self, ^"modulate:a", 1.0, _rise_s).from(0.0)
+
+
+## Whether `item`'s screen position (camera included) is inside the see-through rect.
+func _covers(item: CanvasItem) -> bool:
+	return _see_through_rect.has_point(item.get_global_transform_with_canvas().origin)
+
+
+## A live projectile on the enemy-shots layer (player shots never count).
+func _is_enemy_shot(shot: Area2D) -> bool:
+	return is_instance_valid(shot) and shot.is_inside_tree() and shot.is_in_group(Groups.PROJECTILES) \
+		and (shot.collision_layer & CollisionLayers.ENEMY_SHOTS) != 0
+
+
+## Tracks an enemy-shot candidate: an Area2D on the enemy-shots layer (the
+## Projectile joins its group in _ready, after node_added).
+func _on_tree_node_added(node: Node) -> void:
+	if node is Area2D and ((node as Area2D).collision_layer & CollisionLayers.ENEMY_SHOTS) != 0 and not _enemy_shots.has(node):
+		_enemy_shots.append(node as Area2D)
+
+
+func _on_tree_node_removed(node: Node) -> void:
+	if node is Area2D:
+		_enemy_shots.erase(node)
 
 
 ## Tweens visible_characters from 0 to the character count over
@@ -262,14 +382,17 @@ func _hide() -> void:
 	_fade_tween = null
 	visible = false
 	modulate.a = 1.0
+	_see_through = 1.0
+	_box.modulate.a = 1.0
+	_box.position = _box_rect.position
 	_speaker = &""
 
 
 func _kill_tweens() -> void:
-	for tween: Tween in [_type_tween, _slide_tween, _fade_tween]:
+	for tween: Tween in [_type_tween, _rise_tween, _fade_tween]:
 		_kill_tween(tween)
 	_type_tween = null
-	_slide_tween = null
+	_rise_tween = null
 	_fade_tween = null
 
 

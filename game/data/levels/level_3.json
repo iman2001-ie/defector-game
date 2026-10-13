@@ -28,7 +28,9 @@
 			"asteroids": [
 				{ "size": "medium", "count": 3 }
 			],
-			"triggers": []
+			"triggers": [
+				{ "when": "wave_clear", "flag": "isolde_interruptions", "actions": [ { "comms": "l3_w3_isolde_taunt" } ] }
+			]
 		},
 		{
 			"spawns": [
@@ -37,9 +39,7 @@
 				{ "type": "wasp", "count": 20, "formation": "grid_10x2", "entry": "top" }
 			],
 			"asteroids": [],
-			"triggers": [
-				{ "when": "progress", "at": 0.25, "flag": "isolde_interruptions", "actions": [ { "comms": "l3_w3_isolde_taunt" } ] }
-			]
+			"triggers": []
 		},
 		{
 			"boss": "flagship",

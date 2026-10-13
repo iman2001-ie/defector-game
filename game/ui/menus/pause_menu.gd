@@ -15,6 +15,13 @@ extends Control
 ## stays visible until the scene changes and a `_leaving` guard ignores every
 ## later press and Esc.
 ##
+## Recent comms (Epic 7 playtest C): a RECENT COMMS block below the panel
+## lists the last `ui.pause_menu.recent_comms` combat lines (from
+## Events.comms_line_shown with mode &"combat"; story lines are ignored), newest
+## first, as "NAME: text" in the speaker's accent (the CommsPanel colours,
+## names from comms.speakers). The block is hidden while there are none. It is
+## `comms_w` wide, centred, `comms_gap_px` below the panel.
+##
 ## Runs while paused (PROCESS_MODE_ALWAYS). It captures the mouse only while
 ## shown. Mouse-only: no button takes focus. Colours, sizes and styles come from
 ## the shared Theme (type `PauseMenu`); layout numbers from `ui.pause_menu`.
@@ -28,6 +35,13 @@ const STYLE_BUTTON_HOVER: StringName = &"button_hover"
 const STYLE_BUTTON_FOCUS: StringName = &"button_focus"
 const FONT_SIZE_HEADING: StringName = &"heading"
 const FONT_SIZE_BUTTON: StringName = &"button"
+const FONT_SIZE_COMMS: StringName = &"comms"
+## Speaker accents and the muted heading colour, shared with the comms views.
+const COMMS_COLOR_THEME_TYPE: StringName = &"CommsPanel"
+const COLOR_MUTED: StringName = &"muted"
+## Only these Events.comms_line_shown lines are listed.
+const COMBAT_MODE: StringName = &"combat"
+const TEXT_RECENT_COMMS: String = "RECENT COMMS"
 const PAUSE_REASON: StringName = &"menu"
 ## While this reason is active the comms panel's dim is showing (Story 5.1).
 const STORY_REASON: StringName = &"story"
@@ -45,9 +59,22 @@ var heading_px: float = 0.0
 var heading_gap_px: float = 0.0
 var button_size: Vector2 = Vector2.ZERO
 var button_gap_px: float = 0.0
+## `ui.pause_menu` recent-comms numbers.
+var recent_comms_max: int = 0
+var comms_gap_px: float = 0.0
+var comms_w: float = 0.0
+var comms_padding_px: float = 0.0
+var comms_line_gap_px: float = 0.0
 
 var _shown: bool = false
 var _leaving: bool = false
+## The recent combat lines, newest first: [speaker (StringName), text (String)] pairs.
+var _recent: Array[Array] = []
+## One label per listed line (recent_comms_max of them).
+var _comms_labels: Array[Label] = []
+## `comms.speakers`: speaker id (String) -> {"name", "portrait"}.
+var _speakers: Dictionary = {}
+var _text_color: Color = Color.WHITE
 
 @onready var _dim: ColorRect = $Dim
 @onready var _panel: Panel = $Panel
@@ -55,6 +82,10 @@ var _leaving: bool = false
 @onready var _resume: Button = $Resume
 @onready var _restart: Button = $Restart
 @onready var _quit: Button = $Quit
+@onready var _comms: PanelContainer = $RecentComms
+@onready var _comms_margin: MarginContainer = $RecentComms/Margin
+@onready var _comms_list: VBoxContainer = $RecentComms/Margin/List
+@onready var _comms_heading: Label = $RecentComms/Margin/List/Heading
 
 
 func _init() -> void:
@@ -69,7 +100,24 @@ func _ready() -> void:
 	heading_gap_px = maxf(Config.num("ui.pause_menu.heading_gap_px"), 0.0)
 	button_size = Vector2(maxf(Config.num("ui.pause_menu.button_w"), 1.0), maxf(Config.num("ui.pause_menu.button_h"), 1.0))
 	button_gap_px = maxf(Config.num("ui.pause_menu.button_gap_px"), 0.0)
+	recent_comms_max = maxi(Config.int_("ui.pause_menu.recent_comms"), 0)
+	comms_gap_px = maxf(Config.num("ui.pause_menu.comms_gap_px"), 0.0)
+	comms_w = maxf(Config.num("ui.pause_menu.comms_w"), 1.0)
+	comms_padding_px = maxf(Config.num("ui.pause_menu.comms_padding_px"), 0.0)
+	comms_line_gap_px = maxf(Config.num("ui.pause_menu.comms_line_gap_px"), 0.0)
+	_speakers = Config.section("comms.speakers")
 	_heading.text = TEXT_HEADING
+	_comms_heading.text = TEXT_RECENT_COMMS
+	for i: int in recent_comms_max:
+		var label: Label = Label.new()
+		label.name = "Line%d" % i
+		# One row per line (a combat line is at most 50 characters); an
+		# overlong one ends in an ellipsis instead of widening the block.
+		label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		label.visible = false
+		_comms_list.add_child(label)
+		_comms_labels.append(label)
 	_resume.text = TEXT_RESUME
 	_restart.text = TEXT_RESTART
 	_quit.text = TEXT_QUIT
@@ -80,6 +128,13 @@ func _ready() -> void:
 	_resume.pressed.connect(_on_resume_pressed)
 	_restart.pressed.connect(_on_restart_pressed)
 	_quit.pressed.connect(_on_quit_pressed)
+	_refresh_comms()
+	Events.comms_line_shown.connect(_on_events_comms_line_shown)
+
+
+func _exit_tree() -> void:
+	if Events.comms_line_shown.is_connected(_on_events_comms_line_shown):
+		Events.comms_line_shown.disconnect(_on_events_comms_line_shown)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -96,6 +151,20 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func is_shown() -> bool:
 	return _shown
+
+
+## The listed recent comms lines as shown ("NAME: text"), newest first.
+func recent_comms() -> Array[String]:
+	var out: Array[String] = []
+	for label: Label in _comms_labels:
+		if label.visible:
+			out.append(label.text)
+	return out
+
+
+## "NAME: text" for a recent comms line (the name uppercase).
+static func comms_line_text(display_name: String, text: String) -> String:
+	return "%s: %s" % [display_name.to_upper(), text]
 
 
 ## The panel rect: `panel_w` wide, padding + heading + heading gap + `count`
@@ -164,6 +233,43 @@ func _on_quit_pressed() -> void:
 	SceneRouter.goto_title()
 
 
+# --- Recent comms ------------------------------------------------------------------
+
+## Keeps the newest combat lines (at most recent_comms_max); story lines are ignored.
+func _on_events_comms_line_shown(speaker: StringName, text: String, mode: StringName) -> void:
+	if mode != COMBAT_MODE or recent_comms_max <= 0:
+		return
+	_recent.push_front([speaker, text])
+	if _recent.size() > recent_comms_max:
+		_recent.resize(recent_comms_max)
+	_refresh_comms()
+
+
+## Fills one label per recent line ("NAME: text" in the speaker's accent),
+## hides the rest, hides the block when there are none and re-lays it out.
+func _refresh_comms() -> void:
+	for i: int in _comms_labels.size():
+		var label: Label = _comms_labels[i]
+		if i >= _recent.size():
+			label.visible = false
+			continue
+		var speaker: StringName = _recent[i][0] as StringName
+		var raw: Variant = _speakers.get(String(speaker))
+		var display_name: String = str((raw as Dictionary).get("name", String(speaker))) if raw is Dictionary else String(speaker)
+		label.text = comms_line_text(display_name, _recent[i][1] as String)
+		label.add_theme_color_override(&"font_color", _accent(speaker))
+		label.visible = true
+	_comms.visible = not _recent.is_empty()
+	_layout_comms()
+
+
+## The speaker's accent (CommsPanel colours), the menu text colour without one.
+func _accent(speaker: StringName) -> Color:
+	if has_theme_color(speaker, COMMS_COLOR_THEME_TYPE):
+		return get_theme_color(speaker, COMMS_COLOR_THEME_TYPE)
+	return _text_color
+
+
 # --- Layout and theme ------------------------------------------------------------
 
 func _layout() -> void:
@@ -177,6 +283,19 @@ func _layout() -> void:
 	for i: int in buttons.size():
 		buttons[i].position = rects[i].position
 		buttons[i].size = rects[i].size
+	_layout_comms()
+
+
+## The recent comms block: comms_w wide, centred, comms_gap_px below the panel,
+## as tall as its content.
+func _layout_comms() -> void:
+	_comms.custom_minimum_size = Vector2(comms_w, 0.0)
+	_comms.position = Vector2((Playfield.SIZE.x - comms_w) / 2.0, _panel.position.y + _panel.size.y + comms_gap_px)
+	_comms.size = Vector2(comms_w, 0.0)
+	for side: String in ["left", "top", "right", "bottom"]:
+		_comms_margin.add_theme_constant_override("margin_" + side, int(comms_padding_px))
+	_comms_list.add_theme_constant_override(&"separation", int(comms_line_gap_px))
+	_comms.size = Vector2(comms_w, 0.0)
 
 
 ## Copies the PauseMenu theme items onto the children (their own theme types
@@ -184,7 +303,14 @@ func _layout() -> void:
 func _apply_theme() -> void:
 	_dim.color = get_theme_color(COLOR_DIM, THEME_TYPE)
 	_panel.add_theme_stylebox_override(&"panel", get_theme_stylebox(STYLE_PANEL, THEME_TYPE))
+	_comms.add_theme_stylebox_override(&"panel", get_theme_stylebox(STYLE_PANEL, THEME_TYPE))
 	var text_color: Color = get_theme_color(COLOR_TEXT, THEME_TYPE)
+	_text_color = text_color
+	var comms_px: int = get_theme_font_size(FONT_SIZE_COMMS, THEME_TYPE)
+	_comms_heading.add_theme_color_override(&"font_color", get_theme_color(COLOR_MUTED, COMMS_COLOR_THEME_TYPE))
+	for label: Label in [_comms_heading] + _comms_labels:
+		if comms_px > 0:
+			label.add_theme_font_size_override(&"font_size", comms_px)
 	_heading.add_theme_color_override(&"font_color", text_color)
 	var heading_font_px: int = get_theme_font_size(FONT_SIZE_HEADING, THEME_TYPE)
 	if heading_font_px > 0:

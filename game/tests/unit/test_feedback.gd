@@ -592,3 +592,171 @@ func test_malformed_chain_offsets_are_skipped() -> void:
 	assert_eq(_explosions().size(), 1, "only the valid offset plays")
 	assert_eq(_explosions()[0].global_position, CHAIN_POS)
 	assert_eq(Feedback.chain_pending(), 0, "nothing queued")
+
+
+# --- Slow motion and the fair resume (Epic 7 playtest C) ---------------------------
+
+## A stand-in Player: the resume hook and the slow-motion clock only look for
+## a node in Groups.PLAYER.
+func _add_player() -> Node2D:
+	var player: Node2D = Node2D.new()
+	player.add_to_group(Groups.PLAYER)
+	add_child_autofree(player)
+	return player
+
+
+func test_resume_slowmo_tuning() -> void:
+	assert_almost_eq(Config.num("feedback.resume_slowmo.scale"), 0.25, 0.0001)
+	assert_almost_eq(Config.num("feedback.resume_slowmo.hold_s"), 0.15, 0.0001)
+	assert_almost_eq(Config.num("feedback.resume_slowmo.ramp_s"), 0.9, 0.0001)
+
+
+func test_slow_motion_is_idle_at_start() -> void:
+	assert_false(Feedback.is_slow_motion())
+	assert_eq(Feedback.slow_motion_scale(), 1.0, "1.0 when idle")
+	Feedback.step_slow_motion(1.0)
+	assert_eq(Engine.time_scale, 1.0, "a step while idle does nothing")
+
+
+func test_slow_motion_holds_then_ramps_back_to_one() -> void:
+	Feedback.slow_motion(0.25, 0.15, 0.9)
+	assert_true(Feedback.is_slow_motion())
+	assert_eq(Engine.time_scale, 0.25, "slowed at once")
+	assert_eq(Feedback.slow_motion_scale(), 0.25)
+	Feedback.step_slow_motion(0.1)
+	assert_eq(Engine.time_scale, 0.25, "still held at 0.1 s")
+	Feedback.step_slow_motion(0.05)
+	assert_almost_eq(Engine.time_scale, 0.25, 0.0001, "the hold ends at 0.15 s")
+	Feedback.step_slow_motion(0.45)
+	assert_almost_eq(Engine.time_scale, 0.625, 0.0001, "half way up the 0.9 s ramp")
+	assert_almost_eq(Feedback.slow_motion_scale(), 0.625, 0.0001)
+	Feedback.step_slow_motion(0.44)
+	assert_lt(Engine.time_scale, 1.0, "not quite back")
+	assert_true(Feedback.is_slow_motion())
+	Feedback.step_slow_motion(0.02)
+	assert_eq(Engine.time_scale, 1.0, "back to normal at hold + ramp")
+	assert_false(Feedback.is_slow_motion(), "done")
+	assert_eq(Feedback.slow_motion_scale(), 1.0)
+
+
+func test_a_step_past_the_hold_carries_into_the_ramp() -> void:
+	Feedback.slow_motion(0.2, 0.5, 1.0)
+	Feedback.step_slow_motion(1.0)
+	assert_almost_eq(Engine.time_scale, 0.6, 0.0001, "0.5 s of hold, then 0.5 s into the 1 s ramp")
+
+
+func test_slow_motion_without_hold_or_ramp_does_nothing() -> void:
+	Feedback.slow_motion(0.25, 0.0, 0.0)
+	assert_false(Feedback.is_slow_motion())
+	assert_eq(Engine.time_scale, 1.0)
+
+
+func test_the_slow_motion_clock_is_frozen_while_paused() -> void:
+	_add_player()
+	Feedback.slow_motion(0.25, 0.15, 0.9)
+	PauseArbiter.push(&"menu")
+	# Pretend 10 s of real time passed while paused: _process must not count it.
+	Feedback._slow_last_usec = Time.get_ticks_usec() - 10000000
+	Feedback._process(0.0)
+	assert_true(Feedback.is_slow_motion(), "still running")
+	assert_eq(Feedback.slow_motion_scale(), 0.25, "the paused time didn't count")
+	PauseArbiter.clear()
+	Feedback._process(0.0)
+	assert_true(Feedback.is_slow_motion(), "only the microseconds since the last frame count")
+	assert_eq(Feedback.slow_motion_scale(), 0.25)
+
+
+func test_slow_motion_ends_when_the_player_leaves_the_tree() -> void:
+	var player: Node2D = _add_player()
+	Feedback.slow_motion(0.25, 0.15, 0.9)
+	Feedback._process(0.0)
+	assert_true(Feedback.is_slow_motion(), "a Player is in the tree")
+	remove_child(player)
+	player.free()
+	Feedback._process(0.0)
+	assert_false(Feedback.is_slow_motion(), "the level ended: no slow motion left behind")
+	assert_eq(Engine.time_scale, 1.0)
+
+
+func test_hit_stop_composes_with_slow_motion() -> void:
+	Feedback.slow_motion(0.5, 1.0, 1.0)
+	Feedback.hit_stop(5000.0)
+	assert_eq(Engine.time_scale, 0.0, "the hit-stop freezes time")
+	Feedback.step_slow_motion(1.5)
+	assert_eq(Engine.time_scale, 0.0, "the ramp doesn't lift the stop")
+	assert_almost_eq(Feedback.slow_motion_scale(), 0.75, 0.0001, "the ramp moved on in real time")
+	Feedback._end_hit_stop(Feedback._hit_stop_serial)
+	assert_almost_eq(Engine.time_scale, 0.75, 0.0001, "back to the ramp value, not 1.0")
+	assert_false(Feedback.is_hit_stopped())
+
+
+func test_slow_motion_started_during_a_hit_stop_waits_for_it() -> void:
+	Feedback.hit_stop(5000.0)
+	Feedback.slow_motion(0.25, 0.15, 0.9)
+	assert_eq(Engine.time_scale, 0.0, "still stopped")
+	Feedback._end_hit_stop(Feedback._hit_stop_serial)
+	assert_eq(Engine.time_scale, 0.25, "then slow")
+
+
+func test_a_hit_stop_after_the_ramp_returns_to_one() -> void:
+	Feedback.slow_motion(0.5, 0.1, 0.1)
+	Feedback.hit_stop(5000.0)
+	Feedback.step_slow_motion(1.0)
+	assert_false(Feedback.is_slow_motion())
+	assert_eq(Engine.time_scale, 0.0, "the stop still holds")
+	Feedback._end_hit_stop(Feedback._hit_stop_serial)
+	assert_eq(Engine.time_scale, 1.0)
+
+
+func test_reset_cancels_slow_motion() -> void:
+	Feedback.slow_motion(0.25, 0.15, 0.9)
+	Feedback.reset()
+	assert_false(Feedback.is_slow_motion())
+	assert_eq(Feedback.slow_motion_scale(), 1.0)
+	assert_eq(Engine.time_scale, 1.0)
+	Feedback.step_slow_motion(0.1)
+	assert_eq(Engine.time_scale, 1.0, "nothing left to step")
+
+
+func test_resume_with_a_player_starts_the_resume_slow_motion() -> void:
+	_add_player()
+	PauseArbiter.push(&"story")
+	assert_false(Feedback.is_slow_motion(), "nothing while paused")
+	PauseArbiter.pop(&"story")
+	assert_true(Feedback.is_slow_motion(), "resumed in a level")
+	assert_almost_eq(Engine.time_scale, Config.num("feedback.resume_slowmo.scale"), 0.0001)
+	Feedback.step_slow_motion(Config.num("feedback.resume_slowmo.hold_s") + Config.num("feedback.resume_slowmo.ramp_s") + 0.01)
+	assert_eq(Engine.time_scale, 1.0, "back to normal within hold + ramp")
+
+
+func test_menu_and_final_choice_resumes_slow_down_too() -> void:
+	_add_player()
+	for reason: StringName in [&"menu", &"final_choice"]:
+		Feedback.reset()
+		PauseArbiter.push(reason)
+		PauseArbiter.pop(reason)
+		assert_true(Feedback.is_slow_motion(), "%s resume" % reason)
+
+
+func test_a_pop_that_leaves_a_pause_does_not_slow_down() -> void:
+	_add_player()
+	PauseArbiter.push(&"story")
+	PauseArbiter.push(&"menu")
+	PauseArbiter.pop(&"menu")
+	assert_false(Feedback.is_slow_motion(), "still paused by the story")
+
+
+func test_resume_without_a_player_does_not_slow_down() -> void:
+	PauseArbiter.push(&"menu")
+	PauseArbiter.pop(&"menu")
+	assert_false(Feedback.is_slow_motion(), "no Player: the title, a menu scene")
+	assert_eq(Engine.time_scale, 1.0)
+
+
+func test_a_scene_change_clear_does_not_slow_down() -> void:
+	_add_player()
+	PauseArbiter.push(&"story")
+	PauseArbiter.clear()
+	assert_false(Feedback.is_slow_motion(), "PauseArbiter.clear() is a scene change")
+	assert_eq(Engine.time_scale, 1.0)
+	assert_false(PauseArbiter.is_clearing(), "only true during clear()")

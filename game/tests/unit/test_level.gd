@@ -1016,7 +1016,8 @@ func test_combat_line_keeps_the_fight_running() -> void:
 	assert_eq(channel.current_combat(), &"dev_combat_check", "still on the line")
 	assert_lt(channel._combat_left_s, left_at_start, "real frames drive the line timer")
 	assert_gt(bolts[0], at_request, "laser bolts keep spawning")
-	assert_eq((box.get_node("Box") as Control).get_rect(), Rect2(32, 24, 560, 96), "top-left at the UX rect")
+	var box_rect: Rect2 = (box.get_node("Box") as Control).get_rect()
+	assert_true(box_rect.is_equal_approx(Rect2(510, 928, 900, 124)), "bottom centre at the UX rect (Epic 7 playtest C): %s" % box_rect)
 	assert_eq(finished, [] as Array[StringName], "not finished before the line time")
 	channel.step_combat(channel._combat_left_s + 0.01)
 	assert_eq(finished, [&"dev_combat_check"] as Array[StringName], "finished once after the line time")
@@ -1149,7 +1150,7 @@ func test_dev_wave_2_cut_off_by_real_kills() -> void:
 	await get_tree().process_frame
 	assert_true(finished.has(&"dev_combat_check"), "dev_combat_check dropped with finished")
 	assert_true(box.visible, "still shown before +cutoff_hide_s")
-	assert_eq(box.modulate.a, 1.0, "no fade while holding")
+	assert_true(box.is_open(), "no fade while holding")
 	assert_almost_eq(channel._combat_left_s, Config.num("comms.cutoff_hide_s"), 0.1, "holds cutoff_hide_s")
 	channel.step_combat(channel._combat_left_s + 0.001)
 	assert_false(box.visible, "hidden cutoff_hide_s after the cut-off, no fade")

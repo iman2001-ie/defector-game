@@ -7,7 +7,9 @@ extends Node
 ##
 ## resumed fires on every paused -> unpaused transition (the last pop, or clear()
 ## while paused), after the mouse mode is written. The Player answers it by warping
-## the cursor onto the ship, so the ship never jumps after a pause.
+## the cursor onto the ship, so the ship never jumps after a pause. Feedback
+## answers it with the fair-resume slow motion, except while is_clearing() (a
+## resume caused by clear(), i.e. a scene change).
 
 ## Emitted once per paused -> unpaused transition, after mouse_mode is written.
 signal resumed
@@ -16,6 +18,8 @@ var _reasons: Dictionary = {}  # StringName -> true
 var _gameplay_mode: Input.MouseMode = Input.MOUSE_MODE_VISIBLE
 ## The paused state _apply() last wrote, to detect the resume transition.
 var _was_paused: bool = false
+## True only while clear() runs (and emits `resumed`).
+var _clearing: bool = false
 
 
 func _ready() -> void:
@@ -55,7 +59,15 @@ func reasons() -> Array[StringName]:
 ## scene restart. Keeps the gameplay mouse mode.
 func clear() -> void:
 	_reasons.clear()
+	_clearing = true
 	_apply()
+	_clearing = false
+
+
+## True while clear() is applying (so a `resumed` listener can tell a scene
+## change's clear from a pop).
+func is_clearing() -> bool:
+	return _clearing
 
 
 ## Scenes declare their gameplay mode: gameplay scenes CONFINED_HIDDEN, menus VISIBLE.

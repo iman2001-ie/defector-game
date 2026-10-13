@@ -68,3 +68,25 @@ offset_right = 1160.0
 offset_bottom = 716.0
 focus_mode = 0
 text = "QUIT TO TITLE"
+
+[node name="RecentComms" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 0
+offset_left = 360.0
+offset_top = 788.0
+offset_right = 1560.0
+offset_bottom = 788.0
+mouse_filter = 2
+
+[node name="Margin" type="MarginContainer" parent="RecentComms"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="List" type="VBoxContainer" parent="RecentComms/Margin"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Heading" type="Label" parent="RecentComms/Margin/List"]
+layout_mode = 2
+mouse_filter = 2
+text = "RECENT COMMS"

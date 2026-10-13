@@ -3,7 +3,8 @@ extends GutTest
 ## with level_id "3": Ryn flying and no convoy, the throne world in the
 ## Background, Ryn's paused briefing holding wave 1, the three defence waves
 ## (the W2 Hunter Wasps skipped and not counted while `hunter_wasp` is off, as
-## shipped), Isolde's taunt at 0.25 of wave 3 with no pause, then the Flagship
+## shipped), Isolde's taunt in the calm after wave 2 clears (Epic 7 playtest C)
+## with no pause, then the Flagship
 ## boss wave with the boss music and its cover asteroids, driven through the
 ## turrets, the 50 HP clamp, the Final Choice (OFFER SURRENDER), the response
 ## and the core's death to exactly one boss_defeated; then (Story 7.7) Isolde's
@@ -330,16 +331,6 @@ func _info(id: StringName) -> Dictionary:
 	return {}
 
 
-## True when the request crossed `at`: resolved / total >= at, and one resolve
-## fewer was still below it (the trigger fired on the crossing resolve).
-func _crossed(info: Dictionary, at: float) -> bool:
-	var total: float = float(info.get("total", 0))
-	if total <= 0.0:
-		return false
-	var resolved: float = float(info.get("resolved", 0))
-	return resolved / total >= at and (resolved - 1.0) / total < at
-
-
 ## [save_version, highest_unlocked_level] read straight from the test save
 ## ([] when there is none); the energy is never saved (playtest 2026-10-13), so
 ## a save holding any other key reads as ["unexpected keys", <keys>].
@@ -424,11 +415,21 @@ func _check_wave_2(hunter_on: bool) -> void:
 	assert_eq(_rocks_in(2), {&"medium": 3}, "wave 2: 3 medium asteroids")
 
 
-## Wave 3: the counted mix and, when `taunt_on`, Isolde's taunt requested on
-## the resolve that crosses 0.25 with no pause; then the boss wave starts with
-## the boss music, total 1, one Flagship and its 2 medium cover asteroids.
+## Wave 3: when `taunt_on`, Isolde's taunt was requested on wave 2's clear
+## (the calm gap before wave 3) with no pause; the counted mix; then the boss
+## wave starts with the boss music, total 1, one Flagship and its 2 medium
+## cover asteroids.
 func _play_wave_3_into_the_boss(taunt_on: bool) -> void:
 	var director: WaveDirector = _director()
+	var taunt: Dictionary = _info(TAUNT)
+	if taunt_on:
+		assert_false(taunt.is_empty(), "Isolde's taunt requested")
+		assert_eq(taunt.get("wave"), 2, "on wave 2's clear")
+		assert_gt(int(taunt.get("total", 0)), 0, "wave 2 counted enemies")
+		assert_eq(taunt.get("resolved"), taunt.get("total"), "with wave 2 fully resolved (the calm gap)")
+		assert_true(_channel().current_combat() == TAUNT or _channel().combat_queued().has(TAUNT), "the taunt reached the channel")
+	else:
+		assert_true(taunt.is_empty(), "the taunt was never requested")
 	assert_eq(director.wave_number(), 3, "on wave 3")
 	assert_eq(director.total_count(), 24, "wave 3: 24 counted")
 	assert_eq(_tally(3), {&"bastion": 1, &"lancer": 3, &"wasp": 20}, "wave 3: 1 Bastion, 3 Lancers, 20 Wasps")
@@ -436,13 +437,8 @@ func _play_wave_3_into_the_boss(taunt_on: bool) -> void:
 	await _kill_through_wave(3)
 	assert_false(get_tree().paused, "wave 3 ends unpaused")
 	assert_false(PauseArbiter.has_reason(&"story"), "no story pause in wave 3")
-	var taunt: Dictionary = _info(TAUNT)
-	if taunt_on:
-		assert_false(taunt.is_empty(), "Isolde's taunt requested")
-		assert_eq(taunt.get("wave"), 3, "in wave 3")
-		assert_true(_crossed(taunt, 0.25), "at 0.25 of wave 3 (%s/%s)" % [taunt.get("resolved"), taunt.get("total")])
-	else:
-		assert_true(taunt.is_empty(), "the taunt was never requested")
+	if not taunt_on:
+		assert_false(_requested.has(TAUNT), "the taunt was never requested")
 	# The boss wave.
 	assert_eq(director.wave_number(), 4, "on the boss wave")
 	assert_eq(director.total_count(), 1, "the boss wave counts 1")
@@ -656,8 +652,8 @@ func test_hunter_wasp_on_counts_the_hunters_and_clears_wave_2() -> void:
 
 # --- Acceptance 2: isolde_interruptions off ---------------------------------------
 
-## isolde_interruptions off: wave 3 passes 0.25 and clears into the boss wave
-## without the taunt ever being requested; the boss music starts.
+## isolde_interruptions off: waves 2 and 3 clear into the boss wave without
+## the taunt ever being requested; the boss music starts.
 func test_isolde_interruptions_off_never_requests_the_taunt() -> void:
 	_load_flags({"isolde_interruptions": false})
 	_make_level()

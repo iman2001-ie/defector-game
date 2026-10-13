@@ -137,9 +137,10 @@ func _wave_type_totals(wave: Dictionary) -> Dictionary:
 ## strafe zone ends at y 378, so they take row 0), the exact reinforcements
 ## group and every wave's exact trigger list: wave 1 also starts the music
 ## (the level-root `music` key is not read) before its hint; the Tarek warning
-## has no flag; the Isolde interruption and the surrender are flag-gated and the
-## surrender is paired with a !surrender_prompts trigger so the 4 Mauls arrive
-## either way.
+## plays in the calm after wave 2 clears (wave_clear, no flag) and the Isolde
+## interruption after wave 3 clears (wave_clear, flag-gated; Epic 7 playtest C);
+## the surrender is flag-gated and paired with a !surrender_prompts trigger so
+## the 4 Mauls arrive either way.
 func test_level_1_cargo_ambush_shape() -> void:
 	var data: Dictionary = Config.level("1")
 	assert_false(data.is_empty(), "level_1.json loads")
@@ -189,11 +190,11 @@ func test_level_1_cargo_ambush_shape() -> void:
 	assert_eq((waves[4] as Dictionary).get("groups"), {"reinforcements": [{"type": "maul", "count": 4.0, "formation": "grid_4x1", "entry": "sides"}]}, "wave 5: 4 Maul reinforcements")
 	var expected_triggers: Array = [
 		[{"when": "wave_start", "actions": [{"music": "combat"}, {"hint": "move_fire"}]}],
-		[{"when": "wave_start", "actions": [{"hint": "missile"}]}],
 		[
-			{"when": "wave_start", "actions": [{"comms": "l1_w3_tarek_warning"}]},
-			{"when": "progress", "at": 0.25, "flag": "isolde_interruptions", "actions": [{"comms": "l1_w3_isolde_interrupt"}]},
+			{"when": "wave_start", "actions": [{"hint": "missile"}]},
+			{"when": "wave_clear", "actions": [{"comms": "l1_w3_tarek_warning"}]},
 		],
+		[{"when": "wave_clear", "flag": "isolde_interruptions", "actions": [{"comms": "l1_w3_isolde_interrupt"}]}],
 		[],
 		[
 			{"when": "progress", "at": 0.30, "flag": "surrender_prompts", "actions": [{"comms": "l1_w5_surrender"}, {"spawn_group": "reinforcements"}]},
@@ -210,8 +211,9 @@ func test_level_1_cargo_ambush_shape() -> void:
 ## and formations (a Needle entry first, decision #53 / DW-68; wave 5 is
 ## Needles, Bastions, Lancers so the rows sit at y 160 / 250 / 340), the exact
 ## asteroids, no groups and every wave's exact trigger list: wave 1 also starts
-## the music (the level-root `music` key is not read); the wave 3 Isolde line is
-## gated by isolde_interruptions at 0.25; the wave 5 fall is one tarek_fall
+## the music (the level-root `music` key is not read); the Isolde line plays in
+## the calm after wave 2 clears (wave_clear, gated by isolde_interruptions;
+## Epic 7 playtest C); the wave 5 fall is one tarek_fall
 ## trigger at 0.5 (story event, then the cut-off line) with no !tarek_fall pair.
 ## The formation rows are 90 px apart (decision #53).
 func test_level_2_blockade_shape() -> void:
@@ -277,8 +279,8 @@ func test_level_2_blockade_shape() -> void:
 	]
 	var expected_triggers: Array = [
 		[{"when": "wave_start", "actions": [{"music": "combat"}]}],
+		[{"when": "wave_clear", "flag": "isolde_interruptions", "actions": [{"comms": "l2_w3_isolde_interrupt"}]}],
 		[],
-		[{"when": "progress", "at": 0.25, "flag": "isolde_interruptions", "actions": [{"comms": "l2_w3_isolde_interrupt"}]}],
 		[],
 		[{"when": "progress", "at": 0.5, "flag": "tarek_fall", "actions": [{"story_event": "tarek_fall"}, {"comms": "l2_w5_tarek_cutoff"}]}],
 	]
@@ -317,8 +319,8 @@ func _wave_counted(wave: Dictionary, gated_on: bool) -> int:
 ## Wasps as grid_10x2, decision #53), the counted totals by type with the
 ## hunter_wasp flag off (as shipped) and on, the exact asteroids, no groups and
 ## every wave's exact trigger list: W1 starts the combat music (the level-root
-## `music` key is not read); the W3 taunt is gated by isolde_interruptions at
-## 0.25; the last wave is the Flagship with exactly the boss music trigger.
+## `music` key is not read); the taunt plays in the calm after W2 clears
+## (wave_clear, gated by isolde_interruptions; Epic 7 playtest C); the last wave is the Flagship with exactly the boss music trigger.
 func test_level_3_siege_shape() -> void:
 	var data: Dictionary = Config.level("3")
 	assert_false(data.is_empty(), "level_3.json loads")
@@ -372,8 +374,8 @@ func test_level_3_siege_shape() -> void:
 	]
 	var expected_triggers: Array = [
 		[{"when": "wave_start", "actions": [{"music": "combat"}]}],
+		[{"when": "wave_clear", "flag": "isolde_interruptions", "actions": [{"comms": "l3_w3_isolde_taunt"}]}],
 		[],
-		[{"when": "progress", "at": 0.25, "flag": "isolde_interruptions", "actions": [{"comms": "l3_w3_isolde_taunt"}]}],
 	]
 	for w: int in 3:
 		var wave: Dictionary = waves[w] as Dictionary
@@ -1131,14 +1133,28 @@ func test_music_fade_out_tuning() -> void:
 
 
 func test_combat_comms_tuning_is_positive() -> void:
-	for key: String in ["comms.combat_line_max_chars", "comms.box_slide_in_s", "comms.box_fade_out_s",
+	for key: String in ["comms.combat_line_max_chars", "comms.box_rise_in_s", "comms.box_fade_out_s",
 			"comms.combat_line_min_s", "comms.combat_line_extra_s", "comms.combat_queue_max",
 			"comms.cutoff_hide_s", "comms.cutoff_chars_per_s", "comms.cutoff_shake_px", "comms.cutoff_shake_s"]:
 		assert_gt(Config.num(key), 0.0, key)
-	for key: String in ["x", "y"]:
-		assert_gte(Config.num("ui.comms_box.%s" % key), 0.0, "ui.comms_box.%s" % key)
-	for key: String in ["w", "h", "edge_px", "padding_px", "portrait_px", "portrait_gap_px", "name_h_px", "text_line_h_px", "text_lines"]:
+	for key: String in ["w", "h", "bottom_margin_px", "rise_px", "edge_px", "padding_px", "portrait_px", "portrait_gap_px",
+			"name_h_px", "text_line_h_px", "text_lines", "see_through_alpha", "see_through_margin_px", "see_through_fade_per_s"]:
 		assert_gt(Config.num("ui.comms_box.%s" % key), 0.0, "ui.comms_box.%s" % key)
+	assert_lt(Config.num("ui.comms_box.see_through_alpha"), 1.0, "see-through is more transparent than opaque")
+	assert_lte(Config.num("ui.comms_box.w"), Playfield.SIZE.x, "the box fits the screen width")
+	assert_lte(Config.num("ui.comms_box.h") + Config.num("ui.comms_box.bottom_margin_px"), Playfield.SIZE.y, "and its height")
+
+
+## Epic 7 playtest C: the fair-resume slow motion and the pause menu's recent comms.
+func test_resume_slowmo_and_recent_comms_tuning() -> void:
+	var scale: float = Config.num("feedback.resume_slowmo.scale")
+	assert_gt(scale, 0.0, "feedback.resume_slowmo.scale")
+	assert_lt(scale, 1.0, "a slow-down")
+	assert_gte(Config.num("feedback.resume_slowmo.hold_s"), 0.0, "feedback.resume_slowmo.hold_s")
+	assert_gt(Config.num("feedback.resume_slowmo.ramp_s"), 0.0, "feedback.resume_slowmo.ramp_s")
+	assert_gt(Config.int_("ui.pause_menu.recent_comms"), 0, "ui.pause_menu.recent_comms")
+	for key: String in ["comms_gap_px", "comms_w", "comms_padding_px", "comms_line_gap_px"]:
+		assert_gte(Config.num("ui.pause_menu.%s" % key), 0.0, "ui.pause_menu.%s" % key)
 
 
 # --- Isolde beats (Story 5.6) -----------------------------------------------------

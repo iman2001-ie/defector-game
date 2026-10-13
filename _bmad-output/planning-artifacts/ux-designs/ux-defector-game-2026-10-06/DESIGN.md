@@ -31,13 +31,13 @@ colors:
   dim: 'rgba(0,0,0,0.6)'
 typography:
   font: 'Kenney Future (CC0, from the Kenney packs); Kenney Future Narrow for long comms text if needed'
-  scale: 'at 1080p: hud-label 20px, body 28px, comms 28px (story panel) / 22px (interruption box), name 30px (story panel) / 24px (interruption box), heading 48px, title 120px'
+  scale: 'at 1080p: hud-label 20px, body 28px, comms 28px (story panel) / 28px (interruption box), name 30px (story panel) / 30px (interruption box), heading 48px, title 120px'
   weights: 'single weight (the font has one); hierarchy via size, colour and glow'
   case: 'UPPERCASE for labels, buttons and names; sentence case for dialogue'
 rounded: '4px panels, 2px bars; buttons 4px'
 spacing: '8px grid; 32px screen-edge safe margin at 1920x1080'
 components:
-  interruptBox: 'surfaceAlt fill, 1px border, speaker-accent left edge 4px, 72px portrait, 24px name + up to 2 lines of 22px text, 25px line height, autowrap + clip'
+  interruptBox: 'bottom centre 900x124, surfaceAlt fill at 70%, 1px border, speaker-accent left edge 4px, 88px portrait, 30px name + up to 2 lines of 28px text, 33px line height, autowrap + clip, see-through (30%) over the ship or an enemy bullet'
   storyPanel: 'surfaceAlt fill, 1px border, 200px portrait, name in speaker accent, typewriter text, "click to continue" cue in muted'
   waveBar: 'segmented, segment fill coalition, empty segments heartEmpty with border, 4px gaps'
   bossBar: 'single bar, enemy fill, 2 vertical markers in text colour (turret/core boundary, 50 core HP)'
@@ -79,7 +79,7 @@ Contrast was checked against the panel colour composited on the background (`#09
 ## Typography
 
 - **Font:** Kenney Future (CC0, ships with the Kenney packs). Credit it in `CREDITS.md`.
-- **Sizes at 1080p:** HUD labels 20px · body/hints 28px · comms text 28px (interruption box 22px) · speaker name 30px (interruption box 24px) · menu headings 48px · title logo 120px. Nothing below 20px. [ASSUMPTION: sizes; tune once the font is in-engine]
+- **Sizes at 1080p:** HUD labels 20px · body/hints 28px · comms text 28px (interruption box 28px) · speaker name 30px (interruption box 30px) · menu headings 48px · title logo 120px. Nothing below 20px. [ASSUMPTION: sizes; tune once the font is in-engine]
 - Labels, buttons and speaker names are UPPERCASE. Dialogue uses sentence case.
 
 ## Layout & Spacing
@@ -89,12 +89,12 @@ The fixed 1920×1080 canvas is letterboxed to 16:9. There's a 32px safe margin o
 | Zone | Rect (x, y, w, h) | Contents |
 |---|---|---|
 | **Top HUD band** | 0, 0, 1920, 120 | All persistent HUD. Nothing taller than this band |
-| Interruption box | 32, 24, 560, 96 | Top-left; mid-fight one-liners only. Name 24px, text 22px; text auto-wraps to at most 2 lines and clips beyond the box, **≤ 50 characters per line of dialogue** (enforced by the data test). Ends at x 592, leaving an 88px gap before the wave bar |
-| Wave / boss bar | centred, y 40, w 560 (x 680–1240; boss also 560, h 20) | Top-centre. Both bars keep ≥ 88px clear of the interruption box |
+| Interruption box | 510, 928, 900, 124 (centred, bottom 28px above the screen's bottom) | Bottom centre; mid-fight one-liners only. Name 30px, text 28px at a 33px line height; text auto-wraps to at most 2 lines and clips beyond the box, **≤ 50 characters per line of dialogue** (enforced by the data test). Panel fill `surfaceAlt` at 70% (more see-through than the story panel); eases to 30% opacity while the ship or an enemy bullet is within 24px of it. The one exception to the player-zone rule below (UX decision #27) |
+| Wave / boss bar | centred, y 40, w 560 (x 680–1240; boss also 560, h 20) | Top-centre |
 | Player meters | right-aligned at x 1888, y 24 → 112 | Hearts (5 × 40px, 8px gap), energy bar 320×16 at y 76, convoy bar 320×12 at y 104 (Level 1 only) |
 | Enemy zone | y 120 → 432 | Nothing persistent drawn here |
 | Hint line | centred at y 560 | Control hints, between the enemy and player zones |
-| Player zone | y 432 → 1080 | **No persistent HUD.** The only exceptions are the temporary hint pill and the paused overlays (story panel, Final Choice, retry, menus), which appear over a dim. Allies y 620–760, convoy y 760–920 |
+| Player zone | y 432 → 1080 | **No persistent HUD.** The only exceptions are the temporary hint pill, the paused overlays (story panel, Final Choice, retry, menus), which appear over a dim, and the **interruption box** (bottom centre, y 928–1052, below the convoy): temporary, click-through and see-through over the ship or an enemy bullet (UX decision #27). Allies y 620–760, convoy y 760–920 |
 | Story panel (paused) | 410, 300, 1100, 300 | Over `dim`. 32px padding, portrait on the left, text block 812px wide, cue 20px bottom-right |
 | Final Choice buttons | centred pair, 480 × 120 each, 48px gap, top at y 680 | 80px below the story panel |
 | Retry prompt | headline top at y 440 (48px, `danger`); buttons 320 × 80, 48px gap, top at y 560 | No panel, just dim + text + buttons |
@@ -127,7 +127,8 @@ Panels have 4px corners, bars 2px, buttons 4px. Hearts are icons, not shapes. Th
 
 ## Components
 
-- **Interruption box:** panel with a 4px left edge in the speaker's accent, a 72px portrait, the uppercase 24px name, and at most 2 lines of 22px text at 25px line height, starting 6px below the name's baseline (one short line of dialogue, ≤ 50 characters). Godot `Label` with autowrap on and clip on, so text can never overflow into the wave bar.
+- **Interruption box:** 900×124 panel at the bottom centre with a 4px left edge in the speaker's accent, an 88px portrait, the uppercase 30px name, and at most 2 lines of 28px text at 33px line height (text block y 50–116 in the box), starting 9px below the name's baseline (one short line of dialogue, ≤ 50 characters). Godot `Label` with autowrap on and clip on, so text never overflows the box. Its fill is `surfaceAlt` at 70%. It rises 24px into place while fading in (0.2 s). While the ship or an enemy bullet is under it (its rect grown by 24px; player shots don't count), the whole panel eases to 30% opacity and back once clear (UX decision #27).
+- **Pause menu recent comms:** a panel (the menu panel style) 1200px wide, centred, 32px below the menu panel: `RECENT COMMS` in `muted`, then the last 3 interruption lines newest first as `NAME: text` in the speaker's accent, 24px, one row each. Hidden while empty (UX decision #27).
 - **Story panel:** large panel with a 200px portrait on the left, the name in the speaker accent, typewriter text, and a `click to continue ▸` cue bottom-right in `muted`. It has no buttons, so it can't be mistaken for a menu.
 - **Wave bar:** N segments with 4px gaps. Full segments are `coalition`, the current one fills partially, and empty ones are a `heartEmpty` track with a `border` outline.
 - **Boss bar:** same slot, `enemy` fill showing combined remaining HP (300 = 4 turrets × 25 + core 200), draining right to left. Two `text`-coloured markers measured from the left: at 66.7% (turrets gone) and at 16.7% (core at 50 = Final Choice). Labelled `FLAGSHIP` in `muted`, centred below the bar at y 68.
@@ -143,7 +144,7 @@ Key-screen mock: [HUD at a glance](mockups/key-hud.html). Its convoy geometry pr
 
 ## Do's and Don'ts
 
-- **Do** keep the player zone (below y 432) free of HUD.
+- **Do** keep the player zone (below y 432) free of HUD (the see-through interruption box is the one exception, UX decision #27).
 - **Do** use `enemy` for every hostile projectile, with no exceptions.
 - **Do** dim the playfield whenever the game is paused, for any reason.
 - **Don't** put buttons on the story panel.

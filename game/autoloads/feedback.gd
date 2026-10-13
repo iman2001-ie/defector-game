@@ -3,8 +3,21 @@ extends Node
 ## camera shake, hit-stop and SFX with the impact tier. Tier rows come from
 ## tuning.feedback.tiers (read once in load_tiers()).
 ##
-## The only owner of Engine.time_scale (hit-stop). Scene nodes register
-## themselves: the level's ShakeCamera and Spawner.
+## The only owner of Engine.time_scale (hit-stop and slow motion). Scene nodes
+## register themselves: the level's ShakeCamera and Spawner.
+##
+## Slow motion (Epic 7 playtest C): slow_motion(scale, hold_s, ramp_s) holds
+## time_scale at `scale` for hold_s, then ramps it linearly back to 1.0 over
+## ramp_s. Its clock is real time (Time.get_ticks_usec deltas in _process, since
+## the frame delta is itself scaled) and doesn't advance while the tree is
+## paused; step_slow_motion(real_delta) is the same step for tests. A hit-stop
+## composes with it: time_scale stays 0 during the stop and returns to
+## slow_motion_scale() (not 1.0) when the stop ends. reset() cancels it, and so
+## does the Player leaving the tree (the level ended). The fair resume: every
+## PauseArbiter.resumed while a Player (Groups.PLAYER) is in the tree, except
+## one caused by PauseArbiter.clear() (a scene change), starts
+## slow_motion(feedback.resume_slowmo.scale / hold_s / ramp_s), so a story
+## pause's Continue, the Final Choice and the Esc menu all resume gently.
 ##
 ## Boss death (Story 7.5): boss_death(pos) plays the Flagship's chain, one
 ## Boss-death explosion per feedback.boss_death_chain_offsets_px entry at
@@ -39,22 +52,53 @@ var _chain_positions: PackedVector2Array = PackedVector2Array()
 var _chain_times: PackedFloat32Array = PackedFloat32Array()
 var _chain_next: int = 0
 var _chain_t: float = 0.0
+## Slow motion: the current target scale (1.0 when idle), the scale it started
+## at, the real seconds of hold left, the ramp length and the real seconds into
+## the ramp. _slow_last_usec is the real clock at the last _process.
+var _slow_active: bool = false
+var _slow_scale: float = 1.0
+var _slow_base: float = 1.0
+var _slow_hold_left: float = 0.0
+var _slow_ramp_s: float = 0.0
+var _slow_ramp_t: float = 0.0
+var _slow_last_usec: int = 0
+## feedback.resume_slowmo.scale / hold_s / ramp_s, cached in load_tiers().
+var _resume_scale: float = 1.0
+var _resume_hold_s: float = 0.0
+var _resume_ramp_s: float = 0.0
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	load_tiers()
+	# PauseArbiter is an earlier autoload, so it is ready here.
+	PauseArbiter.resumed.connect(_on_pause_arbiter_resumed)
 
 
 func _process(delta: float) -> void:
-	if _chain_next < _chain_positions.size() and not get_tree().paused:
+	var paused: bool = get_tree().paused
+	if _chain_next < _chain_positions.size() and not paused:
 		step_chain(delta)
+	if _slow_active:
+		var now: int = Time.get_ticks_usec()
+		var real_delta: float = (now - _slow_last_usec) / 1000000.0
+		_slow_last_usec = now
+		if paused:
+			# The slow-motion clock doesn't advance while the tree is paused.
+			return
+		if get_tree().get_first_node_in_group(Groups.PLAYER) == null:
+			_end_slow_motion()
+			return
+		step_slow_motion(real_delta)
 
 
 ## Reads every tier row from tuning (missing keys log through Config), and the
 ## boss-death chain's duration and offsets.
 func load_tiers() -> void:
 	_load_chain()
+	_resume_scale = Config.num("feedback.resume_slowmo.scale")
+	_resume_hold_s = Config.num("feedback.resume_slowmo.hold_s")
+	_resume_ramp_s = Config.num("feedback.resume_slowmo.ramp_s")
 	_tiers.clear()
 	for tier_name: String in ImpactTier.NAMES:
 		var key: String = "feedback.tiers.%s" % tier_name
@@ -151,6 +195,53 @@ func is_hit_stopped() -> bool:
 	return _hit_stop_end_usec != 0
 
 
+## Slows time to `scale` (clamped to 0-1) for `hold_s` real seconds, then ramps
+## it linearly back to 1.0 over `ramp_s` real seconds. A new call replaces a
+## slow motion in progress. Under a hit-stop time_scale stays 0 until the stop
+## ends. With hold_s and ramp_s both 0 or less it does nothing.
+func slow_motion(scale: float, hold_s: float, ramp_s: float) -> void:
+	if hold_s <= 0.0 and ramp_s <= 0.0:
+		return
+	_slow_active = true
+	_slow_base = clampf(scale, 0.0, 1.0)
+	_slow_scale = _slow_base
+	_slow_hold_left = maxf(hold_s, 0.0)
+	_slow_ramp_s = maxf(ramp_s, 0.0)
+	_slow_ramp_t = 0.0
+	_slow_last_usec = Time.get_ticks_usec()
+	_apply_time_scale()
+
+
+## The slow motion's current target scale; 1.0 when none is running.
+func slow_motion_scale() -> float:
+	return _slow_scale if _slow_active else 1.0
+
+
+func is_slow_motion() -> bool:
+	return _slow_active
+
+
+## Advances the slow motion by `real_delta` real seconds: the hold first, then
+## the ramp; at the end of the ramp the scale is 1.0 and it stops. _process
+## calls it with the real-time delta only while the tree isn't paused.
+func step_slow_motion(real_delta: float) -> void:
+	if not _slow_active:
+		return
+	var left: float = maxf(real_delta, 0.0)
+	if _slow_hold_left > 0.0:
+		var used: float = minf(left, _slow_hold_left)
+		_slow_hold_left -= used
+		left -= used
+		if _slow_hold_left > 0.0:
+			return
+	_slow_ramp_t += left
+	if _slow_ramp_t >= _slow_ramp_s:
+		_end_slow_motion()
+		return
+	_slow_scale = lerpf(_slow_base, 1.0, _slow_ramp_t / _slow_ramp_s)
+	_apply_time_scale()
+
+
 ## Spawns one explosion per tier off-screen (shader and particle warm-up) with
 ## no shake, hit-stop or sound, and without the screen-space white flash.
 func prewarm() -> void:
@@ -199,11 +290,13 @@ func chain_pending() -> int:
 	return maxi(_chain_positions.size() - _chain_next, 0)
 
 
-## Ends any hit-stop at once; pending timers become stale. Drops a pending
-## boss-death chain.
+## Ends any hit-stop at once; pending timers become stale. Cancels slow motion
+## and drops a pending boss-death chain.
 func reset() -> void:
 	_hit_stop_serial += 1
 	_hit_stop_end_usec = 0
+	_slow_active = false
+	_slow_scale = 1.0
 	Engine.time_scale = 1.0
 	_chain_next = _chain_positions.size()
 
@@ -258,4 +351,26 @@ func _end_hit_stop(serial: int) -> void:
 	if serial != _hit_stop_serial:
 		return
 	_hit_stop_end_usec = 0
-	Engine.time_scale = 1.0
+	Engine.time_scale = slow_motion_scale()
+
+
+## Writes the slow-motion scale unless a hit-stop holds time at 0.
+func _apply_time_scale() -> void:
+	if not is_hit_stopped():
+		Engine.time_scale = slow_motion_scale()
+
+
+func _end_slow_motion() -> void:
+	_slow_active = false
+	_slow_scale = 1.0
+	_apply_time_scale()
+
+
+## The fair resume: slow motion from feedback.resume_slowmo, only in a level
+## (a Player in the tree) and never for PauseArbiter.clear() (a scene change).
+func _on_pause_arbiter_resumed() -> void:
+	if PauseArbiter.is_clearing():
+		return
+	if get_tree().get_first_node_in_group(Groups.PLAYER) == null:
+		return
+	slow_motion(_resume_scale, _resume_hold_s, _resume_ramp_s)

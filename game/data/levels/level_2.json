@@ -27,7 +27,9 @@
 				{ "type": "wasp", "count": 8, "formation": "grid_4x2", "entry": "top" }
 			],
 			"asteroids": [],
-			"triggers": []
+			"triggers": [
+				{ "when": "wave_clear", "flag": "isolde_interruptions", "actions": [ { "comms": "l2_w3_isolde_interrupt" } ] }
+			]
 		},
 		{
 			"spawns": [
@@ -37,9 +39,7 @@
 			"asteroids": [
 				{ "size": "medium", "count": 2 }
 			],
-			"triggers": [
-				{ "when": "progress", "at": 0.25, "flag": "isolde_interruptions", "actions": [ { "comms": "l2_w3_isolde_interrupt" } ] }
-			]
+			"triggers": []
 		},
 		{
 			"spawns": [

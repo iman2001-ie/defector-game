@@ -34,6 +34,9 @@ extends Node
 ##   `comms_handover` when its speaker differs from the previous line's, else
 ##   `comms_click`. Completing a typing line and line 0 (it has `comms_open`)
 ##   play none.
+## - Line log (Epic 7 playtest C): every line shown on the panel or in the box
+##   emits Events.comms_line_shown(speaker, text, mode) (mode &"story" or
+##   &"combat"); a cut-off line carries its shown text (shown_text).
 ## - Combat cues (GDD decisions #41, #42): every combat line (a cut-off line
 ##   too) starts with a key-in cue, see combat_cue: `comms_open_nobeep` when the box
 ##   opens fresh, `comms_handover` / `comms_click` when it follows straight on
@@ -87,6 +90,9 @@ const CLICK_SFX: StringName = &"comms_click"
 ## comms_open without the talk-permit beep: the combat box keys in, it never "opens a conversation".
 const COMBAT_OPEN_SFX: StringName = &"comms_open_nobeep"
 const HANDOVER_SFX: StringName = &"comms_handover"
+## The `mode` of Events.comms_line_shown.
+const MODE_STORY: StringName = &"story"
+const MODE_COMBAT: StringName = &"combat"
 ## Slack for the combat line timer, so float steps that add up to the line
 ## time (4.9 + 0.1 s) end it.
 const COMBAT_EPSILON_S: float = 0.000001
@@ -309,7 +315,10 @@ func _show_line() -> void:
 	if panel == null or _index >= _lines.size():
 		return
 	var line: Dictionary = _lines[_index]
-	panel.show_line(StringName(str(line.get("speaker", ""))), str(line.get("text", "")))
+	var speaker: StringName = StringName(str(line.get("speaker", "")))
+	var text: String = str(line.get("text", ""))
+	panel.show_line(speaker, text)
+	Events.comms_line_shown.emit(speaker, text, MODE_STORY)
 
 
 func _emit_finished(sequence_id: StringName) -> void:
@@ -533,6 +542,13 @@ func _show_combat_line() -> void:
 		var cue: StringName = combat_cue(box.visible, box.current_speaker(), speaker)
 		Audio.play_sfx(cue, 0.0, _combat_open_db if cue == COMBAT_OPEN_SFX else _combat_line_cue_db)
 		box.show_line(speaker, text, _cut_at)
+	Events.comms_line_shown.emit(speaker, shown_text(text, _cut_at, _cutoff_suffix), MODE_COMBAT)
+
+
+## The text a line ends up showing: the whole text, or for a cut-off line
+## (cut_at >= 0) its first cut_at characters plus the cut-off suffix.
+static func shown_text(text: String, cut_at: int, suffix: String) -> String:
+	return text if cut_at < 0 else text.left(cut_at) + suffix
 
 
 ## The key-in cue for a combat line (GDD decisions #41, #42): `comms_open_nobeep` when

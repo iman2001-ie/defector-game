@@ -395,3 +395,95 @@ func test_dim_hidden_over_a_story_pause() -> void:
 	PauseArbiter.pop(&"story")
 	_esc(menu)
 	assert_true((menu.get_node("Dim") as Control).visible, "dim back once the story is over")
+
+
+# --- Recent comms (Epic 7 playtest C) -----------------------------------------------
+
+func _comms_block(menu: PauseMenu) -> PanelContainer:
+	return menu.get_node("RecentComms") as PanelContainer
+
+
+func _line(speaker: StringName, text: String, mode: StringName = &"combat") -> void:
+	Events.comms_line_shown.emit(speaker, text, mode)
+
+
+func test_recent_comms_tuning_and_theme() -> void:
+	assert_eq(Config.int_("ui.pause_menu.recent_comms"), 3)
+	var theme: Theme = load(THEME_PATH) as Theme
+	assert_gte(theme.get_font_size(&"comms", &"PauseMenu"), 22, "readable: at least 22 px")
+
+
+func test_recent_comms_hidden_when_empty() -> void:
+	var menu: PauseMenu = _make()
+	menu.open()
+	assert_false(_comms_block(menu).visible, "no combat lines yet: no block")
+	assert_eq(menu.recent_comms(), [] as Array[String])
+
+
+func test_recent_comms_lists_combat_lines_newest_first() -> void:
+	var menu: PauseMenu = _make()
+	_line(&"tarek", "Ambush on the left.")
+	_line(&"isolde", "Still flying, General?")
+	menu.open()
+	assert_true(_comms_block(menu).visible, "block shown")
+	assert_eq((menu.get_node("RecentComms/Margin/List/Heading") as Label).text, "RECENT COMMS")
+	assert_eq(menu.recent_comms(), ["ISOLDE: Still flying, General?", "TAREK: Ambush on the left."] as Array[String], "newest first")
+
+
+func test_recent_comms_keeps_only_the_last_n() -> void:
+	var menu: PauseMenu = _make()
+	for i: int in 5:
+		_line(&"ryn", "Line %d." % i)
+	assert_eq(menu.recent_comms(), ["RYN: Line 4.", "RYN: Line 3.", "RYN: Line 2."] as Array[String], "capped at recent_comms")
+
+
+func test_recent_comms_ignores_story_lines() -> void:
+	var menu: PauseMenu = _make()
+	_line(&"tarek", "A story line.", &"story")
+	assert_false(_comms_block(menu).visible, "story lines aren't listed")
+	_line(&"tarek", "A combat line.")
+	_line(&"vale", "Another story line.", &"story")
+	assert_eq(menu.recent_comms(), ["TAREK: A combat line."] as Array[String])
+
+
+func test_recent_comms_lines_use_the_speaker_accent_at_a_readable_size() -> void:
+	var menu: PauseMenu = _make()
+	_line(&"isolde", "Pink.")
+	_line(&"tarek", "Cyan.")
+	var labels: Array[Label] = []
+	for child: Node in menu.get_node("RecentComms/Margin/List").get_children():
+		if child is Label and child.name != &"Heading" and (child as Label).visible:
+			labels.append(child as Label)
+	assert_eq(labels.size(), 2)
+	_assert_color(labels[0].get_theme_color(&"font_color"), Color("#3DF2FF"), "tarek accent")
+	_assert_color(labels[1].get_theme_color(&"font_color"), Color("#FF6AE3"), "isolde accent")
+	for label: Label in labels:
+		assert_gte(label.get_theme_font_size(&"font_size"), 22, "at least 22 px")
+		assert_eq(label.mouse_filter, Control.MOUSE_FILTER_IGNORE)
+
+
+func test_recent_comms_block_sits_below_the_panel() -> void:
+	var menu: PauseMenu = _make()
+	_line(&"tarek", "Placed.")
+	var block: Rect2 = _comms_block(menu).get_rect()
+	var panel: Rect2 = (menu.get_node("Panel") as Panel).get_rect()
+	assert_eq(block.position.y, panel.end.y + Config.num("ui.pause_menu.comms_gap_px"), "comms_gap_px below the panel")
+	assert_eq(block.size.x, Config.num("ui.pause_menu.comms_w"))
+	assert_eq(block.get_center().x, Playfield.SIZE.x / 2.0, "centred")
+	assert_lte(block.end.y, Playfield.SIZE.y, "on screen")
+	assert_eq(_comms_block(menu).mouse_filter, Control.MOUSE_FILTER_IGNORE)
+
+
+## Through the real CommsChannel: a combat sequence's line reaches the menu.
+func test_a_channel_combat_line_reaches_the_menu() -> void:
+	var menu: PauseMenu = _make()
+	var box: CommsBox = (load("res://systems/comms/comms_box.tscn") as PackedScene).instantiate() as CommsBox
+	add_child_autofree(box)
+	var channel: CommsChannel = CommsChannel.new()
+	channel.box = box
+	channel.panel = (load("res://systems/comms/comms_panel.tscn") as PackedScene).instantiate() as CommsPanel
+	add_child_autofree(channel.panel)
+	add_child_autofree(channel)
+	Config.load_data(Config.DEFAULT_TUNING_PATH, Config.DEFAULT_FLAGS_PATH, "res://tests/fixtures/dialogue/channel/")
+	Events.comms_sequence_requested.emit(&"combat_a")
+	assert_eq(menu.recent_comms(), ["ISOLDE: Combat chatter."] as Array[String])

@@ -1,8 +1,9 @@
 extends GutTest
 ## Story 7.1: Level 1 (Cargo Ambush) played on the real level.tscn with
 ## level_id "1", by killing counted enemies through all five waves: the convoy
-## and Tarek at the start, the control hints, Tarek's ambush warning and
-## Isolde's interruption in wave 3, the surrender pause and the 4 Maul
+## and Tarek at the start, the control hints, Tarek's ambush warning in the
+## calm after wave 2 clears and Isolde's interruption in the calm after wave 3
+## clears (Epic 7 playtest C), the surrender pause and the 4 Maul
 ## reinforcements in wave 5, Tarek's closing story as the outro, then exactly
 ## one level_cleared(1) and the router loading level 2. The flag-off row loads
 ## a temp flags file the way F5 re-reads it (Config.load_data(tuning, flags));
@@ -310,8 +311,8 @@ func _lines_matching(fragment: String) -> Array[String]:
 
 
 ## Waves 1-4 with the start-of-level rows: convoy, Tarek, hints, music, the
-## counts, wave 2's asteroids, wave 3's warning and (when `interrupt_on`) the
-## interruption at 0.25, wave 4's mix.
+## counts, wave 2's asteroids, Tarek's warning on wave 2's clear and (when
+## `interrupt_on`) the interruption on wave 3's clear, wave 4's mix.
 func _play_waves_1_to_4(interrupt_on: bool) -> void:
 	var director: WaveDirector = _director()
 	# Level start.
@@ -346,8 +347,9 @@ func _play_waves_1_to_4(interrupt_on: bool) -> void:
 	assert_eq(_tally(3), {&"lancer": 2, &"wasp": 12, &"maul": 3}, "wave 3: 2 Lancers, 12 Wasps, 3 Mauls")
 	var warning: Dictionary = _info(TAREK_WARNING)
 	assert_false(warning.is_empty(), "Tarek's warning requested")
-	assert_eq(warning.get("wave"), 3, "in wave 3")
-	assert_eq(warning.get("resolved"), 0, "before any wave 3 kill")
+	assert_eq(warning.get("wave"), 2, "on wave 2's clear")
+	assert_eq(warning.get("total"), 10, "wave 2's count")
+	assert_eq(warning.get("resolved"), warning.get("total"), "with wave 2 fully resolved (the calm gap)")
 	assert_eq(_channel().current_combat(), TAREK_WARNING, "the warning plays in the box")
 	assert_false(get_tree().paused, "the warning doesn't pause")
 	assert_false(PauseArbiter.has_reason(&"story"), "no story pause")
@@ -357,8 +359,9 @@ func _play_waves_1_to_4(interrupt_on: bool) -> void:
 	var interrupt: Dictionary = _info(INTERRUPT)
 	if interrupt_on:
 		assert_false(interrupt.is_empty(), "Isolde's interruption requested")
-		assert_eq(interrupt.get("wave"), 3, "in wave 3")
-		assert_true(_crossed(interrupt, 0.25), "at 0.25 of wave 3 (%s/%s)" % [interrupt.get("resolved"), interrupt.get("total")])
+		assert_eq(interrupt.get("wave"), 3, "on wave 3's clear")
+		assert_eq(interrupt.get("total"), 17, "wave 3's count")
+		assert_eq(interrupt.get("resolved"), interrupt.get("total"), "with wave 3 fully resolved (the calm gap)")
 		assert_true(_channel().current_combat() == INTERRUPT or _channel().combat_queued().has(INTERRUPT), "the interruption reached the channel")
 	else:
 		assert_true(interrupt.is_empty(), "the interruption was never requested")

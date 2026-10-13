@@ -1,4 +1,4 @@
-[gd_resource type="Theme" load_steps=13 format=3]
+[gd_resource type="Theme" load_steps=14 format=3]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_wave_track"]
 bg_color = Color(0.168627, 0.2, 0.282353, 1)
@@ -102,6 +102,18 @@ corner_radius_top_right = 4
 corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_comms_box"]
+bg_color = Color(0.0392157, 0.0705882, 0.133333, 0.7)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.164706, 0.231373, 0.360784, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
 [sub_resource type="FontVariation" id="FontVariation_comms_box_text"]
 spacing_top = -3
 spacing_bottom = -3
@@ -122,9 +134,9 @@ BossBar/styles/fill = SubResource("StyleBoxFlat_boss_fill")
 BossBar/styles/track = SubResource("StyleBoxFlat_wave_track")
 CommsBox/constants/line_spacing = 0
 CommsBox/fonts/text = SubResource("FontVariation_comms_box_text")
-CommsBox/font_sizes/name = 24
-CommsBox/font_sizes/text = 22
-CommsBox/styles/panel = SubResource("StyleBoxFlat_comms_panel")
+CommsBox/font_sizes/name = 30
+CommsBox/font_sizes/text = 28
+CommsBox/styles/panel = SubResource("StyleBoxFlat_comms_box")
 CommsPanel/colors/dim = Color(0, 0, 0, 0.6)
 CommsPanel/colors/isolde = Color(1, 0.415686, 0.890196, 1)
 CommsPanel/colors/muted = Color(0.576471, 0.654902, 0.760784, 1)
@@ -178,6 +190,7 @@ LevelSelect/styles/button_normal = SubResource("StyleBoxFlat_retry_button")
 PauseMenu/colors/dim = Color(0, 0, 0, 0.6)
 PauseMenu/colors/text = Color(0.909804, 0.956863, 1, 1)
 PauseMenu/font_sizes/button = 28
+PauseMenu/font_sizes/comms = 24
 PauseMenu/font_sizes/heading = 48
 PauseMenu/styles/button_focus = SubResource("StyleBoxFlat_retry_button_focus")
 PauseMenu/styles/button_hover = SubResource("StyleBoxFlat_retry_button_hover")

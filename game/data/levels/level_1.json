@@ -27,7 +27,8 @@
 				{ "size": "medium", "count": 1 }
 			],
 			"triggers": [
-				{ "when": "wave_start", "actions": [ { "hint": "missile" } ] }
+				{ "when": "wave_start", "actions": [ { "hint": "missile" } ] },
+				{ "when": "wave_clear", "actions": [ { "comms": "l1_w3_tarek_warning" } ] }
 			]
 		},
 		{
@@ -38,8 +39,7 @@
 			],
 			"asteroids": [],
 			"triggers": [
-				{ "when": "wave_start", "actions": [ { "comms": "l1_w3_tarek_warning" } ] },
-				{ "when": "progress", "at": 0.25, "flag": "isolde_interruptions", "actions": [ { "comms": "l1_w3_isolde_interrupt" } ] }
+				{ "when": "wave_clear", "flag": "isolde_interruptions", "actions": [ { "comms": "l1_w3_isolde_interrupt" } ] }
 			]
 		},
 		{

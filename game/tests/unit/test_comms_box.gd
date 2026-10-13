@@ -1,10 +1,12 @@
 extends GutTest
-## CommsBox (Story 5.2): the combat interruption box view. Layout from
-## ui.comms_box (UX: box 32,24 560x96; text block 448 px with a portrait at
-## x 100, 532 px without at x 16, y 36-86), theme items, mouse transparency,
-## the speaker name / accent / edge / portrait, the slide-in, the typewriter
-## (pausable), the fade-out, hide_now, and a 50-character line fitting two
-## lines in both variants.
+## CommsBox (Story 5.2; Epic 7 playtest C): the combat interruption box view.
+## Layout from ui.comms_box (UX: box 900x124 at the bottom centre, x 510-1410,
+## y 928-1052, 28 px above the bottom; text block 758 px with a portrait at
+## x 124, 860 px without at x 22, y 50-116), theme items, mouse transparency,
+## the speaker name / accent / edge / portrait, the rise-in, the typewriter
+## (pausable), the fade-out, hide_now, a 50-character line fitting two lines
+## in both variants, and the see-through while the Player or an enemy shot is
+## under the box.
 
 const BOX_SCENE: PackedScene = preload("res://systems/comms/comms_box.tscn")
 const THEME_PATH: String = "res://ui/theme/defector_theme.tres"
@@ -45,40 +47,89 @@ func _assert_color(actual: Color, expected: Color, what: String) -> void:
 
 
 func _layout(with_portrait: bool) -> Dictionary:
-	return CommsBox.layout(32.0, 24.0, 560.0, 96.0, 4.0, 4.0, 72.0, 12.0, 32.0, 25.0, 2, with_portrait)
+	return CommsBox.layout(510.0, 928.0, 900.0, 124.0, 4.0, 8.0, 88.0, 14.0, 42.0, 33.0, 2, with_portrait)
+
+
+## The box rect from the shipped tuning.
+const BOX_RECT: Rect2 = Rect2(510, 928, 900, 124)
+
+
+## Shows a line and finishes its rise, so the box is in place at full alpha.
+func _show_risen(box: CommsBox, speaker: StringName, text: String) -> void:
+	box.show_line(speaker, text)
+	if box._rise_tween != null:
+		box._rise_tween.custom_step(1.0)
+
+
+## A stand-in Player (only its group and position matter to the box).
+func _add_player(pos: Vector2) -> Node2D:
+	var player: Node2D = Node2D.new()
+	player.add_to_group(Groups.PLAYER)
+	player.position = pos
+	add_child_autofree(player)
+	return player
+
+
+## A projectile stand-in on `layer` in the projectiles group.
+func _add_shot(pos: Vector2, layer: int) -> Area2D:
+	var shot: Area2D = Area2D.new()
+	shot.collision_layer = layer
+	shot.collision_mask = 0
+	shot.add_to_group(Groups.PROJECTILES)
+	shot.position = pos
+	add_child_autofree(shot)
+	return shot
 
 
 # --- Data, layout and theme ---------------------------------------------------------
 
 func test_tuning() -> void:
 	var expected: Dictionary = {
-		"x": 32.0, "y": 24.0, "w": 560.0, "h": 96.0, "edge_px": 4.0, "padding_px": 4.0, "portrait_px": 72.0,
-		"portrait_gap_px": 12.0, "name_h_px": 32.0, "text_line_h_px": 25.0, "text_lines": 2.0,
+		"w": 900.0, "h": 124.0, "bottom_margin_px": 28.0, "rise_px": 24.0, "edge_px": 4.0, "padding_px": 8.0,
+		"portrait_px": 88.0, "portrait_gap_px": 14.0, "name_h_px": 42.0, "text_line_h_px": 33.0, "text_lines": 2.0,
+		"see_through_alpha": 0.3, "see_through_margin_px": 24.0, "see_through_fade_per_s": 5.0,
 	}
 	for key: String in expected:
-		assert_eq(Config.num("ui.comms_box.%s" % key), expected[key], "ui.comms_box.%s" % key)
+		assert_almost_eq(Config.num("ui.comms_box.%s" % key), expected[key] as float, 0.0001, "ui.comms_box.%s" % key)
 	assert_eq(Config.int_("comms.combat_line_max_chars"), 50)
-	assert_eq(Config.num("comms.box_slide_in_s"), 0.15)
+	assert_eq(Config.num("comms.box_rise_in_s"), 0.2)
 	assert_eq(Config.num("comms.box_fade_out_s"), 0.6)
 	assert_eq(_make().cutoff_chars_per_s, Config.num("comms.cutoff_chars_per_s"), "the cut-off typing speed is cached")
 
 
 func test_layout_math_with_portrait() -> void:
 	var rects: Dictionary = _layout(true)
-	assert_eq(rects[CommsBox.RECT_BOX], Rect2(32, 24, 560, 96), "UX box rect")
-	assert_eq(rects[CommsBox.RECT_EDGE], Rect2(0, 0, 4, 96), "4 px accent edge")
-	assert_eq(rects[CommsBox.RECT_PORTRAIT], Rect2(16, 12, 72, 72), "72 px portrait, centred vertically")
-	assert_eq(rects[CommsBox.RECT_NAME], Rect2(100, 4, 448, 32))
-	assert_eq(rects[CommsBox.RECT_TEXT], Rect2(100, 36, 448, 50), "448 px text block, y 36-86")
-	var box: Rect2 = rects[CommsBox.RECT_BOX] as Rect2
-	assert_eq(box.end.x, 592.0, "ends at x 592 (88 px before the wave bar)")
+	assert_eq(rects[CommsBox.RECT_BOX], BOX_RECT, "UX box rect")
+	assert_eq(rects[CommsBox.RECT_EDGE], Rect2(0, 0, 4, 124), "4 px accent edge")
+	assert_eq(rects[CommsBox.RECT_PORTRAIT], Rect2(22, 18, 88, 88), "88 px portrait, centred vertically")
+	assert_eq(rects[CommsBox.RECT_NAME], Rect2(124, 8, 758, 42))
+	assert_eq(rects[CommsBox.RECT_TEXT], Rect2(124, 50, 758, 66), "758 px text block, y 50-116")
+
+
+## Bottom centre: centred on the 1920 px playfield, its bottom 28 px above the
+## screen's bottom.
+func test_box_rect_math() -> void:
+	var rect: Rect2 = CommsBox.box_rect(Playfield.SIZE, 900.0, 124.0, 28.0)
+	assert_eq(rect, BOX_RECT)
+	assert_eq(rect.get_center().x, Playfield.SIZE.x / 2.0, "centred horizontally")
+	assert_eq(rect.end.y, Playfield.SIZE.y - 28.0, "bottom 28 px above the screen's bottom")
+	assert_eq(CommsBox.box_rect(Vector2(1000, 500), 200.0, 50.0, 10.0), Rect2(400, 440, 200, 50))
+
+
+func test_layout_follows_tuning() -> void:
+	var tuning: Dictionary = (Config.tuning["ui"] as Dictionary)["comms_box"] as Dictionary
+	tuning["w"] = 1000
+	tuning["h"] = 140
+	tuning["bottom_margin_px"] = 40
+	var box: CommsBox = _make()
+	assert_eq(_node(box, "Box").get_rect(), Rect2(460, 900, 1000, 140), "w, h and the bottom margin from tuning")
 
 
 func test_layout_math_without_portrait() -> void:
 	var rects: Dictionary = _layout(false)
-	assert_eq(rects[CommsBox.RECT_BOX], Rect2(32, 24, 560, 96))
-	assert_eq(rects[CommsBox.RECT_NAME], Rect2(16, 4, 532, 32))
-	assert_eq(rects[CommsBox.RECT_TEXT], Rect2(16, 36, 532, 50), "532 px text block")
+	assert_eq(rects[CommsBox.RECT_BOX], BOX_RECT)
+	assert_eq(rects[CommsBox.RECT_NAME], Rect2(22, 8, 860, 42))
+	assert_eq(rects[CommsBox.RECT_TEXT], Rect2(22, 50, 860, 66), "860 px text block")
 
 
 func test_hidden_at_start_and_mouse_transparent() -> void:
@@ -89,7 +140,7 @@ func test_hidden_at_start_and_mouse_transparent() -> void:
 	for path: String in ["Box", "Box/Edge", "Box/Portrait", "Box/Portrait/Initial", "Box/Name", "Box/Text"]:
 		assert_eq(_node(box, path).mouse_filter, Control.MOUSE_FILTER_IGNORE, "%s ignores the mouse" % path)
 	assert_eq(box.theme.resource_path, THEME_PATH)
-	assert_eq(_node(box, "Box").get_rect(), Rect2(32, 24, 560, 96), "box at the UX rect")
+	assert_eq(_node(box, "Box").get_rect(), BOX_RECT, "box at the UX rect")
 	assert_eq(box.find_children("*", "BaseButton", true, false).size(), 0, "no buttons")
 	assert_null(box.get_node_or_null("Dim"), "no dim")
 
@@ -104,17 +155,22 @@ func test_text_label_settings() -> void:
 
 func test_theme_items() -> void:
 	var theme: Theme = load(THEME_PATH) as Theme
-	assert_eq(theme.get_font_size(&"text", &"CommsBox"), 22)
-	assert_eq(theme.get_font_size(&"name", &"CommsBox"), 24)
+	assert_eq(theme.get_font_size(&"text", &"CommsBox"), 28)
+	assert_eq(theme.get_font_size(&"name", &"CommsBox"), 30)
 	assert_true(theme.has_constant(&"line_spacing", &"CommsBox"))
-	assert_eq(theme.get_stylebox(&"panel", &"CommsBox"), theme.get_stylebox(&"panel", &"CommsPanel"), "reuses the comms panel box")
+	var box_style: StyleBoxFlat = theme.get_stylebox(&"panel", &"CommsBox") as StyleBoxFlat
+	var panel_style: StyleBoxFlat = theme.get_stylebox(&"panel", &"CommsPanel") as StyleBoxFlat
+	assert_not_null(box_style)
+	if box_style != null and panel_style != null:
+		assert_lt(box_style.bg_color.a, panel_style.bg_color.a, "a more see-through fill than the story panel")
+		_assert_color(box_style.border_color, panel_style.border_color, "the comms panel border")
 
 
 func test_theme_applied_to_children() -> void:
 	var box: CommsBox = _make()
 	var theme: Theme = load(THEME_PATH) as Theme
-	assert_eq(_label(box, "Box/Text").get_theme_font_size(&"font_size"), 22)
-	assert_eq(_label(box, "Box/Name").get_theme_font_size(&"font_size"), 24)
+	assert_eq(_label(box, "Box/Text").get_theme_font_size(&"font_size"), 28)
+	assert_eq(_label(box, "Box/Name").get_theme_font_size(&"font_size"), 30)
 	assert_eq(_label(box, "Box/Text").get_theme_constant(&"line_spacing"), theme.get_constant(&"line_spacing", &"CommsBox"), "line spacing applied")
 	assert_true(theme.has_font(&"text", &"CommsBox"), "CommsBox text font")
 	assert_eq(_label(box, "Box/Text").get_theme_font(&"font"), theme.get_font(&"text", &"CommsBox"), "text font applied")
@@ -122,7 +178,7 @@ func test_theme_applied_to_children() -> void:
 	var style: StyleBoxFlat = (box.get_node("Box") as Panel).get_theme_stylebox(&"panel") as StyleBoxFlat
 	assert_not_null(style)
 	if style != null:
-		_assert_color(style.bg_color, Color(10.0 / 255.0, 18.0 / 255.0, 34.0 / 255.0, 0.85), "surfaceAlt fill")
+		_assert_color(style.bg_color, Color(10.0 / 255.0, 18.0 / 255.0, 34.0 / 255.0, 0.7), "semi-transparent surfaceAlt fill")
 		_assert_color(style.border_color, Color("#2A3B5C"), "border")
 
 
@@ -130,7 +186,7 @@ func test_theme_applied_to_children() -> void:
 
 func test_portrait_speaker_line() -> void:
 	var box: CommsBox = _make()
-	box.show_line(&"tarek", "Ambush on the left.")
+	_show_risen(box, &"tarek", "Ambush on the left.")
 	assert_true(box.visible)
 	assert_true(box.is_open())
 	assert_eq(box.modulate.a, 1.0)
@@ -145,7 +201,7 @@ func test_portrait_speaker_line() -> void:
 	if frame != null:
 		_assert_color(frame.border_color, Color("#3DF2FF"), "frame in the accent")
 	assert_eq(_label(box, "Box/Portrait/Initial").text, "T", "placeholder initial")
-	assert_eq(_label(box, "Box/Text").get_rect(), Rect2(100, 36, 448, 50), "448 px text block")
+	assert_eq(_label(box, "Box/Text").get_rect(), Rect2(124, 50, 758, 66), "758 px text block")
 	assert_eq(_label(box, "Box/Text").text, "Ambush on the left.")
 	assert_eq(box.current_speaker(), &"tarek")
 
@@ -157,23 +213,44 @@ func test_no_portrait_speaker_line() -> void:
 	assert_false(_node(box, "Box/Portrait").visible, "portrait hidden")
 	assert_eq(_label(box, "Box/Name").text, "VALE")
 	_assert_color((box.get_node("Box/Edge") as ColorRect).color, Color("#E8F4FF"), "vale edge")
-	assert_eq(_label(box, "Box/Text").get_rect(), Rect2(16, 36, 532, 50), "532 px text block")
+	assert_eq(_label(box, "Box/Text").get_rect(), Rect2(22, 50, 860, 66), "860 px text block")
 	box.show_line(&"ryn", "Back to a portrait.")
 	assert_true(_node(box, "Box/Portrait").visible)
-	assert_eq(_label(box, "Box/Text").get_rect().size.x, 448.0, "re-laid out for the portrait")
+	assert_eq(_label(box, "Box/Text").get_rect().size.x, 758.0, "re-laid out for the portrait")
 
 
-func test_slides_in_from_the_left() -> void:
+## Epic 7 playtest C: the box rises rise_px into place and fades in over
+## comms.box_rise_in_s (no slide from the left).
+func test_rises_into_place() -> void:
 	var box: CommsBox = _make()
-	box.show_line(&"isolde", "Sliding in.")
+	box.show_line(&"isolde", "Rising in.")
 	var panel: Control = _node(box, "Box")
-	assert_eq(panel.position.x, -560.0, "starts off screen at x = -w")
-	box._slide_tween.custom_step(0.075)
-	assert_between(panel.position.x, -560.0, 32.0, "part way")
-	assert_ne(panel.position.x, -560.0)
-	box._slide_tween.custom_step(0.1)
-	assert_eq(panel.position.x, 32.0, "in place after 0.15 s")
-	assert_eq(panel.position.y, 24.0)
+	assert_eq(panel.position, Vector2(510, 952), "starts 24 px below its place")
+	assert_eq(box.modulate.a, 0.0, "starts transparent")
+	box._rise_tween.custom_step(0.1)
+	assert_between(panel.position.y, 928.0, 952.0, "part way")
+	assert_ne(panel.position.y, 952.0)
+	assert_between(box.modulate.a, 0.01, 0.99, "fading in")
+	assert_eq(panel.position.x, 510.0, "never moves sideways")
+	box._rise_tween.custom_step(0.11)
+	assert_eq(panel.position, Vector2(510, 928), "in place after 0.2 s")
+	assert_eq(box.modulate.a, 1.0, "opaque after 0.2 s")
+	assert_true(box.is_open())
+
+
+## A dismiss during the rise snaps the box into place and fades from the
+## alpha it had reached.
+func test_dismiss_during_the_rise() -> void:
+	var box: CommsBox = _make()
+	box.show_line(&"isolde", "Short lived.")
+	box._rise_tween.custom_step(0.1)
+	var alpha: float = box.modulate.a
+	box.dismiss()
+	assert_false(box._rise_tween != null and box._rise_tween.is_valid(), "rise stopped")
+	assert_eq(_node(box, "Box").position, Vector2(510, 928), "in place")
+	assert_lte(box.modulate.a, alpha, "fades from where it was")
+	box._fade_tween.custom_step(0.61)
+	assert_false(box.visible, "hidden after the fade")
 
 
 func test_typewriter_speed() -> void:
@@ -269,11 +346,13 @@ func test_tweens_freeze_while_paused() -> void:
 	box.show_line(&"isolde", "a".repeat(45))
 	PauseArbiter.push(&"menu")
 	var text: Label = _label(box, "Box/Text")
-	var x: float = _node(box, "Box").position.x
+	var y: float = _node(box, "Box").position.y
+	var alpha: float = box.modulate.a
 	for i: int in 10:
 		await get_tree().process_frame
 	assert_eq(text.visible_characters, 0, "typewriter frozen")
-	assert_eq(_node(box, "Box").position.x, x, "slide frozen")
+	assert_eq(_node(box, "Box").position.y, y, "rise frozen")
+	assert_eq(box.modulate.a, alpha, "fade-in frozen")
 	PauseArbiter.pop(&"menu")
 	for i: int in 2000:
 		await get_tree().process_frame
@@ -284,7 +363,7 @@ func test_tweens_freeze_while_paused() -> void:
 
 func test_dismiss_fades_then_hides() -> void:
 	var box: CommsBox = _make()
-	box.show_line(&"isolde", "Going.")
+	_show_risen(box, &"isolde", "Going.")
 	box.dismiss()
 	assert_true(box.visible, "visible while fading")
 	assert_false(box.is_open(), "not open while fading")
@@ -301,12 +380,13 @@ func test_dismiss_fades_then_hides() -> void:
 
 func test_show_line_while_fading_reopens() -> void:
 	var box: CommsBox = _make()
-	box.show_line(&"isolde", "First.")
+	_show_risen(box, &"isolde", "First.")
 	box.dismiss()
 	box._fade_tween.custom_step(0.1)
 	box.show_line(&"tarek", "Second.")
 	assert_true(box.is_open(), "open again")
-	assert_eq(box.modulate.a, 1.0, "full alpha")
+	box._rise_tween.custom_step(1.0)
+	assert_eq(box.modulate.a, 1.0, "full alpha after the rise")
 	await get_tree().process_frame
 	await get_tree().process_frame
 	assert_true(box.visible, "the old fade doesn't hide it")
@@ -346,38 +426,150 @@ func test_fifty_char_lines_fit_two_lines_in_both_variants() -> void:
 		assert_eq(text.length(), 50, "fixture '%s' is 50 characters" % text)
 
 
-## UX (decision #24): 22 px text at a 25 px line height (line 2 top - line 1
-## top = font height + line spacing), so two full lines fill the 50 px text rect.
-func test_text_line_pitch_is_25_px() -> void:
+## UX (decisions #24, #27): 28 px text at a 33 px line height (line 2 top -
+## line 1 top = font height + line spacing, measured in-engine), so two full
+## lines fill the 66 px text rect.
+func test_text_line_pitch_is_33_px() -> void:
 	var box: CommsBox = _make()
 	var label: Label = _label(box, "Box/Text")
 	var font: Font = label.get_theme_font(&"font")
 	var font_px: int = label.get_theme_font_size(&"font_size")
 	var pitch: float = font.get_height(font_px) + label.get_theme_constant(&"line_spacing")
-	assert_eq(font_px, 22)
-	assert_eq(pitch, Config.num("ui.comms_box.text_line_h_px"), "25 px line pitch")
-	assert_eq(pitch, 25.0)
+	assert_eq(font_px, 28)
+	assert_eq(pitch, Config.num("ui.comms_box.text_line_h_px"), "33 px line pitch")
+	assert_eq(pitch, 33.0)
 	assert_lte(pitch * 2.0, label.size.y, "two lines inside the text rect")
-	# The 448 px portrait variant wraps a 50-character line to two lines (the
-	# 532 px no-portrait one may fit it on one).
-	box.show_line(&"isolde", LINES_50[0])
+	# The widest 50-character line (all capitals) wraps to two lines in the
+	# 758 px portrait variant (the 860 px no-portrait one may fit it on one).
+	box.show_line(&"isolde", LINES_50[2])
 	await get_tree().process_frame
 	await get_tree().process_frame
 	assert_eq(label.get_line_count(), 2, "wraps to two lines")
 	assert_eq(label.get_visible_line_count(), 2, "both lines fully visible")
-	assert_eq(label.get_line_height(0), 25, "line 1 is 25 px")
-	assert_eq(label.get_line_height(1), 25, "line 2 is 25 px")
+	assert_eq(label.get_line_height(0), 33, "line 1 is 33 px")
+	assert_eq(label.get_line_height(1), 33, "line 2 is 33 px")
 
 
 ## UX decision #24: the name's baseline sits above the text block, so its
-## glyphs never crowd the first line of text (at 28 px the baseline was at
-## y 34, inside the text block at y 32; now 30 against 36).
+## glyphs never crowd the first line of text (30 px name: baseline at y 41,
+## text block at y 50).
 func test_name_baseline_clears_the_text() -> void:
 	var box: CommsBox = _make()
 	box.show_line(&"isolde", LINES_50[0])
 	var name_label: Label = _label(box, "Box/Name")
 	var text: Label = _label(box, "Box/Text")
 	var name_px: int = name_label.get_theme_font_size(&"font_size")
-	assert_eq(name_px, 24)
+	assert_eq(name_px, 30)
 	var baseline: float = name_label.position.y + name_label.get_theme_font(&"font").get_ascent(name_px)
 	assert_lte(baseline + 6.0, text.position.y, "at least 6 px from the name baseline to the text block")
+
+
+# --- See-through (Epic 7 playtest C) ---------------------------------------------------
+
+func test_see_through_rect_is_the_box_grown_by_the_margin() -> void:
+	var box: CommsBox = _make()
+	assert_eq(box.see_through_rect(), BOX_RECT.grow(24.0))
+	assert_eq(box.see_through(), 1.0, "opaque at start")
+
+
+func test_player_under_the_box_makes_it_see_through_then_opaque_again() -> void:
+	var box: CommsBox = _make()
+	_show_risen(box, &"isolde", "Over the ship.")
+	var player: Node2D = _add_player(Vector2(960, 990))
+	assert_true(box.is_covering(), "the ship is under the box")
+	box.step_see_through(0.1)
+	assert_almost_eq(box.see_through(), 0.5, 0.0001, "eases down at 5 alpha/s")
+	assert_almost_eq(_node(box, "Box").modulate.a, 0.5, 0.0001, "on the Box panel")
+	assert_eq(box.modulate.a, 1.0, "the root alpha is left to the rise / fade")
+	box.step_see_through(1.0)
+	assert_almost_eq(box.see_through(), 0.3, 0.0001, "settles at see_through_alpha")
+	player.position = Vector2(960, 500)
+	assert_false(box.is_covering(), "the ship left")
+	box.step_see_through(0.1)
+	assert_almost_eq(box.see_through(), 0.8, 0.0001, "eases back up")
+	box.step_see_through(1.0)
+	assert_eq(box.see_through(), 1.0, "opaque again")
+	assert_eq(_node(box, "Box").modulate.a, 1.0)
+
+
+func test_the_margin_counts_as_under_the_box() -> void:
+	var box: CommsBox = _make()
+	_show_risen(box, &"isolde", "Margin.")
+	var player: Node2D = _add_player(Vector2(960, 928 - 20))
+	assert_true(box.is_covering(), "20 px above the box: inside the 24 px margin")
+	player.position = Vector2(510 - 30, 990)
+	assert_false(box.is_covering(), "30 px left of the box: outside the margin")
+
+
+func test_enemy_shot_under_the_box_makes_it_see_through() -> void:
+	var box: CommsBox = _make()
+	_show_risen(box, &"isolde", "Incoming.")
+	var shot: Area2D = _add_shot(Vector2(700, 1000), CollisionLayers.ENEMY_SHOTS)
+	assert_true(box.is_covering(), "an enemy bullet under the box")
+	box.step_see_through(1.0)
+	assert_almost_eq(box.see_through(), 0.3, 0.0001)
+	shot.position = Vector2(700, 300)
+	assert_false(box.is_covering(), "the bullet moved on")
+	box.step_see_through(1.0)
+	assert_eq(box.see_through(), 1.0, "opaque again")
+
+
+func test_player_shots_never_make_it_see_through() -> void:
+	var box: CommsBox = _make()
+	_show_risen(box, &"isolde", "Firing.")
+	_add_shot(Vector2(700, 1000), CollisionLayers.PLAYER_SHOTS)
+	assert_false(box.is_covering(), "a player shot is ignored")
+	box.step_see_through(1.0)
+	assert_eq(box.see_through(), 1.0, "stays opaque")
+
+
+## An enemy-shot-layer area outside the projectiles group (not a projectile) is ignored.
+func test_an_enemy_layer_area_outside_the_group_is_ignored() -> void:
+	var box: CommsBox = _make()
+	_show_risen(box, &"isolde", "Not a shot.")
+	var shot: Area2D = _add_shot(Vector2(700, 1000), CollisionLayers.ENEMY_SHOTS)
+	shot.remove_from_group(Groups.PROJECTILES)
+	assert_false(box.is_covering())
+
+
+func test_a_shot_already_in_the_tree_and_a_freed_shot() -> void:
+	var shot: Area2D = _add_shot(Vector2(700, 1000), CollisionLayers.ENEMY_SHOTS)
+	var box: CommsBox = _make()
+	_show_risen(box, &"isolde", "Already there.")
+	assert_true(box.is_covering(), "a shot added before the box counts")
+	remove_child(shot)
+	assert_false(box.is_covering(), "a shot that left the tree no longer counts")
+	shot.free()
+	assert_false(box.is_covering(), "nor once freed")
+
+
+## The see-through (Box modulate) and the fade-out (root modulate) compose.
+func test_see_through_composes_with_the_fade_out() -> void:
+	var box: CommsBox = _make()
+	_show_risen(box, &"isolde", "Fading.")
+	_add_player(Vector2(960, 990))
+	box.step_see_through(1.0)
+	box.dismiss()
+	box._fade_tween.custom_step(0.3)
+	assert_almost_eq(_node(box, "Box").modulate.a, 0.3, 0.0001, "see-through kept during the fade")
+	assert_between(box.modulate.a, 0.2, 0.4, "the root fades")
+	box._fade_tween.custom_step(0.31)
+	assert_false(box.visible, "hidden after the fade")
+	assert_eq(box.see_through(), 1.0, "reset when hidden")
+	assert_eq(_node(box, "Box").modulate.a, 1.0)
+
+
+## Frames step the see-through only while the box is visible.
+func test_frames_step_the_see_through_only_while_visible() -> void:
+	var box: CommsBox = _make()
+	_add_player(Vector2(960, 990))
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(box.see_through(), 1.0, "hidden: no see-through")
+	_show_risen(box, &"isolde", "Now visible.")
+	for i: int in 200:
+		await get_tree().process_frame
+		if box.see_through() < 1.0:
+			break
+	assert_lt(box.see_through(), 1.0, "visible: frames ease it down")
+	assert_eq(box.mouse_filter, Control.MOUSE_FILTER_IGNORE, "still mouse-transparent")

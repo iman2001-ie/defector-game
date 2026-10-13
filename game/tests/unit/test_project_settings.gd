@@ -52,6 +52,7 @@ const EVENTS: Dictionary = {
 	"boss_defeated": [],
 	"comms_sequence_requested": [TYPE_STRING_NAME],
 	"comms_sequence_finished": [TYPE_STRING_NAME],
+	"comms_line_shown": [TYPE_STRING_NAME, TYPE_STRING, TYPE_STRING_NAME],
 	"final_choice_made": [TYPE_STRING_NAME],
 	"story_event_requested": [TYPE_STRING_NAME],
 	"hint_requested": [TYPE_STRING_NAME],

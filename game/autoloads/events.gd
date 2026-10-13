@@ -36,6 +36,10 @@ signal boss_defeated
 # Comms
 signal comms_sequence_requested(sequence_id: StringName)
 signal comms_sequence_finished(sequence_id: StringName)
+## Epic 7 playtest C: CommsChannel showed a line, in `mode` &"story" (the panel)
+## or &"combat" (the box). A cut-off line carries the text as shown (cut to
+## cut_off_at plus comms.cutoff_suffix). The PauseMenu keeps the combat ones.
+signal comms_line_shown(speaker: StringName, text: String, mode: StringName)
 signal final_choice_made(choice: StringName)         # &"surrender" | &"destroy"
 signal story_event_requested(event_name: StringName) # e.g. &"tarek_fall"
 ## Story 5.8: a WaveDirector `hint` action asks the HUD HintPill for control hints.

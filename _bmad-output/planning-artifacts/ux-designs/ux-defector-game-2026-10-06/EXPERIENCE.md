@@ -24,7 +24,7 @@ DEFECTOR is a Windows PC game played at a desk with mouse and keyboard, in a sin
   - **Level Select:** three level cards by name; locked cards are greyed and can't be clicked. BACK returns to the title.
 - **Story scene:** the opening sequence plays before Level 1 on a fresh start only.
 - **Level:** briefing (paused) → waves → debrief (paused) → next level. **On retry or restart, the briefing is skipped** and the level starts at wave 1 straight away (same rule as the opening).
-  - **Pause (Esc):** RESUME · RESTART LEVEL · QUIT TO TITLE.
+  - **Pause (Esc):** RESUME · RESTART LEVEL · QUIT TO TITLE, with a **RECENT COMMS** block below listing the last 3 interruption lines (newest first, `NAME: text` in the speaker's accent; hidden until there is one), so a missed line can be read again (UX decision #27).
   - **Retry prompt** (after death or convoy loss): loss reason, then RETRY · QUIT TO TITLE.
 - **End screen** (after Level 3): title, one closing line, "Thanks for playing", BACK TO TITLE.
 
@@ -37,7 +37,7 @@ Nothing is more than two clicks from the title screen.
 4. Wave or boss progress (top-centre)
 5. Convoy (top-right, Level 1 only)
 
-Interruptions (top-left) and hints (centre-low) appear only when needed.
+Interruptions (bottom centre) and hints (centre-low) appear only when needed.
 
 ## Dialogue Model
 
@@ -47,7 +47,7 @@ This is the core UX rule, from GDD decision #22.
 |---|---|---|---|---|
 | **Briefing / debrief** | Level start / level end; also the opening | Yes, with dim | Centred story panel | Click anywhere |
 | **Big mid-fight moment** | L1 surrender offer, L3 Final Choice lead-in (only these two) | Yes, with dim | Centred story panel | Click anywhere |
-| **Interruption** | At most 2 per level: Isolde mocks or an ally warns; Tarek's cut-off | No | Top-left box | Auto-dismisses |
+| **Interruption** | At most 2 per level: Isolde mocks or an ally warns; Tarek's cut-off. Placed in the calm 2 s gap after the previous wave clears where the story allows (UX decision #27) | No | Bottom-centre box | Auto-dismisses |
 | **Control hint** | First time each control matters (Level 1) | No | Centre-low pill | Fades on use or after 5 s |
 
 The player learns one rule: **a centred panel with a dimmed screen means read this and click; a small box in the corner means glance at it if you like.**
@@ -63,7 +63,7 @@ The player learns one rule: **a centred panel with a dimmed screen means read th
 | Component | Behaviour |
 |---|---|
 | Story panel | Opens with the comms-open SFX and types at 45 chars/s. A click completes the current line; the next click advances. The click is consumed so it never fires the laser. Esc opens the pause menu on top; closing the menu returns to the story pause |
-| Interruption box | Types out at 45 chars/s like the story panel (a cut-off line types slower, see Cut-off). One short line (≤ 50 chars), auto-wrapping to at most 2 lines at 22px (name 24px) and clipped to the box. Slides in from the left over 0.15 s and stays for `max(5.0, chars/45 + 3.0)` s, then fades out over 0.6 s (ease-out). Keys in with the story panel's radio cues, played quieter: `comms_open` without its beep (`comms_open_nobeep`) when it opens fresh, `comms_handover` / `comms_click` when it follows straight on from another line (GDD decisions #41, #42). Click-through (it ignores the mouse). Story lines preempt it. At most 3 queued |
+| Interruption box | Types out at 45 chars/s like the story panel (a cut-off line types slower, see Cut-off). One short line (≤ 50 chars), auto-wrapping to at most 2 lines at 28px (name 30px) and clipped to the box. Rises 24 px into place at the bottom centre while fading in over 0.2 s and stays for `max(7.5, chars/45 + 4.0)` s, then fades out over 0.6 s (ease-out). While the ship or an enemy bullet is under it (its rect grown by 24 px), it eases to 30% opacity and back once clear, so it never hides a threat (UX decision #27). Keys in with the story panel's radio cues, played quieter: `comms_open` without its beep (`comms_open_nobeep`) when it opens fresh, `comms_handover` / `comms_click` when it follows straight on from another line (GDD decisions #41, #42). Click-through (it ignores the mouse). Story lines preempt it. At most 3 queued |
 | Cut-off | The line types at 16 chars/s, so the cut lands at `cut_off_at / 16` s (about 2.4 s for the dev line's 39 characters, 2.5 s for Level 2's 40). The text stops mid-word and ends in `...`, an 18 px / 0.9 s camera shake fires and 2.5 s of softened recorded static plays, with a 0.2 s fade-out at its very end. The box holds the cut text for 2.5 s, then hides at once with no fade as the static ends (about 5 s in all). Further interruptions are silenced until the wave clears (GDD decision #43, UX decision #25) |
 | Control hint | Fades in over 0.2 s. Fades out once the action is performed or after 5 s. Each hint shows once per session; retries don't repeat it, except in Level 1, where the hints show on every run, retries included (GDD #60) | Move and fire are two hints shown in sequence: `MOVE THE MOUSE TO FLY` (dismissed after 150 px of movement), then `[HOLD LMB] FIRE` (dismissed on first shot). Only one pill shows at a time; a newer hint waits for the current one to fade
 | Missile cooldown ring | Appears full when the missile fires and empties clockwise over 1.5 s; hidden when ready. Freezes with the game while paused |
@@ -74,6 +74,8 @@ The player learns one rule: **a centred panel with a dimmed screen means read th
 | Convoy bar | On damage, the bar flashes `danger` once. Below 30%, the label pulses |
 | Final Choice | Two large buttons appear after Isolde's lead-in finishes. While they're up, the `click to continue` cue is hidden and clicking outside the buttons does nothing. No timer; Esc is disabled; hover shows a coalition glow |
 | Buttons / menus | Mouse only: hover to highlight, click to activate. Esc closes the pause menu (= RESUME) |
+| Pause menu recent comms | Below the menu panel: `RECENT COMMS` (muted) and the last 3 interruption lines, newest first, `NAME: text` in the speaker's accent at 24px. Story lines are not listed (they were read paused). Hidden while the level has shown none (UX decision #27) |
+| Resume | Every in-level resume (story Continue, the Final Choice's answer, the pause menu's RESUME or Esc) starts in slow motion: 0.25× for 0.15 s, then a linear ramp back to normal speed over 0.9 s (real time), so a bullet that was about to hit can still be dodged. Nothing is cleared or frozen. A scene change never slows down (UX decision #27, GDD #62) |
 
 ## State Patterns
 
@@ -85,7 +87,7 @@ The player learns one rule: **a centred panel with a dimmed screen means read th
 | Final Choice | Visible, frozen | Visible arrow | Yes | Buttons below the panel |
 | Paused (menu) | Visible, frozen | Visible arrow | Yes | Centred menu panel `PAUSED` |
 | Death / convoy lost | Visible, frozen | Visible arrow | Yes | After the 1.5 s death beat: the loss reason in `danger`, then RETRY · QUIT TO TITLE. Esc disabled |
-| Between waves (2.0 s) | Visible | Hidden, locked to the ship | No | The next wave segment highlights |
+| Between waves (2.0 s) | Visible | Hidden, locked to the ship | No | The next wave segment highlights; the calm moment for interruptions |
 | Level clear | Wave bar full | Visible arrow | Yes | Debrief story panel, then the next level loads |
 
 ## Interaction Primitives
@@ -97,7 +99,7 @@ The player learns one rule: **a centred panel with a dimmed screen means read th
 
 ## HUD & Diegetic UI
 
-Everything is a non-diegetic overlay, except the shield bubble, the missile cooldown ring, the Needle's targeting line and the telegraph glows, which are drawn in-world. The HUD is confined to the top 120px band, and the player zone (below y 432) never has HUD on it. Hints sit on the boundary at y 560 and are temporary.
+Everything is a non-diegetic overlay, except the shield bubble, the missile cooldown ring, the Needle's targeting line and the telegraph glows, which are drawn in-world. The HUD is confined to the top 120px band, and the player zone (below y 432) never has persistent HUD on it. Hints sit on the boundary at y 560 and are temporary. The one exception in the player zone is the interruption box at the bottom centre (UX decision #27): it is temporary, click-through and turns see-through over the ship or an enemy bullet.
 
 ## Input Schemes
 
@@ -112,11 +114,11 @@ Feel comes from the GDD size-scaled feedback table. The UI-specific additions ar
 - the convoy-damage flash
 - the wave-segment highlight between waves
 
-UI motion never exceeds 0.3 s, except the interruption box's 0.6 s ease-out fade (UX decision #23: a slow fade-out of a glance-only box, never in the way of input), and the HUD freezes with the game (`PROCESS_MODE_PAUSABLE`).
+UI motion never exceeds 0.3 s, except the interruption box's 0.6 s ease-out fade (UX decision #23: a slow fade-out of a glance-only box, never in the way of input) and the 1.05 s resume slow motion (UX decision #27: a gameplay time ramp, not UI motion), and the HUD freezes with the game (`PROCESS_MODE_PAUSABLE`).
 
 ## Accessibility Floor
 
-- No text smaller than 20px at 1080p. Paused dialogue is 28px; interruptions are 22px.
+- No text smaller than 20px at 1080p. Paused dialogue is 28px; interruptions are 28px (UX decision #27).
 - All text meets 4.5:1 contrast on panels (verified in DESIGN.md).
 - No information is carried by colour alone: hearts are counted icons, the convoy bar is labelled, and the loss reason is in words.
 - Paused dialogue waits for the player indefinitely, with no timed reading. Interruptions are optional flavour or warnings, and missing one never blocks progress.
@@ -131,7 +133,7 @@ UI motion never exceeds 0.3 s, except the interruption box's 0.6 s ease-out fade
 2. The opening plays in centred panels. Sam clicks through and learns who Vale, Tarek and Isolde are.
 3. Level 1 begins. [Example lines below are placeholders until Story 5.7 writes the script.] `MOVE THE MOUSE TO FLY` and `[HOLD LMB] FIRE` appear centre-low, Sam does both, and the hints fade.
 4. In W2, `[RMB] MISSILE` appears and Sam slides out from behind an asteroid and fires one up into the formation.
-5. W3: Tarek warns of the ambush (top-left), and Mauls dive at the convoy. The CONVOY bar flashes as it takes a hit.
+5. As W2 clears, Tarek warns of the ambush (bottom centre, in the calm before W3), and in W3 Mauls dive at the convoy. The CONVOY bar flashes as it takes a hit.
 6. Sam reaches 50 energy, and `[E] SHIELD` appears.
 7. **Climax:** in W5 the screen dims and Isolde's centred panel says "You're outnumbered, General. Come home." Sam clicks, the Mauls pour in, and Sam clears the wave.
 8. The debrief plays, and Level 2 loads.

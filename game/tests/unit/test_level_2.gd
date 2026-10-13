@@ -2,8 +2,8 @@ extends GutTest
 ## Story 7.2: Level 2 (The Blockade) played on the real level.tscn with
 ## level_id "2", by killing counted enemies through all five waves: Tarek
 ## flying and no convoy, Tarek's paused briefing holding wave 1, the Needle,
-## Bastion and Lancer waves with their asteroids, Isolde's interruption at 0.25
-## of wave 3, Tarek's fall and his cut-off line at 0.5 of wave 5 (no pause,
+## Bastion and Lancer waves with their asteroids, Isolde's interruption in the
+## calm after wave 2 clears (Epic 7 playtest C), Tarek's fall and his cut-off line at 0.5 of wave 5 (no pause,
 ## comms silenced until the wave clears, Tarek leaving the fight), Ryn's report
 ## as the paused outro, then exactly one level_cleared(2) and the router loading
 ## level 3. The flag-off row loads a temp flags file the way F5 re-reads it
@@ -336,8 +336,8 @@ func _start_through_briefing() -> void:
 	assert_eq(Audio.current_music(), MUSIC_ID, "wave 1 starts the combat music")
 
 
-## Waves 1-4: the counts by type, the asteroids, the wave 3 interruption (when
-## `interrupt_on`) at 0.25 with no pause.
+## Waves 1-4: the counts by type, the asteroids, Isolde's interruption (when
+## `interrupt_on`) on wave 2's clear with no pause.
 func _play_waves_1_to_4(interrupt_on: bool) -> void:
 	var director: WaveDirector = _director()
 	assert_eq(_tally(1), {&"needle": 2, &"wasp": 6}, "wave 1: 2 Needles, 6 Wasps")
@@ -349,6 +349,15 @@ func _play_waves_1_to_4(interrupt_on: bool) -> void:
 	assert_eq(_tally(2), {&"bastion": 1, &"wasp": 8}, "wave 2: 1 Bastion, 8 Wasps")
 	assert_eq(_rocks_in(2), {}, "wave 2: no asteroids")
 	await _kill_through_wave(2)
+	var interrupt: Dictionary = _info(INTERRUPT)
+	if interrupt_on:
+		assert_false(interrupt.is_empty(), "Isolde's interruption requested")
+		assert_eq(interrupt.get("wave"), 2, "on wave 2's clear")
+		assert_eq(interrupt.get("total"), 9, "wave 2's count")
+		assert_eq(interrupt.get("resolved"), interrupt.get("total"), "with wave 2 fully resolved (the calm gap)")
+		assert_true(_channel().current_combat() == INTERRUPT or _channel().combat_queued().has(INTERRUPT), "the interruption reached the channel")
+	else:
+		assert_true(interrupt.is_empty(), "the interruption was never requested")
 	# Wave 3.
 	assert_eq(director.wave_number(), 3, "on wave 3")
 	assert_eq(director.total_count(), 6, "wave 3: 6 counted")
@@ -357,14 +366,8 @@ func _play_waves_1_to_4(interrupt_on: bool) -> void:
 	await _kill_through_wave(3)
 	assert_false(get_tree().paused, "wave 3 ends unpaused")
 	assert_false(PauseArbiter.has_reason(&"story"), "no story pause in wave 3")
-	var interrupt: Dictionary = _info(INTERRUPT)
-	if interrupt_on:
-		assert_false(interrupt.is_empty(), "Isolde's interruption requested")
-		assert_eq(interrupt.get("wave"), 3, "in wave 3")
-		assert_true(_crossed(interrupt, 0.25), "at 0.25 of wave 3 (%s/%s)" % [interrupt.get("resolved"), interrupt.get("total")])
-		assert_true(_channel().current_combat() == INTERRUPT or _channel().combat_queued().has(INTERRUPT), "the interruption reached the channel")
-	else:
-		assert_true(interrupt.is_empty(), "the interruption was never requested")
+	if not interrupt_on:
+		assert_false(_requested.has(INTERRUPT), "the interruption was never requested")
 	# Wave 4.
 	assert_eq(director.wave_number(), 4, "on wave 4")
 	assert_eq(director.total_count(), 12, "wave 4: 12 counted")
@@ -422,7 +425,7 @@ func test_shipped_flags_play_level_2_to_the_clear() -> void:
 	_make_level()
 	_start_through_briefing()
 	await _play_waves_1_to_4(true)
-	# Wave 5: let Isolde's wave 3 line finish first (in play wave 4 outlasts
+	# Wave 5: let Isolde's line finish first (in play waves 3 and 4 outlast
 	# it), so the cut-off plays at once on the crossing instead of queueing.
 	var director: WaveDirector = _director()
 	var idle_ms: int = Time.get_ticks_msec() + 10000
@@ -499,8 +502,8 @@ func test_tarek_fall_off_keeps_tarek_flying_and_clears() -> void:
 
 # --- Isolde's interruption off -----------------------------------------------------
 
-## isolde_interruptions off: wave 3 passes 0.25 and clears without Isolde's line
-## ever being requested, and with no pause.
+## isolde_interruptions off: waves 2 and 3 clear without Isolde's line ever
+## being requested, and with no pause.
 func test_isolde_interruptions_off_never_requests_the_wave_3_line() -> void:
 	_load_flags({"isolde_interruptions": false})
 	_make_level()

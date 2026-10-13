@@ -20,6 +20,9 @@ extends GutTest
 ## final_choice_made, stores GameState.final_choice, pops final_choice and
 ## plays the option's `next` in the same panel; `finished` comes once, for the
 ## requested id, after `next` ends.
+## Epic 7 playtest C: every shown line emits Events.comms_line_shown(speaker,
+## text, mode) (story and combat; a cut-off line carries its shown text), and
+## combat lines last max(7.5, chars / 45 + 4.0) s.
 ## Input goes through get_viewport().push_input like a real click. Under GUT
 ## the root viewport reports a mouse button as handled even when no node
 ## consumed it, so is_input_handled() can't tell who did: a Probe node added
@@ -62,6 +65,8 @@ var _box: CommsBox
 var _final_choice: FinalChoice
 ## Every Events.final_choice_made (Story 7.5).
 var _choices: Array[StringName] = []
+## Every Events.comms_line_shown: [speaker, text, mode].
+var _shown: Array = []
 var _finished: Array[StringName] = []
 ## Snapshot taken inside each `finished` handler: [story active, panel visible].
 var _at_finish: Array = []
@@ -93,6 +98,8 @@ func before_each() -> void:
 	add_child_autofree(_final_choice)
 	_choices.clear()
 	Events.final_choice_made.connect(_on_choice_made)
+	_shown.clear()
+	Events.comms_line_shown.connect(_on_line_shown)
 	_channel = CommsChannel.new()
 	_channel.panel = _panel
 	_channel.box = _box
@@ -103,6 +110,7 @@ func before_each() -> void:
 func after_each() -> void:
 	Events.comms_sequence_finished.disconnect(_on_finished)
 	Events.final_choice_made.disconnect(_on_choice_made)
+	Events.comms_line_shown.disconnect(_on_line_shown)
 	GameState.final_choice = &""
 	Log.sink = Callable()
 	_channel = null
@@ -122,6 +130,10 @@ func after_each() -> void:
 	Audio._warned_music.erase(TEST_MUSIC)
 	_camera = null
 	Engine.time_scale = 1.0
+
+
+func _on_line_shown(speaker: StringName, text: String, mode: StringName) -> void:
+	_shown.append([speaker, text, mode])
 
 
 func _on_finished(id: StringName) -> void:
@@ -456,8 +468,8 @@ func test_combat_plays_without_pausing() -> void:
 	assert_eq(_box_text().text, "Combat chatter.")
 	assert_eq(_box_text().visible_characters, 0, "typing from 0")
 	assert_true(_box.is_typing(), "typing")
-	_box._slide_tween.custom_step(1.0)
-	assert_eq((_box.get_node("Box") as Control).get_rect(), Rect2(32, 24, 560, 96), "box at the UX rect")
+	_box._rise_tween.custom_step(1.0)
+	assert_eq((_box.get_node("Box") as Control).get_rect(), Rect2(510, 928, 900, 124), "box at the UX rect (bottom centre)")
 	assert_eq(_finished, [] as Array[StringName], "not finished yet")
 	assert_eq(_count_lines("[INFO][comms] Combat sequence 'combat_a' started"), 1)
 	await get_tree().process_frame
@@ -467,26 +479,26 @@ func test_combat_plays_without_pausing() -> void:
 
 func test_combat_line_time_short_line() -> void:
 	_request(&"combat_a")
-	_channel.step_combat(4.9)
-	assert_eq(_finished, [] as Array[StringName], "not at 4.9 s")
+	_channel.step_combat(7.4)
+	assert_eq(_finished, [] as Array[StringName], "not at 7.4 s")
 	assert_eq(_channel.current_combat(), &"combat_a")
 	_channel.step_combat(0.1)
-	assert_eq(_finished, [&"combat_a"] as Array[StringName], "finished once at 5.0 s")
+	assert_eq(_finished, [&"combat_a"] as Array[StringName], "finished once at 7.5 s")
 	assert_eq(_channel.current_combat(), &"")
 	assert_false(_box.is_open(), "box fading")
 	assert_eq(_count_lines("[INFO][comms] Combat sequence 'combat_a' finished"), 1)
-	_channel.step_combat(5.0)
+	_channel.step_combat(7.5)
 	assert_eq(_finished, [&"combat_a"] as Array[StringName], "only once")
 
 
 func test_combat_line_time_fifty_chars() -> void:
 	_request(&"combat_e")
 	assert_eq(_box_text().text.length(), 50)
-	# 50 / 45 + 3.0 = 4.11 s, under the 5.0 s minimum (GDD decision #41).
-	_channel.step_combat(4.9)
-	assert_eq(_finished, [] as Array[StringName], "not at 4.9 s")
+	# 50 / 45 + 4.0 = 5.11 s, under the 7.5 s minimum (GDD decisions #41, #62).
+	_channel.step_combat(7.4)
+	assert_eq(_finished, [] as Array[StringName], "not at 7.4 s")
 	_channel.step_combat(0.1)
-	assert_eq(_finished, [&"combat_e"] as Array[StringName], "finished at 5.0 s")
+	assert_eq(_finished, [&"combat_e"] as Array[StringName], "finished at 7.5 s")
 
 
 func test_combat_box_fades_and_hides() -> void:
@@ -587,7 +599,7 @@ func test_vale_combat_line_has_no_portrait() -> void:
 	_request(&"combat_c")
 	assert_eq(_box_name().text, "VALE")
 	assert_false((_box.get_node("Box/Portrait") as Control).visible, "no portrait")
-	assert_eq(_box_text().get_rect(), Rect2(16, 36, 532, 50), "532 px text block")
+	assert_eq(_box_text().get_rect(), Rect2(22, 50, 860, 66), "860 px text block")
 
 
 func test_combat_behind_a_story_waits_for_it() -> void:
@@ -773,6 +785,7 @@ func test_cut_off_timeline() -> void:
 	assert_eq(_box_text().text, CUT_TEXT)
 	assert_eq(_channel.cut_phase(), CommsChannel.CutPhase.TYPING)
 	assert_almost_eq(_channel._combat_left_s, _cut_s, 0.0001, "cut at cut_off_at / cutoff_chars_per_s")
+	_box._rise_tween.custom_step(1.0)
 	_channel.step_combat(_cut_s - 0.01)
 	assert_eq(Audio.newest_player(), before, "no SFX before the cut-off moment")
 	assert_eq(_camera.current_amplitude(), 0.0, "no shake yet")
@@ -803,7 +816,7 @@ func test_cut_off_timeline() -> void:
 	assert_eq(_channel.current_combat(), &"")
 	assert_eq(_channel.cut_phase(), CommsChannel.CutPhase.NONE)
 	assert_eq(_count_lines("[INFO][comms] Combat sequence 'cut_a' finished"), 1)
-	_channel.step_combat(5.0)
+	_channel.step_combat(7.5)
 	await get_tree().process_frame
 	await get_tree().process_frame
 	assert_eq(_finished, [&"cut_a"] as Array[StringName], "only once")
@@ -1057,7 +1070,7 @@ func test_story_preempting_before_the_cut_off_drops_the_effects() -> void:
 	assert_eq(_channel.current_combat(), &"")
 	assert_eq(_channel.cut_phase(), CommsChannel.CutPhase.NONE)
 	assert_eq(_newest_stream(), Audio.SFX[&"comms_open"], "only the story's comms_open, no static")
-	_channel.step_combat(5.0)
+	_channel.step_combat(7.5)
 	assert_eq(_camera.current_amplitude(), 0.0, "no shake")
 	assert_eq(Audio.current_music(), TEST_MUSIC, "music untouched")
 	assert_false(_channel.is_silenced(), "no silence")
@@ -1279,3 +1292,35 @@ func test_an_unknown_next_finishes_at_once() -> void:
 	assert_false(_channel.is_showing())
 	assert_false(_panel.visible)
 	assert_false(PauseArbiter.is_paused(), "no pause left")
+
+
+# --- Line log (Epic 7 playtest C) ------------------------------------------------------
+
+func test_shipped_combat_line_timing() -> void:
+	assert_eq(Config.num("comms.combat_line_min_s"), 7.5)
+	assert_eq(Config.num("comms.combat_line_extra_s"), 4.0)
+	assert_almost_eq(CommsChannel.combat_line_s(50, 45.0, 7.5, 4.0), 7.5, 0.0001, "50 chars: the 7.5 s minimum")
+	assert_almost_eq(CommsChannel.combat_line_s(200, 45.0, 7.5, 4.0), 200.0 / 45.0 + 4.0, 0.0001, "long text: chars / 45 + 4")
+
+
+func test_combat_line_emits_comms_line_shown() -> void:
+	_request(&"combat_a")
+	assert_eq(_shown, [[&"isolde", "Combat chatter.", &"combat"]], "one combat line shown")
+
+
+func test_story_lines_emit_comms_line_shown() -> void:
+	_request(&"story_a")
+	assert_eq(_shown, [[&"tarek", "Forty-five characters exactly, General. Okay.", &"story"]], "line 0")
+	_click_to_end()
+	assert_eq(_shown.size(), 3, "one per story line")
+	assert_eq(_shown[1], [&"vale", "Vale has no portrait.", &"story"])
+	assert_eq(_shown[2], [&"isolde", "Last line of A.", &"story"])
+
+
+func test_cut_off_line_emits_its_shown_text() -> void:
+	_request(&"cut_a")
+	var expected: String = CUT_TEXT.left(CUT_AT) + CommsChannel.cutoff_suffix_from(Config.section("comms"))
+	assert_eq(expected, "General, get behind me, I've got you co...")
+	assert_eq(_shown, [[&"tarek", expected, &"combat"]], "cut to cut_off_at plus the suffix")
+	assert_eq(CommsChannel.shown_text("abcdef", 3, "..."), "abc...")
+	assert_eq(CommsChannel.shown_text("abcdef", -1, "..."), "abcdef", "a plain line is shown whole")
