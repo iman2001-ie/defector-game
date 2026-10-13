@@ -9,7 +9,9 @@ extends GutTest
 ## to the Level Select screen and leaves GameState and the save alone. The save
 ## is a test file here. Story 5.5: start_level("1") goes through the opening
 ## story scene (goto_story), finish_story() starts the pending level without the
-## opening check, and a retry never plays it.
+## opening check, and a retry never plays it. Story 7.7: complete_level of the
+## last level saves and goes to the end screen through goto_end(), which clears
+## the level id and the retry flag and keeps the energy and the Final Choice.
 
 const TEST_SAVE: String = "user://test_scene_router_save.cfg"
 
@@ -47,6 +49,7 @@ func after_each() -> void:
 	GameState.is_retry = false
 	GameState.highest_unlocked_level = 1
 	GameState.all_levels_unlocked = false
+	GameState.final_choice = &""
 	Feedback.reset()
 	PauseArbiter.clear()
 	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_VISIBLE)
@@ -365,16 +368,70 @@ func test_complete_level_1_again_keeps_the_higher_unlock() -> void:
 	assert_eq(GameState.current_level_id, "2")
 
 
-func test_complete_last_level_saves_and_goes_to_the_title() -> void:
+## Story 7.7: the last level saves, then goes to the end screen (goto_end()).
+func test_complete_last_level_saves_and_goes_to_the_end_screen() -> void:
+	GameState.highest_unlocked_level = 3
+	GameState.energy = 80
+	GameState.current_level_id = "3"
+	GameState.final_choice = &"destroy"
+	SceneRouter.complete_level(3)
+	assert_eq(_read_save(), [1, 3, 80], "save written")
+	assert_eq(_calls, [SceneRouter.END_SCENE_PATH] as Array[String], "one change to the end screen")
+	assert_eq(GameState.highest_unlocked_level, 3, "level 3 is the highest")
+	assert_eq(GameState.energy, 80, "energy kept")
+	assert_eq(GameState.current_level_id, "", "no level id")
+	assert_false(GameState.is_retry, "not a retry")
+	assert_eq(GameState.final_choice, &"destroy", "the Final Choice kept for Story 7.8")
+	assert_eq(_scene_lines(), ["[INFO][scene] Going to the end screen"] as Array[String], "one INFO scene line")
+
+
+func test_complete_last_level_goes_to_the_end_screen_even_if_the_save_fails() -> void:
+	SaveManager.save_path = "user://test_scene_router_missing_dir/save.cfg"
 	GameState.highest_unlocked_level = 3
 	GameState.energy = 80
 	GameState.current_level_id = "3"
 	SceneRouter.complete_level(3)
-	assert_eq(_read_save(), [1, 3, 80], "save written")
-	assert_eq(_calls, [SceneRouter.TITLE_SCENE_PATH] as Array[String], "the title opens")
-	assert_eq(GameState.highest_unlocked_level, 3, "restored from the save")
-	assert_eq(GameState.energy, 80, "restored from the save")
-	assert_eq(GameState.current_level_id, "", "no level id")
+	assert_push_error("[ERROR][save]")
+	assert_eq(_calls, [SceneRouter.END_SCENE_PATH] as Array[String], "the end screen still opens")
+	assert_eq(GameState.energy, 80, "energy kept")
+	assert_eq(GameState.current_level_id, "")
+
+
+# --- Story 7.7: the end screen -----------------------------------------------------------
+
+func test_end_scene_path() -> void:
+	assert_eq(SceneRouter.END_SCENE_PATH, "res://scenes/end/end_screen.tscn")
+	assert_true(ResourceLoader.exists(SceneRouter.END_SCENE_PATH))
+
+
+func test_goto_end_clears_the_level_and_keeps_energy_and_choice() -> void:
+	_write_save(1, 5)
+	GameState.energy = 60
+	GameState.highest_unlocked_level = 3
+	GameState.current_level_id = "3"
+	GameState.is_retry = true
+	GameState.final_choice = &"surrender"
+	PauseArbiter.push(&"story")
+	Feedback.hit_stop(500.0)
+	SceneRouter.goto_end()
+	assert_eq(_calls, [SceneRouter.END_SCENE_PATH] as Array[String], "one change to the end screen")
+	assert_eq(GameState.current_level_id, "", "level id cleared")
+	assert_false(GameState.is_retry, "retry flag cleared")
+	assert_eq(GameState.energy, 60, "energy kept (not restored from the save)")
+	assert_eq(GameState.highest_unlocked_level, 3, "unlock untouched")
+	assert_eq(GameState.final_choice, &"surrender", "the Final Choice kept")
+	assert_false(PauseArbiter.is_paused(), "pause reasons cleared")
+	assert_eq(PauseArbiter.reasons(), [] as Array[StringName])
+	assert_eq(Engine.time_scale, 1.0, "hit-stop ended")
+	assert_eq(_scene_lines(), ["[INFO][scene] Going to the end screen"] as Array[String], "one INFO scene line")
+	assert_eq(_read_save(), [1, 1, 5], "goto_end writes no save")
+
+
+func test_goto_end_clears_the_pauses_after_the_swap() -> void:
+	PauseArbiter.push(&"story")
+	SceneRouter.goto_end()
+	assert_eq(_order, ["change paused=true", "resumed"] as Array[String], "paused at the call, resumed once after it")
+	assert_false(PauseArbiter.is_paused(), "unpaused afterwards")
 
 
 func test_f7_flag_never_leaks_into_the_save() -> void:

@@ -6,9 +6,13 @@ extends GutTest
 ## shipped), Isolde's taunt at 0.25 of wave 3 with no pause, then the Flagship
 ## boss wave with the boss music and its cover asteroids, driven through the
 ## turrets, the 50 HP clamp, the Final Choice (OFFER SURRENDER), the response
-## and the core's death to exactly one boss_defeated, one level_cleared(3) and
-## the router going to the title (level 3 is the last; Story 7.7 adds the end
-## screen). The flag rows load a temp flags file the way F5 re-reads it
+## and the core's death to exactly one boss_defeated; then (Story 7.7) Isolde's
+## final line l3_isolde_final plays as the paused story outro (ISOLDE in the
+## panel) with no clear yet, and only after its click-through come one
+## level_cleared(3), the save and the router going to the end screen. An
+## all-flags-on run (every flags.json key true, the Hunter Wasps counted,
+## DESTROY HER) proves the Final Choice, the refusal and the final line each
+## fire exactly once (AC3). The flag rows load a temp flags file the way F5 re-reads it
 ## (Config.load_data(tuning, flags)); after_each restores the shipped data. The
 ## player is debug_invincible, the save is a test file and the router's scene
 ## change is a recorder. Ryn's kills shift the ratios, so no test asserts an
@@ -24,6 +28,7 @@ const LEVEL_ID: String = "3"
 const BRIEFING: StringName = &"l3_briefing"
 const TAUNT: StringName = &"l3_w3_isolde_taunt"
 const FINAL_CHOICE: StringName = &"l3_final_choice"
+const FINAL_LINE: StringName = &"l3_isolde_final"
 const COMBAT_MUSIC: StringName = &"combat"
 const BOSS_MUSIC: StringName = &"boss"
 const MUSIC_IDS: Array[StringName] = [&"combat", &"boss"]
@@ -326,6 +331,19 @@ func _crossed(info: Dictionary, at: float) -> bool:
 	return resolved / total >= at and (resolved - 1.0) / total < at
 
 
+## [save_version, highest_unlocked_level, energy] read straight from the test
+## save ([] when there is none).
+func _read_save() -> Array:
+	var file: ConfigFile = ConfigFile.new()
+	if file.load(TEST_SAVE) != OK:
+		return []
+	return [
+		file.get_value("progress", "save_version"),
+		file.get_value("progress", "highest_unlocked_level"),
+		file.get_value("progress", "energy"),
+	]
+
+
 func _lines_matching(fragment: String) -> Array[String]:
 	var out: Array[String] = []
 	for line: String in _lines:
@@ -423,23 +441,17 @@ func _play_wave_3_into_the_boss(taunt_on: bool) -> void:
 	assert_false(director.is_level_cleared(), "not cleared while the Flagship lives")
 
 
-# --- Acceptance 1: the shipped flags ---------------------------------------------
-
-## The whole level with the shipped flags: the briefing, the three defence waves
-## (Hunter Wasps skipped), the taunt, the boss wave, then the Flagship driven
-## through the turrets, the clamp, the Final Choice (OFFER SURRENDER), the
-## response and the core's death to one boss_defeated, one level_cleared(3) and
-## the router going to the title.
-func test_shipped_flags_play_level_3_through_the_flagship_to_the_clear() -> void:
-	assert_false(Config.flag("hunter_wasp"), "shipped: hunter_wasp off")
-	assert_true(Config.flag("isolde_interruptions"), "shipped: interruptions on")
-	_make_level()
-	_start_through_briefing()
-	await _kill_through_wave(1)
-	_check_wave_2(false)
-	await _kill_through_wave(2)
-	await _play_wave_3_into_the_boss(true)
+## Drives the live Flagship from its arrival to the end screen: the turrets
+## killed, the core taken to the 50 HP clamp, Isolde's lead-in clicked through,
+## a real click on option `option` (`choice`, whose response `response` opens
+## with Vale's line), the response clicked through, DESPERATE, the core killed;
+## then boss_defeated once and Isolde's final line as the paused story outro
+## (ISOLDE) with no clear, no save and no scene change yet; after its
+## click-through, level_cleared(3) once, the save [1, 3, energy], one change to
+## the end screen and still exactly once 0.3 s later.
+func _drive_flagship_to_the_end_screen(option: int, choice: StringName, response: StringName) -> void:
 	var bosses: Array[Flagship] = _flagships()
+	assert_eq(bosses.size(), 1, "one Flagship to drive")
 	if bosses.size() != 1:
 		return
 	var boss: Flagship = bosses[0]
@@ -465,11 +477,12 @@ func test_shipped_flags_play_level_3_through_the_flagship_to_the_clear() -> void
 	assert_true(channel.is_choosing(), "the choice is up after the lead-in")
 	assert_true(view.visible, "FinalChoice shown")
 	assert_eq(view.buttons()[0].text, "OFFER SURRENDER")
-	# OFFER SURRENDER with a real click, then the response.
-	_click_at(view.buttons()[0].get_global_rect().get_center())
-	assert_eq(_choices, [&"surrender"] as Array[StringName], "final_choice_made once")
-	assert_eq(GameState.final_choice, &"surrender")
-	assert_eq(channel.current_sequence(), &"l3_isolde_refuse_surrender", "the surrender response")
+	assert_eq(view.buttons()[1].text, "DESTROY HER")
+	# The option with a real click, then the response.
+	_click_at(view.buttons()[option].get_global_rect().get_center())
+	assert_eq(_choices, [choice] as Array[StringName], "final_choice_made once")
+	assert_eq(GameState.final_choice, choice)
+	assert_eq(channel.current_sequence(), response, "the %s response" % choice)
 	assert_eq((_panel().get_node("Panel/Name") as Label).text, "VALE", "Vale's line first")
 	for i: int in 4:
 		_click_at()
@@ -477,25 +490,91 @@ func test_shipped_flags_play_level_3_through_the_flagship_to_the_clear() -> void
 	assert_eq(PauseArbiter.reasons(), [] as Array[StringName], "no pause reason left")
 	assert_eq(boss.phase(), Flagship.Phase.DESPERATE, "DESPERATE")
 	assert_eq(_cleared, [] as Array[int], "not cleared before the Flagship dies")
-	# The core's death: the chain, boss_defeated, the clear and the title.
+	# The core's death: the chain and boss_defeated, then the outro.
 	core.apply_damage(core.hp, null)
 	assert_eq(boss.phase(), Flagship.Phase.DYING, "DYING")
 	var end_ms: int = Time.get_ticks_msec() + int((Config.num("feedback.boss_death_chain_s") + 5.0) * 1000.0)
-	while _cleared.is_empty() and Time.get_ticks_msec() < end_ms:
+	while channel.current_sequence() != FINAL_LINE and _cleared.is_empty() and Time.get_ticks_msec() < end_ms:
 		await _wait(0.05)
 	assert_eq(_defeated.size(), 1, "boss_defeated once")
 	assert_eq(_flagships().size(), 0, "the Flagship is gone")
-	assert_eq(_cleared, [3] as Array[int], "level_cleared(3) once")
+	# Isolde's final line: a paused story outro before the clear.
+	assert_eq(channel.current_sequence(), FINAL_LINE, "Isolde's final line plays as the outro")
+	assert_true(get_tree().paused, "the outro is a paused story")
+	assert_true(PauseArbiter.has_reason(&"story"), "with the story reason")
+	assert_true(_panel().visible, "in the centred panel")
+	assert_eq((_panel().get_node("Panel/Name") as Label).text, "ISOLDE")
+	assert_eq(_cleared, [] as Array[int], "no level_cleared before the click-through")
+	assert_false(_director().is_level_cleared(), "the director hasn't cleared the level yet")
+	assert_eq(_scene_calls, [] as Array[String], "no scene change yet")
+	assert_eq(_read_save(), [], "no save before the click-through")
+	_click_through()
+	# The clear, the save and the end screen.
+	assert_eq(_cleared, [3] as Array[int], "level_cleared(3) once, after the click-through")
 	assert_true(_director().is_level_cleared(), "the director cleared the level")
-	assert_eq(_scene_calls, [SceneRouter.TITLE_SCENE_PATH] as Array[String], "the router went to the title once")
+	assert_eq(_read_save(), [1, 3, GameState.energy], "the save written with level 3 and the energy")
+	assert_eq(_scene_calls, [SceneRouter.END_SCENE_PATH] as Array[String], "the router went to the end screen once")
 	assert_eq(GameState.highest_unlocked_level, 3, "complete_level(3) records level 3 as the highest")
+	assert_eq(GameState.current_level_id, "", "no level id on the end screen")
+	assert_eq(GameState.final_choice, choice, "the Final Choice kept")
 	await _wait(0.3)
 	assert_eq(_defeated.size(), 1, "still one boss_defeated")
 	assert_eq(_cleared, [3] as Array[int], "still cleared exactly once")
 	assert_eq(_scene_calls.size(), 1, "still one scene change")
-	assert_eq(_requested, [BRIEFING, TAUNT, FINAL_CHOICE] as Array[StringName], "comms request order")
-	assert_eq(_lines_matching("Ally 'ryn' spawned").size(), 1, "Ryn spawned once")
+	assert_eq(_lines_matching("[INFO][beat] Level 3 outro 'l3_isolde_final'").size(), 1, "one outro line")
 	assert_eq(_lines_matching("[INFO][wave] Level 3 cleared").size(), 1, "one level clear line")
+
+
+# --- Acceptance 1: the shipped flags ---------------------------------------------
+
+## The whole level with the shipped flags: the briefing, the three defence waves
+## (Hunter Wasps skipped), the taunt, the boss wave, then the Flagship driven
+## through the turrets, the clamp, the Final Choice (OFFER SURRENDER), the
+## response and the core's death to one boss_defeated; Isolde's final line
+## paused before the clear, then one level_cleared(3), the save and the end
+## screen.
+func test_shipped_flags_play_level_3_through_the_final_line_to_the_end_screen() -> void:
+	assert_false(Config.flag("hunter_wasp"), "shipped: hunter_wasp off")
+	assert_true(Config.flag("isolde_interruptions"), "shipped: interruptions on")
+	_make_level()
+	_start_through_briefing()
+	await _kill_through_wave(1)
+	_check_wave_2(false)
+	await _kill_through_wave(2)
+	await _play_wave_3_into_the_boss(true)
+	await _drive_flagship_to_the_end_screen(0, &"surrender", &"l3_isolde_refuse_surrender")
+	assert_eq(_requested, [BRIEFING, TAUNT, FINAL_CHOICE, FINAL_LINE] as Array[StringName], "comms request order")
+	assert_eq(_lines_matching("Ally 'ryn' spawned").size(), 1, "Ryn spawned once")
+	_assert_clean_log()
+
+
+# --- Acceptance 3: every flag on, exactly-once beats -------------------------------
+
+## Every flags.json key on (the Hunter Wasps counted in W2), played from wave 1
+## to the end screen choosing DESTROY HER: no stall, spawn clamp or error, and
+## the Final Choice, the refusal and the final line each fire exactly once.
+func test_all_flags_on_play_to_the_end_screen_with_each_beat_once() -> void:
+	var all_on: Dictionary = {}
+	var shipped: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(Config.DEFAULT_FLAGS_PATH))
+	for key: Variant in shipped:
+		all_on[key] = true
+	assert_gt(all_on.size(), 0, "flags.json has keys")
+	_load_flags(all_on)
+	_make_level()
+	_start_through_briefing()
+	await _kill_through_wave(1)
+	_check_wave_2(true)
+	await _kill_through_wave(2)
+	await _play_wave_3_into_the_boss(true)
+	await _drive_flagship_to_the_end_screen(1, &"destroy", &"l3_isolde_refuse_destroy")
+	assert_eq(_requested, [BRIEFING, TAUNT, FINAL_CHOICE, FINAL_LINE] as Array[StringName], "comms request order")
+	assert_eq(_choices, [&"destroy"] as Array[StringName], "final_choice_made exactly once")
+	assert_eq(_lines_matching("Story sequence 'l3_final_choice': final choice shown").size(), 1, "the Final Choice shown once")
+	assert_eq(_lines_matching("Final choice '").size(), 1, "one response started")
+	assert_eq(_lines_matching("Final choice 'destroy': response 'l3_isolde_refuse_destroy' started").size(), 1, "the refusal started once")
+	assert_eq(_requested.count(FINAL_LINE), 1, "the final line requested once")
+	assert_eq(_lines_matching("Story sequence 'l3_isolde_final' started").size(), 1, "the final line started once")
+	assert_eq(_scene_calls, [SceneRouter.END_SCENE_PATH] as Array[String], "one change to the end screen")
 	_assert_clean_log()
 
 

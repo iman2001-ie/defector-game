@@ -953,3 +953,11 @@ location: game/scenes/level/level_background.gd
 source_spec: `spec-7-6-play-level-3-siege-of-the-throne-world.md`
 reason: Maybe-false (intent-alignment layer): headless GUT runs on the dummy renderer, so pixels can't be checked there. The draw path is a single draw_colored_polygon plus draw_polyline over a convex circular segment, called after apply(). Settled by the operator playtest in operator_actions (the arc must be visible in Level 3 and absent in Levels 1 and 2).
 status: open
+
+### DW-100: Whatever music is playing when Level 3 clears (the boss track from the boss wave's music action) keeps playing on the end screen, because no scene change or end-screen code stops music.
+origin: spec-deferred bb58da098d13
+location: game/autoloads/scene_router.gd (goto_end) / game/scenes/end/end_screen.gd (_ready)
+source_spec: `spec-7-7-end-the-war-isoldes-final-line-and-the-end-screen.md`
+severity: medium
+reason: Audio is an autoload and music is stopped only by a `music: stop` action (Audio.apply_music_action); SceneRouter._change_to and EndScreen._ready never touch music. This is the same carry-over every scene change already has (e.g. a level to the title). No music track ships until Story 8.1, so nothing is audible today; Epic 8's audio pass should decide the end screen's music (stop, fade, or an ending theme). The Story 7.7 as-built entry now states the carry-over.
+status: open

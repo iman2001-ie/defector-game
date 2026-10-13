@@ -6,7 +6,7 @@
 	"convoy": false,
 	"ally": "ryn",
 	"intro_sequence": "l3_briefing",
-	"outro_sequence": null,
+	"outro_sequence": "l3_isolde_final",
 	"waves": [
 		{
 			"spawns": [

@@ -36,9 +36,13 @@ extends Node
 ##   is no retry counter and no limit.
 ## - complete_level(n): a cleared campaign level (1..progression.level_count)
 ##   raises the unlock, saves (the only save in the game) and starts level n+1
-##   with the carried energy, or goes to the title after the last level. The
-##   level scene calls it on Events.level_cleared; the router itself doesn't
-##   listen to Events (bare WaveDirector tests clear levels too).
+##   with the carried energy, or goes to the end screen (goto_end()) after the
+##   last level (Story 7.7). The level scene calls it on Events.level_cleared;
+##   the router itself doesn't listen to Events (bare WaveDirector tests clear
+##   levels too).
+## - goto_end(): the end screen (scenes/end/end_screen.tscn, Story 7.7). Clears
+##   the level id and the retry flag, keeps the energy and GameState.final_choice
+##   (Story 7.8's epilogue may read the choice) and writes no save.
 ##
 ## The router also owns the F11 window toggle (Story 4.5, FR59): it is the
 ## PROCESS_MODE_ALWAYS autoload present under every scene, so
@@ -50,6 +54,7 @@ const LEVEL_SCENE_PATH: String = "res://scenes/level/level.tscn"
 const TITLE_SCENE_PATH: String = "res://scenes/title/title.tscn"
 const LEVEL_SELECT_SCENE_PATH: String = "res://scenes/title/level_select.tscn"
 const STORY_SCENE_PATH: String = "res://scenes/story/story.tscn"
+const END_SCENE_PATH: String = "res://scenes/end/end_screen.tscn"
 ## The opening comms sequence (data/dialogue/opening.json) and the level it
 ## opens: scene-flow wiring like the paths above, not tuning (Story 5.5).
 const OPENING_SEQUENCE: StringName = &"opening_main"
@@ -218,9 +223,9 @@ func goto_level_select() -> void:
 
 ## Level `n` was cleared. A campaign level (1..progression.level_count) raises
 ## highest_unlocked_level to max(current, min(n + 1, level_count)), saves, then
-## starts level n + 1 with the current energy, or goes to the title after the
-## last level (Epic 7 replaces that with the end screen). The transition happens
-## even if the save fails. Any other id (the dev level is 0) is only logged.
+## starts level n + 1 with the current energy, or goes to the end screen
+## (goto_end()) after the last level (Story 7.7). The transition happens even if
+## the save fails. Any other id (the dev level is 0) is only logged.
 func complete_level(n: int) -> void:
 	var level_count: int = Config.int_("progression.level_count")
 	if n < 1 or n > level_count:
@@ -231,7 +236,16 @@ func complete_level(n: int) -> void:
 	if n < level_count:
 		start_level(str(n + 1))
 	else:
-		goto_title()
+		goto_end()
+
+
+## The end screen after the last level (Story 7.7): no level id, not a retry.
+## Keeps the energy and GameState.final_choice and writes no save (the save
+## already happened in complete_level).
+func goto_end() -> void:
+	GameState.current_level_id = ""
+	GameState.is_retry = false
+	_change_to(END_SCENE_PATH, "Going to the end screen")
 
 
 ## Sets the level id, clears is_retry and loads level.tscn (energy kept).

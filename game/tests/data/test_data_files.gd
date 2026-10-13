@@ -293,7 +293,7 @@ func _wave_counted(wave: Dictionary, gated_on: bool) -> int:
 
 ## Story 7.6: Level 3 is the GDD's Siege of the Throne World. Root values (no
 ## convoy, Ryn flying, the throne_world background, Ryn's l3_briefing story as
-## the intro, no outro until Story 7.7 adds Isolde's final line), each wave's
+## the intro, Isolde's l3_isolde_final story as the outro since Story 7.7), each wave's
 ## exact spawn order and formations (W1 Lancers then Wasps; W2 Needles first,
 ## then Bastions, then the rowless Hunter Wasps; W3 Bastion, Lancers, then the
 ## Wasps as grid_10x2, decision #53), the counted totals by type with the
@@ -317,8 +317,8 @@ func test_level_3_siege_shape() -> void:
 	assert_eq(data.get("ally"), "ryn", "Ryn flies")
 	assert_eq(data.get("intro_sequence"), "l3_briefing", "Ryn's briefing is the intro")
 	assert_true(Config.dialogue_is_story(&"l3_briefing"), "the intro is a story sequence")
-	assert_true(data.has("outro_sequence"), "the outro key is present")
-	assert_null(data.get("outro_sequence"), "no outro until Story 7.7")
+	assert_eq(data.get("outro_sequence"), "l3_isolde_final", "Isolde's final line is the outro (Story 7.7)")
+	assert_true(Config.dialogue_is_story(&"l3_isolde_final"), "the outro is a story sequence")
 	assert_false(Config.flag("hunter_wasp"), "shipped: hunter_wasp off")
 	var waves: Array = data.get("waves", []) as Array
 	assert_eq(waves.size(), 4, "3 defence waves and the boss wave")
@@ -1960,3 +1960,31 @@ func test_final_choice_ui_tuning() -> void:
 	assert_gte(top, Config.num("ui.comms_panel.y") + Config.num("ui.comms_panel.h"), "below the story panel")
 	assert_lte(top + h, Playfield.SIZE.y, "on screen")
 	assert_gte(Config.int_("ui.final_choice.font_px"), 20, "no text below 20 px")
+
+
+## Story 7.7: the end screen layout (UX "End screen": DEFECTOR 120 px at y 320,
+## the closing line 30 px at y 480, "Thanks for playing" 28 px at y 560, BACK
+## TO TITLE 400 x 72 at y 700) fits the 1920 x 1080 canvas, top to bottom in
+## that order without overlapping, with no text below 20 px.
+func test_end_screen_ui_tuning() -> void:
+	var keys: Array[String] = ["logo_y", "logo_px", "line_y", "line_px", "thanks_y", "thanks_px", "button_w", "button_h", "button_top_y"]
+	var values: Array[float] = []
+	for key: String in keys:
+		values.append(Config.num("ui.end_screen.%s" % key))
+	assert_eq(values, [320.0, 120.0, 480.0, 30.0, 560.0, 28.0, 400.0, 72.0, 700.0] as Array[float], "the UX layout")
+	var texts: Array[Array] = [["logo_y", "logo_px"], ["line_y", "line_px"], ["thanks_y", "thanks_px"]]
+	var last_bottom: float = 0.0
+	for pair: Array in texts:
+		var y: float = Config.num("ui.end_screen.%s" % pair[0])
+		var px: int = Config.int_("ui.end_screen.%s" % pair[1])
+		assert_gte(px, 20, "%s: no text below 20 px" % pair[1])
+		var top: float = y - px / 2.0
+		assert_gte(top, last_bottom, "%s below the text above it" % pair[0])
+		assert_lte(y + px / 2.0, Playfield.SIZE.y, "%s on screen" % pair[0])
+		last_bottom = y + px / 2.0
+	var w: float = Config.num("ui.end_screen.button_w")
+	var top_y: float = Config.num("ui.end_screen.button_top_y")
+	assert_gt(w, 0.0, "button width")
+	assert_lte(w, Playfield.SIZE.x, "the button fits the screen width")
+	assert_gte(top_y, last_bottom, "the button below the texts")
+	assert_lte(top_y + Config.num("ui.end_screen.button_h"), Playfield.SIZE.y, "the button on screen")
