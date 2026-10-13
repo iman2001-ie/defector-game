@@ -2,7 +2,7 @@
 title: 'Story 7.8: Hear the Council Epilogue'
 type: 'feature'
 created: '2026-10-12'
-status: 'awaiting-operator'
+status: done
 operator_actions:
   - 'Play Level 3 from Level Select in a debug build ("<GODOT_DIR>/Godot_v4.7.2-stable_win64.exe" --path game) with the shipped flags, through the Flagship and the Final Choice, and confirm that after Isolde''s final line the council epilogue (ending_council) plays once in the story panel, that clicking it through opens the end screen once, and that nothing soft-locks on the way.'
   - 'Judge the six epilogue lines in game/data/dialogue/ending.json (wording, pacing, and the one choice-neutral line about the Final Choice), reword them there if needed, and record any change against decision #58 in the decision log.'
@@ -256,3 +256,13 @@ Status: awaiting-operator
 - The epilogue's wording and pacing, and whether to ship it on, are provisional (decision #58). They are owed to the operator.
 - The scene changes level → story → end are simulated in tests: the router is a recorder, and the test instances the story scene by hand. A real run is operator action 1.
 - The boss music carries over under the epilogue once tracks ship (Epic 8).
+
+## Operator Confirmation
+
+Confirmed 2026-10-13: the external actions this story owed were carried out.
+
+- Play Level 3 from Level Select in a debug build ("<GODOT_DIR>/Godot_v4.7.2-stable_win64.exe" --path game) with the shipped flags, through the Flagship and the Final Choice, and confirm that after Isolde's final line the council epilogue (ending_council) plays once in the story panel, that clicking it through opens the end screen once, and that nothing soft-locks on the way.
+- Judge the six epilogue lines in game/data/dialogue/ending.json (wording, pacing, and the one choice-neutral line about the Final Choice), reword them there if needed, and record any change against decision #58 in the decision log.
+- Confirm that council_epilogue should ship true in game/data/flags.json; if you set it false instead, also update FLAG_DEFAULTS in game/tests/unit/test_config.gd and the ships-on assert in test_council_epilogue_flag_and_sequence (game/tests/data/test_data_files.gd), and record the decision in the decision log.
+
+_Appended by the bmad-loop orchestrator (`bmad-loop confirm`, #335): a human confirmed these external actions out of band, and the story was advanced from `awaiting-operator` to `done`._
