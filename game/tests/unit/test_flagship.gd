@@ -756,10 +756,10 @@ func test_radial_velocities_helper() -> void:
 func test_first_launch_sends_five_wasps_from_the_core_to_slots_0_to_4() -> void:
 	var boss: Flagship = _spawn_in_core()
 	var interval: float = Config.num("boss.core.wasp_launch_interval_s")
-	assert_eq(interval, 10.0, "shipped launch interval")
+	assert_gt(interval, 0.0, "a positive launch interval")
 	var origin: Vector2 = boss.core().global_position
 	_step_for(boss, interval - 2.0 * DT)
-	assert_eq(_launched().size(), 0, "nothing before 10 s")
+	assert_eq(_launched().size(), 0, "nothing before one launch interval")
 	_step_for(boss, 3.0 * DT)
 	var wasps: Array[Wasp] = _launched()
 	assert_eq(wasps.size(), 5, "5 Wasps at 10 s")
@@ -810,28 +810,31 @@ func test_launches_never_exceed_the_cap_and_refill_freed_slots() -> void:
 	assert_eq(Config.int_("boss.core.wasp_launch_count"), 5)
 	assert_eq(Config.int_("boss.core.wasp_max_alive"), 10)
 	var slots: Array[Vector2] = _expected_slots()
+	var interval: float = Config.num("boss.core.wasp_launch_interval_s")
 	var t: float = 0.0
 	var max_seen: int = 0
 	var killed: bool = false
 	var at_20: int = -1
 	var at_30: Array[Wasp] = []
-	while t < 45.0:
+	# Checkpoints in launch intervals: after the 2nd launch, mid-way to the 3rd
+	# (the kills), after the 3rd (the refill), then one more interval.
+	while t < interval * 4.5:
 		boss.step(DT)
 		t += DT
 		var alive: int = _launched().size()
 		max_seen = maxi(max_seen, alive)
-		if at_20 < 0 and t >= 20.5:
+		if at_20 < 0 and t >= interval * 2.0 + 0.5:
 			at_20 = alive
-		if not killed and t >= 25.0:
+		if not killed and t >= interval * 2.5:
 			killed = true
 			for wasp: Wasp in _launched():
 				if wasp.formation_slot() in [slots[1], slots[5], slots[7]]:
 					wasp.apply_damage(wasp.hp, null)
 			assert_eq(_launched().size(), 7, "3 killed")
-		if at_30.is_empty() and t >= 30.5:
+		if at_30.is_empty() and t >= interval * 3.0 + 0.5:
 			at_30 = _launched()
-	assert_eq(at_20, 10, "20 s: 5 more (10 alive)")
-	assert_eq(at_30.size(), 10, "30 s: 3 into the freed slots (10 alive)")
+	assert_eq(at_20, 10, "after the 2nd launch: 5 more (10 alive)")
+	assert_eq(at_30.size(), 10, "after the 3rd launch: 3 into the freed slots (10 alive)")
 	var taken: Array[Vector2] = []
 	for wasp: Wasp in at_30:
 		assert_false(wasp.formation_slot() in taken, "one Wasp per slot")
@@ -839,7 +842,7 @@ func test_launches_never_exceed_the_cap_and_refill_freed_slots() -> void:
 	for slot: Vector2 in slots:
 		assert_true(slot in taken, "slot %s filled" % slot)
 	assert_eq(max_seen, 10, "never more than 10 alive")
-	assert_eq(_launched().size(), 10, "40 s: the cap holds, nothing launched")
+	assert_eq(_launched().size(), 10, "a 4th launch: the cap holds, nothing launched")
 
 
 func test_launched_wasp_kill_uses_the_wasp_drop_table() -> void:

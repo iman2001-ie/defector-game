@@ -117,7 +117,7 @@
 			"spread_bullets": 5,
 			"spread_deg": 15,
 			"fire_interval_s": 2.0,
-			"bullet_speed_px_s": 350,
+			"bullet_speed_px_s": 400,
 			"telegraph_s": 0.5,
 			"turret_glow_energy": 2.5
 		},
@@ -168,7 +168,7 @@
 			"radial_interval_s": 3.0,
 			"charge_s": 0.6,
 			"wasp_launch_count": 5,
-			"wasp_launch_interval_s": 10.0,
+			"wasp_launch_interval_s": 7.0,
 			"wasp_max_alive": 10,
 			"glow_energy": 2.5,
 			"wasp_slots": { "columns": 5, "spacing_x_px": 160, "rows_y": [376, 430] }

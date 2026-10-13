@@ -590,7 +590,7 @@ func test_one_bullet_spread_fires_straight_down() -> void:
 	assert_eq(bullets.size(), 2, "one per turret")
 	for bullet: Projectile in bullets:
 		bullet.set_physics_process(false)
-		assert_almost_eq(bullet.velocity, Vector2(0, 350), Vector2(EPS, EPS), "0 deg")
+		assert_almost_eq(bullet.velocity, Vector2(0, Config.num("enemies.bastion.bullet_speed_px_s")), Vector2(EPS, EPS), "0 deg")
 
 
 func test_state_is_assigned_only_in_enter_state() -> void:
