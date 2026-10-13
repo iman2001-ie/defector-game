@@ -23,26 +23,32 @@ extends Node
 ##   (goto_story(OPENING_SEQUENCE, 1), Story 5.5, R15): PLAY and Level Select
 ##   both call start_level, so both get it.
 ## - goto_story(id, next_level): the comms-only story scene
-##   (scenes/story/story.tscn) for sequence `id`, then level `next_level`. Stores
-##   the pending id and level (story_sequence(), story_next_level()), clears
-##   is_retry and keeps the energy. Refused (logged) while Config.load_error is set.
-## - finish_story(): the story scene calls it when its sequence finished. Starts
-##   the pending level as a fresh attempt straight into level.tscn (never the
-##   opening again) and clears the pending story; with none pending it warns and
-##   goes to the title.
+##   (scenes/story/story.tscn) for sequence `id`, then level `next_level`, or the
+##   end screen when `next_level` is STORY_NEXT_END (Story 7.8, the council
+##   epilogue). Stores the pending id and target (story_sequence(),
+##   story_next_level()), clears is_retry and keeps the energy. Refused (logged)
+##   while Config.load_error is set.
+## - finish_story(): the story scene calls it when its sequence finished. Clears
+##   the pending story, then starts the pending level as a fresh attempt
+##   straight into level.tscn (never the opening again), or goes to the end
+##   screen (goto_end()) when the target is STORY_NEXT_END; with none pending it
+##   warns and goes to the title.
 ## - restart_level(): retry is a scene reload (ADR-004). It wipes energy, marks
 ##   the attempt as a retry and reloads level.tscn, which reads
 ##   GameState.current_level_id, so the same level runs again from wave 1. There
 ##   is no retry counter and no limit.
 ## - complete_level(n): a cleared campaign level (1..progression.level_count)
 ##   raises the unlock, saves (the only save in the game) and starts level n+1
-##   with the carried energy, or goes to the end screen (goto_end()) after the
-##   last level (Story 7.7). The level scene calls it on Events.level_cleared;
-##   the router itself doesn't listen to Events (bare WaveDirector tests clear
-##   levels too).
-## - goto_end(): the end screen (scenes/end/end_screen.tscn, Story 7.7). Clears
-##   the level id and the retry flag, keeps the energy and GameState.final_choice
-##   (Story 7.8's epilogue may read the choice) and writes no save.
+##   with the carried energy. After the last level it plays the council epilogue
+##   (goto_story(ENDING_SEQUENCE, STORY_NEXT_END), Story 7.8) when the
+##   council_epilogue flag is on and the config loaded, else it goes to the end
+##   screen at once (goto_end(), Story 7.7). The level scene calls it on
+##   Events.level_cleared; the router itself doesn't listen to Events (bare
+##   WaveDirector tests clear levels too).
+## - goto_end(): the end screen (scenes/end/end_screen.tscn, Story 7.7), straight
+##   from complete_level or after the council epilogue through finish_story().
+##   Clears the level id and the retry flag, keeps the energy and
+##   GameState.final_choice and writes no save.
 ##
 ## The router also owns the F11 window toggle (Story 4.5, FR59): it is the
 ## PROCESS_MODE_ALWAYS autoload present under every scene, so
@@ -59,6 +65,11 @@ const END_SCENE_PATH: String = "res://scenes/end/end_screen.tscn"
 ## opens: scene-flow wiring like the paths above, not tuning (Story 5.5).
 const OPENING_SEQUENCE: StringName = &"opening_main"
 const OPENING_LEVEL_ID: String = "1"
+## The council epilogue (data/dialogue/ending.json, Story 7.8) and the
+## goto_story target that means "the end screen, not a level": scene-flow wiring
+## like the opening constants, not tuning.
+const ENDING_SEQUENCE: StringName = &"ending_council"
+const STORY_NEXT_END: int = -1
 
 ## Changes the scene to a file path. Defaults to get_tree().change_scene_to_file
 ## in _ready; tests inject a recorder (calling the real one in GUT would replace
@@ -72,7 +83,8 @@ var get_window_mode: Callable
 var set_window_mode: Callable
 
 ## The story the story scene plays (&"" when none is pending) and the level
-## finish_story() starts after it (0 when none).
+## finish_story() starts after it (0 when none, STORY_NEXT_END for the end
+## screen).
 var _story_id: StringName = &""
 var _story_next_level: int = 0
 
@@ -154,7 +166,8 @@ func start_level(id: String) -> void:
 
 
 ## The comms-only story scene for sequence `id`, followed by level
-## `next_level` (finish_story()). Clears is_retry and keeps the energy. While
+## `next_level`, or by the end screen when `next_level` is STORY_NEXT_END
+## (finish_story()). Clears is_retry and keeps the energy. While
 ## Config.load_error is set it logs an ERROR and changes nothing.
 func goto_story(id: StringName, next_level: int) -> void:
 	if not Config.load_error.is_empty():
@@ -163,7 +176,8 @@ func goto_story(id: StringName, next_level: int) -> void:
 	_story_id = id
 	_story_next_level = next_level
 	GameState.is_retry = false
-	_change_to(STORY_SCENE_PATH, "Story '%s' before level %d" % [id, next_level])
+	var target: String = "the end screen" if next_level == STORY_NEXT_END else "level %d" % next_level
+	_change_to(STORY_SCENE_PATH, "Story '%s' before %s" % [id, target])
 
 
 ## The pending story sequence id (&"" when none).
@@ -171,19 +185,24 @@ func story_sequence() -> StringName:
 	return _story_id
 
 
-## The level the pending story leads to (0 when none).
+## The level the pending story leads to (0 when none, STORY_NEXT_END when it
+## leads to the end screen).
 func story_next_level() -> int:
 	return _story_next_level
 
 
-## The story scene's sequence finished: starts the pending level as a fresh
-## attempt (energy kept) straight into level.tscn, without the opening check,
-## and clears the pending story. With no pending story it warns and goes to
-## the title.
+## The story scene's sequence finished: clears the pending story, then starts
+## the pending level as a fresh attempt (energy kept) straight into level.tscn,
+## without the opening check, or goes to the end screen (goto_end()) when the
+## target is STORY_NEXT_END. With no pending story it warns and goes to the
+## title.
 func finish_story() -> void:
 	var next_level: int = _story_next_level
 	_story_id = &""
 	_story_next_level = 0
+	if next_level == STORY_NEXT_END:
+		goto_end()
+		return
 	if next_level < 1:
 		Log.warn("scene", "No pending story to finish; going to the title")
 		goto_title()
@@ -223,9 +242,13 @@ func goto_level_select() -> void:
 
 ## Level `n` was cleared. A campaign level (1..progression.level_count) raises
 ## highest_unlocked_level to max(current, min(n + 1, level_count)), saves, then
-## starts level n + 1 with the current energy, or goes to the end screen
-## (goto_end()) after the last level (Story 7.7). The transition happens even if
-## the save fails. Any other id (the dev level is 0) is only logged.
+## starts level n + 1 with the current energy. After the last level it plays the
+## council epilogue (goto_story(ENDING_SEQUENCE, STORY_NEXT_END), Story 7.8)
+## when Config.load_error is empty and the council_epilogue flag is on;
+## otherwise it goes to the end screen at once (goto_end(), Story 7.7), so a
+## broken config (where goto_story refuses) never strands the player on the
+## cleared level. The transition happens even if the save fails. Any other id
+## (the dev level is 0) is only logged.
 func complete_level(n: int) -> void:
 	var level_count: int = Config.int_("progression.level_count")
 	if n < 1 or n > level_count:
@@ -235,13 +258,16 @@ func complete_level(n: int) -> void:
 	SaveManager.save()
 	if n < level_count:
 		start_level(str(n + 1))
+	elif Config.load_error.is_empty() and Config.flag("council_epilogue"):
+		goto_story(ENDING_SEQUENCE, STORY_NEXT_END)
 	else:
 		goto_end()
 
 
-## The end screen after the last level (Story 7.7): no level id, not a retry.
-## Keeps the energy and GameState.final_choice and writes no save (the save
-## already happened in complete_level).
+## The end screen after the last level (Story 7.7), straight from
+## complete_level or after the council epilogue (finish_story(), Story 7.8): no
+## level id, not a retry. Keeps the energy and GameState.final_choice and writes
+## no save (the save already happened in complete_level).
 func goto_end() -> void:
 	GameState.current_level_id = ""
 	GameState.is_retry = false

@@ -12,6 +12,11 @@ extends GutTest
 ## opening check, and a retry never plays it. Story 7.7: complete_level of the
 ## last level saves and goes to the end screen through goto_end(), which clears
 ## the level id and the retry flag and keeps the energy and the Final Choice.
+## Story 7.8: with the council_epilogue flag on (and a healthy config) the last
+## level's complete_level saves and then plays ending_council through
+## goto_story(ENDING_SEQUENCE, STORY_NEXT_END); finish_story() with that target
+## goes to the end screen. With the flag off it goes to the end screen at once.
+## Every last-level row sets the flag explicitly; after_each restores it.
 
 const TEST_SAVE: String = "user://test_scene_router_save.cfg"
 
@@ -20,9 +25,12 @@ var _lines: Array[String] = []
 ## DW-61 ordering: "change paused=<bool>" at each change_scene call and
 ## "resumed" for each PauseArbiter.resumed, in the order they happened.
 var _order: Array[String] = []
+## The shipped council_epilogue value, restored by after_each.
+var _saved_epilogue: Variant = null
 
 
 func before_each() -> void:
+	_saved_epilogue = Config.flags.get("council_epilogue")
 	_calls.clear()
 	_lines.clear()
 	_order.clear()
@@ -53,6 +61,10 @@ func after_each() -> void:
 	Feedback.reset()
 	PauseArbiter.clear()
 	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	if _saved_epilogue == null:
+		Config.flags.erase("council_epilogue")
+	else:
+		Config.flags["council_epilogue"] = _saved_epilogue
 
 
 func _delete_save() -> void:
@@ -368,8 +380,10 @@ func test_complete_level_1_again_keeps_the_higher_unlock() -> void:
 	assert_eq(GameState.current_level_id, "2")
 
 
-## Story 7.7: the last level saves, then goes to the end screen (goto_end()).
+## Story 7.7: with the council epilogue off, the last level saves, then goes
+## to the end screen (goto_end()) with no story pending.
 func test_complete_last_level_saves_and_goes_to_the_end_screen() -> void:
+	Config.flags["council_epilogue"] = false
 	GameState.highest_unlocked_level = 3
 	GameState.energy = 80
 	GameState.current_level_id = "3"
@@ -383,9 +397,12 @@ func test_complete_last_level_saves_and_goes_to_the_end_screen() -> void:
 	assert_false(GameState.is_retry, "not a retry")
 	assert_eq(GameState.final_choice, &"destroy", "the Final Choice kept for Story 7.8")
 	assert_eq(_scene_lines(), ["[INFO][scene] Going to the end screen"] as Array[String], "one INFO scene line")
+	assert_eq(SceneRouter.story_sequence(), &"", "no story pending")
+	assert_eq(SceneRouter.story_next_level(), 0)
 
 
 func test_complete_last_level_goes_to_the_end_screen_even_if_the_save_fails() -> void:
+	Config.flags["council_epilogue"] = false
 	SaveManager.save_path = "user://test_scene_router_missing_dir/save.cfg"
 	GameState.highest_unlocked_level = 3
 	GameState.energy = 80
@@ -611,3 +628,130 @@ func test_start_level_1_with_a_config_error_plays_no_story() -> void:
 	assert_eq(_calls, [] as Array[String], "no scene change")
 	assert_eq(SceneRouter.story_sequence(), &"", "nothing pending")
 	assert_push_error("Cannot start level '1'")
+
+
+# --- Story 7.8: the council epilogue ----------------------------------------------------
+
+func test_ending_constants() -> void:
+	assert_eq(SceneRouter.ENDING_SEQUENCE, &"ending_council")
+	assert_eq(SceneRouter.STORY_NEXT_END, -1)
+	assert_true(Config.dialogue_is_story(SceneRouter.ENDING_SEQUENCE), "ending_council is a loaded story sequence")
+
+
+## Flag on: the save first, then one change to the story scene with
+## ending_council pending before the end screen; energy and choice kept.
+func test_complete_last_level_with_the_epilogue_plays_ending_council() -> void:
+	Config.flags["council_epilogue"] = true
+	GameState.highest_unlocked_level = 3
+	GameState.energy = 80
+	GameState.current_level_id = "3"
+	GameState.final_choice = &"destroy"
+	SceneRouter.complete_level(3)
+	assert_eq(_read_save(), [1, 3, 80], "save written")
+	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH] as Array[String], "one change to the story scene")
+	assert_eq(SceneRouter.story_sequence(), &"ending_council", "the epilogue pending")
+	assert_eq(SceneRouter.story_next_level(), SceneRouter.STORY_NEXT_END, "then the end screen")
+	assert_eq(GameState.energy, 80, "energy kept")
+	assert_eq(GameState.final_choice, &"destroy", "the Final Choice kept")
+	assert_false(GameState.is_retry, "not a retry")
+	assert_eq(_scene_lines(), ["[INFO][scene] Story 'ending_council' before the end screen"] as Array[String], "one INFO scene line")
+
+
+## The save is already on disk when the story scene change is requested.
+func test_complete_last_level_with_the_epilogue_saves_before_the_change() -> void:
+	Config.flags["council_epilogue"] = true
+	GameState.energy = 42
+	SceneRouter.change_scene = _record_with_save
+	SceneRouter.complete_level(3)
+	assert_eq(_calls, ["%s saved=%s" % [SceneRouter.STORY_SCENE_PATH, str([1, 3, 42])]] as Array[String], "saved before the story scene")
+
+
+func _record_with_save(path: String) -> Error:
+	_calls.append("%s saved=%s" % [path, str(_read_save())])
+	return OK
+
+
+func test_complete_last_level_with_the_epilogue_moves_on_even_if_the_save_fails() -> void:
+	Config.flags["council_epilogue"] = true
+	SaveManager.save_path = "user://test_scene_router_missing_dir/save.cfg"
+	GameState.energy = 80
+	SceneRouter.complete_level(3)
+	assert_push_error("[ERROR][save]")
+	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH] as Array[String], "the story scene still opens")
+	assert_eq(SceneRouter.story_sequence(), &"ending_council")
+	assert_eq(SceneRouter.story_next_level(), SceneRouter.STORY_NEXT_END)
+	assert_eq(GameState.energy, 80, "energy kept")
+
+
+## A broken config would make goto_story refuse, so the last level goes to the
+## end screen directly and never logs a refused story.
+func test_complete_last_level_with_a_config_error_goes_to_the_end_screen() -> void:
+	Config.flags["council_epilogue"] = true
+	GameState.energy = 80
+	GameState.highest_unlocked_level = 3
+	var saved_error: String = Config.load_error
+	Config.load_error = "res://data/tuning.json parse error at line 1: test"
+	SceneRouter.complete_level(3)
+	Config.load_error = saved_error
+	assert_eq(_read_save(), [1, 3, 80], "the save still written")
+	assert_has(_scene_lines(), "[INFO][scene] Going to the end screen", "the end-screen INFO line")
+	assert_eq(_calls, [SceneRouter.END_SCENE_PATH] as Array[String], "one change to the end screen")
+	assert_eq(SceneRouter.story_sequence(), &"", "no story pending")
+	assert_eq(_count_starting("[ERROR][scene] Cannot play story"), 0, "never a refused story")
+
+
+## Levels below the last are unchanged by the flag.
+func test_epilogue_flag_does_not_change_levels_below_the_last() -> void:
+	Config.flags["council_epilogue"] = true
+	SceneRouter.complete_level(2)
+	assert_eq(_calls, [SceneRouter.LEVEL_SCENE_PATH] as Array[String], "level 3 starts")
+	assert_eq(GameState.current_level_id, "3")
+	assert_eq(SceneRouter.story_sequence(), &"")
+
+
+func test_goto_story_before_the_end_stores_the_target_and_logs() -> void:
+	GameState.is_retry = true
+	GameState.energy = 15
+	GameState.current_level_id = "3"
+	SceneRouter.goto_story(&"some_story", SceneRouter.STORY_NEXT_END)
+	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH] as Array[String])
+	assert_eq(SceneRouter.story_sequence(), &"some_story")
+	assert_eq(SceneRouter.story_next_level(), SceneRouter.STORY_NEXT_END)
+	assert_false(GameState.is_retry, "retry flag cleared")
+	assert_eq(GameState.energy, 15, "energy kept")
+	assert_eq(_scene_lines(), ["[INFO][scene] Story 'some_story' before the end screen"] as Array[String])
+
+
+func test_goto_story_before_the_end_with_a_config_error_changes_nothing() -> void:
+	var saved_error: String = Config.load_error
+	Config.load_error = "res://data/tuning.json parse error at line 1: test"
+	SceneRouter.goto_story(SceneRouter.ENDING_SEQUENCE, SceneRouter.STORY_NEXT_END)
+	Config.load_error = saved_error
+	assert_eq(_calls, [] as Array[String], "no scene change")
+	assert_eq(SceneRouter.story_sequence(), &"", "nothing pending")
+	assert_push_error("Cannot play story 'ending_council'")
+
+
+## finish_story() with the end pending clears it and calls goto_end() once,
+## writing no save; a second finish has nothing pending and goes to the title
+## as before.
+func test_finish_story_before_the_end_goes_to_the_end_screen_once() -> void:
+	Config.flags["council_epilogue"] = true
+	GameState.energy = 80
+	GameState.current_level_id = "3"
+	GameState.final_choice = &"surrender"
+	SceneRouter.complete_level(3)
+	_delete_save()
+	SceneRouter.finish_story()
+	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH, SceneRouter.END_SCENE_PATH] as Array[String], "story, then the end screen")
+	assert_eq(SceneRouter.story_sequence(), &"", "pending story cleared")
+	assert_eq(SceneRouter.story_next_level(), 0)
+	assert_eq(GameState.current_level_id, "", "no level id")
+	assert_false(GameState.is_retry)
+	assert_eq(GameState.energy, 80, "energy kept")
+	assert_eq(GameState.final_choice, &"surrender", "the Final Choice kept")
+	assert_eq(_scene_lines().back(), "[INFO][scene] Going to the end screen")
+	assert_false(FileAccess.file_exists(TEST_SAVE), "nothing saves after the epilogue")
+	SceneRouter.finish_story()
+	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH, SceneRouter.END_SCENE_PATH, SceneRouter.TITLE_SCENE_PATH] as Array[String], "a second finish goes to the title")
+	assert_push_warning("No pending story")

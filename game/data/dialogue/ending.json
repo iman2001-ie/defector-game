@@ -1,0 +1,15 @@
+{
+	"sequences": {
+		"ending_council": {
+			"mode": "story",
+			"lines": [
+				{ "speaker": "ryn", "text": "All ships, stand down. Her home fleet has laid down its arms, General. It's over." },
+				{ "speaker": "tarek", "text": "They won't let me fly yet, but they let me sit at the table. I wouldn't miss this, General." },
+				{ "speaker": "ryn", "text": "Every free world sent a delegate. No sovereign and no throne this time. A council, where every world has a voice." },
+				{ "speaker": "tarek", "text": "Whatever you told Isolde at the end, she was never going to kneel. That choice was always hers." },
+				{ "speaker": "tarek", "text": "There's a seat on the council for you, General. Not as anyone's weapon. As one voice among many." },
+				{ "speaker": "vale", "text": "Then I'll take it. No more thrones." }
+			]
+		}
+	}
+}

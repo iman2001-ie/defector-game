@@ -2,5 +2,6 @@
 	"surrender_prompts": true,
 	"isolde_interruptions": true,
 	"tarek_fall": true,
-	"hunter_wasp": false
+	"hunter_wasp": false,
+	"council_epilogue": true
 }

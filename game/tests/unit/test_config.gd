@@ -19,6 +19,7 @@ const FLAG_DEFAULTS: Dictionary = {
 	"isolde_interruptions": true,
 	"tarek_fall": true,
 	"hunter_wasp": false,
+	"council_epilogue": true,
 }
 const TIER_KEYS: Array[String] = [
 	"explosion_scale", "shake_px", "shake_s", "hit_stop_ms", "extras", "sfx", "sfx_pitch",
@@ -103,7 +104,7 @@ func test_tuning_has_exactly_the_fixed_sections() -> void:
 	assert_eq(keys, expected)
 
 
-func test_flags_have_the_four_defaults() -> void:
+func test_flags_have_the_five_defaults() -> void:
 	assert_eq(Config.flags, FLAG_DEFAULTS)
 
 

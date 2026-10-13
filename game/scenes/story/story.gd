@@ -10,8 +10,9 @@ extends Control
 ## CommsChannel child is already listening (child _ready runs first) and owns
 ## the `story` pause. When that id finishes (also the deferred finish of an
 ## unknown id, so nothing soft-locks) it calls SceneRouter.finish_story()
-## once, which loads the pending level. Run directly with nothing pending it
-## warns and calls finish_story(), which goes to the title.
+## once, which loads the pending level or the end screen (the council epilogue,
+## Story 7.8). Run directly with nothing pending it warns and calls
+## finish_story(), which goes to the title.
 
 var _sequence: StringName = &""
 var _finished: bool = false

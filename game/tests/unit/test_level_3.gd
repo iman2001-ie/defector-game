@@ -9,10 +9,15 @@ extends GutTest
 ## and the core's death to exactly one boss_defeated; then (Story 7.7) Isolde's
 ## final line l3_isolde_final plays as the paused story outro (ISOLDE in the
 ## panel) with no clear yet, and only after its click-through come one
-## level_cleared(3), the save and the router going to the end screen. An
-## all-flags-on run (every flags.json key true, the Hunter Wasps counted,
-## DESTROY HER) proves the Final Choice, the refusal and the final line each
-## fire exactly once (AC3). The flag rows load a temp flags file the way F5 re-reads it
+## level_cleared(3), the save and the router opening the story scene with the
+## council epilogue (Story 7.8: ending_council before the end screen, the
+## shipped council_epilogue flag); the level is then freed as the real scene
+## change would, story.tscn is instanced and clicked through, and the end screen
+## opens exactly once. An all-flags-on run (every flags.json key true, the
+## Hunter Wasps counted, DESTROY HER) proves the Final Choice, the refusal, the
+## final line and the epilogue each fire exactly once (AC3); with
+## council_epilogue off a level 3 clear goes straight to the end screen. The
+## flag rows load a temp flags file the way F5 re-reads it
 ## (Config.load_data(tuning, flags)); after_each restores the shipped data. The
 ## player is debug_invincible, the save is a test file and the router's scene
 ## change is a recorder. Ryn's kills shift the ratios, so no test asserts an
@@ -29,6 +34,8 @@ const BRIEFING: StringName = &"l3_briefing"
 const TAUNT: StringName = &"l3_w3_isolde_taunt"
 const FINAL_CHOICE: StringName = &"l3_final_choice"
 const FINAL_LINE: StringName = &"l3_isolde_final"
+const ENDING: StringName = &"ending_council"
+const STORY_SCENE: PackedScene = preload("res://scenes/story/story.tscn")
 const COMBAT_MUSIC: StringName = &"combat"
 const BOSS_MUSIC: StringName = &"boss"
 const MUSIC_IDS: Array[StringName] = [&"combat", &"boss"]
@@ -150,6 +157,8 @@ func after_each() -> void:
 		else:
 			Audio.music_streams.erase(id)
 	SceneRouter.change_scene = SceneRouter.default_change_scene()
+	SceneRouter._story_id = &""
+	SceneRouter._story_next_level = 0
 	_delete_files()
 	SaveManager.save_path = SaveManager.DEFAULT_SAVE_PATH
 	_reset_game_state()
@@ -441,15 +450,16 @@ func _play_wave_3_into_the_boss(taunt_on: bool) -> void:
 	assert_false(director.is_level_cleared(), "not cleared while the Flagship lives")
 
 
-## Drives the live Flagship from its arrival to the end screen: the turrets
-## killed, the core taken to the 50 HP clamp, Isolde's lead-in clicked through,
-## a real click on option `option` (`choice`, whose response `response` opens
-## with Vale's line), the response clicked through, DESPERATE, the core killed;
-## then boss_defeated once and Isolde's final line as the paused story outro
-## (ISOLDE) with no clear, no save and no scene change yet; after its
-## click-through, level_cleared(3) once, the save [1, 3, energy], one change to
-## the end screen and still exactly once 0.3 s later.
-func _drive_flagship_to_the_end_screen(option: int, choice: StringName, response: StringName) -> void:
+## Drives the live Flagship from its arrival to the council epilogue: the
+## turrets killed, the core taken to the 50 HP clamp, Isolde's lead-in clicked
+## through, a real click on option `option` (`choice`, whose response `response`
+## opens with Vale's line), the response clicked through, DESPERATE, the core
+## killed; then boss_defeated once and Isolde's final line as the paused story
+## outro (ISOLDE) with no clear, no save and no scene change yet; after its
+## click-through, level_cleared(3) once, the save [1, 3, energy] and one change
+## to the story scene with ending_council pending before the end screen (the
+## shipped council_epilogue flag), still exactly once 0.3 s later.
+func _drive_flagship_to_the_epilogue(option: int, choice: StringName, response: StringName) -> void:
 	var bosses: Array[Flagship] = _flagships()
 	assert_eq(bosses.size(), 1, "one Flagship to drive")
 	if bosses.size() != 1:
@@ -509,13 +519,14 @@ func _drive_flagship_to_the_end_screen(option: int, choice: StringName, response
 	assert_eq(_scene_calls, [] as Array[String], "no scene change yet")
 	assert_eq(_read_save(), [], "no save before the click-through")
 	_click_through()
-	# The clear, the save and the end screen.
+	# The clear, the save and the council epilogue's story scene.
 	assert_eq(_cleared, [3] as Array[int], "level_cleared(3) once, after the click-through")
 	assert_true(_director().is_level_cleared(), "the director cleared the level")
 	assert_eq(_read_save(), [1, 3, GameState.energy], "the save written with level 3 and the energy")
-	assert_eq(_scene_calls, [SceneRouter.END_SCENE_PATH] as Array[String], "the router went to the end screen once")
+	assert_eq(_scene_calls, [SceneRouter.STORY_SCENE_PATH] as Array[String], "the router opened the story scene once")
+	assert_eq(SceneRouter.story_sequence(), ENDING, "ending_council pending")
+	assert_eq(SceneRouter.story_next_level(), SceneRouter.STORY_NEXT_END, "before the end screen")
 	assert_eq(GameState.highest_unlocked_level, 3, "complete_level(3) records level 3 as the highest")
-	assert_eq(GameState.current_level_id, "", "no level id on the end screen")
 	assert_eq(GameState.final_choice, choice, "the Final Choice kept")
 	await _wait(0.3)
 	assert_eq(_defeated.size(), 1, "still one boss_defeated")
@@ -525,16 +536,58 @@ func _drive_flagship_to_the_end_screen(option: int, choice: StringName, response
 	assert_eq(_lines_matching("[INFO][wave] Level 3 cleared").size(), 1, "one level clear line")
 
 
+## The scene change the router asked for: the level is freed (so its
+## CommsChannel can't also play the request), story.tscn is instanced with
+## ending_council pending, it plays in the story panel and its click-through
+## opens the end screen exactly once, with ending_council requested once, the
+## pending story cleared, no level id, the energy and `choice` kept and no
+## new save.
+func _play_the_epilogue_to_the_end_screen(choice: StringName) -> void:
+	var save_before: Array = _read_save()
+	var energy: int = GameState.energy
+	var level: Node2D = _level
+	_level = null
+	remove_child(level)
+	level.queue_free()
+	await wait_process_frames(1)
+	var story: StoryScene = STORY_SCENE.instantiate() as StoryScene
+	add_child_autofree(story)
+	var channel: CommsChannel = story.get_node("Comms/CommsChannel") as CommsChannel
+	var panel: CommsPanel = story.get_node("Comms/CommsPanel") as CommsPanel
+	assert_eq(story.sequence(), ENDING, "the story scene plays ending_council")
+	assert_eq(channel.current_sequence(), ENDING, "in the story channel")
+	assert_true(panel.visible, "in the centred panel")
+	assert_true(PauseArbiter.has_reason(&"story"), "a paused story")
+	var lines: int = (Config.sequence(ENDING).get("lines", []) as Array).size()
+	var clicks: int = 0
+	while channel.is_showing() and clicks < lines * 2 + 4:
+		_click_at()
+		clicks += 1
+	assert_false(channel.is_showing(), "the epilogue was clicked through")
+	assert_false(PauseArbiter.has_reason(&"story"), "the pause lifted")
+	assert_eq(_scene_calls, [SceneRouter.STORY_SCENE_PATH, SceneRouter.END_SCENE_PATH] as Array[String], "then the end screen once")
+	assert_eq(_requested.count(ENDING), 1, "ending_council requested once")
+	assert_eq(SceneRouter.story_sequence(), &"", "pending story cleared")
+	assert_eq(GameState.current_level_id, "", "no level id on the end screen")
+	assert_eq(GameState.energy, energy, "energy kept")
+	assert_eq(GameState.final_choice, choice, "the Final Choice kept")
+	assert_eq(_read_save(), save_before, "nothing saves after the epilogue")
+	_click_at()
+	Events.comms_sequence_finished.emit(ENDING)
+	assert_eq(_scene_calls.count(SceneRouter.END_SCENE_PATH), 1, "still one end-screen change")
+
+
 # --- Acceptance 1: the shipped flags ---------------------------------------------
 
 ## The whole level with the shipped flags: the briefing, the three defence waves
 ## (Hunter Wasps skipped), the taunt, the boss wave, then the Flagship driven
 ## through the turrets, the clamp, the Final Choice (OFFER SURRENDER), the
 ## response and the core's death to one boss_defeated; Isolde's final line
-## paused before the clear, then one level_cleared(3), the save and the end
-## screen.
+## paused before the clear, then one level_cleared(3), the save, the council
+## epilogue (Story 7.8) and the end screen.
 func test_shipped_flags_play_level_3_through_the_final_line_to_the_end_screen() -> void:
 	assert_false(Config.flag("hunter_wasp"), "shipped: hunter_wasp off")
+	assert_true(Config.flag("council_epilogue"), "shipped: council_epilogue on")
 	assert_true(Config.flag("isolde_interruptions"), "shipped: interruptions on")
 	_make_level()
 	_start_through_briefing()
@@ -542,8 +595,9 @@ func test_shipped_flags_play_level_3_through_the_final_line_to_the_end_screen() 
 	_check_wave_2(false)
 	await _kill_through_wave(2)
 	await _play_wave_3_into_the_boss(true)
-	await _drive_flagship_to_the_end_screen(0, &"surrender", &"l3_isolde_refuse_surrender")
-	assert_eq(_requested, [BRIEFING, TAUNT, FINAL_CHOICE, FINAL_LINE] as Array[StringName], "comms request order")
+	await _drive_flagship_to_the_epilogue(0, &"surrender", &"l3_isolde_refuse_surrender")
+	await _play_the_epilogue_to_the_end_screen(&"surrender")
+	assert_eq(_requested, [BRIEFING, TAUNT, FINAL_CHOICE, FINAL_LINE, ENDING] as Array[StringName], "comms request order")
 	assert_eq(_lines_matching("Ally 'ryn' spawned").size(), 1, "Ryn spawned once")
 	_assert_clean_log()
 
@@ -566,15 +620,17 @@ func test_all_flags_on_play_to_the_end_screen_with_each_beat_once() -> void:
 	_check_wave_2(true)
 	await _kill_through_wave(2)
 	await _play_wave_3_into_the_boss(true)
-	await _drive_flagship_to_the_end_screen(1, &"destroy", &"l3_isolde_refuse_destroy")
-	assert_eq(_requested, [BRIEFING, TAUNT, FINAL_CHOICE, FINAL_LINE] as Array[StringName], "comms request order")
+	await _drive_flagship_to_the_epilogue(1, &"destroy", &"l3_isolde_refuse_destroy")
+	await _play_the_epilogue_to_the_end_screen(&"destroy")
+	assert_eq(_requested, [BRIEFING, TAUNT, FINAL_CHOICE, FINAL_LINE, ENDING] as Array[StringName], "comms request order")
 	assert_eq(_choices, [&"destroy"] as Array[StringName], "final_choice_made exactly once")
 	assert_eq(_lines_matching("Story sequence 'l3_final_choice': final choice shown").size(), 1, "the Final Choice shown once")
 	assert_eq(_lines_matching("Final choice '").size(), 1, "one response started")
 	assert_eq(_lines_matching("Final choice 'destroy': response 'l3_isolde_refuse_destroy' started").size(), 1, "the refusal started once")
 	assert_eq(_requested.count(FINAL_LINE), 1, "the final line requested once")
 	assert_eq(_lines_matching("Story sequence 'l3_isolde_final' started").size(), 1, "the final line started once")
-	assert_eq(_scene_calls, [SceneRouter.END_SCENE_PATH] as Array[String], "one change to the end screen")
+	assert_eq(_lines_matching("Story sequence 'ending_council' started").size(), 1, "the epilogue started once")
+	assert_eq(_scene_calls, [SceneRouter.STORY_SCENE_PATH, SceneRouter.END_SCENE_PATH] as Array[String], "the epilogue, then one change to the end screen")
 	_assert_clean_log()
 
 
@@ -610,4 +666,21 @@ func test_isolde_interruptions_off_never_requests_the_taunt() -> void:
 	assert_false(_requested.has(TAUNT), "the taunt was never requested")
 	assert_eq(_requested, [BRIEFING] as Array[StringName], "only the briefing was requested")
 	assert_false(get_tree().paused, "no pause")
+	_assert_clean_log()
+
+
+# --- Story 7.8: council_epilogue off ----------------------------------------------
+
+## council_epilogue off: a level 3 clear on the real level.tscn saves and goes
+## straight to the end screen, with no story scene and no story pending.
+func test_council_epilogue_off_goes_straight_to_the_end_screen() -> void:
+	_load_flags({"council_epilogue": false})
+	_make_level()
+	Events.level_cleared.emit(3)
+	assert_eq(_scene_calls, [SceneRouter.END_SCENE_PATH] as Array[String], "one change to the end screen")
+	assert_eq(SceneRouter.story_sequence(), &"", "no story pending")
+	assert_eq(SceneRouter.story_next_level(), 0, "no story target pending")
+	assert_eq(GameState.current_level_id, "", "no level id on the end screen")
+	assert_eq(_read_save(), [1, 3, GameState.energy], "the save written")
+	assert_false(_requested.has(ENDING), "the epilogue never requested")
 	_assert_clean_log()

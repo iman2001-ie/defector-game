@@ -4,7 +4,10 @@ extends GutTest
 ## with no dim, with a visible cursor, no HUD and no PauseMenu (Esc does
 ## nothing). When that sequence finishes (also the deferred finish of an
 ## unknown id) it calls SceneRouter.finish_story() once, which loads the
-## pending level. Run with nothing pending it goes to the title.
+## pending level. Run with nothing pending it goes to the title. Story 7.8:
+## with ending_council pending before the end screen (STORY_NEXT_END) the
+## click-through opens the end screen once, with the same lines whatever the
+## Final Choice was.
 ## The scene change is a recorder; input goes through
 ## get_viewport().push_input like a real click.
 
@@ -54,6 +57,7 @@ func after_each() -> void:
 	GameState.is_retry = false
 	GameState.highest_unlocked_level = 1
 	GameState.all_levels_unlocked = false
+	GameState.final_choice = &""
 	Feedback.reset()
 	PauseArbiter.clear()
 	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_VISIBLE)
@@ -278,3 +282,77 @@ func test_retry_after_the_opening_never_replays_it() -> void:
 	SceneRouter.restart_level()
 	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH, SceneRouter.LEVEL_SCENE_PATH, SceneRouter.LEVEL_SCENE_PATH] as Array[String])
 	assert_true(GameState.is_retry)
+
+
+# --- Story 7.8: the council epilogue ----------------------------------------------
+
+## Clicks through like _click_through(), recording [speaker, text] of each line
+## the panel shows (one entry per line, in order).
+func _click_through_recording() -> Array[Array]:
+	var shown: Array[Array] = []
+	var last_line: int = -1
+	var clicks: int = 0
+	while _channel().is_showing() and clicks < MAX_CLICKS:
+		if _channel().line_index() != last_line:
+			last_line = _channel().line_index()
+			shown.append([_panel().current_speaker(), (_panel().get_node("Panel/Text") as Label).text])
+		_click()
+		clicks += 1
+	return shown
+
+
+## [speaker, text] of every ending_council line as the data lists them.
+func _ending_lines() -> Array[Array]:
+	var out: Array[Array] = []
+	for line: Variant in Config.sequence(SceneRouter.ENDING_SEQUENCE).get("lines", []) as Array:
+		var entry: Dictionary = line as Dictionary
+		out.append([StringName(str(entry.get("speaker"))), str(entry.get("text"))])
+	return out
+
+
+func test_ending_council_plays_then_opens_the_end_screen_once() -> void:
+	GameState.energy = 80
+	GameState.final_choice = &"destroy"
+	_make_with(SceneRouter.ENDING_SEQUENCE, SceneRouter.STORY_NEXT_END)
+	assert_eq(_story.sequence(), &"ending_council")
+	assert_eq(_channel().current_sequence(), &"ending_council", "the channel plays the epilogue")
+	assert_eq(_channel().line_index(), 0, "line 0")
+	assert_true(_panel().visible, "panel showing")
+	assert_eq(PauseArbiter.reasons(), [&"story"] as Array[StringName], "paused with story")
+	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH] as Array[String], "no end screen yet")
+	var clicks: int = _click_through()
+	assert_lt(clicks, MAX_CLICKS, "the epilogue ended")
+	assert_false(PauseArbiter.has_reason(&"story"), "pause lifted")
+	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH, SceneRouter.END_SCENE_PATH] as Array[String], "then the end screen once")
+	assert_eq(GameState.current_level_id, "", "no level id")
+	assert_eq(GameState.energy, 80, "energy kept")
+	assert_eq(GameState.final_choice, &"destroy", "the Final Choice kept")
+	assert_eq(SceneRouter.story_sequence(), &"", "pending story cleared")
+	assert_eq(SceneRouter.story_next_level(), 0)
+	# A late click and a repeated finish change nothing more.
+	_click()
+	Events.comms_sequence_finished.emit(SceneRouter.ENDING_SEQUENCE)
+	assert_eq(_count(SceneRouter.END_SCENE_PATH), 1, "finish_story called once")
+	assert_eq(_count(SceneRouter.TITLE_SCENE_PATH), 0, "never the title")
+	assert_eq(_count_starting("[WARN][scene]"), 0, "no warning")
+	assert_false(FileAccess.file_exists(TEST_SAVE), "nothing saves after the epilogue")
+
+
+## The epilogue is choice-neutral: whatever GameState.final_choice holds, the
+## same lines (same count, speakers and texts as the data) play, then the end
+## screen.
+func test_ending_council_is_the_same_for_every_final_choice() -> void:
+	var expected: Array[Array] = _ending_lines()
+	assert_eq(expected.size(), 6, "six lines in the data")
+	for choice: StringName in [&"surrender", &"destroy", &""]:
+		_calls.clear()
+		GameState.final_choice = choice
+		_make_with(SceneRouter.ENDING_SEQUENCE, SceneRouter.STORY_NEXT_END)
+		var shown: Array[Array] = _click_through_recording()
+		assert_eq(shown, expected, "choice '%s': the same speakers and texts as the data" % choice)
+		assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH, SceneRouter.END_SCENE_PATH] as Array[String], "choice '%s': then the end screen" % choice)
+		assert_eq(GameState.final_choice, choice, "choice '%s' untouched" % choice)
+		remove_child(_story)
+		_story.queue_free()
+		_story = null
+		await wait_process_frames(1)

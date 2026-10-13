@@ -28,7 +28,10 @@ extends GutTest
 ## Flagship boss wave last); no placeholder level is left; Tarek flies in levels
 ## 1 and 2 and Ryn in level 3; a boss wave is allowed in dev levels and as
 ## level 3's last wave; every level's background is null or a LevelBackground
-## id, and only level 3 shows the throne world.
+## id, and only level 3 shows the throne world. Story 7.8: ending.json joins
+## the campaign files with ending_council, flags.council_epilogue is a bool and
+## ships on, and the epilogue has no choice, at most one line that refers to
+## the Final Choice and every line within the story length limit.
 
 const LEVELS_DIR: String = "res://data/levels/"
 
@@ -1207,7 +1210,7 @@ func test_dev_hints_level_shape() -> void:
 # --- The dialogue script (Story 5.7) ----------------------------------------------
 
 ## The campaign dialogue files (dev.json is not part of the script).
-const CAMPAIGN_DIALOGUE_FILES: Array[String] = ["opening.json", "level_1.json", "level_2.json", "level_3.json"]
+const CAMPAIGN_DIALOGUE_FILES: Array[String] = ["opening.json", "level_1.json", "level_2.json", "level_3.json", "ending.json"]
 
 ## Every campaign sequence: [file, id, mode, allowed speakers, min lines, max lines].
 const CAMPAIGN_SCRIPT: Array[Array] = [
@@ -1226,13 +1229,15 @@ const CAMPAIGN_SCRIPT: Array[Array] = [
 	["level_3.json", "l3_isolde_refuse_surrender", "story", ["vale", "isolde"], 2, 2],
 	["level_3.json", "l3_isolde_refuse_destroy", "story", ["vale", "isolde"], 2, 2],
 	["level_3.json", "l3_isolde_final", "story", ["isolde"], 1, 10],
+	["ending.json", "ending_council", "story", ["ryn", "tarek", "vale"], 3, 8],
 ]
 
 ## Gendered terms no line may use, as whole words (Vale is gender-neutral).
 const GENDERED_ADDRESS: Array[String] = ["sir", "ma'am", "madam", "mister", "mr", "mrs", "ms", "lady", "lord", "son"]
 
-## The most lines Vale speaks across the campaign files (the opening plus line
-## 1 of each Final Choice refusal).
+## The most lines Vale speaks across the campaign files (2 in the opening, line
+## 1 of each Final Choice refusal and the last line of the council epilogue,
+## Story 7.8).
 const MAX_VALE_LINES: int = 5
 
 
@@ -1265,7 +1270,7 @@ func _lines_of(id: String) -> Array:
 ## in the campaign; no `choice` on the Level 1 surrender or any other
 ## campaign sequence, and the Final Choice lead-in has one (Story 7.5).
 func test_campaign_script_layout() -> void:
-	assert_eq(CAMPAIGN_SCRIPT.size(), 15, "15 campaign sequences")
+	assert_eq(CAMPAIGN_SCRIPT.size(), 16, "16 campaign sequences")
 	for file: String in CAMPAIGN_DIALOGUE_FILES:
 		var expected: Array = []
 		for row: Array in CAMPAIGN_SCRIPT:
@@ -1421,6 +1426,54 @@ func test_cast_rules() -> void:
 	if not report.is_empty():
 		assert_eq(str((report[0] as Dictionary).get("speaker")), "ryn", "Ryn speaks first")
 		assert_true(str((report[0] as Dictionary).get("text")).contains("Ryn"), "Ryn names herself")
+
+
+# --- The council epilogue (Story 7.8) ----------------------------------------------
+
+## Words that refer to the player's Final Choice (case-insensitive substrings).
+const CHOICE_WORDS: Array[String] = ["surrender", "destroy", "choice", "chose", "choose", "decide", "decision", "offer", "mercy", "spare"]
+
+
+## Whether `text` contains any CHOICE_WORDS entry (case-insensitive).
+static func _mentions_choice(text: String) -> bool:
+	var lower: String = text.to_lower()
+	for word: String in CHOICE_WORDS:
+		if lower.contains(word):
+			return true
+	return false
+
+
+func test_mentions_choice_self_check() -> void:
+	for text: String in ["Offer surrender.", "DESTROY HER", "That choice was hers.", "You chose well.", "Whatever you choose.", "No mercy.", "Spare her."]:
+		assert_true(_mentions_choice(text), "'%s' refers to the choice" % text)
+	for text: String in ["It's over.", "A council, where every world has a voice.", "No more thrones."]:
+		assert_false(_mentions_choice(text), "'%s' does not refer to the choice" % text)
+
+
+## FR55: flags.council_epilogue is a bool and ships on; ending_council (in
+## ending.json, story mode) has no choice, at most one line refers to the Final
+## Choice (the epilogue plays the same lines whatever was chosen), and every
+## line fits comms.story_line_max_chars.
+func test_council_epilogue_flag_and_sequence() -> void:
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://data/flags.json"))
+	assert_true(parsed is Dictionary, "flags.json parses to an object")
+	var flags: Dictionary = parsed as Dictionary if parsed is Dictionary else {}
+	assert_true(flags.get("council_epilogue") is bool, "flags.council_epilogue is a bool")
+	assert_eq(flags.get("council_epilogue"), true, "the epilogue ships on")
+	assert_true(_file_sequences("ending.json").has("ending_council"), "ending_council lives in ending.json")
+	assert_true(Config.dialogue_is_story(SceneRouter.ENDING_SEQUENCE), "ending_council loads as a story sequence")
+	var seq: Dictionary = Config.sequence(SceneRouter.ENDING_SEQUENCE)
+	assert_false(seq.has("choice"), "ending_council has no choice")
+	var lines: Array = seq.get("lines", []) as Array
+	assert_gt(lines.size(), 0, "ending_council has lines")
+	var max_chars: int = Config.int_("comms.story_line_max_chars")
+	var choice_lines: int = 0
+	for line: Variant in lines:
+		var text: String = str((line as Dictionary).get("text"))
+		assert_lte(text.length(), max_chars, "'%s' fits %d characters" % [text, max_chars])
+		if _mentions_choice(text):
+			choice_lines += 1
+	assert_lte(choice_lines, 1, "at most one line refers to the Final Choice")
 
 
 # --- Convoy (Story 6.1) ------------------------------------------------------------
