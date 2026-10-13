@@ -2,7 +2,7 @@
 title: 'Story 7.1: Play Level 1: Cargo Ambush'
 type: 'feature'
 created: '2026-10-11'
-status: 'awaiting-operator'
+status: done
 operator_actions:
   - 'Play Level 1 from the title in a debug build ("<GODOT_DIR>/Godot_v4.7.2-stable_win64.exe" --path game) with the F1 overlay on, from wave 1 to the clear, and confirm that no wave soft-locks and that the level takes about 3-4 minutes plus dialogue.'
   - 'During that run, confirm the control hints read clearly (W1 move then hold LMB, W2 RMB missile, E/Q when energy first reaches 50/100) and that a first-time player would understand the controls by wave 2 without verbal help.'
@@ -178,3 +178,15 @@ Status: awaiting-operator
 - Full GUT run after the patches: 1648 tests, 1647 passing, 0 failing, 1 pending. The pending test is `test_feedback.gd::test_hit_stop_overlap_keeps_longest`, which skips itself when a timer fires too late under load. Rerun alone, `test_feedback.gd` passed 27/27. The three `test_level_1.gd` tests and the new data tests ran and passed. All 8 rows of the scenario table are covered by passing tests.
 
 **Residual risks:** the tests run with an invincible player and a 100000 HP convoy, so whether Level 1 can actually be won at 100 convoy HP is unproven until the playtest. W1's "slow formation" is the plain `grid_4x2` that the architecture prescribes; if it doesn't feel calm, that needs a design change. With real timing, Isolde's 25 % line queues behind Tarek's 5 s warning; whether that reads well is part of the playtest.
+
+## Operator Confirmation
+
+Confirmed 2026-10-13: the external actions this story owed were carried out.
+
+- Play Level 1 from the title in a debug build ("<GODOT_DIR>/Godot_v4.7.2-stable_win64.exe" --path game) with the F1 overlay on, from wave 1 to the clear, and confirm that no wave soft-locks and that the level takes about 3-4 minutes plus dialogue.
+- During that run, confirm the control hints read clearly (W1 move then hold LMB, W2 RMB missile, E/Q when energy first reaches 50/100) and that a first-time player would understand the controls by wave 2 without verbal help.
+- Judge whether wave 1 reads as the calm "slow formation" the GDD asks for; if it does not, raise a design change (a per-wave Wasp speed does not exist yet) rather than editing code silently.
+- Judge whether the convoy (100 HP) survives real play against the 3 + 4 Mauls and the Lancer fire; if it is too fragile or too safe, retune in game/data/tuning.json (never code) and record the change in the GDD decision log.
+- Confirm the ambush (Tarek warning at W3 start, Isolde at 25 % of W3), the W5 surrender pause and the Maul reinforcements, and Tarek's closing line on clear land as beats.
+
+_Appended by the bmad-loop orchestrator (`bmad-loop confirm`, #335): a human confirmed these external actions out of band, and the story was advanced from `awaiting-operator` to `done`._

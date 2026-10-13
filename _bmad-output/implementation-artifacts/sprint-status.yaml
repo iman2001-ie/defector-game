@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: "2026-10-07 09:00"
-last_updated: 2026-10-10
+last_updated: 2026-10-13
 project: defector-game
 project_key: NOKEY
 tracking_system: file-system
@@ -97,7 +97,7 @@ development_status:
   6-5-lose-tarek-at-the-blockade: done
   epic-6-retrospective: optional
   epic-7: backlog
-  7-1-play-level-1-cargo-ambush: awaiting-operator
+  7-1-play-level-1-cargo-ambush: done
   7-2-play-level-2-the-blockade: awaiting-operator
   7-3-face-the-flagships-turrets-phase-1: awaiting-operator
   7-4-break-the-exposed-core-phase-2: awaiting-operator
