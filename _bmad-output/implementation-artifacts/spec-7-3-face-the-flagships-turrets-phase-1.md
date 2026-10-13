@@ -2,7 +2,7 @@
 title: "Story 7.3: Face the Flagship's Turrets (Phase 1)"
 type: 'feature'
 created: '2026-10-12'
-status: 'awaiting-operator'
+status: done
 operator_actions:
   - 'Run "<GODOT_DIR>/Godot_v4.7.2-stable_win64.exe" --path game res://scenes/level/level.tscn -- --level=dev_boss in a debug build, press F6, and confirm the level jumps to the boss wave: the Flagship flies in from the top and stops at its station, and the boss bar cross-fades in over the wave bar.'
   - 'In that run, judge whether the four turret glows (0.5 s) read clearly before each staggered 3-bullet spread, and whether the spreads are fair to dodge; any retune goes in game/data/tuning.json (boss.turrets) with a GDD decision-log entry.'
@@ -227,3 +227,15 @@ Status: awaiting-operator
 - The provisional readings in decision #54 await operator confirmation.
 - Until Story 7.4 the Flagship stays in TURRETS after the last turret dies (F3 moves the wave on).
 - Story 7.6 must update `test_boss_waves_only_in_dev_levels` when Level 3 gets its boss wave.
+
+## Operator Confirmation
+
+Confirmed 2026-10-13: the external actions this story owed were carried out.
+
+- Run "<GODOT_DIR>/Godot_v4.7.2-stable_win64.exe" --path game res://scenes/level/level.tscn -- --level=dev_boss in a debug build, press F6, and confirm the level jumps to the boss wave: the Flagship flies in from the top and stops at its station, and the boss bar cross-fades in over the wave bar.
+- In that run, judge whether the four turret glows (0.5 s) read clearly before each staggered 3-bullet spread, and whether the spreads are fair to dodge; any retune goes in game/data/tuning.json (boss.turrets) with a GDD decision-log entry.
+- Judge whether the 2 medium cover asteroids give usable cover during Phase 1, given they spawn when the boss wave starts and drift through during the arrival.
+- Destroy all four turrets and confirm each plays a clear Boss-part explosion (bigger than a Lancer, with a short shake and hit-stop), drops an energy orb, and drains the boss bar to the 66.7 % marker; the Flagship then holds in Phase 1 until Story 7.4 (press F3 to move on).
+- Confirm or overrule the provisional readings in GDD decision-log row 54 (unaimed ±15° turret spread, 0.75 s stagger, the hull as armour that blocks shots, cover asteroids at boss-wave start, station y 170 / 3.0 s arrival, parts hanging below the hull), and update the row status accordingly.
+
+_Appended by the bmad-loop orchestrator (`bmad-loop confirm`, #335): a human confirmed these external actions out of band, and the story was advanced from `awaiting-operator` to `done`._
