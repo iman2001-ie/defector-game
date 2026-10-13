@@ -2,7 +2,7 @@
 title: 'Story 7.6: Play Level 3: Siege of the Throne World'
 type: 'feature'
 created: '2026-10-12'
-status: 'awaiting-operator'
+status: done
 operator_actions:
   - 'Play Level 3 from Level Select in a debug build ("<GODOT_DIR>/Godot_v4.7.2-stable_win64.exe" --path game) with the F1 overlay on, from Ryn''s briefing through the three waves, the Flagship, the Final Choice and the clear (which returns to the title until Story 7.7), and confirm that no wave or boss phase soft-locks and that the level takes about 3-4 minutes plus dialogue.'
   - 'During that run, confirm the placeholder throne-world arc is visible along the bottom of the screen in Level 3 (including during the boss-death shake, with no flat edge showing), and judge whether it reads as the throne-world reveal without distracting from the fight; then start Levels 1 and 2 and confirm no arc appears there.'
@@ -227,3 +227,14 @@ Status: awaiting-operator
 - The W2 Bastions sit in the same columns below the Needles, the same accepted layout as Level 2 wave 5. The operator judges it.
 - With 20 Wasps on rows y 340 and 430, a missile on the lower row usually splash-kills the one above, the known side effect of the 90 px rows.
 - In the shipped build both music cues are silent until Story 8.1 adds tracks.
+
+## Operator Confirmation
+
+Confirmed 2026-10-13: the external actions this story owed were carried out.
+
+- Play Level 3 from Level Select in a debug build ("<GODOT_DIR>/Godot_v4.7.2-stable_win64.exe" --path game) with the F1 overlay on, from Ryn's briefing through the three waves, the Flagship, the Final Choice and the clear (which returns to the title until Story 7.7), and confirm that no wave or boss phase soft-locks and that the level takes about 3-4 minutes plus dialogue.
+- During that run, confirm the placeholder throne-world arc is visible along the bottom of the screen in Level 3 (including during the boss-death shake, with no flat edge showing), and judge whether it reads as the throne-world reveal without distracting from the fight; then start Levels 1 and 2 and confirm no arc appears there.
+- Judge the Level 3 difficulty and pacing: wave 1 (4 Lancers, 12 Wasps), wave 2 (whether the 3 medium asteroids give usable cover from the Needles, and whether the Bastions in the same columns below the Needles hide them too much), wave 3 (20 Wasps in a 10 x 2 block plus Lancers and a Bastion) and Isolde's taunt at 25 % of wave 3; raise any retune or layout change rather than editing code silently (tuning goes in game/data/tuning.json with a decision-log entry).
+- Optionally set "hunter_wasp": true in game/data/flags.json, press F5 in Level 3, and confirm wave 2 brings the 4 Hunter Wasps and still clears; set the flag back to false afterwards.
+
+_Appended by the bmad-loop orchestrator (`bmad-loop confirm`, #335): a human confirmed these external actions out of band, and the story was advanced from `awaiting-operator` to `done`._
