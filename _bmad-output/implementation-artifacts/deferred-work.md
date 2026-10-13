@@ -803,7 +803,8 @@ location: game/systems/comms/comms_channel.gd _preempt_combat / _on_wave_cleared
 source_spec: `spec-5-4-cut-off-readability-and-impact.md`
 severity: low
 reason: Pre-existing 5.4 rules (preempt drops effects, void rule), made about 3x more likely by the slower typing. No shipped data requests a story near Tarek's cut-off. Story 6.5 / Epic 7 data should keep the Level 2 Wave 5 cut-off clear of story requests and of the wave end; otherwise decide whether a cut-off should be preempt-proof.
-status: open
+status: done 2026-10-13
+resolution: already resolved: the Tarek's fall rework (decision #63, TarekFallScene) locks the player, holds enemy fire and leaves no story request near the cut-off; the only nearby line (the Level 2 outro) plays after the wave-clear gap. Remaining edge (a pre-lock Barrage clearing the last wave mid-typing drops the cut-off) judged too unlikely to keep open (operator 2026-10-13).
 
 ### DW-82: The 2.5 s cut-off hold (6.0 s when logged) occupies the interruption box, so when the wave clears during the hold the next wave's opening combat lines queue behind it (up to about 2.5 s late) or are dropped past comms.combat_queue_max.
 origin: quick-dev
@@ -811,7 +812,8 @@ location: game/systems/comms/comms_channel.gd step_combat
 source_spec: `spec-5-4-cut-off-readability-and-impact.md`
 severity: low
 reason: A consequence of the user's 2.5 s hold (GDD #43, revised from 6.0 s and then 4.5 s). Level 2 Wave 6 data (Epic 7) should not open with combat chatter, or the hold should end early on wave_cleared; that needs a design call.
-status: open
+status: done 2026-10-13
+resolution: already resolved: the cut-off plays in Level 2's last wave (5 of 5), so no next wave's combat lines can queue behind the hold; the outro story line replaces the cut-off instead of waiting (sweep triage 2026-10-13, closed by operator).
 
 ### DW-83: The Player's 64 px hull circle fits through the 72 px hitbox pocket between the flankers' front edges and the lead's rear edge, so the ship can slip vertically through the triangle.
 origin: spec-deferred b923c06c4a79
