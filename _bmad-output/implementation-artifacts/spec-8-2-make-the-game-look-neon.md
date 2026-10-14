@@ -2,7 +2,7 @@
 title: 'Story 8.2: Make the Game Look Neon'
 type: 'feature'
 created: '2026-10-13'
-status: 'awaiting-operator'
+status: done
 operator_actions:
   - 'Play Level 1, Level 2 and Level 3 in a debug build ("<GODOT_DIR>/Godot_v4.7.2-stable_win64.exe" --path game) and judge every new sprite in motion: the five enemy silhouettes (Wasp, Lancer, Needle, Bastion, Maul) and the orange Hunter Wasp, with each one pointing its nose toward the player (check the Needle, Bastion and Maul, which come from the Extension pack, in particular); the cyan ally fighter; the dimmed convoy hulls reading as civilian cargo; and the Ram in Tarek''s fall.'
   - 'Judge the asteroids: grey-brown, jagged, with the rim light baked on the upper-left edge (the light turns as the rock spins). Say whether that reads well or needs a non-rotating rim.'
@@ -298,3 +298,18 @@ Implementer notes (first pass):
 - GUT: 98 scripts, 2032 tests, 2031 passing, 1 pre-existing timing-dependent pending (`test_feedback.gd` hit-stop), 0 failing, no orphans. `test_level.gd` `test_dev_ally_level_spawns_tarek_who_fires_and_scores` (a real-time ally-kill test) failed once in an early run and passed in the full run and alone afterwards.
 - `--bench=20` (windowed): `frames=4415 avg=4.53 ms p99=9.75 ms max=14.32 ms enemies=40 projectiles=201 renderer=forward_plus window=(1920, 1080) vsync=0 result=PASS`.
 - No font size retune was needed; decision #66 recorded (provisional).
+
+## Operator Confirmation
+
+Confirmed 2026-10-14: the external actions this story owed were carried out.
+
+- Play Level 1, Level 2 and Level 3 in a debug build ("<GODOT_DIR>/Godot_v4.7.2-stable_win64.exe" --path game) and judge every new sprite in motion: the five enemy silhouettes (Wasp, Lancer, Needle, Bastion, Maul) and the orange Hunter Wasp, with each one pointing its nose toward the player (check the Needle, Bastion and Maul, which come from the Extension pack, in particular); the cyan ally fighter; the dimmed convoy hulls reading as civilian cargo; and the Ram in Tarek's fall.
+- Judge the asteroids: grey-brown, jagged, with the rim light baked on the upper-left edge (the light turns as the rock spins). Say whether that reads well or needs a non-rotating rim.
+- Play Level 2 to Tarek's fall and confirm his hull swaps to the darkened, battle-damaged sprite with the fire trail when he is hit.
+- Fight the Flagship in Level 3 and judge the project-owned SVG hull against the Kenney turrets and core (mounts lined up, the Eye pulse readable, no bloom blob), and check that the throne-world arc still reads as a reveal over the space_2 tiles.
+- Look at the two space backgrounds (space_1 in Level 1, the title and the story scene; space_2 in Level 2): no visible tile seams, dark enough, no bloom. Also check the Level Select thumbnails, including the throne-world arc shown on the Level 3 card.
+- Read the comms in the opening and in a fight: judge the three SVG portraits (Isolde, Tarek, Ryn) in the 200 px story panel and the 88 px interruption box.
+- Judge the Kenney Future font on the title, menus, HUD labels, names and buttons. Approve or reject decision #66's reading that dialogue text (story panel, interruption box, pause-menu recent comms) and the story-panel cue keep the engine font, because Kenney Future Narrow could not be downloaded (kenney.nl returns 403). If you can supply Kenney Future Narrow, add it and switch the dialogue fonts to it.
+- Approve or replace any pick in tools/import_cc0_art.py ROWS or the SVGs, then record the outcome in decision #66 of the decision log (it is marked provisional).
+
+_Appended by the bmad-loop orchestrator (`bmad-loop confirm`, #335): a human confirmed these external actions out of band, and the story was advanced from `awaiting-operator` to `done`._
