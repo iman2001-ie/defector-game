@@ -658,25 +658,18 @@ func test_retry_of_level_1_never_plays_the_opening() -> void:
 	assert_true(GameState.is_retry)
 
 
-## Playtest pt7-m: the pause menu's Restart on level 1 goes back to its true
-## beginning, the opening story (then level 1 as a fresh attempt), with the
-## attempt's starting energy.
-func test_restart_of_level_1_replays_the_opening_story() -> void:
+## The pause menu's Restart on level 1 is like every other level (operator,
+## 2026-10-14): level.tscn as a retry with the attempt's starting energy, never
+## the opening story.
+func test_restart_of_level_1_reloads_the_level_without_the_story() -> void:
 	GameState.current_level_id = "1"
 	GameState.level_start_energy = 40
 	GameState.energy = 90
-	GameState.is_retry = true
-	PauseArbiter.push(&"menu")
 	SceneRouter.restart_level()
-	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH] as Array[String], "the opening story")
-	assert_eq(SceneRouter.story_sequence(), SceneRouter.OPENING_SEQUENCE)
-	assert_eq(SceneRouter.story_next_level(), 1)
+	assert_eq(_calls, [SceneRouter.LEVEL_SCENE_PATH] as Array[String], "level.tscn, never the story")
+	assert_eq(SceneRouter.story_sequence(), &"")
 	assert_eq(GameState.energy, 40, "back to the attempt's start energy")
-	assert_false(GameState.is_retry, "a fresh attempt")
-	assert_false(PauseArbiter.is_paused(), "pause reasons cleared")
-	SceneRouter.finish_story()
-	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH, SceneRouter.LEVEL_SCENE_PATH] as Array[String], "then level 1")
-	assert_eq(GameState.level_start_energy, 40)
+	assert_true(GameState.is_retry, "the short retry card, no dialogue")
 
 
 ## Restart on any other level still reloads level.tscn as a retry.

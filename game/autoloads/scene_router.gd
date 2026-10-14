@@ -162,16 +162,10 @@ func retry_level() -> void:
 ## Pause menu Restart Level: reloads level.tscn with the same
 ## GameState.current_level_id and is_retry set, with the energy the attempt
 ## started with (GameState.level_start_energy), so a restart neither wipes nor
-## banks energy. Level OPENING_LEVEL_ID instead restarts from its true
-## beginning, the opening story (playtest pt7-m): the music fades, the energy
-## goes back to the attempt's start and goto_story plays the story, its title
-## card and then the level as a fresh attempt (is_retry cleared).
+## banks energy. Every level restarts the same way, Level 1 included: the short
+## retry card and no dialogue (operator, 2026-10-14; the opening story is not
+## replayed).
 func restart_level() -> void:
-	if GameState.current_level_id == OPENING_LEVEL_ID and Config.load_error.is_empty():
-		GameState.energy = GameState.level_start_energy
-		Audio.stop_music()
-		goto_story(OPENING_SEQUENCE, int(OPENING_LEVEL_ID))
-		return
 	_reload_level(GameState.level_start_energy, "Restart")
 
 

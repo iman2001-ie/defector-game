@@ -2273,7 +2273,7 @@ Level 1's title card and its Restart (GDD decision log #81). The operator report
   - `intro_card = false` is the test seam.
 - **SceneRouter:**
   - `mark_intro_shown(n)` and `consume_intro_shown(n)` hold a one-shot mark (`intro_shown_level()` for tests). It is cleared by `goto_story`, `goto_title`, `goto_level_select`, `goto_end` and `_reload_level`.
-  - `restart_level()` on level `OPENING_LEVEL_ID` (with a healthy config) sets the energy back to `level_start_energy`, fades the music and calls `goto_story(OPENING_SEQUENCE, 1)`. Every other level reloads as before.
+  - `restart_level()` reloads every level the same way, Level 1 included: the short retry card and no dialogue. The operator reverted a first version that replayed the opening story on Level 1's Restart (2026-10-14).
   - A death's `retry_level()` is unchanged on every level: a quick reload, the short card, no dialogue.
 - **level.gd:** the card gate also requires `not SceneRouter.consume_intro_shown(id)`, so Level 1 after the opening starts wave 1 at once.
 

@@ -379,17 +379,17 @@ func test_level_select_card_1_opens_with_the_story_then_level_1() -> void:
 	assert_false(GameState.is_retry)
 
 
-## A death's RETRY after the opening reloads the level; the pause menu's
-## Restart replays the opening (playtest pt7-m).
-func test_retry_after_the_opening_never_replays_it_but_restart_does() -> void:
+## Neither a death's RETRY nor the pause menu's Restart replays the opening:
+## both reload level 1 as a retry (operator, 2026-10-14).
+func test_retry_and_restart_after_the_opening_never_replay_it() -> void:
 	_make_with(&"opening_main", 1)
 	_click_through()
 	SceneRouter.retry_level()
 	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH, SceneRouter.LEVEL_SCENE_PATH, SceneRouter.LEVEL_SCENE_PATH] as Array[String])
 	assert_true(GameState.is_retry)
 	SceneRouter.restart_level()
-	assert_eq(_calls.back(), SceneRouter.STORY_SCENE_PATH, "Restart goes back to the opening story")
-	assert_eq(SceneRouter.story_sequence(), SceneRouter.OPENING_SEQUENCE)
+	assert_eq(_calls.back(), SceneRouter.LEVEL_SCENE_PATH, "Restart reloads the level, not the story")
+	assert_true(GameState.is_retry)
 
 
 # --- Playtest pt7-m: the LEVEL 1 card opens the opening story ---------------------
