@@ -2,7 +2,7 @@
 title: 'Story 8.3: Hit the Performance Targets'
 type: 'feature'
 created: '2026-10-13'
-status: 'awaiting-operator'
+status: done
 operator_actions:
   - 'On the dev laptop, export a debug build ("<GODOT_DIR>/Godot_v4.7.2-stable_win64_console.exe" --headless --path game --export-debug "Windows Desktop" export/windows_debug/DEFECTOR.exe), launch it, press F7 to unlock every level, start Level 3 from Level Select, press F1 for the overlay and play Wave 3 by hand; confirm the overlay''s frame ms stays under 16.6 ms throughout the wave.'
   - 'In the same debug export, play on into the Flagship fight, make the Final Choice with boss Wasps still alive, and confirm the F1 overlay''s frame ms stays under 16.6 ms through the desperate phase until the core dies.'
@@ -196,3 +196,15 @@ Status: awaiting-operator
 - The launch times are warm back-to-back runs, not a post-reboot cold start.
 - Release builds buffer the file logger (`application/run/flush_stdout_on_print` is off), so a crash can lose the last lines of `godot.log`. That weakens the plan to use that log when a playtester reports a bug. Enabling the setting is the user's call; it was not changed.
 - The level bench has no internal drive timeout. Unattended callers should wrap it in an external timeout.
+
+## Operator Confirmation
+
+Confirmed 2026-10-14: the external actions this story owed were carried out.
+
+- On the dev laptop, export a debug build ("<GODOT_DIR>/Godot_v4.7.2-stable_win64_console.exe" --headless --path game --export-debug "Windows Desktop" export/windows_debug/DEFECTOR.exe), launch it, press F7 to unlock every level, start Level 3 from Level Select, press F1 for the overlay and play Wave 3 by hand; confirm the overlay's frame ms stays under 16.6 ms throughout the wave.
+- In the same debug export, play on into the Flagship fight, make the Final Choice with boss Wasps still alive, and confirm the F1 overlay's frame ms stays under 16.6 ms through the desperate phase until the core dies.
+- Reboot the dev laptop, then as the first thing after login run uv run python tools/perf_check.py launch game/export/windows/DEFECTOR.exe (or launch and time the release exe by hand) and confirm the title screen appears in under 5 s.
+- If the machine the agent measured on is not the dev laptop, re-run uv run python tools/perf_check.py size game/export/windows and both level benches (game/export/windows_debug/DEFECTOR.console.exe -- --level-bench=busiest_wave, then -- --level-bench=desperate) on the dev laptop.
+- Record the outcome in decision #67 of the decision log (its status currently says operator confirmation owed).
+
+_Appended by the bmad-loop orchestrator (`bmad-loop confirm`, #335): a human confirmed these external actions out of band, and the story was advanced from `awaiting-operator` to `done`._
