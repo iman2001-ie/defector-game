@@ -190,6 +190,29 @@ func test_scene_plays_the_pending_story() -> void:
 	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH] as Array[String], "no level yet")
 
 
+## Story 8.4: the scene logs one `[INFO][beat] Story '<id>'` line for the
+## sequence it plays (the beat_audit.py contract), the opening and the epilogue alike.
+func test_opening_logs_its_story_beat() -> void:
+	_make_with(&"opening_main", 1)
+	assert_eq(_count_starting("[INFO][beat] Story 'opening_main'"), 1, "one opening beat")
+	assert_true(_lines.has("[INFO][beat] Story 'opening_main'"), "the exact text")
+	_click_through()
+	assert_eq(_count_starting("[INFO][beat] Story "), 1, "logged once, not per line or on finish")
+
+
+func test_epilogue_logs_its_story_beat() -> void:
+	_make_with(SceneRouter.ENDING_SEQUENCE, SceneRouter.STORY_NEXT_END)
+	assert_true(_lines.has("[INFO][beat] Story 'ending_council'"), "the exact text")
+	assert_eq(_count_starting("[INFO][beat] Story "), 1, "one beat line")
+
+
+func test_no_pending_story_logs_no_beat() -> void:
+	_make()
+	assert_eq(_count_starting("[INFO][beat]"), 0, "no beat line")
+	assert_eq(_count_starting("[WARN][scene] Story scene has no pending sequence"), 1, "the warning stays")
+	assert_push_warning("no pending sequence")
+
+
 func test_click_through_loads_level_1_once() -> void:
 	GameState.energy = 30
 	_make_with(&"opening_main", 1)

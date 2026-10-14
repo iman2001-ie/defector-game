@@ -65,6 +65,8 @@ var _box: CommsBox
 var _final_choice: FinalChoice
 ## Every Events.final_choice_made (Story 7.5).
 var _choices: Array[StringName] = []
+## _lines.size() at each Events.final_choice_made (Story 8.4: the beat line comes first).
+var _lines_at_choice: Array[int] = []
 ## Every Events.comms_line_shown: [speaker, text, mode].
 var _shown: Array = []
 var _finished: Array[StringName] = []
@@ -97,6 +99,7 @@ func before_each() -> void:
 	_final_choice = CHOICE_SCENE.instantiate() as FinalChoice
 	add_child_autofree(_final_choice)
 	_choices.clear()
+	_lines_at_choice.clear()
 	Events.final_choice_made.connect(_on_choice_made)
 	_shown.clear()
 	Events.comms_line_shown.connect(_on_line_shown)
@@ -1126,6 +1129,7 @@ func _to_choice(id: StringName = &"choice_a") -> void:
 
 func _on_choice_made(choice: StringName) -> void:
 	_choices.append(choice)
+	_lines_at_choice.append(_lines.size())
 
 
 func _button(index: int) -> Button:
@@ -1296,6 +1300,67 @@ func test_an_unknown_next_finishes_at_once() -> void:
 	assert_false(_channel.is_showing())
 	assert_false(_panel.visible)
 	assert_false(PauseArbiter.is_paused(), "no pause left")
+
+
+# --- Choice beat line (Story 8.4) --------------------------------------------------------
+
+## Loads the shipped dialogue, requests `id` and clicks its lead-in up to the choice.
+func _to_shipped_choice(id: StringName) -> void:
+	Config.load_data()
+	_request(id)
+	for i: int in 20:
+		if _channel.is_choosing():
+			break
+		_click()
+	assert_true(_channel.is_choosing(), "%s: the choice is up" % id)
+
+
+func _press_option(id: StringName) -> void:
+	var index: int = _final_choice.option_ids().find(id)
+	assert_gt(index, -1, "'%s' is an option" % id)
+	if index >= 0:
+		_button(index).pressed.emit()
+
+
+func _count_starting(prefix: String) -> int:
+	var n: int = 0
+	for line: String in _lines:
+		if line.begins_with(prefix):
+			n += 1
+	return n
+
+
+func test_l1_refuse_logs_the_choice_beat() -> void:
+	_to_shipped_choice(&"l1_w5_surrender")
+	_press_option(&"refuse")
+	assert_eq(_choices, [&"refuse"] as Array[StringName])
+	assert_eq(_count_lines("[INFO][beat] Choice 'refuse' picked in 'l1_w5_surrender'"), 1, "the exact beat line, once")
+	assert_eq(_count_starting("[INFO][beat]"), 1, "no other beat line")
+	var at: int = _lines.find("[INFO][beat] Choice 'refuse' picked in 'l1_w5_surrender'")
+	assert_eq(_lines_at_choice.size(), 1)
+	if _lines_at_choice.size() == 1:
+		assert_lt(at, _lines_at_choice[0], "logged before final_choice_made")
+	_click_to_end()
+	assert_eq(_count_starting("[INFO][beat]"), 1, "nothing more after the response")
+
+
+func test_l3_destroy_logs_the_choice_beat() -> void:
+	_to_shipped_choice(&"l3_final_choice")
+	_press_option(&"destroy")
+	assert_eq(_choices, [&"destroy"] as Array[StringName])
+	assert_eq(_count_lines("[INFO][beat] Choice 'destroy' picked in 'l3_final_choice'"), 1, "the exact beat line, once")
+	assert_eq(_count_starting("[INFO][beat]"), 1, "no other beat line")
+	_button(0).pressed.emit()
+	assert_eq(_count_starting("[INFO][beat]"), 1, "a second click logs nothing")
+
+
+func test_an_unknown_option_logs_no_choice_beat() -> void:
+	_to_shipped_choice(&"l3_final_choice")
+	_final_choice.chosen.emit(&"no_such_option")
+	assert_push_error("Final choice 'no_such_option' is not an option of 'l3_final_choice'; ignored")
+	assert_eq(_count_starting("[INFO][beat]"), 0, "no beat line for a rejected option")
+	assert_eq(_choices, [] as Array[StringName], "no choice made")
+	assert_true(_channel.is_choosing(), "still choosing")
 
 
 # --- Choice outcome `fail` (Epic 7 playtest D) -------------------------------------------

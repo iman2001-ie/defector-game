@@ -22,6 +22,11 @@ extends Control
 ## `EndScreen`), copied onto the children in code. Mouse-only: the button takes
 ## no focus. The closing line is microcopy, like the title's TEXT_PLAY: the
 ## docs leave its wording open (decision #57, provisional).
+##
+## Story 8.4: after the ready line it logs `[INFO][beat] End screen: campaign
+## finished <s> s after launch (final choice '<id>')` (<s> whole seconds of
+## Time.get_ticks_msec(), the choice `none` when GameState.final_choice is
+## empty), the end-of-run beat tools/beat_audit.py reads.
 
 const THEME_TYPE: StringName = &"EndScreen"
 const COLOR_LOGO: StringName = &"logo"
@@ -64,6 +69,9 @@ func _ready() -> void:
 		_layout()
 	_back.pressed.connect(_on_back_pressed)
 	Log.info("scene", "End screen ready")
+	# Story 8.4: the last playthrough beat for tools/beat_audit.py (also on a fatal config).
+	var choice: String = "none" if GameState.final_choice.is_empty() else String(GameState.final_choice)
+	Log.info("beat", "End screen: campaign finished %d s after launch (final choice '%s')" % [floori(Time.get_ticks_msec() / 1000.0), choice])
 
 
 ## True when the config failed to load (the authored layout is kept).

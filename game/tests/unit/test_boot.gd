@@ -114,6 +114,43 @@ func test_boot_with_a_bad_config_logs_an_error_and_still_goes_to_the_title() -> 
 	assert_eq(_router_calls, [SceneRouter.TITLE_SCENE_PATH] as Array[String], "still goes to the title")
 
 
+## Story 8.4: the build type is the first boot line, so beat_audit.py can tell a
+## release run from a debug one.
+func test_build_type_names_release_and_debug() -> void:
+	assert_eq(BOOT_SCRIPT.build_type(false), "release")
+	assert_eq(BOOT_SCRIPT.build_type(true), "debug")
+
+
+func test_boot_logs_the_build_line_first() -> void:
+	Config.load_error = ""
+	_boot(PackedStringArray())
+	var expected: String = "[INFO][boot] Build: %s" % ("debug" if OS.is_debug_build() else "release")
+	assert_eq(_lines_starting("[INFO][boot] Build: "), [expected] as Array[String], "one build line")
+	assert_gt(_lines.size(), 1, "other boot lines follow")
+	if not _lines.is_empty():
+		assert_eq(_lines[0], expected, "the boot scene's first line")
+	await wait_process_frames(1)
+
+
+func test_build_line_comes_before_the_stress_redirect() -> void:
+	if not OS.is_debug_build():
+		pass_test("release build: no stress redirect")
+		return
+	_boot(PackedStringArray(["--stress"]))
+	assert_eq(_lines_starting("[INFO][boot] Build: debug").size(), 1, "logged even when redirecting")
+	if not _lines.is_empty():
+		assert_eq(_lines[0], "[INFO][boot] Build: debug", "before the redirect line")
+	await wait_process_frames(1)
+
+
+func test_build_line_is_logged_with_a_bad_config() -> void:
+	Config.load_error = "res://data/tuning.json parse error at line 3: Expected '}'"
+	_boot(PackedStringArray())
+	assert_eq(_lines_starting("[INFO][boot] Build: ").size(), 1, "still logged")
+	assert_push_error("[ERROR][boot] Config failed to load")
+	await wait_process_frames(1)
+
+
 func test_stress_redirect_only_in_debug_builds_with_stress_or_bench() -> void:
 	var stress: Dictionary = DebugArgs.parse(PackedStringArray(["--stress"]))
 	var bench: Dictionary = DebugArgs.parse(PackedStringArray(["--bench=5"]))

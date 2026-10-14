@@ -436,6 +436,13 @@ func spawn_enemy(type_id: StringName, params: Dictionary) -> Enemy:
 - Categories (fixed list): `boot`, `scene`, `wave`, `beat`, `comms`, `spawn`, `combat`, `save`, `audio`, `data`, `debug`, `hint` (Story 5.8).
 - **No logging in per-frame paths** (`_process`, `_physics_process`, per-projectile hits). Log events, not frames.
 - Don't use bare `print()` anywhere except inside `Log`.
+- **Playthrough beat lines (Story 8.4, GDD #68).** These INFO lines are a contract with `tools/beat_audit.py`, so keep their text exact. Its `FormatContractTest` checks the format strings in the sources.
+  - `boot.gd` logs `[INFO][boot] Build: release` or `Build: debug` (`OS.is_debug_build()`) as the first line the boot scene logs (after the autoloads' load lines), before the `--stress` / `--bench` redirect.
+  - The WaveDirector logs `[INFO][beat] Level <n> intro '<id>'`, `Level <n> wave <w>: comms '<id>'`, `... story event '<name>'` and `Level <n> outro '<id>'` (Story 5.3).
+  - `StoryScene._ready` logs `[INFO][beat] Story '<id>'` for a pending sequence (`opening_main`, `ending_council`). With nothing pending it keeps its WARN and logs no beat line.
+  - `CommsChannel._on_final_choice_chosen` logs `[INFO][beat] Choice '<id>' picked in '<sequence>'` once the option is found, just before `Events.final_choice_made`. This covers the L1 surrender and the L3 Final Choice. A rejected unknown option logs no beat line.
+  - `EndScreen._ready` logs `[INFO][beat] End screen: campaign finished <s> s after launch (final choice '<id>')` after `End screen ready`, also on a fatal config. `<s>` is whole seconds of `Time.get_ticks_msec()`, and the choice is `none` when `GameState.final_choice` is empty.
+  - The audit also reads `[INFO][save] No save at ...` / `Save loaded from ...` (the fresh-save signal), `[INFO][scene] Level <n> '<name>' started (...)` (one per attempt, retries included) and the `Tarek's fall: no patrolling Tarek; scene skipped` INFO line (counted as a problem).
 
 ```gdscript
 Log.info("wave", "Level %d wave %d cleared (%d resolved)" % [level_id, wave_index + 1, resolved])
@@ -1286,6 +1293,7 @@ The comms channel consumes `comms_advance` (press and release) with `get_viewpor
 | Ally targeting | Re-acquire the nearest enemy on each shot (every `allies.fire_interval_s`, 1.0 s), not every frame |
 | Verification (level content) | Story 8.3 `-- --level-bench=busiest_wave` (Level 3 Wave 3, fire held) and `-- --level-bench=desperate` (the Flagship's DESPERATE phase, no fire) on a debug export, with the same PASS rule (see [Debug Tools](#debug-tools)). Launch-to-title and build size: `tools/perf_check.py` (see [Deployment Architecture](#deployment-architecture)). Last results: GDD decision log #67 (all PASS: busiest wave avg 3.95 / p99 5.88 / max 8.09 ms, desperate 4.09 / 6.03 / 9.49 ms, sandbox 3.88 / 7.66 / 10.55 ms, release 117.6 MB, launch 1.66-2.31 s). **ADR-002 outcome:** no overrun, so no pooling was added; Forward+ kept |
 | Verification | E1 sandbox stress test at the NFR1 peak: `-- --stress` (40 Wasps refilled on death, ~200 live projectiles topped up through `Spawner`, F1 overlay on, vsync off) for a manual look, and `-- --bench=N` for a self-timing run (fire held at `BENCH_AIM`, one deliberate LARGE impact during the 2 s warm-up with its frame ms logged, N s sampled, logs avg/p99/max, exit 0 only if avg, p99 and max are all < 16.6 ms (`debug.bench`), else 2; quits after a short real-time delay so the final line is never lost). Add `-- --no-prewarm` to compare the first LARGE impact without `Feedback.prewarm()`. Re-run `--bench=20` after any visual change. Last results: GDD decision log #67 (earlier: #27 and #32, taken before the 200-projectile load and the p99/max gate) |
+| Verification (finishability) | Story 8.4: `tools/beat_audit.py --latest 3` audits the operator's three release playthroughs. Each must be a release build from a fresh save, with every required beat in order, the end screen reached and no errors (see [Deployment Architecture](#deployment-architecture)). The results are recorded in `_bmad-output/implementation-artifacts/playtest-8-4-record.md` |
 
 ## Security Architecture
 
@@ -1331,6 +1339,25 @@ uv run python tools/perf_check.py launch game/export/windows/DEFECTOR.exe --runs
 ```
 
 `launch` starts the exe, waits for the `Title ready N ms after launch` line (`title.gd`) and kills the process. It watches two places and takes whichever shows the line first: the game's stdout (Godot's Windows terminal logger writes it unbuffered), and a fresh `%APPDATA%\DEFECTOR\logs\godot.log` (path from the `APPDATA` environment variable; "fresh" means written at or after the launch, because Godot copies the old log to `godot<timestamp>.log` and truncates `godot.log` in place). Release builds buffer the file logger, so there the line arrives on stdout. Back-to-back runs are warm launches; a true cold launch after a reboot is an operator check.
+
+**Playthrough audit (Story 8.4, NFR5 / NFR8 / NFR9, GDD #68):** `tools/beat_audit.py` (stdlib only; tests in `tools/test_beat_audit.py`) checks one or more playthrough logs against a required-beat manifest kept in the tool. The manifest is a QA contract, not tuning, and a test ties every sequence id in it to `game/data`.
+
+```bash
+# The N newest godot*.log in %APPDATA%/DEFECTOR/logs (default 1), oldest first
+uv run python tools/beat_audit.py --latest 3
+# Or explicit files; --allow-debug turns a debug build into a note
+uv run python tools/beat_audit.py path/to/godot.log --allow-debug
+```
+
+A run (one log, one launch) passes when all of these hold:
+
+- it is a release build (`Build: release`);
+- the save was fresh (the first `[...][save]` line is `No save at`);
+- every required beat fired, in manifest order by first occurrence. The beats are the opening, the three Isolde interruptions, the L1 surrender prompt, Tarek's fall, Ryn's report, the L3 Final Choice, Isolde's final line, the council epilogue and the end screen. A beat whose `flags.json` flag is off is `skipped (flag off)`;
+- it reached the end screen;
+- the log has no `[ERROR]`, `ERROR:`, `SCRIPT ERROR:` or `SHADER ERROR:` line, no line containing `Program crashed` (Godot's crash handler) and no skipped-Tarek's-fall line. WARN lines are only counted.
+
+Each run's block also reports the attempts per level, the time to the end screen, the choices picked and each attempt's `Kills: ...` ally kill-share line (`kill share: <message>`, information only), and ends with `result=PASS` or `result=FAIL: <reasons>`. With `--latest N` and fewer than N logs found, each missing log counts as a FAIL in the summary. Exit 0 when every run passes, 1 when any fails or a log is missing, and 2 when there are no logs or no APPDATA. Release builds buffer the file log until exit, so audit only after the game has quit. The operator's record sheet is `_bmad-output/implementation-artifacts/playtest-8-4-record.md`.
 
 ---
 

@@ -17,6 +17,11 @@ extends Node
 ##
 ## Every scene change is deferred: the main scene's _ready runs while the root
 ## is still adding it, so it can't be removed from the tree yet.
+##
+## Story 8.4: the first line the boot scene logs (after the autoloads' load
+## lines) is `[INFO][boot] Build: release` or `Build: debug`
+## (OS.is_debug_build()), before any redirect, so
+## tools/beat_audit.py can tell a release playthrough from a debug one.
 
 const SANDBOX_SCENE_PATH: String = "res://scenes/sandbox/sandbox.tscn"
 
@@ -30,6 +35,9 @@ var change_scene: Callable
 
 
 func _ready() -> void:
+	# Story 8.4: the boot scene's first line (after the autoloads' load lines), so
+	# every launch's log says which build it is (beat_audit.py).
+	Log.info("boot", "Build: %s" % build_type(OS.is_debug_build()))
 	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	if not change_scene.is_valid():
 		change_scene = get_tree().change_scene_to_file
@@ -49,6 +57,11 @@ func _ready() -> void:
 		SceneRouter.start_level.call_deferred(level)
 		return
 	SceneRouter.goto_title.call_deferred()
+
+
+## The build type named in the `[INFO][boot] Build: <type>` line: "debug" or "release".
+static func build_type(debug_build: bool) -> String:
+	return "debug" if debug_build else "release"
 
 
 ## Debug builds given `--stress` or `--bench=<s>` (which implies stress) run the sandbox instead.

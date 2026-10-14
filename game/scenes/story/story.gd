@@ -14,6 +14,9 @@ extends Control
 ## Story 7.8). Run directly with nothing pending it warns and calls
 ## finish_story(), which goes to the title.
 ##
+## Story 8.4: a pending sequence logs one `[INFO][beat] Story '<id>'` line
+## (the opening and the epilogue are playthrough beats for tools/beat_audit.py).
+##
 ## Story 8.2: the `Background` child (first, so it draws behind the comms) is
 ## a LevelBackground showing LevelBackground.MENU_BACKGROUND.
 
@@ -31,6 +34,7 @@ func _ready() -> void:
 		Log.warn("scene", "Story scene has no pending sequence; finishing at once")
 		_finish()
 		return
+	Log.info("beat", "Story '%s'" % _sequence)
 	Events.comms_sequence_finished.connect(_on_events_comms_sequence_finished)
 	Events.comms_sequence_requested.emit(_sequence)
 

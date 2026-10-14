@@ -456,6 +456,8 @@ func _on_final_choice_chosen(id: StringName) -> void:
 	_choosing = false
 	var fail: Variant = option.get(DialogueValidator.OPTION_FAIL)
 	_fail_reason = StringName(fail as String) if fail is String else &""
+	# Story 8.4: the playthrough beat for tools/beat_audit.py (L1 surrender and L3 Final Choice).
+	Log.info("beat", "Choice '%s' picked in '%s'" % [id, _requested])
 	Events.final_choice_made.emit(id)
 	GameState.final_choice = id
 	if final_choice != null and is_instance_valid(final_choice):

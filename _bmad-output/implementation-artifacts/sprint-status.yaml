@@ -110,7 +110,7 @@ development_status:
   8-1-make-the-game-sound-right: awaiting-operator
   8-2-make-the-game-look-neon: awaiting-operator
   8-3-hit-the-performance-targets: awaiting-operator
-  8-4-prove-the-game-is-finishable: backlog
+  8-4-prove-the-game-is-finishable: awaiting-operator
   8-5-ship-defector-on-github: backlog
   epic-8-retrospective: optional
 action_items:

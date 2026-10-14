@@ -239,6 +239,47 @@ func test_mouse_mode_visible_and_ready_line() -> void:
 	assert_eq(_lines_starting("[INFO][scene] End screen ready"), ["[INFO][scene] End screen ready"] as Array[String], "one ready line")
 
 
+# --- Beat line (Story 8.4) --------------------------------------------------------
+
+## The end beat for beat_audit.py: `[INFO][beat] End screen: campaign finished
+## <s> s after launch (final choice '<id>')`, <s> = Time.get_ticks_msec() / 1000.
+func _end_beats() -> Array[String]:
+	return _lines_starting("[INFO][beat] End screen: campaign finished ")
+
+
+func _assert_end_beat(choice_text: String) -> void:
+	var before_s: int = floori(Time.get_ticks_msec() / 1000.0)
+	_make()
+	var after_s: int = floori(Time.get_ticks_msec() / 1000.0)
+	var beats: Array[String] = _end_beats()
+	assert_eq(beats.size(), 1, "one end beat")
+	if beats.size() != 1:
+		return
+	var pattern: RegEx = RegEx.create_from_string("^\\[INFO\\]\\[beat\\] End screen: campaign finished (\\d+) s after launch \\(final choice '([^']*)'\\)$")
+	var found: RegExMatch = pattern.search(beats[0])
+	assert_not_null(found, "the exact format: %s" % beats[0])
+	if found == null:
+		return
+	var seconds: int = int(found.get_string(1))
+	assert_between(seconds, before_s, after_s, "whole seconds since launch")
+	assert_eq(found.get_string(2), choice_text, "the final choice")
+
+
+func test_end_beat_defaults_to_final_choice_none() -> void:
+	GameState.final_choice = &""
+	_assert_end_beat("none")
+
+
+func test_end_beat_names_the_final_choice() -> void:
+	GameState.final_choice = &"destroy"
+	_assert_end_beat("destroy")
+
+
+func test_end_beat_is_logged_with_a_fatal_config() -> void:
+	_make_bad()
+	assert_eq(_end_beats().size(), 1, "still logged")
+
+
 # --- BACK TO TITLE ----------------------------------------------------------------
 
 func test_back_goes_to_the_title_once() -> void:
