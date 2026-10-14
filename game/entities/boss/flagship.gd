@@ -33,7 +33,8 @@ extends Enemy
 ##   rolls drops.wasp. This is the architecture's one exception to "only the
 ##   WaveDirector decides what spawns". Launches and core shots run only in
 ##   the CORE branch of step; entering any other phase stops the core cycle and
-##   hides its Glow, and Wasps already alive stay (decision F16).
+##   hides its Glow, and Wasps already alive stay until the boss's death
+##   (decision F16, amended by DW-101).
 ## - FINAL_CHOICE (Story 7.5): _ready arms the core's hp floor
 ##   (boss.final_choice_hp). In CORE, the first hit that would take the core to
 ##   the floor or below clamps it there and makes it invulnerable (decision
@@ -49,9 +50,19 @@ extends Enemy
 ## - DYING: the core's death in any phase enters it (only DESPERATE allows that
 ##   with valid data). Part attacks stop, the hull and every live part leave
 ##   their collision layer (layer 0), and Feedback.boss_death(global_position)
-##   plays the chain once. After feedback.boss_death_chain_s of game time the
-##   Flagship logs one INFO line, emits Events.boss_defeated exactly once and
-##   frees itself; launched Wasps stay.
+##   plays the chain once. The boss's death ends the fight (DW-101, decision
+##   #64): just before the chain's first explosion (so its sound is the newest
+##   SFX voice) the Flagship sweeps the field (_end_the_fight): every other
+##   live enemy (launched Wasps, any counted enemy; never the Flagship or its
+##   parts) leaves through
+##   Enemy.explode_without_kill() (its tier's impact, no enemy_killed, no
+##   drops; a counted one still resolves), every EnemyBullet in flight
+##   (NeedleBolt included) fizzles with the SMALL blocked-shot effect, and
+##   spawner.hold_enemy_fire is set, so no new enemy shot spawns. The Player
+##   turns safe on the same boss_phase_changed(DYING). After
+##   feedback.boss_death_chain_s of game time the Flagship sweeps once more
+##   (an enemy added during the chain), logs one INFO line, emits
+##   Events.boss_defeated exactly once and frees itself.
 ## Every phase entry emits Events.boss_phase_changed(phase) and
 ## Events.boss_hp_changed(current, max, phase). _ready emits boss_started and
 ## enters ARRIVING.
@@ -171,6 +182,7 @@ func step(delta: float) -> void:
 		Phase.DYING:
 			if not _defeated and _t + DYING_EPSILON_S >= _death_chain_s:
 				_defeated = true
+				_end_the_fight()
 				Log.info("combat", "Flagship destroyed: boss defeated")
 				Events.boss_defeated.emit()
 				queue_free()
@@ -300,6 +312,9 @@ func _enter_phase(new_phase: Phase) -> void:
 		Phase.FINAL_CHOICE:
 			Events.comms_sequence_requested.emit(FINAL_CHOICE_SEQUENCE)
 		Phase.DYING:
+			# Sweep first, so the boss-death sound is the newest voice in the
+			# combat SFX pool (the pool steals the oldest).
+			_end_the_fight()
 			Feedback.boss_death(global_position)
 
 
@@ -341,6 +356,42 @@ func _stop_parts() -> void:
 			part.collision_layer = 0
 			if part is FlagshipTurret:
 				(part as FlagshipTurret).stop_firing()
+
+
+## The boss's death ends the fight (DW-101, decision #64). Every other live
+## enemy explodes through the no-kill exit (Enemy.explode_without_kill: its
+## tier's impact, `resolved`, no enemy_killed, no drops); the Flagship and its
+## parts are skipped (the chain is their feedback). Every EnemyBullet in flight
+## (NeedleBolt included) fizzles with the SMALL blocked-shot effect; player and
+## ally shots, asteroids, orbs and story props are untouched. With a spawner,
+## hold_enemy_fire is set so no new enemy shot spawns. Runs on DYING entry,
+## just before Feedback.boss_death (so the boss-death sound is the newest voice
+## in the combat SFX pool), and once more just before boss_defeated (two group
+## scans per boss death).
+func _end_the_fight() -> void:
+	var tree: SceneTree = get_tree()
+	if tree == null:
+		return
+	var swept: int = 0
+	for node: Node in tree.get_nodes_in_group(Groups.ENEMIES):
+		var enemy: Enemy = node as Enemy
+		if enemy == null or enemy is Flagship or enemy is FlagshipPart:
+			continue
+		if enemy.is_dead() or enemy.is_queued_for_deletion():
+			continue
+		enemy.explode_without_kill()
+		swept += 1
+	var fizzled: int = 0
+	for node: Node in tree.get_nodes_in_group(Groups.PROJECTILES):
+		var shot: EnemyBullet = node as EnemyBullet
+		if shot == null or shot.is_queued_for_deletion():
+			continue
+		shot.fizzle()
+		fizzled += 1
+	if spawner != null and is_instance_valid(spawner):
+		spawner.hold_enemy_fire = true
+	if swept > 0 or fizzled > 0:
+		Log.info("combat", "Flagship death ends the fight: %d enemies swept, %d enemy shots fizzled" % [swept, fizzled])
 
 
 func _core_alive() -> bool:

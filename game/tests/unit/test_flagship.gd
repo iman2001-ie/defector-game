@@ -12,9 +12,17 @@ extends GutTest
 ## into FINAL_CHOICE and its comms request, the wait for its own `finished`,
 ## DESPERATE (the alternating radials, the aimed spread, the shared glow, the
 ## red pulse, targeting) and the core's death: DYING, Feedback.boss_death and
-## boss_defeated after the chain.
+## boss_defeated after the chain. DW-101 (decision #64): the boss's death ends
+## the fight: at DYING every other live enemy (launched Wasps, a counted enemy)
+## leaves through the no-kill exit with its tier's impact (no enemy_killed, no
+## orbs; a counted one still resolves), every enemy shot in flight fizzles with
+## the SMALL blocked-shot effect while player shots stay, enemy fire is held,
+## an enemy added during the chain is swept before boss_defeated, and a
+## Flagship without a spawner still sweeps.
 
 const FLAGSHIP_SCENE: PackedScene = preload("res://entities/boss/flagship.tscn")
+const WASP_SCENE: PackedScene = preload("res://entities/enemies/wasp/wasp.tscn")
+const ENEMY_BULLET_SCENE: PackedScene = preload("res://entities/projectiles/enemy_bullet.tscn")
 const DT: float = 1.0 / 60.0
 const EPS: float = 0.0001
 
@@ -1191,6 +1199,7 @@ func test_in_desperate_the_core_is_the_target() -> void:
 
 
 func test_core_death_enters_dying_then_boss_defeated_after_the_chain() -> void:
+	((Config.tuning["drops"] as Dictionary)["wasp"] as Dictionary)["chance"] = 1.0
 	var boss: Flagship = _spawn_in_core()
 	_step_for(boss, Config.num("boss.core.wasp_launch_interval_s") + DT)
 	var wasps: Array[Wasp] = _launched()
@@ -1207,12 +1216,19 @@ func test_core_death_enters_dying_then_boss_defeated_after_the_chain() -> void:
 	var core: FlagshipCore = boss.core()
 	var core_pos: Vector2 = core.global_position
 	var hull_pos: Vector2 = boss.global_position
+	var shots: Array[Projectile] = []
+	for p: Projectile in _bullets():
+		if p is EnemyBullet:
+			shots.append(p)
+	assert_gt(shots.size(), 0, "the core's shots are in flight when it dies")
+	for wasp: Wasp in wasps:
+		assert_true(is_instance_valid(wasp) and not wasp.is_dead(), "launched Wasps alive before the death")
 	_events.clear()
 	_lines.clear()
 	assert_eq(core.hp, 50)
 	core.apply_damage(50, null)
 	assert_true(core.is_dead(), "core destroyed")
-	assert_eq(_events_named("enemy_killed"), [["enemy_killed", &"flagship_core", core_pos, false]] as Array[Array])
+	assert_eq(_events_named("enemy_killed"), [["enemy_killed", &"flagship_core", core_pos, false]] as Array[Array], "only the core is a kill")
 	assert_eq(boss.phase(), Flagship.Phase.DYING, "DYING")
 	assert_eq(_events_named("boss_phase_changed"), [["boss_phase_changed", 5]] as Array[Array])
 	assert_eq(_events_named("boss_hp_changed").back(), ["boss_hp_changed", 0, 300, 5], "combined 0")
@@ -1221,12 +1237,28 @@ func test_core_death_enters_dying_then_boss_defeated_after_the_chain() -> void:
 	for turret: FlagshipTurret in boss.turrets():
 		if is_instance_valid(turret):
 			assert_eq(turret.collision_layer, 0)
+	# DW-101: every launched Wasp explodes through the no-kill exit and every
+	# enemy shot in flight fizzles, just before the chain's first explosion.
+	for wasp: Wasp in wasps:
+		assert_true(wasp.is_dead() and wasp.is_queued_for_deletion(), "launched Wasps swept at the boss's death")
+	for shot: Projectile in shots:
+		assert_true(shot.is_queued_for_deletion(), "enemy shots in flight fizzle")
 	var explosions: Array[Explosion] = _live_explosions()
-	assert_eq(explosions.size(), 1, "one explosion at once: the chain's first, no core impact of its own")
-	if explosions.size() == 1:
-		assert_eq(explosions[0].global_position, hull_pos + _chain_offsets()[0], "at the core (pos + the first offset)")
-		assert_eq(explosions[0].scale, Vector2.ONE * Config.num("feedback.tiers.boss_death.explosion_scale"), "the Boss-death scale")
-		assert_true(explosions[0].is_flashing(), "the white flash")
+	var boss_scale: Vector2 = Vector2.ONE * Config.num("feedback.tiers.boss_death.explosion_scale")
+	var small_scale: Vector2 = Vector2.ONE * Config.num("feedback.tiers.small.explosion_scale")
+	var chain: Array[Explosion] = []
+	var small: int = 0
+	for e: Explosion in explosions:
+		if e.scale == boss_scale:
+			chain.append(e)
+		elif e.scale == small_scale:
+			small += 1
+	assert_eq(explosions.size(), 1 + wasps.size() + shots.size(), "the chain's first, one per Wasp and one per shot")
+	assert_eq(chain.size(), 1, "one Boss-death explosion at once: no core impact of its own")
+	assert_eq(small, wasps.size() + shots.size(), "a SMALL effect per Wasp (small tier) and per fizzled shot")
+	if chain.size() == 1:
+		assert_eq(chain[0].global_position, hull_pos + _chain_offsets()[0], "at the core (pos + the first offset)")
+		assert_true(chain[0].is_flashing(), "the white flash")
 	assert_almost_eq(_camera.current_amplitude(), Config.num("feedback.tiers.boss_death.shake_px"), EPS, "the Boss-death shake")
 	assert_true(Feedback.is_hit_stopped(), "the Boss-death hit-stop")
 	assert_eq(Feedback.chain_pending(), _chain_offsets().size() - 1)
@@ -1241,12 +1273,140 @@ func test_core_death_enters_dying_then_boss_defeated_after_the_chain() -> void:
 	assert_eq(_events_named("boss_defeated").size(), 1, "boss_defeated exactly once")
 	assert_almost_eq(defeated_at, Config.num("feedback.boss_death_chain_s"), DT + EPS, "after the chain")
 	assert_true(boss.is_queued_for_deletion(), "the Flagship frees itself")
-	assert_eq(_live_explosions().size(), _chain_offsets().size(), "one explosion per chain offset")
+	assert_eq(_live_explosions().size(), _chain_offsets().size() + wasps.size() + shots.size(), "the chain's explosions; the end sweep finds nothing left")
 	assert_eq(_logged("[INFO][combat] Flagship destroyed").size(), 1, "one INFO line")
-	for wasp: Wasp in wasps:
-		assert_true(is_instance_valid(wasp) and not wasp.is_dead() and not wasp.is_queued_for_deletion(), "launched Wasps stay")
+	assert_eq(_logged("[INFO][combat] Flagship death ends the fight").size(), 1, "one sweep line: the end sweep finds nothing and logs nothing")
+	assert_eq(_logged("[INFO][combat] Flagship death ends the fight: %d enemies swept, %d enemy shots fizzled" % [wasps.size(), shots.size()]).size(), 1, "the sweep line carries the counts")
+	assert_eq(_events_named("enemy_killed").size(), 1, "no kill for a swept Wasp")
 	await wait_physics_frames(2)
-	assert_eq(_pickups.get_child_count(), orbs_before, "the core drops nothing")
+	assert_eq(_pickups.get_child_count(), orbs_before, "the core and the swept Wasps drop nothing")
+	assert_eq(_logged("[ERROR]"), [] as Array[String], "no error")
+
+
+# --- DW-101: the boss's death ends the fight -----------------------------------------
+
+## A projectile through the fixture Spawner, physics off.
+func _spawn_shot(type_id: StringName, pos: Vector2) -> Projectile:
+	var shot: Projectile = _spawner.spawn_projectile(type_id, {"position": pos, "velocity": Vector2(0, 100), "damage": 1})
+	assert_not_null(shot, "spawned %s" % type_id)
+	if shot != null:
+		shot.set_physics_process(false)
+	return shot
+
+
+## Kills the core of a Flagship in DESPERATE (enters DYING), with the effects,
+## events and log lines cleared just before.
+func _kill_core(boss: Flagship) -> void:
+	for child: Node in _effects.get_children():
+		child.queue_free()
+	_events.clear()
+	_lines.clear()
+	boss.core().apply_damage(boss.core().hp, null)
+	assert_eq(boss.phase(), Flagship.Phase.DYING, "DYING")
+
+
+func test_dying_fizzles_enemy_shots_and_keeps_player_shots() -> void:
+	var boss: Flagship = _spawn_in_desperate()
+	await wait_physics_frames(1)
+	var shots: Array[Projectile] = []
+	for i: int in 3:
+		shots.append(_spawn_shot(&"enemy_bullet", Vector2(400 + 100 * i, 600)))
+	shots.append(_spawn_shot(&"needle_bolt", Vector2(900, 600)))
+	var laser: Projectile = _spawn_shot(&"laser_bolt", Vector2(1200, 700))
+	await wait_physics_frames(1)
+	_kill_core(boss)
+	for shot: Projectile in shots:
+		assert_true(shot.is_queued_for_deletion(), "an enemy shot fizzles")
+	assert_false(laser.is_queued_for_deletion(), "a player shot stays")
+	var small_scale: Vector2 = Vector2.ONE * Config.num("feedback.tiers.small.explosion_scale")
+	var at_shots: int = 0
+	for e: Explosion in _live_explosions():
+		for shot: Projectile in shots:
+			if e.scale == small_scale and e.global_position == shot.global_position:
+				at_shots += 1
+	assert_eq(at_shots, shots.size(), "one SMALL blocked-shot effect where each shot was")
+	assert_eq(_events_named("enemy_killed").size(), 1, "only the core is a kill")
+	assert_eq(_logged("[ERROR]"), [] as Array[String], "no error")
+
+
+func test_dying_sweeps_a_counted_enemy_through_the_no_kill_exit() -> void:
+	var boss: Flagship = _spawn_in_desperate()
+	var lancer: Enemy = _spawner.spawn_enemy(&"lancer", {"position": Vector2(300, 300)})
+	assert_not_null(lancer)
+	if lancer == null:
+		return
+	lancer.set_physics_process(false)
+	lancer.add_to_group(&"counted")
+	var resolved: Array[int] = []
+	lancer.resolved.connect(func() -> void: resolved.append(1))
+	await wait_physics_frames(1)
+	var lancer_pos: Vector2 = lancer.global_position
+	var orbs_before: int = _pickups.get_child_count()
+	_kill_core(boss)
+	assert_true(lancer.is_dead() and lancer.is_queued_for_deletion(), "the counted enemy is swept")
+	assert_eq(resolved, [1] as Array[int], "it still resolves, once")
+	assert_eq(_events_named("enemy_killed").size(), 1, "only the core is a kill")
+	var tier_scale: Vector2 = Vector2.ONE * Config.num("feedback.tiers.%s.explosion_scale" % ImpactTier.NAMES[lancer.tier])
+	var found: bool = false
+	for e: Explosion in _live_explosions():
+		found = found or (e.global_position == lancer_pos and e.scale == tier_scale)
+	assert_true(found, "its tier's impact where it was")
+	await wait_physics_frames(2)
+	assert_eq(_pickups.get_child_count(), orbs_before, "no drop")
+
+
+func test_dying_holds_enemy_fire() -> void:
+	var boss: Flagship = _spawn_in_desperate()
+	assert_false(_spawner.hold_enemy_fire, "not held before the death")
+	_kill_core(boss)
+	assert_true(_spawner.hold_enemy_fire, "enemy fire held from the boss's death on")
+	assert_null(_spawner.spawn_projectile(&"enemy_bullet", {"position": Vector2(500, 500), "velocity": Vector2(0, 100)}), "a new enemy shot is refused")
+	assert_null(_spawner.spawn_projectile(&"needle_bolt", {"position": Vector2(500, 500), "velocity": Vector2(0, 100)}), "a new Needle bolt is refused")
+	assert_not_null(_spawn_shot(&"laser_bolt", Vector2(500, 700)), "player shots still spawn")
+
+
+func test_an_enemy_added_during_the_chain_is_swept_before_boss_defeated() -> void:
+	var boss: Flagship = _spawn_in_desperate()
+	_kill_core(boss)
+	_step_for(boss, Config.num("feedback.boss_death_chain_s") / 2.0)
+	var wasp: Wasp = _spawner.spawn_enemy(&"wasp", {"position": Vector2(700, 300)}) as Wasp
+	assert_not_null(wasp)
+	if wasp == null:
+		return
+	wasp.set_physics_process(false)
+	var dead_at_defeat: Array[bool] = []
+	var on_defeated: Callable = func() -> void: dead_at_defeat.append(wasp.is_dead())
+	Events.boss_defeated.connect(on_defeated)
+	assert_false(wasp.is_dead(), "alive mid-chain")
+	_step_for(boss, Config.num("feedback.boss_death_chain_s"))
+	Events.boss_defeated.disconnect(on_defeated)
+	assert_eq(dead_at_defeat, [true] as Array[bool], "swept before boss_defeated")
+	assert_true(wasp.is_queued_for_deletion())
+	assert_eq(_events_named("enemy_killed").size(), 1, "only the core is a kill")
+
+
+func test_dying_without_a_spawner_sweeps_without_error() -> void:
+	var boss: Flagship = FLAGSHIP_SCENE.instantiate() as Flagship
+	add_child_autofree(boss)
+	boss.set_physics_process(false)
+	var wasp: Wasp = WASP_SCENE.instantiate() as Wasp
+	wasp.setup({"position": Vector2(700, 300)})
+	add_child_autofree(wasp)
+	wasp.set_physics_process(false)
+	var shot: Projectile = ENEMY_BULLET_SCENE.instantiate() as Projectile
+	shot.setup({"position": Vector2(700, 600), "velocity": Vector2(0, 100), "damage": 1})
+	add_child_autofree(shot)
+	shot.set_physics_process(false)
+	boss.step(Config.num("boss.hull.arrival_s"))
+	for turret: FlagshipTurret in boss.turrets():
+		turret.apply_damage(turret.hp, null)
+	boss.core().set_hp_floor(0)
+	boss.core().apply_damage(999, null)
+	assert_eq(boss.phase(), Flagship.Phase.DYING)
+	assert_true(wasp.is_dead() and wasp.is_queued_for_deletion(), "the enemy is swept")
+	assert_true(shot.is_queued_for_deletion(), "the enemy shot fizzles")
+	_step_for(boss, Config.num("feedback.boss_death_chain_s") + DT)
+	assert_eq(_events_named("boss_defeated").size(), 1)
 	assert_eq(_logged("[ERROR]"), [] as Array[String], "no error")
 
 

@@ -60,6 +60,10 @@ extends Area2D
 ## visible and alive, still fires and still collects energy orbs. This is not
 ## is_invulnerable() (that destroys small/medium enemies on contact). Never
 ## reset: retry and the next level reload the scene (ADR-004).
+## Boss death (DW-101, decision #64): Events.boss_phase_changed(Flagship.Phase.
+## DYING) makes the ship safe in exactly the same way (_make_safe), so the
+## death chain's leftovers can't fail a level whose boss is beaten; every other
+## boss phase changes nothing. A ship that already died stays dead.
 ##
 ## Contact: the Player watches its own area_entered/area_exited. A small or
 ## medium Enemy costs damage.contact_<tier>_hearts (a Maul: its own
@@ -153,7 +157,8 @@ var _contact_maul: int = 0
 ## Surviving hazards (large enemies, asteroids) the hurtbox overlaps right now.
 var _contacts: Array[Area2D] = []
 var _dead: bool = false
-## Set by Events.level_cleared, never reset: no damage or hazard contact (DW-54).
+## Set by Events.level_cleared (DW-54) or the boss's death (DW-101), never
+## reset: no damage or hazard contact.
 var _safe: bool = false
 
 var _barrage_cost: int = 0
@@ -213,6 +218,7 @@ func _ready() -> void:
 	_shield.ended.connect(_recheck_contacts)
 	PauseArbiter.resumed.connect(_on_resumed)
 	Events.level_cleared.connect(_on_level_cleared)
+	Events.boss_phase_changed.connect(_on_boss_phase_changed)
 	Events.level_failed.connect(_on_level_failed)
 	area_entered.connect(_on_area_entered)
 	area_exited.connect(_on_area_exited)
@@ -288,14 +294,27 @@ func is_dead() -> bool:
 	return _dead
 
 
-## True once the level cleared: damage and hazard contact are ignored (DW-54).
+## True once the level cleared (DW-54) or the boss died (DW-101): damage and
+## hazard contact are ignored.
 func is_safe() -> bool:
 	return _safe
 
 
-## Events.level_cleared: the ship turns safe for the rest of the scene. A ship
-## that already died stays dead (the first outcome won).
+## Events.level_cleared: the ship turns safe for the rest of the scene.
 func _on_level_cleared(_level_id: int) -> void:
+	_make_safe()
+
+
+## Events.boss_phase_changed: entering DYING (the boss's death) makes the ship
+## safe as a clear does (DW-101); any other phase changes nothing.
+func _on_boss_phase_changed(phase: int) -> void:
+	if phase == Flagship.Phase.DYING:
+		_make_safe()
+
+
+## Turns the ship safe for the rest of the scene and drops the remembered
+## contacts. A ship that already died stays dead (the first outcome won).
+func _make_safe() -> void:
 	if _dead:
 		return
 	_safe = true

@@ -11,6 +11,10 @@ extends Area2D
 ## EnemyBullet overrides _can_damage and _on_impact, so enemy shots do damage
 ## the convoy, and _damage_for, so they apply the convoy amounts (Story 6.3).
 ##
+## fizzle() (DW-101) spends a projectile in flight without damage: the SMALL
+## blocked-shot effect where it is, then it frees itself. The Flagship's death
+## fizzles every enemy shot in flight through it.
+##
 ## Created only by Spawner: setup(params) stores values before add_child, and
 ## _ready() applies them.
 
@@ -64,6 +68,17 @@ func _on_area_entered(area: Area2D) -> void:
 	if area.has_method(&"apply_damage") and _can_damage(area):
 		area.call(&"apply_damage", _damage_for(area), self)
 	_on_impact(area)
+	queue_free()
+
+
+## Spends this projectile with no damage (DW-101, decision #64): the laser's
+## SMALL blocked-shot effect at its position, then queue_free(). Once only:
+## ignored when it is already spent (it hit something) or queued for deletion.
+func fizzle() -> void:
+	if _spent or is_queued_for_deletion():
+		return
+	_spent = true
+	Feedback.impact(ImpactTier.SMALL, global_position)
 	queue_free()
 
 

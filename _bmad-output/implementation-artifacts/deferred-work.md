@@ -970,5 +970,14 @@ location: game/entities/boss (Flagship DYING) / game/entities/player/player.gd i
 source_spec: `spec-7-5-make-the-final-choice-phase-3.md`
 severity: medium
 reason: By design today (decisions #39 and F16: the player is safe only from level_cleared, and launched Wasps stay alive), flagged by the Story 7.5 review and passed to the operator, who decided the boss's death must end the danger at once.
-status: open
+status: done 2026-10-13
+resolution: resolved by sweep bundle dw-boss-death-ends-the-fight
+resolution-undo: 7d5715ce115be3df57bcbedd5410a5a87f2f4c0068c2c26cb56fb93c11070076 2026-10-13 7374617475733a206f70656e
 decision: 2026-10-13 Boss death ends the fight — The moment the Flagship's core is destroyed (the start of the 2 s death chain / DYING), the fight is over: (1) the Player becomes safe at once, exactly as after level_cleared (decision #39's is_safe(): no damage, no hazard contact, cannot die or emit level_failed); (2) every remaining enemy (launched Wasps and anything else alive) explodes during the death chain through the normal Spawner/Feedback paths, staggered with or alongside the chain explosions, with no energy drops and no kill/progress side effects that could re-trigger beats; (3) every enemy bullet in flight fizzles (removed with the small blocked-shot effect); no new enemy shots or launches start. The wave and level then clear as today. Amend decision #39 (safe from the boss's death, not only from level_cleared) and F16, add a GDD decision-log row, update the Story 7.5 notes/ACs in epics.md and the architecture boss section, and add tests: a hit during DYING costs nothing; leftover Wasps and bullets are gone by the end of the chain; level_cleared still fires once.
+
+### DW-102: The boss-death sweep spawns one Explosion (with sparks) per swept enemy and per fizzled enemy shot in a single frame, uncapped, which may cause a one-frame spike when a full DESPERATE barrage is in
+origin: spec-deferred 67f066f7b204
+location: game/entities/boss/flagship.gd (_end_the_fight)
+source_spec: `spec-dw-101-boss-death-ends-the-fight.md`
+reason: Flagship._end_the_fight calls Feedback.impact for every enemy and EnemyBullet at DYING entry; in DESPERATE dozens of bullets can be in flight. Not measured: settle it by profiling dev_boss (F6, kill the core mid-barrage) and checking the frame time of the DYING frame against the 16.67 ms budget; if it spikes, cap the effects per sweep (fizzle the rest silently).
+status: open

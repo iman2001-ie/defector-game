@@ -41,7 +41,7 @@ The user asked for this workflow to run unattended. These are the decisions the 
 | F13 | Returning to the title restores `GameState.energy` and `highest_unlocked_level` from the save. "Die → Quit to Title → Play" therefore gets back the last saved energy, while Retry gives 0. Accepted quirk | Readiness M2: in-memory energy must not leak across menus |
 | F14 | `hunter_wasp` is always a known enemy type id. Whether it spawns depends only on the `hunter_wasp` flag, even if Story 2.8 is cut (with the flag forced false) | Readiness M3: cutting a COULD story must not break the data test |
 | F15 | A small or medium enemy touching the ship during i-frames or Shield is still destroyed, at no heart cost | Readiness m4: the most generous reading of Pillar 1 |
-| F16 | Boss Wasp launches stop when the Flagship enters `FINAL_CHOICE`; Wasps already alive stay | Readiness m6: GDD Phase 3 lists only bursts and spreads |
+| F16 | Boss Wasp launches stop when the Flagship enters `FINAL_CHOICE`; Wasps already alive stay until the boss's death, which sweeps them (amended 2026-10-13, DW-101, GDD decision #64) | Readiness m6: GDD Phase 3 lists only bursts and spreads |
 | F17 | Each Final Choice option first plays a short Vale line (surrender offer / vow), then Isolde's response | Readiness: GDD says Vale offers surrender at the Final Choice |
 | F18 | A Maul killed by the player or an ally rolls the 25% drop; a Maul that hits the convoy or misses drops nothing | Readiness: GDD drop table lists Maul 25% but no story implemented it |
 | F19 | A Windows export smoke check runs at the end of Epic 1, not just in Epic 8 | Readiness m7: export problems surface late otherwise |
@@ -1691,7 +1691,7 @@ So that the fight escalates once I've stripped its defences.
 **When** 10 s pass
 **Then** the Flagship requests 5 Wasps through the `Spawner`, never exceeding 10 boss-launched Wasps alive
 **And** those Wasps are not counted toward the wave and drop energy at the normal Wasp rate
-**And** launches stop once the Flagship leaves `CORE` (Final Choice onward); Wasps already alive remain (decision F16)
+**And** launches stop once the Flagship leaves `CORE` (Final Choice onward); Wasps already alive remain until the boss's death, which sweeps them (decision F16, amended by GDD decision #64, DW-101)
 
 ### Story 7.5: Make the Final Choice (Phase 3)
 
@@ -1726,6 +1726,7 @@ So that the finale mirrors her offer from Level 1 and ends on her refusal.
 **Given** the core's HP reaches 0
 **When** the Flagship enters `DYING`
 **Then** `Feedback.boss_death(pos)` plays 4× chain explosions over 2 s, a 20 px / 1.0 s shake, a 150 ms hit-stop and a white flash, then `Events.boss_defeated` fires
+**And** the boss's death ends the fight (GDD decision #64, DW-101): from `DYING` on the Player is safe exactly as after a level clear (a hit costs nothing and can't fail the level); alongside the first chain explosion every other live enemy explodes through the no-kill exit (no kill event, no drops) and every enemy bullet in flight fizzles with the small blocked-shot effect, enemy fire is held so no new enemy shot spawns, and the field is swept once more just before `Events.boss_defeated`
 
 ### Story 7.6: Play Level 3: Siege of the Throne World
 

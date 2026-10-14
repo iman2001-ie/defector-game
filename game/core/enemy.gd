@@ -10,6 +10,9 @@ extends Area2D
 ## _entry_start_for() (off-screen entry start), _aim_from() (aim at the player),
 ## _can_fire() (missing-spawner guard) and _tuning_key() ("<_tuning_section()>.<field>").
 ##
+## explode_without_kill() (DW-101) is the public form of the no-kill exit with
+## feedback: the Flagship's death sweeps every other live enemy out through it.
+##
 ## Virtual hooks (Story 7.3, the Flagship and its parts): _tuning_section()
 ## (where the hp, tier and hitbox_ratio live; default "enemies.<type_id>"),
 ## _max_hp() (the hp set in _ready; default the section's hp), _hitbox_shape()
@@ -102,6 +105,15 @@ func is_dead() -> bool:
 ## core say no.
 func is_targetable() -> bool:
 	return true
+
+
+## The no-kill exit with the tier's impact (DW-101, decision #64): the boss's
+## death ends the fight, so the Flagship sweeps every other live enemy out
+## through it. Same as _resolve_without_kill(true): `resolved` (a counted enemy
+## still completes the wave's count), no Events.enemy_killed, no loot. Once
+## only: ignored when already dead.
+func explode_without_kill() -> void:
+	_resolve_without_kill(true)
 
 
 func _die() -> void:

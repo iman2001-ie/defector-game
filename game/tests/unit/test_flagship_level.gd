@@ -7,7 +7,10 @@ extends GutTest
 ## the turrets killed and the core taken to 50 open the real Final Choice
 ## (panel, choice, pause; the pause menu refuses), a click picks DESTROY HER,
 ## the response plays, the Flagship goes DESPERATE, and the core's death ends
-## in boss_defeated and the level clear. Feel, readability, fairness,
+## in boss_defeated and the level clear. DW-101: a boss Wasp and an enemy shot
+## alive when the core dies are gone by the chain's end, and the ship (with
+## debug_invincible off) is safe from the death on: a hit costs nothing and no
+## level_failed fires. Feel, readability, fairness,
 ## difficulty and cover usefulness are operator checks, not claimed here.
 
 const LEVEL_SCENE: PackedScene = preload("res://scenes/level/level.tscn")
@@ -242,17 +245,58 @@ func test_final_choice_desperate_and_boss_death_on_dev_boss() -> void:
 	assert_false(core.invulnerable, "the core is damageable")
 	assert_true(core.is_targetable())
 	assert_true(core.is_desperate())
+	# DW-101: a live boss Wasp and an enemy shot in flight when the core dies.
+	var spawner: Spawner = _level.get_node("Spawner") as Spawner
+	var wasp: Wasp = spawner.spawn_enemy(&"wasp", {"slot": Vector2(960, 430), "launch_from": core.global_position}) as Wasp
+	assert_not_null(wasp, "a boss Wasp")
+	if wasp != null:
+		wasp.add_to_group(Groups.BOSS_WASPS)
+	var shot: Projectile = spawner.spawn_projectile(&"enemy_bullet", {"position": Vector2(960, 600), "velocity": Vector2(0, 10), "damage": 1})
+	assert_not_null(shot, "an enemy shot in flight")
+	var failed: Array[StringName] = []
+	var on_failed: Callable = func(reason: StringName) -> void: failed.append(reason)
+	Events.level_failed.connect(on_failed)
 	# Kill the core: DYING, the chain, then boss_defeated and the level clear.
 	core.apply_damage(core.hp, null)
 	assert_eq(boss.phase(), Flagship.Phase.DYING)
 	assert_true(Feedback.is_hit_stopped(), "the boss-death hit-stop")
+	var player: Player = _level.get_node("World/Player") as Player
+	player.debug_invincible = false
+	assert_true(player.is_safe(), "the ship is safe from the boss's death on")
+	var hearts: int = player.hearts
+	player.apply_damage(99, null)
+	assert_eq(player.hearts, hearts, "a hit during DYING costs nothing")
+	assert_false(player.is_dead())
 	await wait_seconds(Config.num("feedback.boss_death_chain_s") + 0.8)
+	Events.level_failed.disconnect(on_failed)
+	assert_eq(failed, [] as Array[StringName], "no level_failed")
 	assert_eq(defeated.size(), 1, "boss_defeated once")
 	assert_eq(_flagships().size(), 0, "the Flagship is gone")
+	assert_eq(_live_enemies(), 0, "no live enemy left at the chain's end")
+	assert_eq(_live_enemy_shots(), 0, "no enemy shot left at the chain's end")
 	assert_eq(Feedback.chain_pending(), 0, "the chain played out")
 	assert_eq(cleared, [0] as Array[int], "the boss wave resolved and dev_boss cleared")
 	assert_eq(_lines_containing("[ERROR]"), [] as Array[String], "no error")
 	_disconnect_all([on_finished, on_choice, on_defeated, on_cleared])
+
+
+## Live (not dead, not queued) Enemy nodes under World/Enemies.
+func _live_enemies() -> int:
+	var count: int = 0
+	for child: Node in _level.get_node("World/Enemies").get_children():
+		var enemy: Enemy = child as Enemy
+		if enemy != null and not enemy.is_dead() and not enemy.is_queued_for_deletion():
+			count += 1
+	return count
+
+
+## Enemy shots under World/Projectiles not queued for deletion.
+func _live_enemy_shots() -> int:
+	var count: int = 0
+	for child: Node in _level.get_node("World/Projectiles").get_children():
+		if child is EnemyBullet and not child.is_queued_for_deletion():
+			count += 1
+	return count
 
 
 func _disconnect_all(callables: Array) -> void:
