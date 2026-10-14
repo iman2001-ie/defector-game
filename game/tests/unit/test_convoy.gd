@@ -467,8 +467,8 @@ func test_aimed_enemy_bullet_costs_the_convoy_aimed_amount() -> void:
 	var convoy: Convoy = _make()
 	var bullet: EnemyBullet = _fire_bullet_at(convoy.ships()[Convoy.LEAD], {"targets_convoy": true})
 	await wait_physics_frames(40)
-	assert_eq(convoy.hp(), 100 - Config.int_("damage.convoy_aimed"), "aimed: 5, not the bullet's own damage")
-	assert_eq(convoy.hp(), 95)
+	assert_eq(convoy.hp(), 100 - Config.int_("damage.convoy_aimed"), "aimed: damage.convoy_aimed, not the bullet's own damage")
+	assert_eq(Config.int_("damage.convoy_aimed"), 7, "shipped: 7 (operator retune 2026-10-14)")
 	assert_signal_emit_count(Events, "convoy_hp_changed", 2, "the start value and one hit")
 	assert_true(not is_instance_valid(bullet) or bullet.is_queued_for_deletion(), "the bullet is spent")
 
@@ -480,7 +480,7 @@ func test_aimed_bullet_hitting_any_ship_costs_the_aimed_amount() -> void:
 	var bullet: EnemyBullet = _fire_bullet_at(ship, {"targets_convoy": true,
 		"position": ship.global_position + Vector2(0, 150), "velocity": Vector2(0, -450)})
 	await wait_physics_frames(40)
-	assert_eq(convoy.hp(), 95, "the flag alone decides the amount")
+	assert_eq(convoy.hp(), 100 - Config.int_("damage.convoy_aimed"), "the flag alone decides the amount")
 	assert_true(not is_instance_valid(bullet) or bullet.is_queued_for_deletion())
 
 

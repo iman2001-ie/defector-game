@@ -7,8 +7,9 @@ extends Enemy
 ## a level that moves its formation rows sets, x from its formation slot) and then
 ## runs its attack cycle, one start every fire_interval_s:
 ##   TRACKING  track_s: the targeting line follows the player (enemy colour).
-##   LOCKED    lock_s: the line freezes and turns red (the >= 0.3 s telegraph,
-##             silent since playtest pt7-e), then one needle_bolt fires along
+##   LOCKED    lock_s: the line freezes and turns red (silent since playtest
+##             pt7-e; with the tracking line before it, the >= 0.3 s
+##             telegraph: GDD decision #80), then one needle_bolt fires along
 ##             it at bolt_speed_px_s with the needle_fire laser cue.
 ##   COOLDOWN  fire_interval_s - track_s - lock_s, line hidden.
 ## After reposition_interval_s anchored it moves, only from COOLDOWN, to a new

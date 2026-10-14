@@ -87,27 +87,32 @@ func test_stats_tier_hitbox_and_orange_hull() -> void:
 
 # --- Chase --------------------------------------------------------------------
 
-func test_straight_chase_moves_300_px_per_second_toward_the_player() -> void:
+func test_straight_chase_moves_at_chase_speed_toward_the_player() -> void:
+	var speed: float = Config.num("enemies.hunter_wasp.chase_speed_px_s")
 	_make_player(Vector2(960, 900))
 	var hunter: HunterWasp = _make({"position": Vector2(960, 100)})
 	assert_eq(hunter.heading(), Vector2.DOWN)
 	for i: int in 30:
 		var before: Vector2 = hunter.global_position
 		hunter.step(DT)
-		assert_almost_eq(hunter.global_position.y - before.y, 300.0 * DT, 0.0001)
+		assert_almost_eq(hunter.global_position.y - before.y, speed * DT, 0.0001)
 		assert_almost_eq(hunter.global_position.x, 960.0, 0.0001)
 	assert_almost_eq(hunter.rotation, 0.0, 0.0001, "nose (down) follows the heading")
 
 
 func test_turn_rate_caps_the_heading_change() -> void:
+	var rate: float = Config.num("enemies.hunter_wasp.turn_rate_deg_s")
+	var cap: float = rate * DT
+	# Steps for a 90 deg turn at the capped rate (the target is straight behind).
+	var steps: int = roundi(90.0 / cap)
 	_make_player(Vector2(960, 100))
 	var hunter: HunterWasp = _make({"position": Vector2(960, 900)})
 	var prev: Vector2 = hunter.heading()
-	for i: int in 60:
+	for i: int in steps:
 		hunter.step(DT)
-		assert_lte(_angle_deg(prev, hunter.heading()), 1.5 + 0.001, "<= 1.5 deg per 1/60 s")
+		assert_lte(_angle_deg(prev, hunter.heading()), cap + 0.001, "<= turn_rate_deg_s * dt per step")
 		prev = hunter.heading()
-	assert_almost_eq(_angle_deg(Vector2.DOWN, hunter.heading()), 90.0, 0.5, "90 deg after 1.0 s")
+	assert_almost_eq(_angle_deg(Vector2.DOWN, hunter.heading()), 90.0, 0.5, "90 deg after 90 / turn_rate_deg_s seconds")
 	assert_almost_eq(hunter.rotation, hunter.heading().angle() - PI / 2.0, 0.0001, "hull follows the heading")
 
 
@@ -118,7 +123,7 @@ func test_catches_up_with_a_static_player_at_constant_speed() -> void:
 	for i: int in 600:
 		var before: Vector2 = hunter.global_position
 		hunter.step(DT)
-		assert_almost_eq(before.distance_to(hunter.global_position), 300.0 * DT, 0.0001, "constant speed")
+		assert_almost_eq(before.distance_to(hunter.global_position), Config.num("enemies.hunter_wasp.chase_speed_px_s") * DT, 0.0001, "constant speed")
 		closest = minf(closest, hunter.global_position.distance_to(player.global_position))
 	assert_lt(closest, 40.0, "comes within 40 px within 10 s")
 

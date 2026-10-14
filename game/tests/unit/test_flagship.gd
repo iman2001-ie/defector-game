@@ -307,7 +307,7 @@ func test_spawn_builds_the_hull_four_turrets_and_the_core() -> void:
 		assert_eq(area.collision_mask, 0, "%s mask 0" % area.name)
 	for turret: FlagshipTurret in boss.turrets():
 		assert_eq(turret.type_id, &"flagship_turret")
-		assert_eq(turret.hp, 25)
+		assert_eq(turret.hp, _turret_hp())
 		assert_eq(turret.tier, ImpactTier.BOSS_PART)
 		assert_eq(turret.sprite_px, Config.num("boss.turrets.sprite_px"))
 		assert_eq(turret.collision_layer, CollisionLayers.ENEMIES)
@@ -322,8 +322,8 @@ func test_spawn_builds_the_hull_four_turrets_and_the_core() -> void:
 	assert_eq(core.tier, ImpactTier.BOSS_DEATH)
 	assert_true(core.invulnerable, "the core starts invulnerable")
 	assert_eq(core.spawner, _spawner)
-	assert_eq(boss.max_hp(), 300, "4 x 25 + 200")
-	assert_eq(boss.current_hp(), 300)
+	assert_eq(boss.max_hp(), _max_hp(), "turrets.count x turrets.hp + core.hp")
+	assert_eq(boss.current_hp(), _max_hp())
 	assert_eq(_logged("[WARN]"), [] as Array[String], "no warning")
 
 
@@ -332,7 +332,7 @@ func test_spawn_emits_started_arriving_and_full_hp() -> void:
 	assert_eq(_events, [
 		["boss_started"],
 		["boss_phase_changed", 0],
-		["boss_hp_changed", 300, 300, 0],
+		["boss_hp_changed", _max_hp(), _max_hp(), 0],
 	] as Array[Array])
 	assert_eq(boss.phase(), Flagship.Phase.ARRIVING)
 	assert_eq(boss.global_position, Vector2(960, Config.num("boss.hull.arrive_from_y")))
@@ -365,7 +365,7 @@ func test_arrives_at_its_station_over_arrival_s_then_turrets() -> void:
 				assert_false(turret.is_firing(), "no turret fires while arriving")
 	assert_almost_eq(t, arrival_s, DT + EPS, "arrives after arrival_s")
 	assert_eq(boss.global_position, Vector2(960, station_y), "at its station")
-	assert_eq(_events, [["boss_phase_changed", 1], ["boss_hp_changed", 300, 300, 1]] as Array[Array])
+	assert_eq(_events, [["boss_phase_changed", 1], ["boss_hp_changed", _max_hp(), _max_hp(), 1]] as Array[Array])
 	for turret: FlagshipTurret in boss.turrets():
 		assert_true(turret.is_firing(), "every turret's cycle started")
 
@@ -500,9 +500,9 @@ func test_hit_on_a_turret_lowers_the_combined_hp() -> void:
 	_events.clear()
 	var turret: FlagshipTurret = boss.turrets()[1]
 	turret.apply_damage(10, null)
-	assert_eq(turret.hp, 15)
-	assert_eq(_events, [["boss_hp_changed", 290, 300, 1]] as Array[Array])
-	assert_eq(boss.current_hp(), 290)
+	assert_eq(turret.hp, _turret_hp() - 10)
+	assert_eq(_events, [["boss_hp_changed", _max_hp() - 10, _max_hp(), 1]] as Array[Array])
+	assert_eq(boss.current_hp(), _max_hp() - 10)
 
 
 func test_hull_and_invulnerable_core_ignore_damage() -> void:
@@ -510,8 +510,8 @@ func test_hull_and_invulnerable_core_ignore_damage() -> void:
 	_events.clear()
 	boss.apply_damage(10, null)
 	boss.core().apply_damage(10, null)
-	assert_eq(boss.core().hp, 200, "core hp unchanged")
-	assert_eq(boss.current_hp(), 300)
+	assert_eq(boss.core().hp, Config.int_("boss.core.hp"), "core hp unchanged")
+	assert_eq(boss.current_hp(), _max_hp())
 	assert_eq(_events, [] as Array[Array], "no event")
 	assert_false(boss.is_dead())
 	assert_false(boss.core().is_dead())
@@ -525,7 +525,7 @@ func test_shots_on_the_hull_and_core_are_spent() -> void:
 		bolt.set_physics_process(false)
 		bolt._on_area_entered(target)
 		assert_true(bolt.is_queued_for_deletion(), "the shot on %s is spent" % target.name)
-	assert_eq(boss.current_hp(), 300)
+	assert_eq(boss.current_hp(), _max_hp())
 	assert_eq(_events_named("boss_hp_changed"), [] as Array[Array])
 
 
@@ -544,14 +544,14 @@ func test_turret_death_plays_the_boss_part_tier_and_drops_an_orb() -> void:
 	assert_almost_eq(_camera.current_amplitude(), 6.0, EPS, "6 px shake")
 	assert_true(Feedback.is_hit_stopped(), "30 ms hit-stop")
 	assert_eq(_events_named("enemy_killed"), [["enemy_killed", &"flagship_turret", pos, false]] as Array[Array])
-	assert_eq(_events_named("boss_hp_changed"), [["boss_hp_changed", 275, 300, 1]] as Array[Array], "overkill-free: 300 - 25")
+	assert_eq(_events_named("boss_hp_changed"), [["boss_hp_changed", _max_hp() - _turret_hp(), _max_hp(), 1]] as Array[Array], "overkill-free: max - one turret")
 	await wait_physics_frames(2)
 	var orbs: int = 0
 	for child: Node in _pickups.get_children():
 		if child is EnergyOrb:
 			orbs += 1
 	assert_eq(orbs, 1, "a turret always drops one orb")
-	assert_eq(boss.current_hp(), 275, "the freed turret counts 0")
+	assert_eq(boss.current_hp(), _max_hp() - _turret_hp(), "the freed turret counts 0")
 
 
 ## Story 7.4: turrets that all die while ARRIVING don't stop the arrival; its
@@ -588,15 +588,15 @@ func test_fourth_turret_death_enters_core() -> void:
 	var boss: Flagship = _spawn_at_station()
 	var turrets: Array[FlagshipTurret] = boss.turrets()
 	for i: int in 3:
-		turrets[i].apply_damage(25, null)
+		turrets[i].apply_damage(_turret_hp(), null)
 	assert_eq(boss.phase(), Flagship.Phase.TURRETS, "3 turrets down: still TURRETS")
 	assert_true(boss.core().invulnerable)
 	_events.clear()
-	turrets[3].apply_damage(25, null)
+	turrets[3].apply_damage(_turret_hp(), null)
 	assert_eq(boss.live_turret_count(), 0)
 	assert_eq(boss.phase(), Flagship.Phase.CORE, "the 4th turret's death enters CORE")
 	assert_eq(_events_named("boss_phase_changed"), [["boss_phase_changed", 2]] as Array[Array])
-	assert_eq(_events_named("boss_hp_changed").back(), ["boss_hp_changed", 200, 300, 2])
+	assert_eq(_events_named("boss_hp_changed").back(), ["boss_hp_changed", Config.int_("boss.core.hp"), _max_hp(), 2])
 	assert_eq(_logged("[INFO][combat] Flagship: all turrets destroyed").size(), 1, "one INFO line")
 	assert_false(boss.core().invulnerable, "the core is exposed")
 	assert_true(boss.core().is_targetable(), "and targetable")
@@ -725,7 +725,7 @@ func test_hit_on_the_core_in_core() -> void:
 	var boss: Flagship = _spawn_in_core()
 	boss.core().apply_damage(10, null)
 	assert_eq(boss.core().hp, 190, "core 190")
-	assert_eq(_events, [["boss_hp_changed", 190, 300, 2]] as Array[Array])
+	assert_eq(_events, [["boss_hp_changed", 190, _max_hp(), 2]] as Array[Array])
 	assert_eq(boss.current_hp(), 190)
 
 
@@ -987,9 +987,9 @@ func _assert_clamped_into_final_choice(boss: Flagship) -> void:
 	assert_eq(core.hp_floor(), 0, "the floor is spent")
 	assert_eq(boss.phase(), Flagship.Phase.FINAL_CHOICE, "FINAL_CHOICE")
 	assert_eq(_events, [
-		["boss_hp_changed", 50, 300, 2],
+		["boss_hp_changed", 50, _max_hp(), 2],
 		["boss_phase_changed", 3],
-		["boss_hp_changed", 50, 300, 3],
+		["boss_hp_changed", 50, _max_hp(), 3],
 	] as Array[Array], "the hp change, then the phase entry")
 	assert_eq(_requests, [&"l3_final_choice"] as Array[StringName], "l3_final_choice requested once")
 	assert_false(core.is_attacking(), "the core attack stopped")
@@ -1041,7 +1041,7 @@ func test_final_choice_finished_enters_desperate_once() -> void:
 	var boss: Flagship = _spawn_in_final_choice()
 	Events.comms_sequence_finished.emit(&"l3_final_choice")
 	assert_eq(boss.phase(), Flagship.Phase.DESPERATE, "DESPERATE")
-	assert_eq(_events, [["boss_phase_changed", 4], ["boss_hp_changed", 50, 300, 4]] as Array[Array])
+	assert_eq(_events, [["boss_phase_changed", 4], ["boss_hp_changed", 50, _max_hp(), 4]] as Array[Array])
 	var core: FlagshipCore = boss.core()
 	assert_false(core.invulnerable, "the core is vulnerable again")
 	assert_true(core.is_targetable(), "and targetable")
@@ -1052,7 +1052,7 @@ func test_final_choice_finished_enters_desperate_once() -> void:
 	assert_eq(boss.phase(), Flagship.Phase.DESPERATE)
 	core.apply_damage(10, null)
 	assert_eq(core.hp, 40, "damage lands")
-	assert_eq(_events.back(), ["boss_hp_changed", 40, 300, 4])
+	assert_eq(_events.back(), ["boss_hp_changed", 40, _max_hp(), 4])
 
 
 ## DESPERATE over a run of at least 4 radial and 3 aimed periods: the
@@ -1276,7 +1276,7 @@ func test_core_death_enters_dying_then_boss_defeated_after_the_chain() -> void:
 	assert_eq(_events_named("enemy_killed"), [["enemy_killed", &"flagship_core", core_pos, false]] as Array[Array], "only the core is a kill")
 	assert_eq(boss.phase(), Flagship.Phase.DYING, "DYING")
 	assert_eq(_events_named("boss_phase_changed"), [["boss_phase_changed", 5]] as Array[Array])
-	assert_eq(_events_named("boss_hp_changed").back(), ["boss_hp_changed", 0, 300, 5], "combined 0")
+	assert_eq(_events_named("boss_hp_changed").back(), ["boss_hp_changed", 0, _max_hp(), 5], "combined 0")
 	assert_eq(boss.collision_layer, 0, "the hull leaves its layer")
 	assert_eq(core.collision_layer, 0, "the core leaves its layer")
 	for turret: FlagshipTurret in boss.turrets():
@@ -1486,3 +1486,13 @@ func test_without_a_spawner_core_cycles_but_nothing_fires_or_launches() -> void:
 	assert_eq(_logged("[DEBUG][spawn] flagship_core has no spawner").size(), 1, "one DEBUG line for the core")
 	assert_eq(_logged("[DEBUG][spawn] flagship has no spawner").size(), 1, "one DEBUG line for the Flagship")
 	assert_eq(_logged("[ERROR]"), [] as Array[String], "no error")
+
+
+## The tuned turret HP and the combined max HP (turrets.count x turrets.hp +
+## core.hp), so the HP checks follow a retune (operator retune 2026-10-14).
+func _turret_hp() -> int:
+	return Config.int_("boss.turrets.hp")
+
+
+func _max_hp() -> int:
+	return Config.int_("boss.turrets.count") * _turret_hp() + Config.int_("boss.core.hp")

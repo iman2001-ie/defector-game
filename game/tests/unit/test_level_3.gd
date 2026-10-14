@@ -580,19 +580,19 @@ func _play_the_epilogue_to_the_end_screen(choice: StringName) -> void:
 # --- Acceptance 1: the shipped flags ---------------------------------------------
 
 ## The whole level with the shipped flags: the briefing, the three defence waves
-## (Hunter Wasps skipped), the taunt, the boss wave, then the Flagship driven
+## (Hunter Wasps counted: the flag is on since the operator retune, 2026-10-14), the taunt, the boss wave, then the Flagship driven
 ## through the turrets, the clamp, the Final Choice (OFFER SURRENDER), the
 ## response and the core's death to one boss_defeated; Isolde's final line
 ## paused before the clear, then one level_cleared(3), the save, the council
 ## epilogue (Story 7.8) and the end screen.
 func test_shipped_flags_play_level_3_through_the_final_line_to_the_end_screen() -> void:
-	assert_false(Config.flag("hunter_wasp"), "shipped: hunter_wasp off")
+	assert_true(Config.flag("hunter_wasp"), "shipped: hunter_wasp on")
 	assert_true(Config.flag("council_epilogue"), "shipped: council_epilogue on")
 	assert_true(Config.flag("isolde_interruptions"), "shipped: interruptions on")
 	_make_level()
 	_start_through_briefing()
 	await _kill_through_wave(1)
-	_check_wave_2(false)
+	_check_wave_2(true)
 	await _kill_through_wave(2)
 	await _play_wave_3_into_the_boss(true)
 	await _drive_flagship_to_the_epilogue(0, &"surrender", &"l3_isolde_refuse_surrender")
@@ -656,7 +656,8 @@ func test_hunter_wasp_on_counts_the_hunters_and_clears_wave_2() -> void:
 ## isolde_interruptions off: waves 2 and 3 clear into the boss wave without
 ## the taunt ever being requested; the boss music starts.
 func test_isolde_interruptions_off_never_requests_the_taunt() -> void:
-	_load_flags({"isolde_interruptions": false})
+	# hunter_wasp off too, so the skip path stays covered now the shipped default is on.
+	_load_flags({"isolde_interruptions": false, "hunter_wasp": false})
 	_make_level()
 	_start_through_briefing()
 	await _kill_through_wave(1)

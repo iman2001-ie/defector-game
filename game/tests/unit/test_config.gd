@@ -18,7 +18,7 @@ const FLAG_DEFAULTS: Dictionary = {
 	"surrender_prompts": true,
 	"isolde_interruptions": true,
 	"tarek_fall": true,
-	"hunter_wasp": false,
+	"hunter_wasp": true,
 	"council_epilogue": true,
 }
 const TIER_KEYS: Array[String] = [
@@ -120,7 +120,7 @@ func test_feedback_tiers_have_full_shape() -> void:
 func test_mandatory_key_paths() -> void:
 	assert_eq(Config.num("waves.gap_s"), 2.0)
 	assert_eq(Config.int_("comms.chars_per_s"), 45)
-	assert_eq(Config.int_("damage.convoy_aimed"), 5)
+	assert_eq(Config.int_("damage.convoy_aimed"), 7)
 	assert_eq(Config.int_("damage.convoy_stray"), 2)
 	assert_eq(Config.int_("boss.final_choice_hp"), 50)
 	assert_gt(Config.num("player.missile_ring.radius_px"), 0.0, "player.missile_ring.radius_px")
@@ -153,7 +153,7 @@ func test_int_converts_json_float_to_int() -> void:
 
 func test_flag_values() -> void:
 	assert_true(Config.flag("tarek_fall"))
-	assert_false(Config.flag("hunter_wasp"))
+	assert_true(Config.flag("hunter_wasp"), "on since the operator retune (2026-10-14)")
 
 
 func test_section_returns_non_empty_dictionary() -> void:

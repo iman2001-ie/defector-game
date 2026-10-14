@@ -135,8 +135,9 @@ func test_f6_jumps_to_the_flagship_and_shows_the_boss_bar() -> void:
 			medium += 1
 	assert_eq(medium, 2, "the cover asteroids")
 	assert_true(boss_bar.visible, "the boss bar shows")
-	assert_eq(boss_bar.max_hp(), 300)
-	assert_eq(boss_bar.current(), 300)
+	var max_hp: int = Config.int_("boss.turrets.count") * Config.int_("boss.turrets.hp") + Config.int_("boss.core.hp")
+	assert_eq(boss_bar.max_hp(), max_hp, "turrets.count x turrets.hp + core.hp")
+	assert_eq(boss_bar.current(), max_hp)
 	await wait_seconds(Config.num("hud.boss_bar.fade_s") + 0.2)
 	assert_almost_eq(boss_bar.modulate.a, 1.0, 0.001, "the boss bar faded in")
 	assert_almost_eq(wave_bar.modulate.a, 0.0, 0.001, "the wave bar faded out")

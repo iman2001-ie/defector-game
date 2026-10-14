@@ -342,7 +342,7 @@ func test_level_3_siege_shape() -> void:
 	assert_true(Config.dialogue_is_story(&"l3_briefing"), "the intro is a story sequence")
 	assert_eq(data.get("outro_sequence"), "l3_isolde_final", "Isolde's final line is the outro (Story 7.7)")
 	assert_true(Config.dialogue_is_story(&"l3_isolde_final"), "the outro is a story sequence")
-	assert_false(Config.flag("hunter_wasp"), "shipped: hunter_wasp off")
+	assert_true(Config.flag("hunter_wasp"), "shipped: hunter_wasp on (operator 2026-10-14)")
 	var waves: Array = data.get("waves", []) as Array
 	assert_eq(waves.size(), 4, "3 defence waves and the boss wave")
 	if waves.size() != 4:
@@ -1769,7 +1769,7 @@ func test_maul_tuning_ranges() -> void:
 	assert_gt(Config.num("enemies.maul.dive_speed_px_s"), 0.0, "dive_speed_px_s > 0")
 	assert_gt(Config.num("enemies.maul.hitbox_ratio"), 0.0)
 	assert_lte(Config.num("enemies.maul.hitbox_ratio"), 1.0)
-	assert_eq(Config.int_("damage.convoy_maul"), 10)
+	assert_eq(Config.int_("damage.convoy_maul"), 13, "shipped: 13 (operator retune 2026-10-14)")
 	assert_gte(Config.int_("damage.maul_contact_hearts"), 1)
 	assert_between(Config.num("drops.maul.chance"), 0.0, 1.0)
 

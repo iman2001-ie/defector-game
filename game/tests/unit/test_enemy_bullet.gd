@@ -245,8 +245,8 @@ func test_aimed_bullet_applies_convoy_aimed_to_a_convoy_area_once() -> void:
 	var calls: Array = _calls(convoy)
 	assert_eq(calls.size(), 1, "one damage instance")
 	if calls.size() == 1:
-		assert_eq(calls[0].amount, Config.int_("damage.convoy_aimed"), "aimed: 5")
-		assert_eq(calls[0].amount, 5)
+		assert_eq(calls[0].amount, Config.int_("damage.convoy_aimed"), "aimed: damage.convoy_aimed")
+		assert_eq(Config.int_("damage.convoy_aimed"), 7, "shipped: 7 (operator retune 2026-10-14)")
 		assert_eq(calls[0].source, bullet)
 	assert_eq(_calls(other).size(), 0)
 	assert_true(bullet.is_queued_for_deletion(), "freed")

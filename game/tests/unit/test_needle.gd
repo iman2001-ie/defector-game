@@ -141,7 +141,7 @@ func _assert_color_near(got: Color, want: Color, label: String) -> void:
 func test_hp_tier_and_scene() -> void:
 	var needle: Needle = _make({"position": Vector2(960, 160)})
 	assert_eq(needle.type_id, &"needle")
-	assert_eq(needle.hp, 6)
+	assert_eq(needle.hp, Config.int_("enemies.needle.hp"))
 	assert_eq(needle.tier, ImpactTier.MEDIUM)
 	assert_eq(needle.sprite_px, 80.0)
 	assert_eq(needle.collision_layer, CollisionLayers.ENEMIES)

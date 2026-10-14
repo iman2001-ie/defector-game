@@ -810,7 +810,8 @@ func test_boss_wave_spawns_the_flagship_counted_as_one() -> void:
 	assert_eq(_counted().size(), 0)
 	assert_eq(_events_named("boss_started").size(), 1)
 	assert_eq(_events_named("boss_phase_changed"), [["boss_phase_changed", 0]] as Array[Array])
-	assert_eq(_events_named("boss_hp_changed"), [["boss_hp_changed", 300, 300, 0]] as Array[Array])
+	var max_hp: int = Config.int_("boss.turrets.count") * Config.int_("boss.turrets.hp") + Config.int_("boss.core.hp")
+	assert_eq(_events_named("boss_hp_changed"), [["boss_hp_changed", max_hp, max_hp, 0]] as Array[Array])
 	assert_eq(_medium_asteroids(), Config.int_("boss.phase1_medium_asteroids"), "the cover asteroids")
 	assert_eq(_medium_asteroids(), 2)
 	for rock: Node in _world.get_node("Asteroids").get_children():

@@ -291,16 +291,17 @@ func test_no_log_lines_while_diving() -> void:
 
 # --- Convoy hit -----------------------------------------------------------------
 
-func test_convoy_hit_deals_10_and_resolves_without_a_kill() -> void:
+func test_convoy_hit_deals_convoy_maul_and_resolves_without_a_kill() -> void:
 	var spawner: Spawner = _drop_world()
 	_force_drop()
 	var convoy: Convoy = _make_convoy()
 	var maul: Maul = _make({"position": Vector2(700, 300)}, true, spawner)
 	var ship: ConvoyShip = maul.target_ship()
+	var expected: int = 100 - Config.int_("damage.convoy_maul")
 	maul.area_entered.emit(ship)
-	assert_eq(convoy.hp(), 90, "convoy HP drops by damage.convoy_maul")
-	assert_eq(Config.int_("damage.convoy_maul"), 10)
-	assert_signal_emitted_with_parameters(Events, "convoy_hp_changed", [90, 100])
+	assert_eq(convoy.hp(), expected, "convoy HP drops by damage.convoy_maul")
+	assert_eq(Config.int_("damage.convoy_maul"), 13, "shipped: 13 (operator retune 2026-10-14)")
+	assert_signal_emitted_with_parameters(Events, "convoy_hp_changed", [expected, 100])
 	assert_signal_emit_count(maul, "resolved", 1)
 	assert_signal_not_emitted(Events, "enemy_killed", "not a kill")
 	assert_true(maul.is_dead())
@@ -308,7 +309,7 @@ func test_convoy_hit_deals_10_and_resolves_without_a_kill() -> void:
 	assert_eq(maul.state(), Maul.State.DONE)
 	assert_eq(Audio.newest_player().stream, Audio.SFX[&"explosion_medium"], "MEDIUM death feedback")
 	maul.area_entered.emit(ship)
-	assert_eq(convoy.hp(), 90, "a second overlap is ignored")
+	assert_eq(convoy.hp(), expected, "a second overlap is ignored")
 	assert_signal_emit_count(maul, "resolved", 1, "resolves once")
 	await wait_process_frames(2)
 	assert_eq(_orbs(spawner), 0, "no loot")
@@ -321,7 +322,7 @@ func test_real_overlap_with_a_convoy_ship_hits_it() -> void:
 	var count: Array[int] = [0]
 	maul.resolved.connect(func() -> void: count[0] += 1)
 	await wait_physics_frames(3)
-	assert_eq(convoy.hp(), 90, "one hit through the physics overlap")
+	assert_eq(convoy.hp(), 100 - Config.int_("damage.convoy_maul"), "one hit through the physics overlap")
 	assert_eq(count[0], 1, "resolved once")
 	assert_false(is_instance_valid(maul), "freed")
 	assert_signal_not_emitted(Events, "enemy_killed")

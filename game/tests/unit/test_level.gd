@@ -538,8 +538,11 @@ func test_dev_wave_5_has_a_bastion() -> void:
 
 ## Story 2.8: level_dev wave 6 lists Hunter Wasps; with the default flag (off)
 ## only its six Wasps spawn and count, and the skip is logged at DEBUG.
-func test_dev_wave_6_skips_hunters_with_the_default_flag() -> void:
+func test_dev_wave_6_skips_hunters_with_the_flag_off() -> void:
 	(Config.tuning["waves"] as Dictionary)["gap_s"] = 0.05
+	# The shipped default is on since the operator retune (2026-10-14); this test
+	# covers the off path (after_each reloads the config).
+	Config.flags["hunter_wasp"] = false
 	Log.sink = _capture
 	_make_level()
 	_make_player_invincible()
@@ -552,7 +555,7 @@ func test_dev_wave_6_skips_hunters_with_the_default_flag() -> void:
 			waited += 0.1
 		assert_eq(director.wave_number(), wave + 2, "wave %d advanced within 3 s" % (wave + 1))
 	Log.sink = Callable()
-	assert_false(Config.flag("hunter_wasp"), "flag default stays off")
+	assert_false(Config.flag("hunter_wasp"), "flag off for this run")
 	assert_eq(director.wave_number(), 6, "on wave 6")
 	assert_eq(director.total_count(), 6, "six counted Wasps")
 	var wasps: int = 0
@@ -1490,7 +1493,7 @@ func test_dev_convoy_maul_wave_hits_the_convoy() -> void:
 		await get_tree().physics_frame
 	assert_false(_hp_values.is_empty(), "a Maul reached the convoy")
 	if not _hp_values.is_empty():
-		assert_eq(hp_before - _hp_values[0], 10, "convoy HP drops by exactly 10")
+		assert_eq(hp_before - _hp_values[0], Config.int_("damage.convoy_maul"), "convoy HP drops by exactly damage.convoy_maul")
 		# One tick of slack: the Mauls may have spawned a tick before the poll saw them.
 		var hit_tick: int = _hp_ticks[0]
 		var tps: int = Engine.physics_ticks_per_second
@@ -1502,8 +1505,9 @@ func test_dev_convoy_maul_wave_hits_the_convoy() -> void:
 		await get_tree().physics_frame
 	assert_eq(_mauls().size(), 0, "every Maul resolved (hit or miss)")
 	assert_eq(_maul_kills, 0, "a hit or a miss is never a kill")
+	var maul_damage: int = Config.int_("damage.convoy_maul")
 	for v: int in _hp_values:
-		assert_eq((hp_before - v) % 10, 0, "only Maul hits (10 each)")
+		assert_eq((hp_before - v) % maul_damage, 0, "only Maul hits (damage.convoy_maul each)")
 	Events.convoy_hp_changed.disconnect(_on_convoy_hp)
 	Events.enemy_killed.disconnect(_on_maul_killed)
 
