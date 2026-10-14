@@ -6,8 +6,9 @@ extends Area2D
 ##
 ## The Hitbox RectangleShape2D is convoy.ship_width_px x ship_height_px scaled by
 ## convoy.hitbox_ratio, set in _ready. The hull (Story 8.2) is the `Sprite`
-## child: a Kenney cargo hull turned nose-up and recoloured a dimmed `coalition`
-## (so it reads as civilian cargo, not a fighter), fitted uniformly inside
+## child: a Kenney cargo hull turned nose-up and recoloured a slightly dimmed
+## `coalition` (value 0.9: a touch below the fighters, so it reads as civilian
+## cargo, yet bright enough to glow; playtest 2026-10-14), fitted uniformly inside
 ## ship_width_px x ship_height_px. outline() stays as the hull's shape data:
 ## ship_width_px x ship_height_px, nose-up, a flat bottom and the top quarter of
 ## the height tapered to a point at (0, -h/2). apply_damage forwards to the

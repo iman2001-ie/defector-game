@@ -1001,3 +1001,12 @@ func test_last_clear_in_silence_is_quiet() -> void:
 	assert_eq(_count_starting("[ERROR]"), 0, "no error")
 	assert_eq(_count_starting("[WARN]"), 0, "no warning")
 	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH] as Array[String], "the epilogue still plays")
+
+
+## Playtest pt7-e: going to the title fades out any music (the end screen's
+## epilogue track, or a level track after a quit); the title has no track.
+func test_goto_title_fades_the_music_out() -> void:
+	Audio.play_music(&"epilogue")
+	SceneRouter.goto_title()
+	_assert_music_fading_out(&"epilogue")
+	assert_eq(_calls, [SceneRouter.TITLE_SCENE_PATH] as Array[String], "to the title")

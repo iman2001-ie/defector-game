@@ -35,8 +35,8 @@ class MappingTest(unittest.TestCase):
             "player_hit": (tool.SCI_FI, "impactMetal_002.ogg", None, None),
             "player_death": (tool.SCI_FI, "explosionCrunch_003.ogg", None, None),
             "shield_on": (tool.SCI_FI, "forceField_000.ogg", None, None),
-            "energy_pickup": (tool.DIGITAL, "powerUp5.mp3", None, None),
-            "needle_lock": (tool.DIGITAL, "highUp.mp3", None, None),
+            "energy_pickup": (tool.INTERFACE, "glass_001.ogg", None, None),
+            "needle_fire": (tool.SCI_FI, "laserLarge_000.ogg", 0.45, 0.2),
             "ability_denied": (tool.INTERFACE, "error_007.ogg", None, None),
         }
         actual = {k: (s.pack, s.file, s.trim_s, s.fade_out_s) for k, s in tool.SFX_SOURCES.items()}
@@ -61,6 +61,7 @@ class MappingTest(unittest.TestCase):
             {
                 "combat": ("space_adventure_bpm140_0.ogg", "30e31ee6da7a24bea35bf22d6c125f8100f803fca20a3f59637e52a4fd764ce3"),
                 "boss": ("space_boss_battle_bpm175_0.ogg", "4fc0898456099db3d9e63bd97450fedc3f9ff0a05cd65a8d363b3f2904415e60"),
+                "epilogue": ("Heavenly Loop_0.ogg", "a842e9e054019132cacc8fd352e7b31c000ebb51e0b227a2511e1bccb4eb166e"),
             },
         )
 
@@ -72,10 +73,10 @@ class MappingTest(unittest.TestCase):
         doc = tool.__doc__ or ""
         for digest in (
             "119340f351a5098ad814f78719438c0da355a9ce8a4c8a3af6a8d48aa3d49e04",
-            "022f0f4b73da55989567fe2b373c8af89d74f5d015257e293cab497ca606d063",
             "f2193d072726d6758a5f7871b2dcc54dcce0d5c35c6f0a62f92549b327c81232",
             "30e31ee6da7a24bea35bf22d6c125f8100f803fca20a3f59637e52a4fd764ce3",
             "4fc0898456099db3d9e63bd97450fedc3f9ff0a05cd65a8d363b3f2904415e60",
+            "a842e9e054019132cacc8fd352e7b31c000ebb51e0b227a2511e1bccb4eb166e",
         ):
             self.assertIn(digest, doc)
 

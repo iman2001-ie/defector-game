@@ -159,7 +159,7 @@ ROWS: tuple[Row, ...] = (
     Row(
         "sprites/allies/convoy_cargo.png",
         (_ext("PNG/Sprites/Ships/spaceShips_005.png"),),
-        (ROT180, recolor_op(COALITION, 0.5)),
+        (ROT180, recolor_op(COALITION, 0.9)),
     ),
     Row("sprites/boss/flagship_turret.png", (_redux("PNG/Parts/turretBase_big.png"),), (tint_op(ENEMY),)),
     Row("sprites/boss/flagship_core.png", (_redux("PNG/ufoRed.png"),), (recolor_op(ENEMY),)),

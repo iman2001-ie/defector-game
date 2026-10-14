@@ -25,7 +25,7 @@ extends RefCounted
 ## - Actions: objects with exactly one of comms, spawn_group, story_event,
 ##   music, wait, hint. `wait` is a number >= 0, the rest non-empty strings; a
 ##   spawn_group names a group in the same wave; a music value is one of
-##   MUSIC_ACTIONS (stop, combat, boss); a hint value is one of HINT_ACTIONS
+##   MUSIC_ACTIONS (stop, combat, boss, epilogue); a hint value is one of HINT_ACTIONS
 ##   (move_fire, missile; Story 5.8).
 ## - Every group is named by some spawn_group action.
 ## - Reachability (mirrors WaveDirector counting): a type gated by `type_flags`
@@ -56,7 +56,7 @@ extends RefCounted
 
 const WHENS: Array[String] = ["wave_start", "progress", "wave_clear", "boss_phase", "boss_hp_le"]
 const ACTION_KEYS: Array[String] = ["comms", "spawn_group", "story_event", "music", "wait", "hint"]
-const MUSIC_ACTIONS: Array[String] = ["stop", "combat", "boss"]
+const MUSIC_ACTIONS: Array[String] = ["stop", "combat", "boss", "epilogue"]
 ## The control-hint requests a `hint` action may make (Story 5.8). The energy
 ## hints (shield, barrage) are never requested by data.
 const HINT_ACTIONS: Array[String] = ["move_fire", "missile"]

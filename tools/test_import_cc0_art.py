@@ -109,7 +109,7 @@ class MappingTest(unittest.TestCase):
             ),
             "sprites/allies/convoy_cargo.png": (
                 [(e, "PNG/Sprites/Ships/spaceShips_005.png")],
-                [("rot180", None, 1.0), ("recolor", (0x22, 0xE6, 0xFF), 0.5)],
+                [("rot180", None, 1.0), ("recolor", (0x22, 0xE6, 0xFF), 0.9)],
             ),
             "sprites/boss/flagship_turret.png": ([(r, "PNG/Parts/turretBase_big.png")], [("tint", (0xFF, 0x2B, 0xD6), 1.0)]),
             "sprites/boss/flagship_core.png": ([(r, "PNG/ufoRed.png")], [("recolor", (0xFF, 0x2B, 0xD6), 1.0)]),

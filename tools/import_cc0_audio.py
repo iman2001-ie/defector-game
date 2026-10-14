@@ -1,7 +1,7 @@
 """Import DEFECTOR's CC0 sounds and music (Story 8.1).
 
 Reads files from unzipped CC0 packs, writes the combat SFX into
-game/assets/audio/sfx/ and copies the two music tracks into
+game/assets/audio/sfx/ and copies the three music tracks into
 game/assets/audio/music/. Stdlib only, plus `ffmpeg` on the PATH.
 
 SFX: each source is decoded, downmixed to mono at 44.1 kHz, optionally trimmed
@@ -20,10 +20,6 @@ https://opengameart.org/sites/default/files/<file>):
 - Kenney "Sci-Fi Sounds", https://opengameart.org/content/sci-fi-sounds
   sci-fi_sounds.zip
   sha256 119340f351a5098ad814f78719438c0da355a9ce8a4c8a3af6a8d48aa3d49e04
-- Kenney "63 Digital sound effects",
-  https://opengameart.org/content/63-digital-sound-effects-lasers-phasers-space-etc
-  Digital_SFX_Set.zip
-  sha256 022f0f4b73da55989567fe2b373c8af89d74f5d015257e293cab497ca606d063
 - Kenney "Interface Sounds", https://opengameart.org/content/interface-sounds
   kenney_interfaceSounds.zip
   sha256 f2193d072726d6758a5f7871b2dcc54dcce0d5c35c6f0a62f92549b327c81232
@@ -33,9 +29,12 @@ https://opengameart.org/sites/default/files/<file>):
 - MintoDog "Space Boss Battle", https://opengameart.org/content/space-boss-battle
   space_boss_battle_bpm175_0.ogg
   sha256 4fc0898456099db3d9e63bd97450fedc3f9ff0a05cd65a8d363b3f2904415e60
+- isaiah658 "Heavenly Loop", https://opengameart.org/content/heavenly-loop
+  Heavenly Loop_0.ogg (the epilogue track; playtest pt7-e)
+  sha256 a842e9e054019132cacc8fd352e7b31c000ebb51e0b227a2511e1bccb4eb166e
 
 Download the files, unzip each archive into its own empty folder under one
-packs folder, put the two OGGs in that packs folder too, then run from the repo
+packs folder, put the three OGGs in that packs folder too, then run from the repo
 root:
 
     uv run python tools/import_cc0_audio.py --packs <packs folder>
@@ -82,7 +81,6 @@ class MusicSource:
 
 
 SCI_FI = "Kenney Sci-Fi Sounds"
-DIGITAL = "Kenney 63 Digital sound effects"
 INTERFACE = "Kenney Interface Sounds"
 
 # Registry id -> source. The game writes `sfx_<id>.wav`.
@@ -98,8 +96,8 @@ SFX_SOURCES: dict[str, SfxSource] = {
     "player_hit": SfxSource(SCI_FI, "impactMetal_002.ogg"),
     "player_death": SfxSource(SCI_FI, "explosionCrunch_003.ogg"),
     "shield_on": SfxSource(SCI_FI, "forceField_000.ogg"),
-    "energy_pickup": SfxSource(DIGITAL, "powerUp5.mp3"),
-    "needle_lock": SfxSource(DIGITAL, "highUp.mp3"),
+    "energy_pickup": SfxSource(INTERFACE, "glass_001.ogg"),
+    "needle_fire": SfxSource(SCI_FI, "laserLarge_000.ogg", trim_s=0.45, fade_out_s=0.2),
     "ability_denied": SfxSource(INTERFACE, "error_007.ogg"),
 }
 
@@ -112,6 +110,10 @@ MUSIC_SOURCES: dict[str, MusicSource] = {
     "boss": MusicSource(
         "space_boss_battle_bpm175_0.ogg",
         "4fc0898456099db3d9e63bd97450fedc3f9ff0a05cd65a8d363b3f2904415e60",
+    ),
+    "epilogue": MusicSource(
+        "Heavenly Loop_0.ogg",
+        "a842e9e054019132cacc8fd352e7b31c000ebb51e0b227a2511e1bccb4eb166e",
     ),
 }
 

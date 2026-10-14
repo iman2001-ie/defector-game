@@ -21,3 +21,6 @@ LOCAL.md
 
 # Python bytecode (embeds local absolute paths)
 __pycache__/
+
+# Operator art hand-off folder (source drops; the used copies live under game/ and docs/)
+defector_cartoon_assets/

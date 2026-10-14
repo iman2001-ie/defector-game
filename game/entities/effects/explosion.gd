@@ -11,6 +11,12 @@ extends Node2D
 ## LIFETIME_S), then hides. It runs on the explosion's own _process, so it
 ## freezes with the game. Other unknown extras (`red_vignette`) are ignored.
 ##
+## Playtest pt7-e: an optional `speed` (default 1.0, the Flagship's death chain
+## uses feedback.boss_death_chain_anim_speed) plays the whole effect slower or
+## faster: every particle system's speed_scale, the shockwave's expansion and
+## the self-free time all scale by it (lifetime() = LIFETIME_S / speed). The
+## white flash keeps its own tuned fade.
+##
 ## Created only by Spawner: setup(params) stores values before add_child, and
 ## _ready() applies them.
 
@@ -20,10 +26,14 @@ const EXTRA_SHOCKWAVE: StringName = &"shockwave"
 const EXTRA_WHITE_FLASH: StringName = &"white_flash"
 ## Seconds the shockwave ring takes to expand and fade.
 const SHOCKWAVE_S: float = 0.45
-## Seconds until the node frees itself; at least every child's lifetime.
+## Seconds until the node frees itself at speed 1; at least every child's lifetime.
 const LIFETIME_S: float = 1.0
+## The slowest playback a `speed` param may ask for (keeps lifetime() finite).
+const MIN_SPEED: float = 0.05
 
 var explosion_scale: float = 1.0
+## Playback speed (1.0 = as authored; below 1 is slower).
+var speed: float = 1.0
 var extras: Array[StringName] = []
 
 var _spawn_position: Vector2 = Vector2.ZERO
@@ -49,6 +59,7 @@ func setup(params: Dictionary) -> void:
 		_spawn_position = params["position"] as Vector2
 		_has_spawn_position = true
 	explosion_scale = float(params.get("scale", explosion_scale))
+	speed = maxf(float(params.get("speed", speed)), MIN_SPEED)
 	extras.clear()
 	var raw: Variant = params.get("extras", [])
 	if raw is Array:
@@ -60,6 +71,8 @@ func _ready() -> void:
 	if _has_spawn_position:
 		global_position = _spawn_position
 	scale = Vector2(explosion_scale, explosion_scale)
+	for particles: GPUParticles2D in [_burst, _sparks, _debris]:
+		particles.speed_scale = speed
 	_burst.emitting = true
 	_sparks.emitting = extras.has(EXTRA_SPARKS)
 	_debris.emitting = extras.has(EXTRA_DEBRIS)
@@ -69,7 +82,7 @@ func _ready() -> void:
 	_flash.visible = false
 	if extras.has(EXTRA_WHITE_FLASH):
 		_flash_alpha = clampf(Config.num("feedback.white_flash.alpha"), 0.0, 1.0)
-		_flash_s = minf(Config.num("feedback.white_flash.duration_s"), LIFETIME_S)
+		_flash_s = minf(Config.num("feedback.white_flash.duration_s"), lifetime())
 		if _flash_alpha > 0.0 and _flash_s > 0.0:
 			_flash.visible = true
 			_set_flash_alpha(_flash_alpha)
@@ -80,12 +93,17 @@ func _process(delta: float) -> void:
 		return
 	_elapsed += delta
 	if _shockwave.visible:
-		_shockwave.set_progress(_elapsed / SHOCKWAVE_S)
+		_shockwave.set_progress(_elapsed * speed / SHOCKWAVE_S)
 	if _flash.visible:
 		_step_flash()
-	if _elapsed >= LIFETIME_S:
+	if _elapsed >= lifetime():
 		_freed = true
 		queue_free()
+
+
+## Seconds until the node frees itself: LIFETIME_S at this playback speed.
+func lifetime() -> float:
+	return LIFETIME_S / speed
 
 
 ## True while the white flash shows.

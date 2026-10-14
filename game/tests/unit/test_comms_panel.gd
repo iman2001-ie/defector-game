@@ -211,7 +211,8 @@ func test_portrait_speaker_line() -> void:
 		_assert_color(frame.border_color, Color("#3DF2FF"), "frame in the accent")
 	var image: TextureRect = panel.get_node("Panel/Portrait/Image") as TextureRect
 	assert_true(image.visible, "the portrait image shows")
-	assert_eq(image.texture.resource_path, "res://assets/portraits/portrait_tarek.svg", "Tarek's portrait")
+	assert_eq(image.texture.resource_path, "res://assets/portraits/portrait_tarek.png", "Tarek's portrait")
+	assert_eq(image.texture_filter, CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS, "sampled through its mipmaps")
 	assert_false(_label(panel, "Panel/Portrait/Initial").visible, "the initial is hidden")
 	assert_eq(Rect2(image.position, image.size), Rect2(1, 1, 198, 198), "inside the 1 px accent frame")
 	assert_eq(image.mouse_filter, Control.MOUSE_FILTER_IGNORE)
@@ -245,7 +246,7 @@ func test_each_portrait_speaker_shows_their_portrait() -> void:
 		var image: TextureRect = panel.get_node("Panel/Portrait/Image") as TextureRect
 		assert_true(image.visible, "%s image" % speaker)
 		assert_eq(image.texture, CommsPortraits.TEXTURES[speaker], "%s portrait" % speaker)
-		assert_eq(image.texture.resource_path, "res://assets/portraits/portrait_%s.svg" % speaker)
+		assert_eq(image.texture.resource_path, "res://assets/portraits/portrait_%s.png" % speaker)
 		assert_false(_label(panel, "Panel/Portrait/Initial").visible, "%s: no initial" % speaker)
 	for speaker: StringName in [&"vale", &"system"]:
 		panel.show_line(speaker, "No portrait.")

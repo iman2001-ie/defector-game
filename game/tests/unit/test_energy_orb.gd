@@ -174,3 +174,46 @@ func test_a_negative_magnet_radius_never_pulls() -> void:
 	assert_false(orb.is_magnet_target_in_range())
 	orb.step(0.5)
 	assert_eq(orb.global_position, Vector2(100, 160), "drifts down")
+
+
+## Playtest pt7-e: the chime plays at energy.orb_sfx.volume_db, base pitch.
+func test_pickup_chime_volume_and_base_pitch() -> void:
+	EnergyOrb.reset_pickup_streak()
+	var orb: EnergyOrb = _make_orb()
+	orb.collect()
+	var player: AudioStreamPlayer = Audio.newest_player()
+	assert_not_null(player)
+	if player != null:
+		assert_almost_eq(player.volume_db, Config.num("energy.orb_sfx.volume_db"), 0.001, "orb_sfx.volume_db")
+		assert_almost_eq(player.pitch_scale, 1.0, 0.0001, "no jitter, base pitch on a fresh streak")
+
+
+## Quick pickups climb one step each up to streak_max_steps; a gap resets.
+func test_pickup_streak_climbs_caps_and_resets() -> void:
+	EnergyOrb.reset_pickup_streak()
+	var step: float = Config.num("energy.orb_sfx.streak_pitch_step")
+	var max_steps: int = Config.int_("energy.orb_sfx.streak_max_steps")
+	var window_ms: int = int(Config.num("energy.orb_sfx.streak_window_s") * 1000.0)
+	var t: int = 10000
+	assert_almost_eq(EnergyOrb.next_pickup_pitch(t), 1.0, 0.0001, "first pickup")
+	for i: int in max_steps + 3:
+		t += window_ms
+		var expected: float = 1.0 + float(mini(i + 1, max_steps)) * step
+		assert_almost_eq(EnergyOrb.next_pickup_pitch(t), expected, 0.0001, "step %d (capped)" % (i + 1))
+	t += window_ms + 1
+	assert_almost_eq(EnergyOrb.next_pickup_pitch(t), 1.0, 0.0001, "a longer gap starts again")
+	EnergyOrb.reset_pickup_streak()
+
+
+## A burst of pickups never stacks copies of the chime.
+func test_pickup_burst_plays_one_chime_at_a_time() -> void:
+	EnergyOrb.reset_pickup_streak()
+	for i: int in 4:
+		_make_orb(Vector2(100 + 40 * i, 100)).collect()
+	var playing: int = 0
+	for child: Node in Audio.get_children():
+		var p: AudioStreamPlayer = child as AudioStreamPlayer
+		if p != null and p.playing and p.stream == Audio.SFX[&"energy_pickup"]:
+			playing += 1
+	assert_eq(playing, 1, "one chime playing after a burst of four")
+	EnergyOrb.reset_pickup_streak()

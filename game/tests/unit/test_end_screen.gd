@@ -27,6 +27,7 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	Audio.stop_music(0.0)
 	Log.sink = Callable()
 	Config.assert_on_missing = true
 	Config.load_data()
@@ -330,6 +331,7 @@ func test_bad_config_keeps_the_authored_layout_and_calls_no_getter() -> void:
 	assert_eq(_lines_starting("[ERROR][data]"), [] as Array[String], "no Config getter called")
 	assert_eq(_lines_starting("[INFO][scene] End screen ready").size(), 1, "ready line still logged")
 	assert_eq(PauseArbiter.current_mouse_mode(), Input.MOUSE_MODE_VISIBLE)
+	assert_eq(Audio.current_music(), &"", "no music on a fatal config")
 
 
 func test_bad_config_button_still_goes_to_the_title() -> void:
@@ -342,3 +344,39 @@ func test_bad_config_button_still_goes_to_the_title() -> void:
 	assert_eq(GameState.highest_unlocked_level, 2, "unlock restored from the save")
 	assert_eq(GameState.energy, 0, "energy zeroed")
 	assert_eq(_lines_starting("[ERROR][data]"), [] as Array[String], "no Config getter called")
+
+
+# --- Playtest pt7-e: the epilogue track -------------------------------------------
+
+func test_end_screen_plays_the_epilogue_track_after_the_delay() -> void:
+	Audio.stop_music(0.0)
+	_make()
+	assert_eq(Audio.current_music(), &"", "silent until audio.epilogue_music_delay_s")
+	await wait_seconds(Config.num("audio.epilogue_music_delay_s") + 0.2)
+	assert_eq(Audio.current_music(), &"epilogue", "the gentle track plays")
+	assert_eq(_lines_starting("[INFO][audio] Music 'epilogue' playing (%.2f s fade-in)" % Config.num("audio.music_fade_in_s")).size(), 1, "fading in")
+
+
+func test_end_screen_lets_the_boss_fade_out_finish() -> void:
+	Audio.play_music(&"boss")
+	Audio.stop_music()
+	_make()
+	assert_true(Audio.music_player().playing, "the boss track is still fading out")
+	assert_eq(Audio.music_player().stream, Audio.music_streams[&"boss"], "not cut by the epilogue")
+
+
+func test_end_screen_keeps_an_epilogue_track_already_playing() -> void:
+	Audio.stop_music(0.0)
+	Audio.play_music(&"epilogue")
+	_make()
+	assert_eq(Audio.current_music(), &"epilogue")
+	assert_eq(_lines_starting("[INFO][audio] Music").size(), 0, "not restarted")
+
+
+func test_back_fades_the_epilogue_track_out() -> void:
+	Audio.stop_music(0.0)
+	var screen: EndScreen = _make()
+	await wait_seconds(Config.num("audio.epilogue_music_delay_s") + 0.2)
+	_back(screen).pressed.emit()
+	assert_eq(Audio.current_music(), &"", "silent from the press on")
+	assert_eq(_lines_starting("[INFO][audio] Music 'epilogue' stopping").size(), 1, "one fade-out")

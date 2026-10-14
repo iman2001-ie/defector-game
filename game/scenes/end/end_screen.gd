@@ -6,7 +6,7 @@ extends Control
 ## saves and then goes here through SceneRouter.goto_end().
 ##
 ## The backdrop is the project clear colour (`background` #05070F) plus the
-## throne-world planet arc drawn by the reused LevelBackground (the
+## throne-world planet (and the starfield) drawn by the reused LevelBackground (the
 ## `Background` child, first, so it draws behind the labels and the button).
 ##
 ## Healthy config: the layout comes from `ui.end_screen` (each text label spans
@@ -16,6 +16,9 @@ extends Control
 ## `buttons_top_y`). Fatal config (Config.load_error set, so the data is
 ## empty): no Config getter is called (each would assert on the empty data) and
 ## the positions authored in end_screen.tscn, which match the UX, are kept.
+##
+## Playtest pt7-e: a healthy config plays (or keeps) the gentle `epilogue`
+## track; SceneRouter.goto_title() fades it out.
 ##
 ## BACK TO TITLE -> SceneRouter.goto_title() once; a second press does nothing.
 ## Colours, sizes and button styles come from the shared Theme (type
@@ -60,6 +63,12 @@ func _ready() -> void:
 	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	_config_failed = not Config.load_error.is_empty()
 	_background.apply(LevelBackground.THRONE_WORLD)
+	if not _config_failed:
+		# Playtest pt7-e: the gentle epilogue track (already playing after the
+		# council epilogue, so this changes nothing then). Otherwise it starts
+		# after audio.epilogue_music_delay_s, so the boss track's fade-out
+		# finishes first. Not on a fatal config: no Config getter may run then.
+		_start_epilogue_music()
 	_logo.text = TEXT_LOGO
 	_closing.text = TEXT_CLOSING
 	_thanks.text = TEXT_THANKS
@@ -72,6 +81,23 @@ func _ready() -> void:
 	# Story 8.4: the last playthrough beat for tools/beat_audit.py (also on a fatal config).
 	var choice: String = "none" if GameState.final_choice.is_empty() else String(GameState.final_choice)
 	Log.info("beat", "End screen: campaign finished %d s after launch (final choice '%s')" % [floori(Time.get_ticks_msec() / 1000.0), choice])
+
+
+## Starts the epilogue track unless it already plays: after
+## audio.epilogue_music_delay_s on a real-time timer (at once for 0), whose
+## connection dies with the screen.
+func _start_epilogue_music() -> void:
+	if Audio.current_music() == StoryScene.EPILOGUE_MUSIC:
+		return
+	var delay: float = Config.num("audio.epilogue_music_delay_s")
+	if delay <= 0.0:
+		_play_epilogue_music()
+		return
+	get_tree().create_timer(delay, true, false, true).timeout.connect(_play_epilogue_music)
+
+
+func _play_epilogue_music() -> void:
+	Audio.play_music(StoryScene.EPILOGUE_MUSIC, Config.num("audio.music_fade_in_s"))
 
 
 ## True when the config failed to load (the authored layout is kept).

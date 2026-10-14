@@ -1,16 +1,19 @@
 class_name CommsPortraits
 extends RefCounted
 ## The comms portraits (Story 8.2): speaker id -> preloaded portrait texture
-## (project-owned SVG busts in assets/portraits/). CommsPanel and CommsBox copy
+## (project-owned 512 x 512 PNG busts in assets/portraits/, AI-generated for
+## this project, playtest 2026-10-14; they replace the Story 8.2 SVGs, and import
+## with mipmaps, which the Image nodes sample when drawing them at 200 or 88
+## px). CommsPanel and CommsBox copy
 ## TEXTURES into their `portraits` map in _ready and show the speaker's texture
 ## in `Portrait/Image` when comms.speakers.<id>.portrait is true; a speaker with
 ## a portrait but no texture here keeps the placeholder initial. Vale and the
 ## system have no portrait (comms.speakers), so they have no entry.
 
 const TEXTURES: Dictionary[StringName, Texture2D] = {
-	&"isolde": preload("res://assets/portraits/portrait_isolde.svg"),
-	&"tarek": preload("res://assets/portraits/portrait_tarek.svg"),
-	&"ryn": preload("res://assets/portraits/portrait_ryn.svg"),
+	&"isolde": preload("res://assets/portraits/portrait_isolde.png"),
+	&"tarek": preload("res://assets/portraits/portrait_tarek.png"),
+	&"ryn": preload("res://assets/portraits/portrait_ryn.png"),
 }
 
 

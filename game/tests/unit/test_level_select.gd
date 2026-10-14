@@ -236,6 +236,7 @@ func test_thumbnails_show_each_levels_backdrop() -> void:
 		assert_eq(bg.background_id(), expected[n - 1], "Card%d shows level %d's background" % [n, n])
 		assert_eq(bg.background_id(), str(Config.level(str(n)).get("background")), "from the level data")
 		assert_almost_eq(bg.scale.x, bg.scale.y, 0.0001, "uniform scale")
+		assert_false(bg.animate, "Card%d backdrop holds still (no star flicker at thumbnail scale)" % n)
 		var covered: Rect2 = Rect2(bg.position, Playfield.SIZE * bg.scale)
 		assert_true(covered.encloses(Rect2(Vector2.ZERO, thumb.size)), "Card%d: the playfield covers the thumbnail" % n)
 		assert_almost_eq(bg.position.y, 0.0, 0.0001, "top-aligned")

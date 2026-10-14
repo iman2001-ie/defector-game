@@ -106,7 +106,7 @@ func test_process_mode_always() -> void:
 const SFX_IDS: Array[StringName] = [
 	&"laser_zap", &"missile_launch", &"barrage_whoosh",
 	&"explosion_small", &"explosion_medium", &"explosion_large", &"explosion_boss_part", &"explosion_boss_death",
-	&"player_hit", &"player_death", &"shield_on", &"energy_pickup", &"needle_lock", &"ability_denied",
+	&"player_hit", &"player_death", &"shield_on", &"energy_pickup", &"needle_fire", &"ability_denied",
 	&"comms_open", &"comms_open_nobeep", &"comms_static", &"comms_click", &"comms_handover", &"maul_alarm",
 ]
 
@@ -137,8 +137,8 @@ func test_boss_tier_sfx_are_their_own_streams() -> void:
 
 
 ## Story 8.1: the new cues are registered and play on the combat pool.
-func test_shield_on_and_needle_lock_are_registered() -> void:
-	for id: StringName in [&"shield_on", &"needle_lock"]:
+func test_shield_on_and_needle_fire_are_registered() -> void:
+	for id: StringName in [&"shield_on", &"needle_fire"]:
 		assert_true(Audio.SFX.get(id) is AudioStream, "%s registered" % id)
 		assert_false(Audio.COMMS_SFX.has(id), "%s plays on the combat pool" % id)
 		_free_all_players()
@@ -291,11 +291,12 @@ func test_music_player_on_the_music_bus() -> void:
 	assert_eq(Audio.current_music(), &"", "silent at start")
 
 
-## Story 8.1: two shipped tracks, preloaded, imported looping; music_streams
-## starts as a copy of the registry (tests may swap entries).
+## Story 8.1 (+ playtest pt7-e's epilogue): three shipped tracks, preloaded,
+## imported looping; music_streams starts as a copy of the registry (tests may
+## swap entries).
 func test_music_registry_ships_looping_tracks() -> void:
-	assert_eq(Audio.MUSIC.size(), 2, "two tracks")
-	assert_true(Audio.MUSIC.has(&"combat") and Audio.MUSIC.has(&"boss"), "combat and boss")
+	assert_eq(Audio.MUSIC.size(), 3, "three tracks")
+	assert_true(Audio.MUSIC.has(&"combat") and Audio.MUSIC.has(&"boss") and Audio.MUSIC.has(&"epilogue"), "combat, boss and epilogue")
 	for id: StringName in Audio.MUSIC:
 		var stream: AudioStreamOggVorbis = Audio.MUSIC[id] as AudioStreamOggVorbis
 		assert_not_null(stream, "%s is an Ogg Vorbis stream" % id)
@@ -306,6 +307,7 @@ func test_music_registry_ships_looping_tracks() -> void:
 		assert_gt(stream.get_length(), 30.0, "%s is a full track" % id)
 		assert_eq(Audio.music_streams.get(id), stream, "%s registered in music_streams" % id)
 	assert_ne(Audio.MUSIC[&"combat"], Audio.MUSIC[&"boss"], "two different tracks")
+	assert_ne(Audio.MUSIC[&"epilogue"], Audio.MUSIC[&"boss"], "the epilogue is its own track")
 	assert_eq(Audio.music_streams.size(), Audio.MUSIC.size(), "music_streams is a copy of MUSIC")
 
 
@@ -436,4 +438,83 @@ func test_missing_stream_warns_once_and_stays_silent() -> void:
 	Audio.apply_music_action(&"boss")
 	assert_eq(_lines_containing("[WARN][audio]").size(), 1, "no new warning for the same id")
 	assert_eq(Audio.current_music(), &"")
+	assert_push_warning_count(1)
+
+
+## Playtest pt7-e: the MUSIC ids are LevelValidator.MUSIC_ACTIONS minus `stop`.
+func test_music_ids_mirror_the_validator_actions() -> void:
+	var ids: Array[String] = []
+	for id: StringName in Audio.MUSIC:
+		ids.append(String(id))
+	ids.sort()
+	var actions: Array[String] = LevelValidator.MUSIC_ACTIONS.duplicate()
+	actions.erase("stop")
+	actions.sort()
+	assert_eq(ids, actions)
+
+
+## Playtest pt7-e: a track plays at audio.music_volume_db plus its
+## audio.music_gain_db.<id>; ids without a gain play at the base.
+func test_music_gain_lifts_only_its_track() -> void:
+	assert_almost_eq(Audio.music_gain_db(&"epilogue"), Config.num("audio.music_gain_db.epilogue"), 0.0001)
+	assert_almost_eq(Audio.music_gain_db(&"combat"), 0.0, 0.0001, "no gain for combat")
+	Audio.play_music(&"epilogue")
+	assert_almost_eq(Audio.music_player().volume_db, _base_db() + Audio.music_gain_db(&"epilogue"), 0.0001, "base + gain")
+	Audio.stop_music(0.0)
+	assert_almost_eq(Audio.music_player().volume_db, _base_db(), 0.0001, "the stop restores the base")
+
+
+## Playtest pt7-e: a fade-in starts silent and rises to the track volume; asking
+## for the same track mid-fade changes nothing, and a stop fades it out.
+func test_fade_in_rises_and_a_repeat_play_keeps_it() -> void:
+	assert_true(await UnscaledClock.settle(self), "unscaled clock settled")
+	_register_music()
+	var player: AudioStreamPlayer = Audio.music_player()
+	Audio.play_music(&"combat", 0.5)
+	assert_true(player.playing, "playing at once")
+	assert_eq(Audio.current_music(), &"combat")
+	assert_almost_eq(player.volume_db, Audio.MUSIC_SILENT_DB, 0.5, "starts silent")
+	await wait_seconds(0.25)
+	var mid: float = player.volume_db
+	assert_gt(mid, Audio.MUSIC_SILENT_DB + 1.0, "rising")
+	assert_lt(mid, _base_db() - 1.0, "not there yet")
+	Audio.play_music(&"combat", 0.5)
+	assert_gte(player.volume_db, mid, "a repeat play never restarts the fade")
+	await wait_seconds(0.4)
+	assert_almost_eq(player.volume_db, _base_db(), 0.0001, "at the track volume")
+	Audio.stop_music(0.0)
+	assert_false(player.playing)
+
+
+func test_stop_during_a_fade_in_fades_out() -> void:
+	assert_true(await UnscaledClock.settle(self), "unscaled clock settled")
+	_register_music()
+	var player: AudioStreamPlayer = Audio.music_player()
+	Audio.play_music(&"combat", 1.0)
+	await wait_seconds(0.2)
+	Audio.stop_music(0.2)
+	assert_eq(Audio.current_music(), &"", "silent from the call on")
+	await wait_seconds(0.35)
+	assert_false(player.playing, "stopped after the fade-out")
+	assert_almost_eq(player.volume_db, _base_db(), 0.0001, "base volume restored")
+
+
+## Playtest pt7-e: play_sfx_solo stops the same id's other copies first.
+func test_play_sfx_solo_never_stacks_one_id() -> void:
+	_free_all_players()
+	var first: AudioStreamPlayer = Audio.play_sfx(&"energy_pickup")
+	var other: AudioStreamPlayer = Audio.play_sfx(&"laser_zap")
+	var second: AudioStreamPlayer = Audio.play_sfx_solo(&"energy_pickup", 0.0, -6.0, 1.1)
+	assert_not_null(second)
+	if first == null or other == null or second == null:
+		return
+	var copies: int = 0
+	for player: AudioStreamPlayer in _pool():
+		if player.playing and player.stream == Audio.SFX[&"energy_pickup"]:
+			copies += 1
+	assert_eq(copies, 1, "one copy of the id")
+	assert_true(other.playing, "other ids keep playing")
+	assert_almost_eq(second.volume_db, -6.0, 0.0001)
+	assert_almost_eq(second.pitch_scale, 1.1, 0.0001)
+	assert_null(Audio.play_sfx_solo(&"no_such_id"), "unknown ids still warn and return null")
 	assert_push_warning_count(1)

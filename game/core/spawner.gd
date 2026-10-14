@@ -156,7 +156,7 @@ func spawn_asteroid(params: Dictionary) -> Asteroid:
 
 
 ## Returns the spawned explosion, or null without an Effects container.
-## params: position, scale, extras (see Explosion.setup).
+## params: position, scale, extras, speed (see Explosion.setup).
 func spawn_explosion(params: Dictionary) -> Explosion:
 	if _effects == null:
 		return null

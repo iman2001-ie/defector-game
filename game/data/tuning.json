@@ -55,7 +55,8 @@
 		"orb_despawn_s": 6.0,
 		"orb_magnet_speed_px_s": 600,
 		"orb_diameter_px": 24,
-		"orb_spread_px": 32
+		"orb_spread_px": 32,
+		"orb_sfx": { "volume_db": -6.0, "streak_window_s": 0.45, "streak_pitch_step": 0.05, "streak_max_steps": 6 }
 	},
 	"drops": {
 		"wasp": { "chance": 0.15, "orbs": 1 },
@@ -105,7 +106,8 @@
 			"lock_s": 0.2,
 			"anchor_y_px": 160,
 			"reposition_speed_px_s": 400,
-			"reposition_min_distance_px": 320
+			"reposition_min_distance_px": 320,
+			"fire_sfx_volume_db": -4.0
 		},
 		"bastion": {
 			"tier": "large",
@@ -230,8 +232,6 @@
 		"shot_speed_px_s": 1200,
 		"fall": {
 			"approach_s": 0.8,
-			"shield_radius_px": 64,
-			"shield_flash_hz": 8,
 			"exit_speed_px_s": 140,
 			"exit_drop": 0.5,
 			"spin_deg_s": 160
@@ -314,8 +314,15 @@
 				"extras": [], "sfx": "player_death", "sfx_pitch": 1.0, "sfx_volume_db": 0
 			}
 		},
-		"boss_death_chain_s": 2.0,
+		"boss_death_chain_s": 3.0,
 		"boss_death_chain_offsets_px": [[0, 114], [-270, 35], [270, 35], [0, 0]],
+		"boss_death_chain_sfx": [
+			{ "sfx": "explosion_large", "sfx_pitch": 0.9, "sfx_volume_db": 0 },
+			{ "sfx": "explosion_boss_part", "sfx_pitch": 1.0, "sfx_volume_db": 0 },
+			{ "sfx": "explosion_large", "sfx_pitch": 0.7, "sfx_volume_db": 0 },
+			{ "sfx": "explosion_boss_death", "sfx_pitch": 1.0, "sfx_volume_db": 0 }
+		],
+		"boss_death_chain_anim_speed": 0.6,
 		"white_flash": { "alpha": 0.7, "duration_s": 0.3 },
 		"player_death_pause_s": 1.5,
 		"resume_slowmo": { "scale": 0.25, "hold_s": 0.15, "ramp_s": 0.9 }
@@ -351,10 +358,19 @@
 	},
 	"audio": {
 		"music_fade_out_s": 0.5,
-		"music_volume_db": -10.0
+		"music_volume_db": -10.0,
+		"music_fade_in_s": 2.5,
+		"music_gain_db": { "epilogue": 6.0 },
+		"epilogue_music_delay_s": 1.0
 	},
 	"render": {
-		"glow": { "intensity": 1.0, "bloom": 0.08, "hdr_threshold": 0.55 }
+		"glow": { "intensity": 1.0, "bloom": 0.08, "hdr_threshold": 0.55 },
+		"starfield": {
+			"far": { "density": 40, "speed_px_s": 12, "size_px": 1.0, "brightness": 0.22 },
+			"mid": { "density": 10, "speed_px_s": 28, "size_px": 1.5, "brightness": 0.38 },
+			"near": { "density": 3, "speed_px_s": 60, "size_px": 2.0, "brightness": 0.6 },
+			"twinkle": { "amount": 0.5, "fraction": 0.35, "hz": 0.25 }
+		}
 	},
 	"debug": {
 		"energy_add": 100,

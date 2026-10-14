@@ -470,6 +470,18 @@ func _chain_offsets() -> Array[Vector2]:
 	return out
 
 
+## The stream chain explosion k plays (its boss_death_chain_sfx row).
+func _chain_stream(k: int) -> AudioStream:
+	var rows: Array = Config.section("feedback").get("boss_death_chain_sfx", []) as Array
+	return Audio.SFX[StringName(str((rows[k] as Dictionary)["sfx"]))]
+
+
+## The pitch chain explosion k plays at (its boss_death_chain_sfx row).
+func _chain_pitch(k: int) -> float:
+	var rows: Array = Config.section("feedback").get("boss_death_chain_sfx", []) as Array
+	return float((rows[k] as Dictionary)["sfx_pitch"])
+
+
 ## The Boss-death tier's explosion scale, as a node scale.
 func _boss_death_scale() -> Vector2:
 	return Vector2.ONE * Config.num("feedback.tiers.boss_death.explosion_scale")
@@ -491,10 +503,11 @@ func test_boss_death_plays_the_full_impact_first() -> void:
 		assert_eq(e.scale, _boss_death_scale(), "Boss-death scale")
 		assert_eq(e.extras, [&"white_flash"] as Array[StringName], "with the tier's extras")
 		assert_true(e.is_flashing(), "the white flash")
+		assert_almost_eq(e.speed, Config.num("feedback.boss_death_chain_anim_speed"), 0.0001, "at the chain's playback speed")
 	assert_almost_eq(_camera.current_amplitude(), Config.num("feedback.tiers.boss_death.shake_px"), 0.0001, "the tier's shake")
 	assert_true(Feedback.is_hit_stopped(), "the tier's hit-stop")
 	assert_eq(Engine.time_scale, 0.0)
-	assert_eq(Audio.newest_player().stream, Audio.SFX[&"explosion_boss_death"], "the tier sfx")
+	assert_eq(Audio.newest_player().stream, _chain_stream(0), "chain sfx row 0, not the tier sfx")
 	assert_eq(Feedback.chain_pending(), _chain_offsets().size() - 1, "the rest of the chain to come")
 
 
@@ -520,9 +533,12 @@ func test_chain_spreads_the_explosions_evenly_over_chain_s() -> void:
 			assert_eq(e.global_position, CHAIN_POS + offsets[seen], "explosion %d at pos + its offset" % seen)
 			assert_eq(e.scale, _boss_death_scale(), "explosion %d at the Boss-death scale" % seen)
 			assert_eq(e.extras, [] as Array[StringName], "explosion %d has no extras" % seen)
+			assert_almost_eq(e.speed, Config.num("feedback.boss_death_chain_anim_speed"), 0.0001, "explosion %d at the chain speed" % seen)
 			if e.is_flashing():
 				flashes += 1
-			sfx_after.append(Audio.newest_player() != before and Audio.newest_player().stream == Audio.SFX[&"explosion_boss_death"])
+			sfx_after.append(Audio.newest_player() != before and Audio.newest_player().stream == _chain_stream(seen))
+			var row_pitch: float = _chain_pitch(seen)
+			assert_almost_eq(Audio.newest_player().pitch_scale, row_pitch, row_pitch * Audio.DEFAULT_PITCH_JITTER + 0.0001, "explosion %d at its row's pitch" % seen)
 			times.append(t)
 			seen = explosions.size()
 	assert_eq(seen, count, "one explosion per offset")
@@ -533,7 +549,7 @@ func test_chain_spreads_the_explosions_evenly_over_chain_s() -> void:
 	var all_sfx: Array[bool] = []
 	all_sfx.resize(count - 1)
 	all_sfx.fill(true)
-	assert_eq(sfx_after, all_sfx, "each later explosion plays the tier sfx")
+	assert_eq(sfx_after, all_sfx, "each later explosion plays its own chain sfx row")
 	assert_eq(Feedback.chain_pending(), 0, "nothing left")
 	Feedback.step_chain(1.0)
 	assert_eq(_explosions().size(), count, "a finished chain plays nothing more")
@@ -567,7 +583,7 @@ func test_chain_without_a_spawner_plays_no_explosion_and_no_error() -> void:
 	for i: int in ceili(Config.num("feedback.boss_death_chain_s") / CHAIN_DT) + 10:
 		Feedback.step_chain(CHAIN_DT)
 	assert_eq(Feedback.chain_pending(), 0, "the chain ran out")
-	assert_eq(Audio.newest_player().stream, Audio.SFX[&"explosion_boss_death"], "the sfx still plays")
+	assert_eq(Audio.newest_player().stream, _chain_stream(_chain_offsets().size() - 1), "the sfx still plays")
 	for line: String in lines:
 		assert_false(line.begins_with("[ERROR]"), "no error: %s" % line)
 
@@ -795,3 +811,51 @@ func test_a_scene_change_clear_does_not_slow_down() -> void:
 	assert_false(Feedback.is_slow_motion(), "PauseArbiter.clear() is a scene change")
 	assert_eq(Engine.time_scale, 1.0)
 	assert_false(PauseArbiter.is_clearing(), "only true during clear()")
+
+
+# --- Playtest pt7-e: chain sounds and speed --------------------------------------
+
+## Fewer sfx rows than offsets: the rest play the Boss-death tier sfx.
+func test_missing_chain_sfx_rows_use_the_tier_sfx() -> void:
+	(Config.tuning["feedback"] as Dictionary)["boss_death_chain_offsets_px"] = [[0, 0], [100, 0]]
+	(Config.tuning["feedback"] as Dictionary)["boss_death_chain_s"] = 1.0
+	(Config.tuning["feedback"] as Dictionary)["boss_death_chain_sfx"] = [{"sfx": "explosion_small", "sfx_pitch": 1.0, "sfx_volume_db": -2}]
+	Feedback.load_tiers()
+	_setup_listeners()
+	Feedback.boss_death(CHAIN_POS)
+	assert_eq(Audio.newest_player().stream, Audio.SFX[&"explosion_small"], "row 0")
+	assert_almost_eq(Audio.newest_player().volume_db, -2.0, 0.0001, "row 0's volume")
+	Feedback.step_chain(1.0)
+	assert_eq(Audio.newest_player().stream, Audio.SFX[&"explosion_boss_death"], "no row 1: the tier sfx")
+
+
+## A malformed row logs one data error at load and falls back to the tier sfx.
+func test_malformed_chain_sfx_row_falls_back() -> void:
+	(Config.tuning["feedback"] as Dictionary)["boss_death_chain_offsets_px"] = [[0, 0]]
+	(Config.tuning["feedback"] as Dictionary)["boss_death_chain_sfx"] = [{"sfx": 3}]
+	Feedback.load_tiers()
+	assert_push_error("feedback.boss_death_chain_sfx entry { \"sfx\": 3 } is not a {sfx, sfx_pitch, sfx_volume_db} row; the tier sfx plays instead")
+	_setup_listeners()
+	Feedback.boss_death(CHAIN_POS)
+	assert_eq(Audio.newest_player().stream, Audio.SFX[&"explosion_boss_death"], "the tier sfx")
+
+
+## A row with a pitch of 0 or less is malformed too (pitch_scale must be > 0).
+func test_chain_sfx_row_with_no_pitch_falls_back() -> void:
+	(Config.tuning["feedback"] as Dictionary)["boss_death_chain_offsets_px"] = [[0, 0]]
+	(Config.tuning["feedback"] as Dictionary)["boss_death_chain_sfx"] = [{"sfx": "explosion_small", "sfx_pitch": 0, "sfx_volume_db": 0}]
+	Feedback.load_tiers()
+	assert_push_error("is not a {sfx, sfx_pitch, sfx_volume_db} row; the tier sfx plays instead")
+	_setup_listeners()
+	Feedback.boss_death(CHAIN_POS)
+	assert_eq(Audio.newest_player().stream, Audio.SFX[&"explosion_boss_death"], "the tier sfx")
+
+
+## Ordinary impacts keep the authored playback speed.
+func test_ordinary_impacts_play_at_speed_one() -> void:
+	_setup_listeners()
+	Feedback.impact(ImpactTier.LARGE, Vector2(300, 300))
+	var explosions: Array[Explosion] = _explosions()
+	assert_eq(explosions.size(), 1)
+	if explosions.size() == 1:
+		assert_almost_eq(explosions[0].speed, 1.0, 0.0001)

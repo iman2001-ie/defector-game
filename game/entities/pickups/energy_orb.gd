@@ -9,8 +9,22 @@ extends Area2D
 ## Layer `pickups`, mask 0: the Player's hurtbox detects the orb and calls
 ## collect(), which adds energy.orb_value through GameState once.
 ##
+## Playtest pt7-e: the pickup chime plays at energy.orb_sfx.volume_db through
+## Audio.play_sfx_solo, so a burst of pickups never stacks. A pickup within
+## streak_window_s (real time) of the previous one is one streak step higher in
+## pitch (streak_pitch_step per step, at most streak_max_steps); a longer gap
+## starts again at the base pitch. The streak is shared by every orb.
+##
 ## Created only by Spawner: setup(params) stores values before add_child, and
 ## _ready() applies them.
+
+## The lowest pitch a pickup plays at, whatever streak_pitch_step is tuned to.
+const MIN_PICKUP_PITCH: float = 0.1
+
+## The pickup streak (shared): when the last pickup played (real-time msec,
+## -1 before any) and how many steps the next one is above the base pitch.
+static var _last_pickup_msec: int = -1
+static var _streak_step: int = 0
 
 var value: int = 0
 var drift_speed: float = 0.0
@@ -95,6 +109,30 @@ func collect() -> bool:
 		return false
 	_collected = true
 	GameState.add_energy(value)
-	Audio.play_sfx(&"energy_pickup")
+	_play_pickup_sfx()
 	queue_free()
 	return true
+
+
+## Clears the pickup streak (tests).
+static func reset_pickup_streak() -> void:
+	_last_pickup_msec = -1
+	_streak_step = 0
+
+
+## The pitch multiplier of the next pickup at real time `now_msec`, which also
+## advances the streak: 1.0 after a gap of more than streak_window_s, else one
+## more streak_pitch_step (capped at streak_max_steps).
+static func next_pickup_pitch(now_msec: int) -> float:
+	var window_ms: float = Config.num("energy.orb_sfx.streak_window_s") * 1000.0
+	if _last_pickup_msec >= 0 and float(now_msec - _last_pickup_msec) <= window_ms:
+		_streak_step = mini(_streak_step + 1, maxi(Config.int_("energy.orb_sfx.streak_max_steps"), 0))
+	else:
+		_streak_step = 0
+	_last_pickup_msec = now_msec
+	return maxf(1.0 + float(_streak_step) * Config.num("energy.orb_sfx.streak_pitch_step"), MIN_PICKUP_PITCH)
+
+
+func _play_pickup_sfx() -> void:
+	var pitch: float = next_pickup_pitch(Time.get_ticks_msec())
+	Audio.play_sfx_solo(&"energy_pickup", 0.0, Config.num("energy.orb_sfx.volume_db"), pitch)

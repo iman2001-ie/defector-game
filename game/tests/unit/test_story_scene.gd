@@ -41,6 +41,7 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	Audio.stop_music(0.0)
 	Log.sink = Callable()
 	_story = null
 	var motion: InputEventMouseMotion = InputEventMouseMotion.new()
@@ -175,6 +176,24 @@ func test_space_backdrop_is_the_first_child() -> void:
 	assert_false(bg.shows_throne_world())
 
 
+## Playtest 2026-10-14: the council epilogue keeps the throne world of Level 3
+## and the end screen behind the comms, instead of cutting to dark space.
+func test_epilogue_shows_the_throne_world() -> void:
+	var story: StoryScene = _make_with(SceneRouter.ENDING_SEQUENCE, SceneRouter.STORY_NEXT_END)
+	var bg: LevelBackground = story.get_node_or_null("Background") as LevelBackground
+	assert_not_null(bg, "a LevelBackground")
+	if bg == null:
+		return
+	assert_eq(bg.background_id(), LevelBackground.THRONE_WORLD)
+	assert_true(bg.shows_throne_world(), "the planet is drawn")
+
+
+func test_backdrop_for_picks_the_throne_world_only_for_the_epilogue() -> void:
+	assert_eq(StoryScene.backdrop_for(&"ending_council"), LevelBackground.THRONE_WORLD)
+	assert_eq(StoryScene.backdrop_for(&"opening_main"), LevelBackground.MENU_BACKGROUND)
+	assert_eq(StoryScene.backdrop_for(&""), LevelBackground.MENU_BACKGROUND)
+
+
 # --- I/O rows ----------------------------------------------------------------------
 
 func test_scene_plays_the_pending_story() -> void:
@@ -204,6 +223,36 @@ func test_epilogue_logs_its_story_beat() -> void:
 	_make_with(SceneRouter.ENDING_SEQUENCE, SceneRouter.STORY_NEXT_END)
 	assert_true(_lines.has("[INFO][beat] Story 'ending_council'"), "the exact text")
 	assert_eq(_count_starting("[INFO][beat] Story "), 1, "one beat line")
+
+
+## Playtest pt7-e: the epilogue starts the gentle epilogue track after
+## audio.epilogue_music_delay_s (real time, while the story pause holds the
+## tree), fading in; the opening plays no music.
+func test_epilogue_starts_its_track_after_the_delay() -> void:
+	var audio_tuning: Dictionary = Config.tuning["audio"] as Dictionary
+	var delay_was: Variant = audio_tuning["epilogue_music_delay_s"]
+	audio_tuning["epilogue_music_delay_s"] = 0.2
+	Audio.stop_music(0.0)
+	_make_with(SceneRouter.ENDING_SEQUENCE, SceneRouter.STORY_NEXT_END)
+	assert_eq(Audio.current_music(), &"", "silent at first")
+	assert_true(get_tree().paused, "the story pause holds the tree")
+	# The story pause holds the tree, so wait on an always-processing timer.
+	await get_tree().create_timer(0.4, true, false, true).timeout
+	assert_eq(Audio.current_music(), StoryScene.EPILOGUE_MUSIC, "the epilogue track plays")
+	assert_eq(_count_starting("[INFO][audio] Music 'epilogue' playing (%.2f s fade-in)" % Config.num("audio.music_fade_in_s")), 1, "fading in")
+	audio_tuning["epilogue_music_delay_s"] = delay_was
+	Audio.stop_music(0.0)
+
+
+func test_opening_plays_no_music() -> void:
+	var audio_tuning: Dictionary = Config.tuning["audio"] as Dictionary
+	var delay_was: Variant = audio_tuning["epilogue_music_delay_s"]
+	audio_tuning["epilogue_music_delay_s"] = 0.1
+	Audio.stop_music(0.0)
+	_make_with(&"opening_main", 1)
+	await get_tree().create_timer(0.3, true, false, true).timeout
+	assert_eq(Audio.current_music(), &"", "no track for the opening")
+	audio_tuning["epilogue_music_delay_s"] = delay_was
 
 
 func test_no_pending_story_logs_no_beat() -> void:

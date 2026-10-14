@@ -407,7 +407,7 @@ func test_fighter_outline_is_ship_px_nose_up_in_coalition() -> void:
 
 
 ## Story 8.2: the hull is the coalition Kenney fighter fitted to ship_px, nose
-## up, drawn behind the node's own _draw (which keeps only the shield ring).
+## up, drawn behind the node (which draws nothing of its own).
 func test_hull_sprite_is_the_coalition_fighter_fitted_to_ship_px() -> void:
 	var ally: AllyShip = _make()
 	var sprite: Sprite2D = ally.hull_sprite()
@@ -418,15 +418,15 @@ func test_hull_sprite_is_the_coalition_fighter_fitted_to_ship_px() -> void:
 	assert_eq(sprite.texture.resource_path, HULL_TEXTURE)
 	assert_almost_eq(SpriteProbe.longest_side(sprite), Config.num("allies.ship_px"), 1.0, "longer side = allies.ship_px")
 	assert_lt(SpriteProbe.hue_distance_deg(SpriteProbe.dominant_hue(sprite.texture), Color("#22E6FF").h), 8.0, "coalition hue")
-	assert_true(sprite.show_behind_parent, "the shield ring draws over it")
+	assert_true(sprite.show_behind_parent, "drawn behind the node")
 	assert_eq(sprite.rotation, 0.0, "nose up")
 	assert_eq(sprite.self_modulate, Color.WHITE)
 	assert_eq(sprite.position, Vector2.ZERO)
 
 
 # --- Tarek's fall (Story 6.5, FR35; reworked in Epic 7 playtest D) ------------------
-## TarekFallScene drives the fall now: intercept(point) -> APPROACH -> SHIELD
-## (held until take_hit) -> FALLING (spinning) -> GONE.
+## TarekFallScene drives the fall now: intercept(point) -> APPROACH -> HOLD
+## (held until take_hit, no shield ring: playtest 2026-10-14) -> FALLING (spinning) -> GONE.
 
 const FALL_EVENT: StringName = &"tarek_fall"
 const POINT: Vector2 = Vector2(900, 750)
@@ -440,37 +440,35 @@ func _count_lines(text: String) -> int:
 	return n
 
 
-## Sends the ally to `point`, steps it into SHIELD (at most 64 steps).
-func _to_shield(ally: AllyShip, point: Vector2 = POINT) -> void:
+## Sends the ally to `point`, steps it into HOLD (at most 64 steps).
+func _to_hold(ally: AllyShip, point: Vector2 = POINT) -> void:
 	assert_true(ally.intercept(point), "intercept accepted")
 	var guard: int = 64
-	while ally.state() != AllyShip.State.SHIELD and guard > 0:
+	while ally.state() != AllyShip.State.HOLD and guard > 0:
 		ally.step(STEP)
 		guard -= 1
-	assert_eq(ally.state(), AllyShip.State.SHIELD, "reached SHIELD")
+	assert_eq(ally.state(), AllyShip.State.HOLD, "reached HOLD")
 
 
-## Intercepts at `point`, holds the shield, then the hit: FALLING.
+## Intercepts at `point`, holds there, then the hit: FALLING.
 func _to_falling(ally: AllyShip, point: Vector2 = POINT) -> void:
-	_to_shield(ally, point)
+	_to_hold(ally, point)
 	ally.take_hit()
 	assert_eq(ally.state(), AllyShip.State.FALLING, "reached FALLING")
 
 
 func test_fall_tuning() -> void:
 	assert_eq(Config.num("allies.fall.approach_s"), 0.8)
-	assert_eq(Config.num("allies.fall.shield_radius_px"), 64.0)
-	assert_eq(Config.num("allies.fall.shield_flash_hz"), 8.0)
 	assert_eq(Config.num("allies.fall.exit_speed_px_s"), 140.0)
 	assert_eq(Config.num("allies.fall.exit_drop"), 0.5)
 	assert_eq(Config.num("allies.fall.spin_deg_s"), 160.0)
 	var fall: Dictionary = (Config.tuning["allies"] as Dictionary)["fall"] as Dictionary
 	assert_false(fall.has("shield_s"), "the shield holds until the hit: no shield_s")
 	assert_false(fall.has("shield_offset_px"), "the director picks the point: no shield_offset_px")
+	assert_false(fall.has("shield_radius_px"), "no shield ring on Tarek (playtest 2026-10-14)")
+	assert_false(fall.has("shield_flash_hz"), "no shield ring flash")
 	var ally: AllyShip = _make()
 	assert_eq(ally.approach_s, 0.8, "cached in _ready")
-	assert_eq(ally.shield_radius_px, 64.0)
-	assert_eq(ally.shield_flash_hz, 8.0)
 	assert_eq(ally.exit_speed_px_s, 140.0)
 	assert_eq(ally.exit_drop, 0.5)
 	assert_eq(ally.spin_deg_s, 160.0)
@@ -527,9 +525,9 @@ func test_intercept_starts_the_approach_and_stops_firing() -> void:
 	assert_true(ally.intercept(POINT), "accepted from PATROL")
 	assert_eq(ally.state(), AllyShip.State.APPROACH, "APPROACH at once")
 	assert_eq(ally.intercept_point(), POINT)
-	assert_eq(_count_lines("[INFO][scene] Tarek's fall: tarek moves to shield Vale"), 1, "one INFO line")
+	assert_eq(_count_lines("[INFO][scene] Tarek's fall: tarek moves to cover Vale"), 1, "one INFO line")
 	assert_false(ally.is_damaged())
-	assert_false(ally.shield_visible())
+	assert_false(ally.is_holding())
 	_steps(ally, 40)
 	assert_eq(_bolts().size(), 0, "no shot from the intercept onward")
 	assert_eq(ally.fire_clock(), clock, "the fire clock stopped")
@@ -545,13 +543,13 @@ func test_intercept_only_from_patrol() -> void:
 	assert_eq(ally.state(), AllyShip.State.APPROACH, "the approach was not restarted")
 	assert_eq(ally.global_position, at)
 	_steps(ally, 20)
-	assert_eq(ally.state(), AllyShip.State.SHIELD)
-	assert_false(ally.intercept(Vector2(100, 100)), "refused in SHIELD")
+	assert_eq(ally.state(), AllyShip.State.HOLD)
+	assert_false(ally.intercept(Vector2(100, 100)), "refused in HOLD")
 	assert_eq(ally.global_position, POINT)
 	ally.take_hit()
 	assert_false(ally.intercept(Vector2(100, 100)), "refused in FALLING")
 	assert_eq(ally.state(), AllyShip.State.FALLING)
-	assert_eq(_count_lines("[INFO][scene] Tarek's fall: tarek moves to shield Vale"), 1, "one start")
+	assert_eq(_count_lines("[INFO][scene] Tarek's fall: tarek moves to cover Vale"), 1, "one start")
 
 
 ## approach_s 1.0 (eight exact steps) for an exact blend check.
@@ -566,33 +564,27 @@ func test_approach_is_a_smoothstep_blend_to_the_point() -> void:
 			assert_eq(ally.state(), AllyShip.State.APPROACH, "still approaching at step %d" % k)
 			var want: Vector2 = start.lerp(POINT, smoothstep(0.0, 1.0, float(k) / 8.0))
 			assert_almost_eq(ally.global_position, want, Vector2(0.001, 0.001), "smoothstep blend at step %d" % k)
-	assert_eq(ally.state(), AllyShip.State.SHIELD, "SHIELD after approach_s")
+	assert_eq(ally.state(), AllyShip.State.HOLD, "HOLD after approach_s")
 	assert_eq(ally.global_position, POINT, "exactly at the intercept point")
 
 
-func test_shield_holds_at_the_point_until_the_hit() -> void:
+func test_holds_at_the_point_until_the_hit() -> void:
 	var ally: AllyShip = _make()
-	_to_shield(ally)
-	assert_true(ally.shield_visible(), "the ring shows")
+	_to_hold(ally)
+	assert_true(ally.is_holding(), "holding")
+	assert_false(ally.has_method(&"shield_visible"), "no shield ring API (playtest 2026-10-14)")
 	for k: int in 160:
 		ally.step(STEP)
-	assert_eq(ally.state(), AllyShip.State.SHIELD, "still shielding 20 s later: no timeout")
+	assert_eq(ally.state(), AllyShip.State.HOLD, "still holding 20 s later: no timeout")
 	assert_eq(ally.global_position, POINT, "holds the point")
-	assert_true(ally.shield_visible())
+	assert_true(ally.is_holding())
 	assert_false(ally.is_damaged())
 	ally.take_hit()
 	assert_eq(ally.state(), AllyShip.State.FALLING, "the hit: FALLING")
-	assert_false(ally.shield_visible(), "the ring is gone")
+	assert_false(ally.is_holding(), "no longer holding")
 	assert_true(ally.is_damaged(), "damaged")
 	assert_true(ally.fire_trail().emitting, "the trail is on")
 	assert_eq(_count_lines("[INFO][scene] Tarek's fall: hit, leaving the fight"), 1)
-
-
-func test_shield_alpha_pulses_at_the_flash_rate() -> void:
-	assert_almost_eq(AllyShip.shield_alpha(0.0, 8.0), 1.0, 0.0001, "bright at the start")
-	assert_lt(AllyShip.shield_alpha(1.0 / 16.0, 8.0), 0.5, "dim half a period later")
-	assert_almost_eq(AllyShip.shield_alpha(1.0 / 8.0, 8.0), 1.0, 0.0001, "bright one period later")
-	assert_almost_eq(AllyShip.shield_alpha(0.3, 0.0), 1.0, 0.0001, "no flash rate: steady")
 
 
 func test_take_hit_while_patrolling_falls_from_where_it_is() -> void:
@@ -686,8 +678,8 @@ func test_falling_swaps_to_the_damaged_texture() -> void:
 	var ally: AllyShip = _make()
 	var sprite: Sprite2D = ally.hull_sprite()
 	assert_eq(sprite.texture.resource_path, HULL_TEXTURE, "patrol hull")
-	_to_shield(ally)
-	assert_eq(sprite.texture.resource_path, HULL_TEXTURE, "still whole while shielding")
+	_to_hold(ally)
+	assert_eq(sprite.texture.resource_path, HULL_TEXTURE, "still whole while holding")
 	ally.take_hit()
 	assert_true(ally.is_damaged())
 	assert_eq(sprite.texture.resource_path, DAMAGED_TEXTURE, "the damaged hull")
@@ -741,5 +733,5 @@ func test_zero_approach_ends_on_the_first_step() -> void:
 	ally.intercept(POINT)
 	assert_eq(ally.state(), AllyShip.State.APPROACH)
 	ally.step(STEP)
-	assert_eq(ally.state(), AllyShip.State.SHIELD, "approach over in one step")
+	assert_eq(ally.state(), AllyShip.State.HOLD, "approach over in one step")
 	assert_eq(ally.global_position, POINT)

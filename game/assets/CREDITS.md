@@ -15,7 +15,7 @@ Every third-party asset in DEFECTOR is listed here with its source and licence.
 | `sprites/enemies/enemy_maul.png` | Kenney "Space Shooter Extension" ([kenney.nl](https://kenney.nl)), OpenGameArt ([page](https://opengameart.org/content/space-shooter-extension-250)), `kenney_spaceShooterExtension.zip`, file `PNG/Sprites/Ships/spaceShips_004.png` | CC0 1.0 | Recoloured to enemy #FF2BD6 (`recolor`) by `tools/import_cc0_art.py`. Also the Ram |
 | `sprites/allies/ally_coalition.png` | Kenney "Space Shooter Redux" ([kenney.nl](https://kenney.nl)), OpenGameArt ([page](https://opengameart.org/content/space-shooter-redux)), `SpaceShooterRedux.zip`, file `PNG/playerShip2_blue.png` | CC0 1.0 | Recoloured to coalition #22E6FF (`recolor`) by `tools/import_cc0_art.py` |
 | `sprites/allies/ally_damaged.png` | Kenney "Space Shooter Redux" ([kenney.nl](https://kenney.nl)), OpenGameArt ([page](https://opengameart.org/content/space-shooter-redux)), `SpaceShooterRedux.zip`, file `PNG/playerShip2_blue.png` with `PNG/Damage/playerShip2_damage3.png` | CC0 1.0 | The damage overlay composited over the hull (`overlay`), then recoloured to coalition #22E6FF at value 0.45 (`recolor`) by `tools/import_cc0_art.py` |
-| `sprites/allies/convoy_cargo.png` | Kenney "Space Shooter Extension" ([kenney.nl](https://kenney.nl)), OpenGameArt ([page](https://opengameart.org/content/space-shooter-extension-250)), `kenney_spaceShooterExtension.zip`, file `PNG/Sprites/Ships/spaceShips_005.png` | CC0 1.0 | Turned nose-up (`rot180`), then recoloured to coalition #22E6FF at value 0.5 (`recolor`) by `tools/import_cc0_art.py` |
+| `sprites/allies/convoy_cargo.png` | Kenney "Space Shooter Extension" ([kenney.nl](https://kenney.nl)), OpenGameArt ([page](https://opengameart.org/content/space-shooter-extension-250)), `kenney_spaceShooterExtension.zip`, file `PNG/Sprites/Ships/spaceShips_005.png` | CC0 1.0 | Turned nose-up (`rot180`), then recoloured to coalition #22E6FF at value 0.9 (`recolor`) by `tools/import_cc0_art.py` (0.5 until the 2026-10-14 playtest, which found it too dark to glow) |
 | `sprites/boss/flagship_turret.png` | Kenney "Space Shooter Redux" ([kenney.nl](https://kenney.nl)), OpenGameArt ([page](https://opengameart.org/content/space-shooter-redux)), `SpaceShooterRedux.zip`, file `PNG/Parts/turretBase_big.png` | CC0 1.0 | Tinted enemy #FF2BD6 by luminance (`tint`) by `tools/import_cc0_art.py` |
 | `sprites/boss/flagship_core.png` | Kenney "Space Shooter Redux" ([kenney.nl](https://kenney.nl)), OpenGameArt ([page](https://opengameart.org/content/space-shooter-redux)), `SpaceShooterRedux.zip`, file `PNG/ufoRed.png` | CC0 1.0 | Recoloured to enemy #FF2BD6 (`recolor`) by `tools/import_cc0_art.py` |
 | `sprites/asteroids/asteroid_large.png` | Kenney "Space Shooter Redux" ([kenney.nl](https://kenney.nl)), OpenGameArt ([page](https://opengameart.org/content/space-shooter-redux)), `SpaceShooterRedux.zip`, file `PNG/Meteors/meteorBrown_big1.png` | CC0 1.0 | Recoloured to hazard #7A6E62 (`recolor`), rim light hazardRim #C9D8E8 (`rim`) by `tools/import_cc0_art.py` |
@@ -36,11 +36,12 @@ Every third-party asset in DEFECTOR is listed here with its source and licence.
 | `audio/sfx/sfx_player_hit.wav` | Kenney "Sci-Fi Sounds" ([kenney.nl](https://kenney.nl)), OpenGameArt ([page](https://opengameart.org/content/sci-fi-sounds)), `sci-fi_sounds.zip`, file `Audio/impactMetal_002.ogg` | CC0 1.0 | Mono 44.1 kHz 16-bit, peak-normalised to -1 dBFS by `tools/import_cc0_audio.py` |
 | `audio/sfx/sfx_player_death.wav` | Kenney "Sci-Fi Sounds" ([kenney.nl](https://kenney.nl)), OpenGameArt ([page](https://opengameart.org/content/sci-fi-sounds)), `sci-fi_sounds.zip`, file `Audio/explosionCrunch_003.ogg` | CC0 1.0 | Mono 44.1 kHz 16-bit, peak-normalised to -1 dBFS by `tools/import_cc0_audio.py` |
 | `audio/sfx/sfx_shield_on.wav` | Kenney "Sci-Fi Sounds" ([kenney.nl](https://kenney.nl)), OpenGameArt ([page](https://opengameart.org/content/sci-fi-sounds)), `sci-fi_sounds.zip`, file `Audio/forceField_000.ogg` | CC0 1.0 | Mono 44.1 kHz 16-bit, peak-normalised to -1 dBFS by `tools/import_cc0_audio.py` |
-| `audio/sfx/sfx_energy_pickup.wav` | Kenney "63 Digital sound effects" ([kenney.nl](https://kenney.nl)), OpenGameArt ([page](https://opengameart.org/content/63-digital-sound-effects-lasers-phasers-space-etc)), `Digital_SFX_Set.zip`, file `powerUp5.mp3` | CC0 1.0 | Mono 44.1 kHz 16-bit, peak-normalised to -1 dBFS by `tools/import_cc0_audio.py` |
-| `audio/sfx/sfx_needle_lock.wav` | Kenney "63 Digital sound effects" ([kenney.nl](https://kenney.nl)), OpenGameArt ([page](https://opengameart.org/content/63-digital-sound-effects-lasers-phasers-space-etc)), `Digital_SFX_Set.zip`, file `highUp.mp3` | CC0 1.0 | Mono 44.1 kHz 16-bit, peak-normalised to -1 dBFS by `tools/import_cc0_audio.py` |
+| `audio/sfx/sfx_energy_pickup.wav` | Kenney "Interface Sounds" ([kenney.nl](https://kenney.nl)), OpenGameArt ([page](https://opengameart.org/content/interface-sounds)), `kenney_interfaceSounds.zip`, file `Audio/glass_001.ogg` | CC0 1.0 | Mono 44.1 kHz 16-bit, peak-normalised to -1 dBFS by `tools/import_cc0_audio.py` (playtest pt7-e; played at `energy.orb_sfx.volume_db`) |
+| `audio/sfx/sfx_needle_fire.wav` | Kenney "Sci-Fi Sounds" ([kenney.nl](https://kenney.nl)), OpenGameArt ([page](https://opengameart.org/content/sci-fi-sounds)), `sci-fi_sounds.zip`, file `Audio/laserLarge_000.ogg` | CC0 1.0 | First 0.45 s, 5 ms fade-in, 0.2 s fade-out; mono 44.1 kHz 16-bit, peak-normalised to -1 dBFS by `tools/import_cc0_audio.py` (playtest pt7-e) |
 | `audio/sfx/sfx_ability_denied.wav` | Kenney "Interface Sounds" ([kenney.nl](https://kenney.nl)), OpenGameArt ([page](https://opengameart.org/content/interface-sounds)), `kenney_interfaceSounds.zip`, file `Audio/error_007.ogg` | CC0 1.0 | Mono 44.1 kHz 16-bit, peak-normalised to -1 dBFS by `tools/import_cc0_audio.py` |
 | `audio/music/music_combat.ogg` | "Space Adventure" by MintoDog, OpenGameArt ([page](https://opengameart.org/content/space-adventure)), file [`space_adventure_bpm140_0.ogg`](https://opengameart.org/sites/default/files/space_adventure_bpm140_0.ogg) | CC0 1.0 | Copied byte-for-byte by `tools/import_cc0_audio.py`; imported with loop on. The `combat` track |
 | `audio/music/music_boss.ogg` | "Space Boss Battle" by MintoDog, OpenGameArt ([page](https://opengameart.org/content/space-boss-battle)), file [`space_boss_battle_bpm175_0.ogg`](https://opengameart.org/sites/default/files/space_boss_battle_bpm175_0.ogg) | CC0 1.0 | Copied byte-for-byte by `tools/import_cc0_audio.py`; imported with loop on. The `boss` track |
+| `audio/music/music_epilogue.ogg` | "Heavenly Loop" by isaiah658, OpenGameArt ([page](https://opengameart.org/content/heavenly-loop)), file [`Heavenly Loop_0.ogg`](https://opengameart.org/sites/default/files/Heavenly%20Loop_0.ogg) | CC0 1.0 | Copied byte-for-byte by `tools/import_cc0_audio.py`; imported with loop on. The `epilogue` track (playtest pt7-e) |
 
 ## Project-generated sounds
 
@@ -56,13 +57,13 @@ These were made for this project and are not third-party assets. They were tuned
 
 ## Project-owned art
 
-Drawn for this project as SVG (Kenney has no portraits, no hull this size and no app icon); Godot imports them as textures. The icon is the exe and window icon.
+Made for this project (Kenney has no portraits, no hull this size and no app icon): the hull and the icon are hand-authored SVGs, and the comms portraits are AI-generated PNGs (playtest 2026-10-14; they replace the Story 8.2 SVG busts). Godot imports them as textures. The icon is the exe and window icon.
 
 | File | Source | Licence |
 |---|---|---|
-| `portraits/portrait_isolde.svg` | Hand-authored SVG, DEFECTOR (Story 8.2) | Project-owned |
-| `portraits/portrait_tarek.svg` | Hand-authored SVG, DEFECTOR (Story 8.2) | Project-owned |
-| `portraits/portrait_ryn.svg` | Hand-authored SVG, DEFECTOR (Story 8.2) | Project-owned |
+| `portraits/portrait_isolde.png` | AI-generated for DEFECTOR with ChatGPT image generation (OpenAI), playtest 2026-10-14; the 1024 x 1024 export downscaled to 512 x 512 (Lanczos); OpenAI's Services Agreement assigns output rights to the user | Project-owned |
+| `portraits/portrait_tarek.png` | AI-generated for DEFECTOR with ChatGPT image generation (OpenAI), playtest 2026-10-14; the 1024 x 1024 export downscaled to 512 x 512 (Lanczos); OpenAI's Services Agreement assigns output rights to the user | Project-owned |
+| `portraits/portrait_ryn.png` | AI-generated for DEFECTOR with ChatGPT image generation (OpenAI), playtest 2026-10-14; the 1024 x 1024 export downscaled to 512 x 512 (Lanczos); OpenAI's Services Agreement assigns output rights to the user | Project-owned |
 | `sprites/boss/flagship_hull.svg` | Hand-authored SVG, DEFECTOR (Story 8.2) | Project-owned |
 | `icon/defector_icon.svg` | Hand-authored SVG, DEFECTOR (Story 8.5) | Project-owned |
 
@@ -73,6 +74,7 @@ These are not image files: they are drawn in code or built from Godot gradient a
 - Projectiles: the laser bolt, the missile and Barrage micro-missiles, enemy bullets, the Needle bolt and the ally bolt.
 - The energy orb, explosions and shockwave rings, the shield bubble and the missile cooldown ring.
 - Telegraphs and glows: the Lancer muzzle glow, the Bastion's turret barrels and glows, the Flagship turrets' barrels and glows, the core's Eye and glow, the Needle's telegraph line.
-- Trails: the Maul's and the Ram's trails, the Tarek's-fall fire trail and shield ring.
-- The throne-world planet arc (over the `space_2` tiles).
+- Trails: the Maul's and the Ram's trails, the Tarek's-fall fire trail.
+- The throne-world planet (over the `space_2` tiles): a shaded sphere cap drawn by `scenes/level/throne_world.gdshader`.
+- The scrolling starfield over every background: three parallax layers of procedural stars drawn by `scenes/level/starfield.gdshader` (tuned in `render.starfield`).
 - HUD elements (hearts, the wave, boss, energy and convoy bars, the hint pill, the hit vignette), styled through the shared Theme.

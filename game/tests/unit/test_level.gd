@@ -1843,7 +1843,7 @@ func _clear_until_wave(director: WaveDirector, wave: int, seconds: float) -> voi
 ## Acceptance (Story 6.5, reworked in Epic 7 playtest D, flag on): on the real
 ## level.tscn, dev_tarek_fall wave 2 at 50 % destroyed fires the tarek_fall
 ## story event and TarekFallScene runs: Vale is locked and enemy fire is held,
-## Tarek dashes to intercept_offset_px above Vale and raises his shield, the
+## Tarek dashes to intercept_offset_px above Vale and holds there, the
 ## l2_w5_tarek_cutoff line is requested once (impact_s minus its typing time
 ## later) and plays in the interruption box with no pause, the Ram dives and
 ## the game slows; at the impact Tarek is hit, and at the cut (cut_off_at
@@ -1902,7 +1902,7 @@ func test_dev_tarek_fall_flag_on() -> void:
 	var locked_at: Vector2 = player.global_position
 	# Freeze the shake decay so the amplitude reads exactly what the cut set.
 	camera.set_process(false)
-	var saw_shield: bool = false
+	var saw_hold: bool = false
 	var saw_damaged: bool = false
 	var saw_trail: bool = false
 	var saw_ram: bool = false
@@ -1918,14 +1918,14 @@ func test_dev_tarek_fall_flag_on() -> void:
 		saw_ram = saw_ram or scene.ram() != null
 		saw_slowmo = saw_slowmo or Feedback.is_slow_motion()
 		if is_instance_valid(ally) and not ally.is_queued_for_deletion():
-			saw_shield = saw_shield or ally.shield_visible()
+			saw_hold = saw_hold or ally.is_holding()
 			if ally.is_damaged():
 				saw_damaged = true
 				saw_trail = saw_trail or ally.fire_trail().emitting
 	assert_eq(channel.cut_phase(), CommsChannel.CutPhase.HOLD, "the cut-off landed")
 	assert_gte(line_at, scene.line_request_time(), "the line came at its request time")
 	assert_almost_eq(line_at, scene.line_request_time(), 0.1, "within a frame of it")
-	assert_true(saw_shield, "the shield showed")
+	assert_true(saw_hold, "Tarek held at the point")
 	assert_true(saw_ram, "the Ram dived")
 	assert_true(saw_slowmo, "the game slowed before the impact")
 	assert_true(player.global_position.is_equal_approx(locked_at), "Vale held in place")

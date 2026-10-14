@@ -169,8 +169,9 @@ func test_portraits_map_every_portrait_speaker() -> void:
 	assert_eq(CommsPortraits.TEXTURES.size(), 3, "isolde, tarek, ryn")
 	for id: StringName in CommsPortraits.TEXTURES:
 		var tex: Texture2D = CommsPortraits.TEXTURES[id]
-		assert_eq(tex.resource_path, "res://assets/portraits/portrait_%s.svg" % id)
-		assert_eq(tex.get_size(), Vector2(200, 200), "%s: 200 x 200" % id)
+		assert_eq(tex.resource_path, "res://assets/portraits/portrait_%s.png" % id)
+		assert_eq(tex.get_size(), Vector2(512, 512), "%s: 512 x 512" % id)
+		assert_true(tex.get_image().has_mipmaps(), "%s: imported with mipmaps" % id)
 
 
 func test_portrait_image_rect_insets_by_the_frame_border() -> void:

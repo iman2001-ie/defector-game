@@ -16,6 +16,12 @@ extends Node
 ## action: `stop` fades out over audio.music_fade_out_s, any other id plays (or
 ## switches to) that track. A missing stream warns once per id, stops the
 ## current music at once and stays silent.
+##
+## Playtest pt7-e: play_music() takes an optional fade-in (from MUSIC_SILENT_DB
+## up to the track's volume) and each track plays at audio.music_volume_db plus
+## its optional audio.music_gain_db.<id> (the quiet epilogue track is lifted).
+## play_sfx_solo() stops any combat-pool copy of the same id before playing, so
+## a burst of one cue (the energy orb) never stacks.
 
 const DEFAULT_PITCH_JITTER: float = 0.05
 const POOL_SIZE: int = 12
@@ -39,7 +45,7 @@ const SFX: Dictionary[StringName, AudioStream] = {
 	&"player_death": preload("res://assets/audio/sfx/sfx_player_death.wav"),
 	&"shield_on": preload("res://assets/audio/sfx/sfx_shield_on.wav"),
 	&"energy_pickup": preload("res://assets/audio/sfx/sfx_energy_pickup.wav"),
-	&"needle_lock": preload("res://assets/audio/sfx/sfx_needle_lock.wav"),
+	&"needle_fire": preload("res://assets/audio/sfx/sfx_needle_fire.wav"),
 	&"ability_denied": preload("res://assets/audio/sfx/sfx_ability_denied.wav"),
 	&"barrage_whoosh": preload("res://assets/audio/sfx/sfx_barrage_whoosh.wav"),
 	&"comms_open": preload("res://assets/audio/sfx/sfx_comms_open.wav"),
@@ -54,6 +60,7 @@ const SFX: Dictionary[StringName, AudioStream] = {
 const MUSIC: Dictionary[StringName, AudioStream] = {
 	&"combat": preload("res://assets/audio/music/music_combat.ogg"),
 	&"boss": preload("res://assets/audio/music/music_boss.ogg"),
+	&"epilogue": preload("res://assets/audio/music/music_epilogue.ogg"),
 }
 ## The ids that play on the comms pool; every other id plays on the combat pool.
 const COMMS_SFX: Dictionary[StringName, bool] = {
@@ -148,6 +155,20 @@ func play_sfx(id: StringName, pitch_jitter: float = DEFAULT_PITCH_JITTER, volume
 	return player
 
 
+## As play_sfx, but first stops every combat-pool player still playing this id's
+## stream, so rapid repeats replace each other instead of stacking (playtest
+## pt7-e). Comms ids play as play_sfx.
+func play_sfx_solo(id: StringName, pitch_jitter: float = DEFAULT_PITCH_JITTER, volume_db: float = 0.0, pitch: float = 1.0) -> AudioStreamPlayer:
+	var stream: AudioStream = SFX.get(id) as AudioStream
+	if stream != null and not COMMS_SFX.has(id):
+		for i: int in _players.size():
+			if _in_use[i] and _players[i].stream == stream:
+				_players[i].stop()
+				# stop() never emits `finished`, so free the slot here.
+				_in_use[i] = false
+	return play_sfx(id, pitch_jitter, volume_db, pitch)
+
+
 ## The most recently started player of either pool (tests), or null before the
 ## first play.
 func newest_player() -> AudioStreamPlayer:
@@ -191,9 +212,12 @@ func apply_music_action(action: StringName) -> void:
 
 ## Plays music `id` (switching from any current track at once). Does nothing when
 ## `id` already plays. A missing stream warns once per id, stops the current
-## music at once and leaves it silent.
-func play_music(id: StringName) -> void:
-	if id == _music_id and not _is_fading():
+## music at once and leaves it silent. With `fade_in_s` > 0 the track starts at
+## MUSIC_SILENT_DB and rises to its volume over that many seconds (playtest
+## pt7-e); a hit-stop never freezes the fade.
+func play_music(id: StringName, fade_in_s: float = 0.0) -> void:
+	# A fade-out clears _music_id, so a match is this track playing or fading in.
+	if id == _music_id:
 		return
 	# Re-read, so an F5 reload applies a retuned volume on the next play.
 	_music_base_db = Config.num("audio.music_volume_db")
@@ -208,11 +232,31 @@ func play_music(id: StringName) -> void:
 		_music_id = &""
 		return
 	_kill_music_fade()
-	_music.volume_db = _music_base_db
+	var target_db: float = _music_base_db + music_gain_db(id)
 	_music.stream = stream
-	_music.play()
 	_music_id = id
+	if fade_in_s > 0.0:
+		_music.volume_db = MUSIC_SILENT_DB
+		_music.play()
+		_music_tween = create_tween()
+		_music_tween.set_ignore_time_scale(true)
+		_music_tween.tween_property(_music, "volume_db", target_db, fade_in_s)
+		_music_tween.tween_callback(_end_music_fade_in)
+		Log.info("audio", "Music '%s' playing (%.2f s fade-in)" % [id, fade_in_s])
+		return
+	_music.volume_db = target_db
+	_music.play()
 	Log.info("audio", "Music '%s' playing" % id)
+
+
+## The extra gain of music `id` (audio.music_gain_db.<id>, 0 when absent), so a
+## quiet track sits level with the others.
+func music_gain_db(id: StringName) -> float:
+	var gains: Variant = Config.section("audio").get("music_gain_db", {})
+	if not (gains is Dictionary):
+		return 0.0
+	var gain: Variant = (gains as Dictionary).get(String(id), 0.0)
+	return float(gain) if gain is float or gain is int else 0.0
 
 
 ## Fades the music out over `fade_s` seconds (a negative value uses
@@ -256,6 +300,10 @@ func _is_fading() -> bool:
 func _kill_music_fade() -> void:
 	if _music_tween != null and _music_tween.is_valid():
 		_music_tween.kill()
+	_music_tween = null
+
+
+func _end_music_fade_in() -> void:
 	_music_tween = null
 
 

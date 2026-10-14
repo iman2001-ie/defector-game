@@ -26,29 +26,29 @@ extends Area2D
 ## 2026-10-13): the TarekFallScene director drives it. intercept(point) makes a
 ## patrolling ship stop firing and run APPROACH (allies.fall.approach_s: a
 ## smoothstep dash from where it is to `point`, between Vale and the incoming
-## Ram) -> SHIELD (holds there, with a coalition ring of shield_radius_px
-## flashing around the ship at shield_flash_hz, until it is hit). take_hit()
+## Ram) -> HOLD (holds there, covering Vale with its hull until it is hit; no
+## shield is drawn: playtest 2026-10-14). take_hit()
 ## (the Ram strikes) -> FALLING (damaged hull, FireTrail on, spinning at
 ## spin_deg_s while it drifts at exit_speed_px_s toward the nearer side edge
 ## with an exit_drop downward slant: slow enough to watch) -> GONE (the first
 ## step outside Playfield.RECT grown by ship_px: trail off, queue_free; it never
 ## returns this attempt). Tarek is gravely injured, not killed: Ryn's report
 ## says so. take_hit() from any earlier state falls at once; repeats are
-## ignored. The shield is visual only.
+## ignored.
 ##
 ## Behaviour is enum State + match with _enter_state(); movement and firing run
 ## in step(delta), called from _physics_process. Firing runs only in PATROL.
 ## The hull (Story 8.2) is the `Sprite` child: a recoloured Kenney fighter in
 ## `coalition`, nose up, fitted so its longer side is allies.ship_px; from
 ## FALLING on (is_damaged()) it swaps to the dimmed, battle-damaged texture.
-## The Sprite draws behind the node's own _draw, which keeps only the shield
-## ring. outline() / damaged_outline() stay as the hull's shape data (a
+## The node draws nothing of its own. outline() / damaged_outline() stay as
+## the hull's shape data (a
 ## fighter silhouette ship_px tall, nose up; the damaged one has the right wing
 ## tip broken off).
 
-enum State { PATROL, APPROACH, SHIELD, FALLING, GONE }
+enum State { PATROL, APPROACH, HOLD, FALLING, GONE }
 
-## `coalition` (#22E6FF): the allies' in-world colour (UX DESIGN); the shield ring.
+## `coalition` (#22E6FF): the allies' in-world colour (UX DESIGN).
 const OUTLINE_COLOR: Color = Color("#22E6FF")
 ## The hull textures (Story 8.2): patrol and damaged (FALLING / GONE).
 const TEXTURE_HULL: Texture2D = preload("res://assets/sprites/allies/ally_coalition.png")
@@ -58,11 +58,6 @@ const BOLT_TYPE: StringName = &"ally_bolt"
 ## The story event that starts Tarek's fall, and the only ally it applies to.
 const FALL_EVENT: StringName = &"tarek_fall"
 const FALL_ALLY_ID: String = "tarek"
-## The shield ring's stroke (a coalition ring, 3 px).
-const SHIELD_STROKE_PX: float = 3.0
-const SHIELD_SEGMENTS: int = 48
-## The ring's dimmest alpha in its flash.
-const SHIELD_MIN_ALPHA: float = 0.2
 ## The FireTrail sits at the tail: y = ship_px * this (24 px at ship_px 64).
 const TRAIL_Y_RATIO: float = 0.375
 
@@ -79,8 +74,6 @@ var shot_speed_px_s: float = 0.0
 var band_y: float = 0.0
 ## allies.fall (Story 6.5, playtest 2026-10-13).
 var approach_s: float = 0.0
-var shield_radius_px: float = 0.0
-var shield_flash_hz: float = 0.0
 var exit_speed_px_s: float = 0.0
 var exit_drop: float = 0.0
 var spin_deg_s: float = 0.0
@@ -93,7 +86,7 @@ var _ended: bool = false
 var _warned_no_spawner: bool = false
 var _outline: PackedVector2Array = PackedVector2Array()
 var _damaged_outline: PackedVector2Array = PackedVector2Array()
-## Seconds in the current fall phase (APPROACH / SHIELD).
+## Seconds in the current fall phase (APPROACH / HOLD).
 var _phase_t: float = 0.0
 var _approach_from: Vector2 = Vector2.ZERO
 ## Where intercept() sends the ship (between Vale and the Ram).
@@ -121,8 +114,6 @@ func _ready() -> void:
 	shot_speed_px_s = maxf(Config.num("allies.shot_speed_px_s"), 0.0)
 	band_y = (Config.num("allies.patrol_band_y.min") + Config.num("allies.patrol_band_y.max")) / 2.0
 	approach_s = maxf(Config.num("allies.fall.approach_s"), 0.0)
-	shield_radius_px = maxf(Config.num("allies.fall.shield_radius_px"), 0.0)
-	shield_flash_hz = maxf(Config.num("allies.fall.shield_flash_hz"), 0.0)
 	exit_speed_px_s = maxf(Config.num("allies.fall.exit_speed_px_s"), 0.0)
 	exit_drop = Config.num("allies.fall.exit_drop")
 	spin_deg_s = Config.num("allies.fall.spin_deg_s")
@@ -158,8 +149,8 @@ func step(delta: float) -> void:
 			_tick_fire(delta)
 		State.APPROACH:
 			_approach(delta)
-		State.SHIELD:
-			_shield(delta)
+		State.HOLD:
+			_hold(delta)
 		State.FALLING:
 			_fall(delta)
 		State.GONE:
@@ -171,11 +162,11 @@ func _enter_state(next: State) -> void:
 	_phase_t = 0.0
 	match _state:
 		State.PATROL:
-			queue_redraw()
+			pass
 		State.APPROACH:
 			_approach_from = global_position
-		State.SHIELD:
-			queue_redraw()
+		State.HOLD:
+			pass
 		State.FALLING:
 			var side: float = -1.0 if global_position.x < Playfield.SIZE.x / 2.0 else 1.0
 			_fall_velocity = Vector2(side, exit_drop).normalized() * exit_speed_px_s
@@ -183,7 +174,6 @@ func _enter_state(next: State) -> void:
 				_trail.emitting = true
 			_apply_hull_texture()
 			Log.info("scene", "Tarek's fall: hit, leaving the fight")
-			queue_redraw()
 		State.GONE:
 			if _trail != null:
 				_trail.emitting = false
@@ -222,9 +212,9 @@ func damaged_outline() -> PackedVector2Array:
 	return _damaged_outline
 
 
-## True while the shield ring around the ship shows (SHIELD).
-func shield_visible() -> bool:
-	return _state == State.SHIELD
+## True while the ship holds at the intercept point, covering Vale (HOLD).
+func is_holding() -> bool:
+	return _state == State.HOLD
 
 
 ## True from FALLING on (the damaged hull and the fire trail).
@@ -239,13 +229,13 @@ func fire_trail() -> GPUParticles2D:
 
 # --- Tarek's fall -----------------------------------------------------------------
 
-## Sends a patrolling ship to `point` (APPROACH, then SHIELD until take_hit()).
+## Sends a patrolling ship to `point` (APPROACH, then HOLD until take_hit()).
 ## Returns false (and changes nothing) unless it is in PATROL.
 func intercept(point: Vector2) -> bool:
 	if _state != State.PATROL:
 		return false
 	_intercept_point = point
-	Log.info("scene", "Tarek's fall: %s moves to shield Vale" % ally_id)
+	Log.info("scene", "Tarek's fall: %s moves to cover Vale" % ally_id)
 	_enter_state(State.APPROACH)
 	return true
 
@@ -267,15 +257,14 @@ func _approach(delta: float) -> void:
 	_phase_t += maxf(delta, 0.0)
 	if approach_s <= 0.0 or _phase_t >= approach_s:
 		global_position = _intercept_point
-		_enter_state(State.SHIELD)
+		_enter_state(State.HOLD)
 		return
 	global_position = _approach_from.lerp(_intercept_point, smoothstep(0.0, 1.0, _phase_t / approach_s))
 
 
-func _shield(delta: float) -> void:
+func _hold(delta: float) -> void:
 	global_position = _intercept_point
 	_phase_t += maxf(delta, 0.0)
-	queue_redraw()
 
 
 func _fall(delta: float) -> void:
@@ -284,15 +273,6 @@ func _fall(delta: float) -> void:
 	rotation += deg_to_rad(spin_deg_s) * dt
 	if not Playfield.RECT.grow(ship_px).has_point(global_position):
 		_enter_state(State.GONE)
-
-
-## The shield ring's alpha `t` seconds into SHIELD: a cosine flash at `hz`
-## between 1 and SHIELD_MIN_ALPHA, starting bright (steady 1 when hz <= 0).
-static func shield_alpha(t: float, hz: float) -> float:
-	if hz <= 0.0:
-		return 1.0
-	var k: float = 0.5 + 0.5 * cos(TAU * hz * t)
-	return lerpf(SHIELD_MIN_ALPHA, 1.0, k)
 
 
 # --- Patrol -----------------------------------------------------------------------
@@ -404,14 +384,6 @@ func _apply_hull_texture() -> void:
 		return
 	_sprite.texture = TEXTURE_DAMAGED if is_damaged() else TEXTURE_HULL
 	SpriteFit.fit_longest(_sprite, ship_px, "ally %s" % ally_id)
-
-
-## Only the shield ring: the hull is the Sprite child, drawn behind this.
-func _draw() -> void:
-	if _state == State.SHIELD and shield_radius_px > 0.0:
-		var ring: Color = OUTLINE_COLOR
-		ring.a = shield_alpha(_phase_t, shield_flash_hz)
-		draw_arc(Vector2.ZERO, shield_radius_px, 0.0, TAU, SHIELD_SEGMENTS, ring, SHIELD_STROKE_PX, true)
 
 
 ## A small fighter, ship_px tall and wide, nose up: a pointed nose, swept wings

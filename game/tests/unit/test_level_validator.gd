@@ -282,12 +282,12 @@ func test_action_value_types() -> void:
 
 # --- Story 5.3: music values and intro/outro shape -----------------------------
 
-func test_music_action_must_be_stop_combat_or_boss() -> void:
+func test_music_action_must_be_stop_combat_boss_or_epilogue() -> void:
 	for good: String in LevelValidator.MUSIC_ACTIONS:
 		var data: Dictionary = _valid()
 		data["waves"][0]["triggers"][0]["actions"].append({"music": good})
 		assert_eq(_validate(data), [] as Array[String], good)
-	assert_eq(LevelValidator.MUSIC_ACTIONS, ["stop", "combat", "boss"] as Array[String])
+	assert_eq(LevelValidator.MUSIC_ACTIONS, ["stop", "combat", "boss", "epilogue"] as Array[String])
 	for bad: String in ["loud", "Combat", "calm"]:
 		var data: Dictionary = _valid()
 		data["waves"][0]["triggers"][0]["actions"].append({"music": bad})

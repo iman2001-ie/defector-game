@@ -7,9 +7,9 @@ extends Enemy
 ## a level that moves its formation rows sets, x from its formation slot) and then
 ## runs its attack cycle, one start every fire_interval_s:
 ##   TRACKING  track_s: the targeting line follows the player (enemy colour).
-##   LOCKED    lock_s: the line freezes and turns red (the >= 0.3 s telegraph)
-##             with the needle_lock cue (Story 8.1), then one needle_bolt fires
-##             along it at bolt_speed_px_s.
+##   LOCKED    lock_s: the line freezes and turns red (the >= 0.3 s telegraph,
+##             silent since playtest pt7-e), then one needle_bolt fires along
+##             it at bolt_speed_px_s with the needle_fire laser cue.
 ##   COOLDOWN  fire_interval_s - track_s - lock_s, line hidden.
 ## After reposition_interval_s anchored it moves, only from COOLDOWN, to a new
 ## anchor x at least reposition_min_distance_px away along the top edge.
@@ -21,6 +21,8 @@ extends Enemy
 enum State { ANCHORING, TRACKING, LOCKED, COOLDOWN }
 
 const BOLT_ID: StringName = &"needle_bolt"
+## The laser cue played as each bolt fires (playtest pt7-e).
+const FIRE_SFX: StringName = &"needle_fire"
 ## Slack on the reposition check, so float step accumulation can't push the
 ## move one full cycle later.
 const REPOSITION_EPS_S: float = 0.0001
@@ -168,9 +170,6 @@ func _enter_state(new_state: State) -> void:
 		else:
 			_line.default_color = track_color
 			_line.width = TRACK_WIDTH_PX
-	if new_state == State.LOCKED:
-		# The lock moment: one cue per lock (Story 8.1).
-		Audio.play_sfx(&"needle_lock")
 	if new_state == State.TRACKING:
 		# Aim at once so the line never shows a stale direction.
 		_aim_line()
@@ -193,11 +192,15 @@ func _aim_line() -> void:
 func _fire() -> void:
 	if not _can_fire():
 		return
-	spawner.spawn_projectile(BOLT_ID, {
+	var bolt: Projectile = spawner.spawn_projectile(BOLT_ID, {
 		"position": _muzzle_position(),
 		"velocity": _line_dir * _bolt_speed,
 		"damage": _bolt_damage,
 	})
+	# The shot is heard only when a bolt really leaves (playtest pt7-e), so a
+	# held fire (Tarek's fall) stays silent.
+	if bolt != null:
+		Audio.play_sfx(FIRE_SFX, Audio.DEFAULT_PITCH_JITTER, Config.num("enemies.needle.fire_sfx_volume_db"))
 
 
 ## A new anchor x: uniform over the parts of [_min_x, _max_x] at least

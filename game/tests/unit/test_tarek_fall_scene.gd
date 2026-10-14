@@ -196,13 +196,13 @@ func test_start_locks_vale_holds_fire_and_sends_tarek() -> void:
 	assert_eq(_count_lines("[INFO][scene] Tarek's fall: lock-on, impact in %.2f s" % impact_s), 1)
 
 
-func test_tarek_reaches_the_point_and_shields() -> void:
+func test_tarek_reaches_the_point_and_holds() -> void:
 	_make()
 	_start()
 	_run_to(Config.num("allies.fall.approach_s") + DT)
-	assert_eq(_tarek.state(), AllyShip.State.SHIELD, "shield raised")
+	assert_eq(_tarek.state(), AllyShip.State.HOLD, "holding at the point")
 	assert_eq(_tarek.global_position, _scene.intercept_point(), "between Vale and the threat")
-	assert_true(_tarek.shield_visible())
+	assert_true(_tarek.is_holding())
 
 
 func test_vale_is_held_against_the_mouse_for_the_whole_scene() -> void:
@@ -297,7 +297,7 @@ func test_impact_when_the_ram_arrives() -> void:
 	_make()
 	_start()
 	_run_to(impact_s - EPS)
-	assert_eq(_tarek.state(), AllyShip.State.SHIELD, "still shielding just before")
+	assert_eq(_tarek.state(), AllyShip.State.HOLD, "still holding just before")
 	assert_eq(_scene.phase(), TarekFallScene.Phase.RUNNING)
 	var ram: Ram = _scene.ram()
 	assert_not_null(ram, "the Ram is in flight")
@@ -323,7 +323,7 @@ func test_without_a_spawner_the_clock_decides_the_impact() -> void:
 	_start()
 	_run_to(impact_s - EPS)
 	assert_null(_scene.ram(), "no Ram without a Spawner")
-	assert_eq(_tarek.state(), AllyShip.State.SHIELD)
+	assert_eq(_tarek.state(), AllyShip.State.HOLD)
 	_run_to(impact_s + EPS)
 	assert_eq(_tarek.state(), AllyShip.State.FALLING, "hit at impact_s")
 	assert_eq(_scene.phase(), TarekFallScene.Phase.AFTERMATH)

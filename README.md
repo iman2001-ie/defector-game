@@ -1,5 +1,7 @@
 # DEFECTOR
 
+![DEFECTOR](docs/defector_logo.png)
+
 > "Chicken Invaders meets a CoD campaign."
 
 A neon 2D space shooter where every enemy fleet belongs to the woman you used to serve. You play **General Arden Vale**, who defected from Sovereign Isolde Varn's Sovereignty to the Free Worlds Coalition. Over three short levels you escort a convoy, lose a mentor, and bring down Isolde's Flagship. All of it is told through in-game comms, with no cutscenes.
@@ -46,9 +48,9 @@ Found a bug? Please open an issue on the [Issues](../../issues) page and attach 
 
 Every third-party asset in DEFECTOR is free and CC0. The pieces made for this project are project-owned.
 
-- **Kenney** ([kenney.nl](https://kenney.nl)): the ship, enemy, asteroid and background art (Space Shooter Redux and Extension), most sound effects (Sci-Fi Sounds, Interface Sounds, 63 Digital sound effects) and the Kenney Future font.
-- **OpenGameArt authors:** MintoDog ("Space Adventure" and "Space Boss Battle", the music) and bretbernhoft (the comms static).
-- **Project-owned** (made for this project, not CC0): the comms portraits, the Flagship hull, the app icon, the comms cues and the Maul alarm.
+- **Kenney** ([kenney.nl](https://kenney.nl)): the ship, enemy, asteroid and background art (Space Shooter Redux and Extension), most sound effects (Sci-Fi Sounds, Interface Sounds) and the Kenney Future font.
+- **OpenGameArt authors:** MintoDog ("Space Adventure" and "Space Boss Battle", the music), isaiah658 ("Heavenly Loop", the epilogue music) and bretbernhoft (the comms static).
+- **Project-owned** (made for this project, not CC0): the comms portraits and the logo (AI-generated with ChatGPT image generation), the Flagship hull, the app icon, the comms cues and the Maul alarm.
 
 Every asset, its source and its licence are listed in [`game/assets/CREDITS.md`](game/assets/CREDITS.md).
 

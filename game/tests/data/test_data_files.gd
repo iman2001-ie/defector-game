@@ -1201,7 +1201,7 @@ func test_credits_row_matcher_self_check() -> void:
 	assert_true(all.has("res://assets/audio/music/music_boss.ogg"), "the collector finds music")
 	assert_true(all.has("res://assets/audio/sfx/sfx_shield_on.wav"), "the collector finds sfx")
 	assert_true(all.has("res://assets/sprites/enemies/enemy_wasp.png"), "the collector finds sprites")
-	assert_true(all.has("res://assets/portraits/portrait_tarek.svg"), "the collector finds portraits")
+	assert_true(all.has("res://assets/portraits/portrait_tarek.png"), "the collector finds portraits")
 	assert_true(all.has("res://assets/fonts/kenvector_future.ttf"), "the collector finds the font")
 	assert_false(all.has("res://assets/CREDITS.md"), "CREDITS.md itself is skipped")
 	assert_false(all.has("res://assets/.gitkeep"), ".gitkeep is skipped")
@@ -1221,6 +1221,33 @@ func test_every_tier_sfx_and_music_action_is_registered() -> void:
 		if action == "stop":
 			continue
 		assert_true(Audio.MUSIC.get(StringName(action)) is AudioStream, "music '%s' is in Audio.MUSIC" % action)
+
+
+## Playtest pt7-e: one chain sfx row per chain offset, each a registered sfx with
+## a positive pitch; the chain plays slower than authored; the epilogue music,
+## orb chime and Needle fire keys are in range.
+func test_sound_pass_tuning() -> void:
+	var feedback: Dictionary = Config.section("feedback")
+	var rows: Array = feedback.get("boss_death_chain_sfx", []) as Array
+	var offsets: Array = feedback.get("boss_death_chain_offsets_px", []) as Array
+	assert_eq(rows.size(), offsets.size(), "one sfx row per chain explosion")
+	for row: Variant in rows:
+		var r: Dictionary = row as Dictionary
+		assert_true(Audio.SFX.has(StringName(str(r.get("sfx", "")))), "chain sfx '%s' registered" % str(r.get("sfx")))
+		assert_gt(float(r.get("sfx_pitch", 0.0)), 0.0, "chain sfx pitch > 0")
+		assert_lte(float(r.get("sfx_volume_db", 99.0)), 6.0, "chain sfx volume sane")
+	var speed: float = Config.num("feedback.boss_death_chain_anim_speed")
+	assert_gt(speed, 0.0, "anim speed > 0")
+	assert_lte(speed, 1.0, "the chain plays at or below authored speed")
+	assert_gt(Config.num("audio.music_fade_in_s"), 0.0, "music_fade_in_s > 0")
+	assert_gte(Config.num("audio.epilogue_music_delay_s"), Config.num("audio.music_fade_out_s"), "the boss fade ends before the epilogue starts")
+	for id: Variant in Config.section("audio.music_gain_db"):
+		assert_true(Audio.MUSIC.has(StringName(str(id))), "music_gain_db.%s is a track" % str(id))
+	assert_lt(Config.num("energy.orb_sfx.volume_db"), 0.0, "the orb chime is attenuated")
+	assert_gt(Config.num("energy.orb_sfx.streak_window_s"), 0.0)
+	assert_gte(Config.num("energy.orb_sfx.streak_pitch_step"), 0.0)
+	assert_gte(Config.int_("energy.orb_sfx.streak_max_steps"), 0)
+	assert_lte(Config.num("enemies.needle.fire_sfx_volume_db"), 6.0, "needle fire volume sane")
 
 
 func test_combat_comms_tuning_is_positive() -> void:
@@ -1802,15 +1829,44 @@ func test_dev_tarek_fall_level_shape() -> void:
 	assert_true(Config.has_sequence(TarekFallScene.CUT_OFF_SEQUENCE), "the line the scene requests exists")
 
 
+## Playtest 2026-10-14: render.starfield has three layers (far, mid, near) with
+## the same four numbers each, slowest/dimmest/smallest at the back, plus the
+## twinkle; nearly every star stays below the glow threshold.
+func test_render_starfield_shape() -> void:
+	var field: Dictionary = Config.section("render.starfield")
+	var keys: Array = field.keys()
+	keys.sort()
+	assert_eq(keys, ["far", "mid", "near", "twinkle"], "render.starfield keys")
+	for layer: String in ["far", "mid", "near"]:
+		var row: Dictionary = field.get(layer, {}) as Dictionary
+		var row_keys: Array = row.keys()
+		row_keys.sort()
+		assert_eq(row_keys, ["brightness", "density", "size_px", "speed_px_s"], "render.starfield.%s keys" % layer)
+		assert_gt(Config.num("render.starfield.%s.density" % layer), 0.0, "%s density > 0" % layer)
+		assert_gt(Config.num("render.starfield.%s.speed_px_s" % layer), 0.0, "%s drifts down" % layer)
+		assert_between(Config.num("render.starfield.%s.size_px" % layer), 0.5, 3.0, "%s stars are small" % layer)
+		assert_between(Config.num("render.starfield.%s.brightness" % layer), 0.05, 1.0, "%s brightness" % layer)
+	var threshold: float = Config.num("render.glow.hdr_threshold")
+	for layer: String in ["far", "mid"]:
+		assert_lt(Config.num("render.starfield.%s.brightness" % layer), threshold, "%s stars never bloom" % layer)
+	assert_lt(Config.num("render.starfield.far.speed_px_s"), Config.num("render.starfield.mid.speed_px_s"), "far slower than mid")
+	assert_lt(Config.num("render.starfield.mid.speed_px_s"), Config.num("render.starfield.near.speed_px_s"), "mid slower than near")
+	assert_gt(Config.num("render.starfield.far.density"), Config.num("render.starfield.near.density"), "many far stars, few near ones")
+	var twinkle_keys: Array = (field.get("twinkle", {}) as Dictionary).keys()
+	twinkle_keys.sort()
+	assert_eq(twinkle_keys, ["amount", "fraction", "hz"], "render.starfield.twinkle keys")
+	assert_between(Config.num("render.starfield.twinkle.amount"), 0.0, 1.0, "twinkle amount")
+	assert_between(Config.num("render.starfield.twinkle.fraction"), 0.0, 1.0, "twinkle fraction")
+	assert_gt(Config.num("render.starfield.twinkle.hz"), 0.0, "twinkle hz")
+
+
 func test_allies_fall_tuning_ranges() -> void:
 	var fall: Dictionary = (Config.section("allies").get("fall", {}) as Dictionary)
 	var keys: Array = fall.keys()
 	keys.sort()
-	assert_eq(keys, ["approach_s", "exit_drop", "exit_speed_px_s", "shield_flash_hz", "shield_radius_px", "spin_deg_s"], "allies.fall keys (shield_s and shield_offset_px removed)")
+	assert_eq(keys, ["approach_s", "exit_drop", "exit_speed_px_s", "spin_deg_s"], "allies.fall keys (the shield ring keys removed, playtest 2026-10-14)")
 	assert_gt(Config.num("allies.fall.approach_s"), 0.0, "approach_s > 0")
 	assert_gt(Config.num("allies.fall.exit_speed_px_s"), 0.0, "exit_speed_px_s > 0")
-	assert_gt(Config.num("allies.fall.shield_radius_px"), 0.0, "shield_radius_px > 0")
-	assert_gt(Config.num("allies.fall.shield_flash_hz"), 0.0, "shield_flash_hz > 0")
 	assert_gte(Config.num("allies.fall.exit_drop"), 0.0, "exit_drop >= 0 (down or level)")
 	assert_gt(Config.num("allies.fall.spin_deg_s"), 0.0, "spin_deg_s > 0 (the damaged ship spins)")
 

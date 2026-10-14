@@ -141,6 +141,8 @@ func _ready() -> void:
 	_initial.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	# The 512 px portraits are drawn far smaller: sample their mipmaps.
+	_image.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	_apply_theme()
 	_apply_layout(true)
 	visible = false

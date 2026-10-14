@@ -134,6 +134,7 @@ func _build_cards() -> void:
 		thumbnail.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var background: LevelBackground = LevelBackground.new()
 		background.name = "Background"
+		background.animate = false  # 1-2 px stars would flicker at thumbnail scale.
 		background.apply(thumbnail_background_id(level_data))
 		thumbnail.add_child(background)
 		card.add_child(thumbnail)

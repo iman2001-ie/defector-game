@@ -166,3 +166,32 @@ func test_frees_after_lifetime() -> void:
 	assert_false(e.is_queued_for_deletion(), "alive just before")
 	e._process(0.01)
 	assert_true(e.is_queued_for_deletion(), "freed at LIFETIME_S")
+
+
+## Playtest pt7-e: a `speed` param slows (or speeds) the whole effect: the
+## particles' speed_scale, the shockwave and the self-free time.
+func test_speed_scales_particles_shockwave_and_lifetime() -> void:
+	var e: Explosion = EXPLOSION_SCENE.instantiate() as Explosion
+	e.setup({"position": Vector2(400, 300), "scale": 1.0, "extras": [&"debris", &"shockwave"], "speed": 0.5})
+	add_child_autofree(e)
+	assert_almost_eq(e.speed, 0.5, 0.0001)
+	for child: String in ["Burst", "Sparks", "Debris"]:
+		assert_almost_eq((e.get_node(child) as GPUParticles2D).speed_scale, 0.5, 0.0001, child + " speed_scale")
+	assert_almost_eq(e.lifetime(), Explosion.LIFETIME_S / 0.5, 0.0001, "lives twice as long")
+	var ring: ShockwaveRing = e.get_node("Shockwave") as ShockwaveRing
+	e._process(Explosion.SHOCKWAVE_S / 2.0)
+	assert_almost_eq(ring.progress, 0.25, 0.0001, "the ring expands at half speed")
+	e._process(Explosion.LIFETIME_S - Explosion.SHOCKWAVE_S / 2.0)
+	assert_false(e.is_queued_for_deletion(), "alive past LIFETIME_S")
+	e._process(Explosion.LIFETIME_S)
+	assert_true(e.is_queued_for_deletion(), "freed at lifetime()")
+
+
+func test_speed_defaults_to_one_and_is_floored() -> void:
+	var plain: Explosion = _make([])
+	assert_almost_eq(plain.speed, 1.0, 0.0001, "default")
+	assert_almost_eq(plain.lifetime(), Explosion.LIFETIME_S, 0.0001)
+	var e: Explosion = EXPLOSION_SCENE.instantiate() as Explosion
+	e.setup({"speed": 0.0})
+	add_child_autofree(e)
+	assert_almost_eq(e.speed, Explosion.MIN_SPEED, 0.0001, "never 0")

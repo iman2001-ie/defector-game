@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://8wsuxoia4rkt"
-path="res://.godot/imported/portrait_isolde.svg-2d8b83b2dbf236a43f0cdf5b5c4f00eb.ctex"
+uid="uid://bd28xim1kyuwt"
+path="res://.godot/imported/portrait_ryn.png-52c10e90f6ffcea7132e5ba22b24b51c.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/portraits/portrait_isolde.svg"
-dest_files=["res://.godot/imported/portrait_isolde.svg-2d8b83b2dbf236a43f0cdf5b5c4f00eb.ctex"]
+source_file="res://assets/portraits/portrait_ryn.png"
+dest_files=["res://.godot/imported/portrait_ryn.png-52c10e90f6ffcea7132e5ba22b24b51c.ctex"]
 
 [params]
 
@@ -23,7 +23,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
@@ -38,6 +38,3 @@ process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
 detect_3d/compress_to=1
-svg/scale=1.0
-editor/scale_with_editor_scale=false
-editor/convert_colors_with_editor_theme=false

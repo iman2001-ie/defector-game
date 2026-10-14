@@ -11,7 +11,7 @@ extends Node2D
 ##                to Vale; Vale's controls lock (Player.set_scripted_lock: held
 ##                in place, invulnerable); enemies hold their fire
 ##                (Spawner.hold_enemy_fire); Tarek dashes to intercept_offset_px
-##                above Vale (AllyShip.intercept) and raises his shield.
+##                above Vale (AllyShip.intercept) and holds there.
 ##   impact_s - cut-off typing time: Tarek's cut-off line is requested
 ##                (CUT_OFF_SEQUENCE, "Watch out! Get behind me, ..."), so its
 ##                cut, the static, the shake and the music stop land on the

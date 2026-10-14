@@ -416,7 +416,9 @@ func test_hull_outline_points_nose_up() -> void:
 
 ## Story 8.2: the hull is a Kenney cargo sprite turned nose-up, recoloured a
 ## dimmed coalition (dimmer than the ally fighter, so it reads as civilian),
-## fitted uniformly inside ship_width_px x ship_height_px.
+## fitted uniformly inside ship_width_px x ship_height_px. Playtest 2026-10-14:
+## only slightly dimmed (value 0.9), so its brightest parts still reach the
+## glow threshold (in linear light; the project renders 2D in HDR) and bloom.
 func test_hull_sprite_is_dim_coalition_cargo_fitted_inside_the_hull() -> void:
 	var ship: ConvoyShip = SHIP_SCENE.instantiate() as ConvoyShip
 	add_child_autofree(ship)
@@ -436,6 +438,9 @@ func test_hull_sprite_is_dim_coalition_cargo_fitted_inside_the_hull() -> void:
 	assert_lt(SpriteProbe.hue_distance_deg(SpriteProbe.dominant_hue(sprite.texture), Color("#22E6FF").h), 8.0, "coalition hue")
 	var fighter: Texture2D = load("res://assets/sprites/allies/ally_coalition.png") as Texture2D
 	assert_lt(SpriteProbe.max_channel(sprite.texture), SpriteProbe.max_channel(fighter), "dimmer than the ally fighter")
+	var top: float = SpriteProbe.max_channel(sprite.texture)
+	var linear_top: float = Color(top, top, top).srgb_to_linear().r
+	assert_gt(linear_top, Config.num("render.glow.hdr_threshold"), "bright enough to glow (linear %.3f)" % linear_top)
 
 
 func test_ship_without_convoy_ignores_damage() -> void:

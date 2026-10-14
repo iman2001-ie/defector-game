@@ -2,8 +2,8 @@ extends GutTest
 ## Needle state machine (Story 2.6): anchoring entry, tracking line, red lock,
 ## sniper bolt through a real Spawner, cycle cadence, reposition, no-spawner
 ## path, tuning reads, pause. Driven through step(delta) with physics
-## processing off, so every move is deterministic. Story 8.1: entering LOCKED
-## plays the needle_lock cue once per lock.
+## processing off, so every move is deterministic. Playtest pt7-e: each bolt
+## that leaves plays the needle_fire cue (the lock is silent).
 
 const SpriteProbe: GDScript = preload("res://tests/fixtures/sprite_probe.gd")
 const NEEDLE_SCENE: PackedScene = preload("res://entities/enemies/needle/needle.tscn")
@@ -522,20 +522,22 @@ func test_row_shift_moves_the_anchor_row() -> void:
 	assert_eq(plain.anchor().y, Config.num("enemies.needle.anchor_y_px"), "a non-number shift is ignored")
 
 
-# --- Story 8.1: lock cue --------------------------------------------------------
+# --- Playtest pt7-e: fire cue ---------------------------------------------------
 
-## Every TRACKING -> LOCKED entry plays needle_lock exactly once, on that step,
-## and no other step plays it (with or without a spawner).
-func test_each_lock_plays_needle_lock_once() -> void:
-	for with_spawner: bool in [false, true]:
-		if with_spawner:
+## The lock is silent; every bolt that leaves plays needle_fire once, on that
+## step, at enemies.needle.fire_sfx_volume_db. No spawner or a held fire spawns
+## no bolt, so it plays nothing.
+func test_each_fired_bolt_plays_needle_fire_once() -> void:
+	for mode: String in ["no_spawner", "spawner", "held"]:
+		if mode != "no_spawner":
 			_make_world()
+			_spawner.hold_enemy_fire = mode == "held"
 		_make_player(Vector2(500, 900))
-		var needle: Needle = _spawn({"position": Vector2(960, 160)}) if with_spawner else _make({"position": Vector2(700, 160)})
-		assert_not_null(needle, "a Needle (spawner %s)" % with_spawner)
+		var needle: Needle = _make({"position": Vector2(700, 160)}) if mode == "no_spawner" else _spawn({"position": Vector2(960, 160)})
+		assert_not_null(needle, "a Needle (%s)" % mode)
 		if needle == null:
 			continue
-		var locks: int = 0
+		var fires: int = 0
 		var cues: int = 0
 		var t: float = 0.0
 		var cycle_s: float = Config.num("enemies.needle.fire_interval_s")
@@ -544,14 +546,15 @@ func test_each_lock_plays_needle_lock_once() -> void:
 			var before_serial: int = Audio._next_serial
 			needle.step(DT)
 			t += DT
-			var entered_lock: bool = before_state != Needle.State.LOCKED and needle.state() == Needle.State.LOCKED
+			var fired: bool = before_state == Needle.State.LOCKED and needle.state() != Needle.State.LOCKED
 			var newest: AudioStreamPlayer = Audio.newest_player()
-			var played_lock: bool = Audio._next_serial > before_serial and newest != null and newest.stream == Audio.SFX[&"needle_lock"]
-			if entered_lock:
-				locks += 1
-			if played_lock:
+			var played: bool = Audio._next_serial > before_serial and newest != null and newest.stream == Audio.SFX[&"needle_fire"]
+			if fired:
+				fires += 1
+			if played:
 				cues += 1
-				assert_true(entered_lock, "needle_lock only on the lock step (spawner %s)" % with_spawner)
-		assert_gte(locks, 2, "at least two locks (spawner %s)" % with_spawner)
-		assert_eq(cues, locks, "one needle_lock per lock (spawner %s)" % with_spawner)
-	assert_eq(_logged("[WARN][audio]"), [] as Array[String], "needle_lock is registered")
+				assert_true(fired, "needle_fire only on the fire step (%s)" % mode)
+				assert_almost_eq(newest.volume_db, Config.num("enemies.needle.fire_sfx_volume_db"), 0.0001, "fire_sfx_volume_db")
+		assert_gte(fires, 2, "at least two shots (%s)" % mode)
+		assert_eq(cues, fires if mode == "spawner" else 0, "one needle_fire per bolt that leaves (%s)" % mode)
+	assert_eq(_logged("[WARN][audio]"), [] as Array[String], "needle_fire is registered")

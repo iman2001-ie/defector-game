@@ -229,8 +229,12 @@ func finish_story() -> void:
 
 
 ## The title screen: the unlock restored from the save and energy 0
-## (restore_saved_progress()), no level id. Writes no save.
+## (restore_saved_progress()), no level id. Writes no save. Fades out any music
+## (the end screen's epilogue track, or a level track when quitting to the
+## title; playtest pt7-e): the title has no track. A broken config stops it at
+## once (no fade time can be read then).
 func goto_title() -> void:
+	Audio.stop_music(-1.0 if Config.load_error.is_empty() else 0.0)
 	restore_saved_progress()
 	GameState.current_level_id = ""
 	_change_to(TITLE_SCENE_PATH, "Going to the title screen")

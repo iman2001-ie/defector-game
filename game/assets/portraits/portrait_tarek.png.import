@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://d3d8yfhjimk1p"
-path="res://.godot/imported/portrait_tarek.svg-cd880d4d5af1b06310ba9824f86cce30.ctex"
+uid="uid://73o0ube3rpov"
+path="res://.godot/imported/portrait_tarek.png-1fbb832626fb41583ea0bf6305366a83.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/portraits/portrait_tarek.svg"
-dest_files=["res://.godot/imported/portrait_tarek.svg-cd880d4d5af1b06310ba9824f86cce30.ctex"]
+source_file="res://assets/portraits/portrait_tarek.png"
+dest_files=["res://.godot/imported/portrait_tarek.png-1fbb832626fb41583ea0bf6305366a83.ctex"]
 
 [params]
 
@@ -23,7 +23,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
@@ -38,6 +38,3 @@ process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
 detect_3d/compress_to=1
-svg/scale=1.0
-editor/scale_with_editor_scale=false
-editor/convert_colors_with_editor_theme=false
