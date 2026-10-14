@@ -10,7 +10,9 @@ extends Node
 ## every level in memory (GameState.all_levels_unlocked; never saved). With
 ## the `-- --bench=<s>` user arg it also runs the self-timing stress bench; its
 ## numbers (limits, warm-up, first-large timing, quit delay) come from
-## tuning.debug.bench. Does nothing at all when debug_enabled is false (release builds).
+## tuning.debug.bench. bench_passed() is the PASS rule the level bench
+## (LevelBench, `-- --level-bench=<scenario>`) shares; that arg also starts
+## the overlay on. Does nothing at all when debug_enabled is false (release builds).
 
 ## Overlay text refresh period (real time).
 const OVERLAY_REFRESH_S: float = 0.25
@@ -77,7 +79,8 @@ func _ready() -> void:
 	_prewarm = args.prewarm
 	if not _overlay_initialised:
 		_overlay_initialised = true
-		overlay_visible = stress
+		# The level bench (Story 8.3) shows the overlay too, as the stress bench does.
+		overlay_visible = stress or not String(args.get("level_bench", "")).is_empty()
 	_label.visible = overlay_visible
 	if stress:
 		# Frame ms must measure work, not the display wait.
@@ -386,11 +389,17 @@ func _finish_bench() -> void:
 ## 0 (PASS) when the sampled avg, p99 and max are all under their
 ## tuning.debug.bench limits, else 2 (FAIL). An empty bench fails.
 func _bench_exit_code() -> int:
-	if _bench_stats == null or _bench_stats.count() == 0:
-		return 2
-	var passed: bool = (
-		_bench_stats.average_ms() < Config.num("debug.bench.avg_ms_max")
-		and _bench_stats.percentile_ms(99.0) < Config.num("debug.bench.p99_ms_max")
-		and _bench_stats.max_ms() < Config.num("debug.bench.max_ms_max")
+	return 0 if bench_passed(_bench_stats) else 2
+
+
+## The shared PASS rule of the stress bench and the level bench (Story 8.3):
+## true only when `stats` has samples and its avg, p99 and max are all under
+## tuning.debug.bench avg_ms_max / p99_ms_max / max_ms_max.
+static func bench_passed(stats: FrameStats) -> bool:
+	if stats == null or stats.count() == 0:
+		return false
+	return (
+		stats.average_ms() < Config.num("debug.bench.avg_ms_max")
+		and stats.percentile_ms(99.0) < Config.num("debug.bench.p99_ms_max")
+		and stats.max_ms() < Config.num("debug.bench.max_ms_max")
 	)
-	return 0 if passed else 2

@@ -2017,3 +2017,63 @@ func test_dev_tarek_fall_flag_off() -> void:
 	assert_eq(director.wave_number(), 3, "wave 2 clears into wave 3")
 	assert_eq(_live_allies().size(), 1, "Tarek flies on")
 	Log.sink = Callable()
+
+
+# --- Level bench wiring (Story 8.3) ------------------------------------------------
+
+var _bench_quits: Array[int] = []
+
+
+func _record_bench_quit(code: int) -> void:
+	_bench_quits.append(code)
+
+
+func test_debug_level_bench_only_in_debug_builds() -> void:
+	var bench: Dictionary = DebugArgs.parse(PackedStringArray(["--level-bench=busiest_wave"]))
+	var none: Dictionary = DebugArgs.parse(PackedStringArray())
+	assert_eq(LEVEL_SCRIPT.debug_level_bench(true, bench), "busiest_wave", "debug build with the arg")
+	assert_eq(LEVEL_SCRIPT.debug_level_bench(true, none), "", "debug build without it")
+	assert_eq(LEVEL_SCRIPT.debug_level_bench(false, bench), "", "release build ignores it")
+	assert_false(LEVEL_SCRIPT.should_redirect_to_stress(true, bench), "not the stress sandbox")
+
+
+func test_level_bench_arg_adds_one_wired_bench_under_overlay() -> void:
+	if not OS.is_debug_build():
+		pass_test("release build: no level bench")
+		return
+	_bench_quits.clear()
+	_lines.clear()
+	_level = LEVEL_SCENE.instantiate() as Node2D
+	_level.set("level_id", "3")
+	_level.user_args = PackedStringArray(["--level-bench=desperate"])
+	_level.set("level_bench_quit", _record_bench_quit)
+	(_level.get_node("World/Player") as Player).warp_mouse = func(_at: Vector2) -> void: pass
+	Log.sink = _capture
+	add_child_autofree(_level)
+	Log.sink = Callable()
+	var benches: Array[Node] = _level.get_node("Overlay").get_children().filter(
+		func(node: Node) -> bool: return node is LevelBench)
+	assert_eq(benches.size(), 1, "one LevelBench in Overlay")
+	if benches.size() != 1:
+		return
+	var bench: LevelBench = benches[0] as LevelBench
+	bench.set_process(false)
+	assert_eq(bench.name, &"LevelBench")
+	assert_eq(bench.scenario, "desperate")
+	assert_eq(bench.director, _level.get_node("WaveDirector"))
+	assert_eq(bench.player, _level.get_node("World/Player"))
+	assert_eq(bench.channel, _level.get_node("Comms/CommsChannel"))
+	assert_eq(bench.final_choice, _level.get_node("Comms/FinalChoice"))
+	assert_eq(bench.target_wave, Config.int_("debug.level_bench.wave"))
+	assert_eq(bench.sample_s, Config.num("debug.level_bench.sample_s"))
+	assert_eq(bench.settle_s, Config.num("debug.level_bench.settle_s"))
+	assert_eq(bench.quit_delay_s, Config.num("debug.bench.quit_delay_s"))
+	assert_eq(bench.quit_game, Callable(_record_bench_quit), "the injected quit")
+	assert_eq(bench.stage(), LevelBench.Stage.WAITING, "waiting for wave 1 behind the briefing")
+	assert_eq(_lines_containing("Level bench: scenario=desperate starting").size(), 1)
+
+
+func test_no_level_bench_without_the_arg() -> void:
+	_level_with_args(PackedStringArray())
+	for node: Node in _level.get_node("Overlay").get_children():
+		assert_false(node is LevelBench, "no LevelBench")

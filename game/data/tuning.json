@@ -370,6 +370,17 @@
 		"stress": {
 			"projectiles": 200,
 			"projectile_spawn_per_tick": 20
+		},
+		"level_bench": {
+			"level": 3,
+			"wave": 3,
+			"sample_s": 20.0,
+			"settle_s": 2.0
+		},
+		"release_check": {
+			"max_build_mb": 200,
+			"max_launch_s": 5.0,
+			"launch_timeout_s": 30.0
 		}
 	}
 }

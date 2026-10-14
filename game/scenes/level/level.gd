@@ -57,6 +57,11 @@ extends Node2D
 ## level.tscn is the launched scene (boot.tscn is the main scene and routes in
 ## through SceneRouter, which sets the GameState id):
 ##   "<GODOT_DIR>/Godot_v4.7.2-stable_win64.exe" --path game res://scenes/level/level.tscn -- --level=dev_isolde
+## `-- --level-bench=<scenario>` (debug builds, Story 8.3; boot starts level
+## debug.level_bench.level for it) adds one LevelBench under Overlay before the
+## WaveDirector starts, with this scene's WaveDirector, Player, CommsChannel and
+## FinalChoice and its numbers from tuning debug.level_bench / debug.bench. A
+## level that fails to load aborts it (FAIL), so the run never hangs.
 
 const SANDBOX_SCENE_PATH: String = "res://scenes/sandbox/sandbox.tscn"
 
@@ -65,7 +70,7 @@ const SANDBOX_SCENE_PATH: String = "res://scenes/sandbox/sandbox.tscn"
 @export var level_id: String = "dev"
 
 ## The user args _ready parses (`--stress`, `--bench=<s>`, `--no-prewarm`,
-## `--comms=<id>[,<id>...]`, `--level=<id>`).
+## `--comms=<id>[,<id>...]`, `--level=<id>`, `--level-bench=<scenario>`).
 ## Tests override this before add_child.
 var user_args: PackedStringArray = OS.get_cmdline_user_args()
 ## Changes the scene to a file path (the debug `--stress` redirect, deferred).
@@ -73,6 +78,10 @@ var user_args: PackedStringArray = OS.get_cmdline_user_args()
 ## recorder before add_child (calling the real one in GUT would replace the
 ## test runner's scene).
 var change_scene: Callable
+
+## The level bench's quit callable (Story 8.3); empty means get_tree().quit.
+## Tests inject a recorder before add_child.
+var level_bench_quit: Callable
 
 ## True once this level spawned an ally: only then is the kill share logged.
 var _has_ally: bool = false
@@ -111,9 +120,13 @@ func _ready() -> void:
 	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_CONFINED_HIDDEN)
 	_player.set_spawner(_spawner)
 	RenderGlow.apply(($WorldEnvironment as WorldEnvironment).environment)
+	var bench_scenario: String = debug_level_bench(OS.is_debug_build(), args)
+	var bench: LevelBench = _add_level_bench(bench_scenario) if not bench_scenario.is_empty() else null
 	var data: Dictionary = Config.level(level_id)
 	if data.is_empty():
 		Log.error("scene", "Level '%s' could not be loaded; nothing started" % level_id)
+		if bench != null:
+			bench.abort("level '%s' could not be loaded" % level_id)
 		return
 	var id: int = int(data.get("id", 0)) if (data.get("id") is float or data.get("id") is int) else 0
 	if teaches_controls(data):
@@ -161,6 +174,25 @@ func _spawn_ally(id: String) -> void:
 		return
 	_has_ally = true
 	Log.info("scene", "Ally '%s' spawned" % id)
+
+
+## Adds the Story 8.3 level bench under Overlay (it connects to Events in its
+## _ready, so it sees wave 1 start).
+func _add_level_bench(scenario: String) -> LevelBench:
+	var bench: LevelBench = LevelBench.new()
+	bench.scenario = scenario
+	bench.director = _director
+	bench.player = _player
+	bench.channel = $Comms/CommsChannel as CommsChannel
+	bench.final_choice = $Comms/FinalChoice as FinalChoice
+	bench.target_wave = Config.int_("debug.level_bench.wave")
+	bench.sample_s = Config.num("debug.level_bench.sample_s")
+	bench.settle_s = Config.num("debug.level_bench.settle_s")
+	bench.quit_delay_s = Config.num("debug.bench.quit_delay_s")
+	if level_bench_quit.is_valid():
+		bench.quit_game = level_bench_quit
+	$Overlay.add_child(bench)
+	return bench
 
 
 func _request_comms(sequence_id: StringName) -> void:
@@ -269,6 +301,15 @@ static func debug_level_id(debug_build: bool, args: Dictionary) -> String:
 		return ""
 	var id: Variant = args.get("level", "")
 	return String(id) if (id is String or id is StringName) else ""
+
+
+## The --level-bench=<scenario> to run: debug builds only ("" in release
+## builds or without the arg).
+static func debug_level_bench(debug_build: bool, args: Dictionary) -> String:
+	if not debug_build:
+		return ""
+	var scenario: Variant = args.get("level_bench", "")
+	return String(scenario) if (scenario is String or scenario is StringName) else ""
 
 
 ## Pre-warm unless a debug build was given `--no-prewarm` (release builds always pre-warm).

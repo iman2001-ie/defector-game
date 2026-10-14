@@ -27,7 +27,8 @@ extends Node
 ## WaveDirector also spawns its boss.phase1_medium_asteroids medium cover
 ## asteroids, in addition to the wave's `asteroids`. F3 frees a live boss
 ## (without boss_defeated) and resolves the wave; F6 frees it with the counted
-## enemies and starts the boss wave with a fresh one.
+## enemies and starts the boss wave with a fresh one (debug_jump_to_wave, which
+## the Story 8.3 level bench also uses to jump to any wave).
 ## Once Events.level_failed fires (the player died) the attempt is dead until
 ## start_level / debug_skip_to_boss (retro F1, DW-54): no wave or level clears
 ## and progress is frozen (kills don't resolve, nothing is subtracted, no
@@ -319,9 +320,9 @@ func debug_resolve_wave() -> void:
 		_try_clear()
 
 
-## F6: jumps to the first boss wave. Current counted enemies, any live boss and
-## its launched Wasps (Groups.BOSS_WASPS, Story 7.4) are freed without resolving
-## and running chains are abandoned; the boss wave starts with a fresh boss.
+## F6: jumps to the first boss wave through debug_jump_to_wave (current counted
+## enemies, any live boss and its launched Wasps are freed without resolving,
+## running chains are abandoned, and the boss wave starts with a fresh boss).
 func debug_skip_to_boss() -> void:
 	var boss_index: int = -1
 	for i: int in _waves.size():
@@ -332,6 +333,18 @@ func debug_skip_to_boss() -> void:
 		Log.info("debug", "F6: no boss wave in level %d" % _level_id)
 		return
 	Log.info("debug", "F6: jumping to boss wave %d" % (boss_index + 1))
+	debug_jump_to_wave(boss_index)
+
+
+## Debug jump (F6 and the Story 8.3 level bench): starts wave `index` (0-based)
+## at once. Current counted enemies, any live boss and its launched Wasps
+## (Groups.BOSS_WASPS, Story 7.4) are freed without resolving, running chains
+## are abandoned, and a failed or cleared attempt is live again. An index
+## outside the level's waves logs a warning, frees nothing and returns false.
+func debug_jump_to_wave(index: int) -> bool:
+	if index < 0 or index >= _waves.size():
+		Log.warn("debug", "Wave jump: level %d has no wave %d (it has %d)" % [_level_id, index + 1, _waves.size()])
+		return false
 	for node: Node in get_tree().get_nodes_in_group(Groups.COUNTED):
 		node.remove_from_group(Groups.COUNTED)
 		node.queue_free()
@@ -345,7 +358,8 @@ func debug_skip_to_boss() -> void:
 	_boss_pending = false
 	_level_done = false
 	_failed = false
-	start_wave(boss_index)
+	start_wave(index)
+	return true
 
 
 ## 1-based number of the current wave (0 before the level starts).

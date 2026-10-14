@@ -10,12 +10,17 @@ extends Node
 ## changes scenes". The args come from user_args and the redirect goes through
 ## change_scene (the same seams as level.gd).
 ##
-## Both scene changes are deferred: the main scene's _ready runs while the root
+## Debug builds given `-- --level-bench=<scenario>` (Story 8.3) start level
+## debug.level_bench.level through SceneRouter.start_level instead of the title,
+## so the same command runs the level bench on the editor binary and on a debug
+## export. Release builds ignore the arg and show the title.
+##
+## Every scene change is deferred: the main scene's _ready runs while the root
 ## is still adding it, so it can't be removed from the tree yet.
 
 const SANDBOX_SCENE_PATH: String = "res://scenes/sandbox/sandbox.tscn"
 
-## The user args _ready parses (`--stress`, `--bench=<s>`). Tests override this
+## The user args _ready parses (`--stress`, `--bench=<s>`, `--level-bench=<scenario>`). Tests override this
 ## before add_child.
 var user_args: PackedStringArray = OS.get_cmdline_user_args()
 ## Changes the scene to a file path (the debug `--stress` redirect, deferred).
@@ -37,9 +42,20 @@ func _ready() -> void:
 		Log.info("boot", "Config loaded (%d tuning sections, %d flags)" % [Config.tuning.size(), Config.flags.size()])
 	else:
 		Log.error("boot", "Config failed to load: %s" % Config.load_error)
+	# A failed config can't start a level; the title shows the error instead.
+	if should_start_level_bench(OS.is_debug_build(), args) and Config.load_error.is_empty():
+		var level: String = str(Config.int_("debug.level_bench.level"))
+		Log.info("boot", "Level bench '%s': starting level %s" % [args.level_bench, level])
+		SceneRouter.start_level.call_deferred(level)
+		return
 	SceneRouter.goto_title.call_deferred()
 
 
 ## Debug builds given `--stress` or `--bench=<s>` (which implies stress) run the sandbox instead.
 static func should_redirect_to_stress(debug_build: bool, args: Dictionary) -> bool:
 	return debug_build and args.stress
+
+
+## Debug builds given a valid `--level-bench=<scenario>` start the bench level instead of the title.
+static func should_start_level_bench(debug_build: bool, args: Dictionary) -> bool:
+	return debug_build and not String(args.get("level_bench", "")).is_empty()

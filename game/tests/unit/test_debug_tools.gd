@@ -834,3 +834,29 @@ func test_real_f5_restart_re_reads_config_in_the_new_scene() -> void:
 		return
 	var env: Environment = (_restarted_sandbox.get_node("WorldEnvironment") as WorldEnvironment).environment
 	assert_almost_eq(env.glow_intensity, new_intensity, 0.0001, "new scene reads the reloaded glow")
+
+
+# --- Level bench sharing (Story 8.3) ----------------------------------------------
+
+func test_bench_passed_is_the_shared_rule() -> void:
+	assert_false(DebugTools.bench_passed(null), "no stats fail")
+	var stats: FrameStats = FrameStats.new(4)
+	assert_false(DebugTools.bench_passed(stats), "no samples fail")
+	stats.add(10.0)
+	stats.add(16.0)
+	assert_true(DebugTools.bench_passed(stats), "under every limit passes")
+	stats.add(Config.num("debug.bench.max_ms_max"))
+	assert_false(DebugTools.bench_passed(stats), "a frame at the limit fails")
+	var bench: Dictionary = Config.tuning["debug"]["bench"]
+	bench["avg_ms_max"] = 100.0
+	bench["p99_ms_max"] = 100.0
+	bench["max_ms_max"] = 100.0
+	assert_true(DebugTools.bench_passed(stats), "limits come from Config")
+
+
+func test_level_bench_arg_starts_the_overlay_without_a_stress_bench() -> void:
+	_tools = _args_tools(PackedStringArray(["--level-bench=desperate"]))
+	assert_true(_overlay_label(_tools).visible, "overlay shown for the level bench")
+	assert_null(_tools._bench_stats, "no stress bench")
+	assert_false(Input.is_action_pressed(&"fire_laser"), "DebugTools holds no fire")
+	assert_eq(_lines_containing("Stress bench").size(), 0, "no stress bench lines")

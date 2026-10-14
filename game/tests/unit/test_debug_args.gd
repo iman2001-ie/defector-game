@@ -150,4 +150,44 @@ func test_empty_level_warns_and_is_ignored() -> void:
 
 func test_parse_returns_every_key() -> void:
 	var parsed: Dictionary = DebugArgs.parse(PackedStringArray())
-	assert_eq(parsed, {"stress": false, "bench_s": 0.0, "prewarm": true, "comms": [] as Array[StringName], "level": ""})
+	assert_eq(parsed, {"stress": false, "bench_s": 0.0, "prewarm": true, "comms": [] as Array[StringName], "level": "", "level_bench": ""})
+
+
+# --- Level bench (Story 8.3) ------------------------------------------------------
+
+func test_level_bench_defaults_to_empty() -> void:
+	var parsed: Dictionary = DebugArgs.parse(PackedStringArray())
+	assert_eq(parsed.level_bench, "")
+	assert_eq(typeof(parsed.level_bench), TYPE_STRING)
+
+
+func test_level_bench_scenarios_parse_without_stress() -> void:
+	for scenario: String in ["busiest_wave", "desperate"]:
+		var parsed: Dictionary = DebugArgs.parse(PackedStringArray(["--level-bench=" + scenario]))
+		assert_eq(parsed.level_bench, scenario)
+		assert_false(parsed.stress, "%s does not imply stress" % scenario)
+		assert_eq(parsed.bench_s, 0.0, "%s is not the stress bench" % scenario)
+		assert_eq(parsed.level, "", "%s is not --level=" % scenario)
+
+
+func test_level_bench_scenarios_const() -> void:
+	assert_eq(DebugArgs.LEVEL_BENCH_SCENARIOS, PackedStringArray(["busiest_wave", "desperate"]))
+
+
+func test_level_bench_last_one_wins() -> void:
+	var parsed: Dictionary = DebugArgs.parse(PackedStringArray(["--level-bench=busiest_wave", "--level-bench=desperate"]))
+	assert_eq(parsed.level_bench, "desperate")
+
+
+func test_empty_level_bench_warns_and_is_ignored() -> void:
+	var parsed: Dictionary = DebugArgs.parse(PackedStringArray(["--level-bench="]))
+	assert_eq(parsed.level_bench, "")
+	assert_false(parsed.stress)
+	assert_push_warning("--level-bench value '' (expected one of: busiest_wave, desperate)")
+
+
+func test_unknown_level_bench_warns_and_is_ignored() -> void:
+	var parsed: Dictionary = DebugArgs.parse(PackedStringArray(["--level-bench=foo"]))
+	assert_eq(parsed.level_bench, "")
+	assert_false(parsed.stress)
+	assert_push_warning("--level-bench value 'foo' (expected one of: busiest_wave, desperate)")

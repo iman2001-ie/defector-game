@@ -172,3 +172,46 @@ func test_boot_with_a_bad_save_warns_and_uses_the_defaults() -> void:
 	assert_eq(GameState.energy, 0)
 	assert_eq(_lines_starting("[WARN][save]").size(), 1, "WARN save line")
 	assert_eq(_router_calls, [SceneRouter.TITLE_SCENE_PATH] as Array[String], "still goes to the title")
+
+
+# --- Level bench route (Story 8.3) ------------------------------------------------
+
+func test_level_bench_route_only_in_debug_builds_with_a_scenario() -> void:
+	var bench: Dictionary = DebugArgs.parse(PackedStringArray(["--level-bench=desperate"]))
+	var none: Dictionary = DebugArgs.parse(PackedStringArray())
+	assert_true(BOOT_SCRIPT.should_start_level_bench(true, bench), "debug --level-bench")
+	assert_false(BOOT_SCRIPT.should_start_level_bench(true, none), "debug, no args")
+	assert_false(BOOT_SCRIPT.should_start_level_bench(false, bench), "release --level-bench")
+	assert_false(BOOT_SCRIPT.should_redirect_to_stress(true, bench), "never the stress sandbox")
+
+
+func test_level_bench_arg_starts_the_bench_level_not_the_title() -> void:
+	if not OS.is_debug_build():
+		pass_test("release build: no level bench route")
+		return
+	Config.load_error = ""
+	_boot(PackedStringArray(["--level-bench=busiest_wave"]))
+	assert_eq(_lines_starting("[INFO][boot] Level bench 'busiest_wave': starting level 3").size(), 1, "route logged")
+	assert_eq(_router_calls, [] as Array[String], "the route is deferred")
+	await wait_process_frames(1)
+	assert_eq(_router_calls, [SceneRouter.LEVEL_SCENE_PATH] as Array[String], "level.tscn once, not the title")
+	assert_eq(GameState.current_level_id, str(Config.int_("debug.level_bench.level")), "the bench level from Config")
+	assert_eq(_boot_calls, [] as Array[String], "no sandbox redirect")
+
+
+func test_bad_level_bench_arg_goes_to_the_title() -> void:
+	Config.load_error = ""
+	_boot(PackedStringArray(["--level-bench=foo"]))
+	assert_push_warning("foo")
+	await wait_process_frames(1)
+	assert_eq(_router_calls, [SceneRouter.TITLE_SCENE_PATH] as Array[String], "the title as normal")
+
+
+func test_level_bench_with_a_bad_config_goes_to_the_title() -> void:
+	Config.load_error = "res://data/tuning.json parse error at line 3: Expected '}'"
+	_boot(PackedStringArray(["--level-bench=busiest_wave"]))
+	assert_push_error("[ERROR][boot] Config failed to load")
+	assert_eq(_lines_starting("[INFO][boot] Level bench '").size(), 0, "no level bench route line")
+	await wait_process_frames(1)
+	assert_eq(_router_calls, [SceneRouter.TITLE_SCENE_PATH] as Array[String], "the title only")
+	assert_eq(_boot_calls, [] as Array[String], "no sandbox redirect")

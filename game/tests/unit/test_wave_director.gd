@@ -1018,6 +1018,64 @@ func test_f6_frees_the_live_flagship_and_starts_a_fresh_one() -> void:
 	assert_eq(_events_named("wave_cleared"), [["wave_cleared", 1]] as Array[Array], "one boss_defeated clears it")
 
 
+# --- Debug wave jump (Story 8.3 level bench) -------------------------------------
+
+func test_jump_to_wave_frees_live_counted_enemies_and_starts_that_wave() -> void:
+	_start([
+		{
+			"spawns": [_wasps(3)],
+			"groups": {"r": [_wasps(2)]},
+			"triggers": [{"when": "wave_start", "actions": [{"wait": 0.1}, {"spawn_group": "r"}]}],
+		},
+		{"spawns": [_wasps(1)]},
+		{"spawns": [_wasps(4)]},
+	])
+	var old: Array[Enemy] = _counted()
+	assert_eq(old.size(), 3, "wave 1 live")
+	assert_true(_director.debug_jump_to_wave(2), "the jump is accepted")
+	for enemy: Enemy in old:
+		assert_true(enemy.is_queued_for_deletion(), "freed")
+		assert_false(enemy.is_dead(), "without resolving")
+		assert_false(enemy.is_in_group(&"counted"), "no longer counted")
+	assert_eq(_events_named("wave_started").back(), ["wave_started", 2, 3], "wave 3 started")
+	assert_eq(_director.wave_number(), 3)
+	assert_eq(_director.total_count(), 4, "wave 3 counts its own spawns")
+	assert_eq(_director.resolved_count(), 0)
+	await wait_seconds(0.2)
+	assert_eq(_counted().size(), 4, "the abandoned wave-1 chain spawned nothing")
+	assert_eq(_director.running_chains(), 0)
+	assert_eq(_events_named("wave_cleared"), [] as Array[Array], "the old wave never clears")
+
+
+func test_jump_to_wave_out_of_range_warns_and_changes_nothing() -> void:
+	_start([{"spawns": [_wasps(2)]}, {"spawns": [_wasps(1)]}])
+	var old: Array[Enemy] = _counted()
+	for index: int in [-1, 2, 9]:
+		assert_false(_director.debug_jump_to_wave(index), "wave index %d refused" % index)
+	assert_eq(_lines_containing("[WARN][debug] Wave jump: level 3 has no wave").size(), 3, "one warning each")
+	assert_push_warning_count(3)
+	for enemy: Enemy in old:
+		assert_false(enemy.is_queued_for_deletion(), "nothing freed")
+	assert_eq(_director.wave_number(), 1, "still on wave 1")
+	assert_eq(_events_named("wave_started").size(), 1, "no wave restarted")
+
+
+func test_jump_to_wave_reopens_a_failed_attempt() -> void:
+	_start([{"spawns": [_wasps(1)]}, {"spawns": [_wasps(1)]}])
+	Events.level_failed.emit(&"hearts")
+	assert_true(_director.debug_jump_to_wave(1))
+	_kill(1)
+	assert_eq(_director.resolved_count(), 1, "the reopened attempt resolves kills")
+
+
+func test_f6_still_logs_its_line_through_the_jump() -> void:
+	_start([{"spawns": [_wasps(1)]}, {"boss": "flagship"}])
+	_director.debug_skip_to_boss()
+	assert_eq(_lines_containing("[INFO][debug] F6: jumping to boss wave 2").size(), 1)
+	assert_eq(_lines_containing("Wave jump").size(), 0, "no warning")
+	assert_eq(_flagships().size(), 1)
+
+
 ## Story 7.4: drives `boss` (physics off) to its station, destroys its turrets
 ## (CORE) and steps it past its first Wasp launch. Returns the live
 ## boss-launched Wasps (Groups.BOSS_WASPS), physics off on each.
