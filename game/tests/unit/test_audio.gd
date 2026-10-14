@@ -1,11 +1,12 @@
 extends GutTest
 ## Audio: bus layout, SFX pool (size, bus, steal oldest, reuse finished),
 ## unknown ids, pitch jitter and per-call volume and pitch. Story 5.3: the
-## Music player, play / switch / fade-stop and the missing-stream warning.
+## Music players, play / switch / fade-stop and the missing-stream warning;
+## playtest pt7-k: two music players, default fade-ins and crossfades.
 ## DW-80: the reserved comms pool (comms_* ids only; combat SFX never steal it).
-## Story 8.1: 21 registered SFX (pt7-i: explosion_mid replaces explosion_big and explosion_boss_part; pt7-j adds tarek_burn), each its own
-## file (no aliases); the MUSIC registry (level_1..3, boss and epilogue looping; game_over one-shot), copied into music_streams at start and
-## played at audio.music_volume_db.
+## Story 8.1: 21 registered SFX (pt7-i: explosion_mid replaces explosion_big and explosion_boss_part, a scaled Joth blast since
+## pt7-k; pt7-j adds tarek_burn), each its own file (no aliases); the MUSIC registry (level_1..3, boss, epilogue and menu looping; game_over
+## one-shot), copied into music_streams at start and played at audio.music_volume_db.
 
 const UnscaledClock := preload("res://tests/fixtures/unscaled_clock.gd")
 
@@ -22,13 +23,14 @@ func _free_all_players() -> void:
 		player.finished.emit()
 
 
-## The combat SFX pool (every AudioStreamPlayer child except the Music player
-## and the comms players).
+## The combat SFX pool (every AudioStreamPlayer child except the two music
+## players and the comms players).
 func _pool() -> Array[AudioStreamPlayer]:
 	var comms: Array[AudioStreamPlayer] = Audio.comms_players()
+	var music: Array[AudioStreamPlayer] = Audio.music_players()
 	var out: Array[AudioStreamPlayer] = []
 	for child: Node in Audio.get_children():
-		if child is AudioStreamPlayer and child != Audio.music_player() and not comms.has(child):
+		if child is AudioStreamPlayer and not music.has(child) and not comms.has(child):
 			out.append(child as AudioStreamPlayer)
 	return out
 
@@ -112,8 +114,8 @@ const SFX_IDS: Array[StringName] = [
 ]
 
 
-## Story 8.1 (+ playtest pt7-i's explosion_mid and pt7-j's tarek_burn): exactly
-## the 21 ids, each its own sfx_<id>.wav (no aliases).
+## Story 8.1 (+ playtest pt7-i's explosion_mid, since pt7-k a scaled Joth blast,
+## and pt7-j's tarek_burn): exactly the 21 ids, each its own sfx_<id>.wav (no aliases).
 func test_registry_streams() -> void:
 	assert_eq(Audio.SFX.size(), 21, "21 sfx ids")
 	assert_eq(Audio.SFX.size(), SFX_IDS.size(), "the list names every id")
@@ -283,27 +285,34 @@ func test_every_play_bumps_the_serial_once() -> void:
 	assert_eq(Audio._next_serial, before + 2, "one per play, either pool")
 
 
-# --- Music (Story 5.3) ------------------------------------------------------------
+# --- Music (Story 5.3; two players and crossfades since playtest pt7-k) ---------
 
-func test_music_player_on_the_music_bus() -> void:
-	var player: AudioStreamPlayer = Audio.music_player()
-	assert_not_null(player)
-	if player == null:
-		return
-	assert_eq(player.name, &"Music")
-	assert_eq(player.bus, &"Music")
-	assert_eq(player.get_parent(), Audio)
+func test_music_players_on_the_music_bus() -> void:
+	var players: Array[AudioStreamPlayer] = Audio.music_players()
+	assert_eq(players.size(), 2, "an active and a crossfade player")
+	var names: Array[String] = []
+	for player: AudioStreamPlayer in players:
+		assert_not_null(player)
+		if player == null:
+			continue
+		names.append(String(player.name))
+		assert_eq(player.bus, &"Music")
+		assert_eq(player.get_parent(), Audio)
+	names.sort()
+	assert_eq(names, ["Music", "MusicCrossfade"] as Array[String])
+	assert_eq(Audio.music_player(), players[0], "music_player() is the active one")
 	assert_eq(Audio.current_music(), &"", "silent at start")
 
 
-## Story 8.1 (+ playtest pt7-e's epilogue, pt7-g's game-over sting and pt7-i's
-## per-level tracks): six shipped tracks, preloaded, imported looping except
-## the one-shot sting; music_streams starts as a copy of the registry (tests
-## may swap entries).
+## Story 8.1 (+ playtest pt7-e's epilogue, pt7-g's game-over sting, pt7-i's
+## per-level tracks and pt7-k's menu track): seven shipped tracks, preloaded,
+## imported looping except the one-shot sting; music_streams starts as a copy
+## of the registry (tests may swap entries).
 func test_music_registry_ships_looping_tracks() -> void:
-	assert_eq(Audio.MUSIC.size(), 6, "six tracks")
-	for id: StringName in [&"level_1", &"level_2", &"level_3", &"boss", &"epilogue"]:
+	assert_eq(Audio.MUSIC.size(), 7, "seven tracks")
+	for id: StringName in [&"level_1", &"level_2", &"level_3", &"boss", &"epilogue", &"menu"]:
 		assert_true(Audio.MUSIC.has(id), "%s registered" % id)
+	assert_eq(Audio.MENU_MUSIC, &"menu")
 	assert_false(Audio.MUSIC.has(StringName("combat")), "the shared combat track is retired")
 	assert_true(Audio.MUSIC.has(&"game_over"), "the game-over sting")
 	assert_eq(Audio.ONE_SHOT_MUSIC, [&"game_over"] as Array[StringName])
@@ -328,25 +337,31 @@ func test_music_registry_ships_looping_tracks() -> void:
 	assert_ne(Audio.MUSIC[&"level_1"], Audio.MUSIC[&"level_2"], "each level its own track")
 	assert_ne(Audio.MUSIC[&"level_2"], Audio.MUSIC[&"level_3"], "each level its own track")
 	assert_ne(Audio.MUSIC[&"epilogue"], Audio.MUSIC[&"boss"], "the epilogue is its own track")
+	assert_ne(Audio.MUSIC[&"menu"], Audio.MUSIC[&"level_1"], "the menu is its own track")
 	assert_eq(Audio.music_streams.size(), Audio.MUSIC.size(), "music_streams is a copy of MUSIC")
 
 
-## Story 8.1: a shipped track plays on the Music bus at audio.music_volume_db.
+## Story 8.1 / playtest pt7-k: a shipped track plays on the Music bus at
+## audio.music_volume_db plus its gain. A hard cut (fade 0) starts the next
+## track on the other player at its volume and stops the old one at once.
 func test_shipped_track_plays_at_the_tuned_volume() -> void:
-	assert_almost_eq(Config.num("audio.music_volume_db"), -10.0, 0.0001, "tuned -10 dB")
+	assert_almost_eq(Config.num("audio.music_volume_db"), -7.0, 0.0001, "tuned -7 dB")
+	Audio.play_music(&"level_1", 0.0)
 	var player: AudioStreamPlayer = Audio.music_player()
-	Audio.apply_music_action(&"level_1")
 	assert_eq(Audio.current_music(), &"level_1")
 	assert_eq(player.stream, Audio.MUSIC[&"level_1"], "the shipped Level 1 track")
 	assert_true(player.playing, "playing")
 	assert_eq(player.bus, &"Music")
 	assert_almost_eq(player.volume_db, _track_db(&"level_1"), 0.0001, "at audio.music_volume_db plus its gain")
-	Audio.apply_music_action(&"boss")
-	assert_eq(player.stream, Audio.MUSIC[&"boss"], "the shipped boss track")
-	assert_almost_eq(player.volume_db, _track_db(&"boss"), 0.0001, "at audio.music_volume_db plus its gain")
+	Audio.play_music(&"boss", 0.0)
+	var boss: AudioStreamPlayer = Audio.music_player()
+	assert_ne(boss, player, "the next track starts on the other player")
+	assert_eq(boss.stream, Audio.MUSIC[&"boss"], "the shipped boss track")
+	assert_almost_eq(boss.volume_db, _track_db(&"boss"), 0.0001, "at audio.music_volume_db plus its gain")
+	assert_false(player.playing, "a hard cut stops the old track at once")
 	Audio.stop_music(0.0)
-	assert_false(player.playing)
-	assert_almost_eq(player.volume_db, _base_db(), 0.0001, "base volume restored after a stop")
+	assert_false(boss.playing)
+	assert_almost_eq(boss.volume_db, _base_db(), 0.0001, "base volume restored after a stop")
 
 
 ## Story 8.1: a retuned audio.music_volume_db (as after an F5 reload) takes
@@ -356,75 +371,128 @@ func test_retuned_music_volume_applies_on_the_next_play() -> void:
 	var audio_tuning: Dictionary = Config.tuning["audio"] as Dictionary
 	var original: Variant = audio_tuning["music_volume_db"]
 	audio_tuning["music_volume_db"] = -20.0
-	Audio.play_music(&"level_1")
+	Audio.play_music(&"level_1", 0.0)
 	var got: float = Audio.music_player().volume_db
 	Audio.stop_music(0.0)
 	var restored: float = Audio.music_player().volume_db
 	audio_tuning["music_volume_db"] = original
 	assert_almost_eq(got, -20.0 + Audio.music_gain_db(&"level_1"), 0.0001, "the retuned volume (plus the track's gain)")
 	assert_almost_eq(restored, -20.0, 0.0001, "a stop restores the retuned base")
-	Audio.play_music(&"boss")
-	assert_almost_eq(Audio.music_player().volume_db, float(original), 0.0001, "the shipped value again")
+	Audio.play_music(&"boss", 0.0)
+	assert_almost_eq(Audio.music_player().volume_db, _track_db(&"boss"), 0.0001, "the shipped value again")
 
 
+## Playtest pt7-k: a default start from silence fades in over
+## audio.music_fade_in_s; the same id again does nothing; a different id
+## crossfades over audio.music_crossfade_s on the other player.
 func test_play_switch_and_same_id() -> void:
 	Log.sink = _capture
 	var streams: Dictionary = _register_music()
-	var player: AudioStreamPlayer = Audio.music_player()
 	Audio.apply_music_action(&"level_1")
+	var first: AudioStreamPlayer = Audio.music_player()
 	assert_eq(Audio.current_music(), &"level_1")
-	assert_eq(player.stream, streams[&"level_1"])
-	assert_almost_eq(player.volume_db, _track_db(&"level_1"), 0.0001, "base volume plus the track's gain")
+	assert_eq(first.stream, streams[&"level_1"])
+	assert_eq(_lines_containing("[INFO][audio] Music 'level_1' playing (%.2f s fade-in)" % Config.num("audio.music_fade_in_s")).size(), 1, "a start from silence fades in")
 	Audio.play_music(&"level_1")
 	assert_eq(_lines_containing("[INFO][audio] Music 'level_1' playing").size(), 1, "the same id does nothing")
 	Audio.apply_music_action(&"boss")
+	var second: AudioStreamPlayer = Audio.music_player()
 	assert_eq(Audio.current_music(), &"boss", "switched")
-	assert_eq(player.stream, streams[&"boss"])
-	assert_eq(_lines_containing("[INFO][audio] Music 'boss' playing").size(), 1)
+	assert_ne(second, first, "on the other player")
+	assert_eq(second.stream, streams[&"boss"])
+	assert_true(first.playing, "the old track keeps playing while it fades out")
+	assert_eq(_lines_containing("[INFO][audio] Music 'boss' playing (%.2f s fade-in)" % Config.num("audio.music_crossfade_s")).size(), 1, "a switch crossfades")
+
+
+## Playtest pt7-k: a crossfade runs both legs over audio.music_crossfade_s, then
+## the old track stops and the new one sits at its volume.
+func test_crossfade_ends_with_only_the_new_track() -> void:
+	assert_true(await UnscaledClock.settle(self), "unscaled clock settled")
+	_register_music()
+	var audio_tuning: Dictionary = Config.tuning["audio"] as Dictionary
+	var original: Variant = audio_tuning["music_crossfade_s"]
+	audio_tuning["music_crossfade_s"] = 0.4
+	Audio.play_music(&"level_1", 0.0)
+	var old: AudioStreamPlayer = Audio.music_player()
+	Audio.play_music(&"boss")
+	var new: AudioStreamPlayer = Audio.music_player()
+	await wait_seconds(0.2)
+	assert_true(old.playing and new.playing, "both legs audible mid-crossfade")
+	assert_lt(old.volume_db, _track_db(&"level_1") - 1.0, "the old one falling")
+	assert_gt(new.volume_db, Audio.MUSIC_SILENT_DB + 1.0, "the new one rising")
+	await wait_seconds(0.4)
+	audio_tuning["music_crossfade_s"] = original
+	assert_false(old.playing, "the old track stopped after the crossfade")
+	assert_almost_eq(old.volume_db, _base_db(), 0.0001, "and is back at the base volume")
+	assert_true(new.playing)
+	assert_almost_eq(new.volume_db, _track_db(&"boss"), 0.0001, "the new track at its volume")
+	assert_eq(Audio.current_music(), &"boss")
+
+
+## Playtest pt7-k: a third track during a crossfade cuts the oldest leg at once.
+func test_a_third_track_mid_crossfade_drops_the_oldest() -> void:
+	var streams: Dictionary = _register_music()
+	var third: AudioStreamWAV = _stream()
+	Audio.music_streams[&"epilogue"] = third
+	Audio.play_music(&"level_1", 0.0)
+	var first: AudioStreamPlayer = Audio.music_player()
+	Audio.play_music(&"boss")
+	var second: AudioStreamPlayer = Audio.music_player()
+	Audio.play_music(&"epilogue")
+	assert_eq(Audio.music_player(), first, "the newest track reuses the idle player")
+	assert_eq(first.stream, third, "now the third track")
+	assert_true(second.playing, "the boss track fades out")
+	assert_eq(second.stream, streams[&"boss"])
+	assert_eq(Audio.current_music(), &"epilogue")
 
 
 func test_stop_fades_over_the_tuning_time_then_stops() -> void:
 	assert_true(await UnscaledClock.settle(self), "unscaled clock settled")
 	_register_music()
+	assert_almost_eq(Config.num("audio.music_fade_out_s"), 1.0, 0.0001)
+	Audio.play_music(&"level_1", 0.0)
 	var player: AudioStreamPlayer = Audio.music_player()
-	assert_eq(Config.num("audio.music_fade_out_s"), 0.5)
-	Audio.apply_music_action(&"level_1")
 	Audio.apply_music_action(&"stop")
 	assert_eq(Audio.current_music(), &"", "silent from the call on")
-	await wait_seconds(0.25)
-	assert_lt(player.volume_db, -1.0, "fading down")
-	assert_gt(player.volume_db, -80.0, "not yet at the end of the 0.5 s fade")
+	await wait_seconds(0.5)
+	assert_lt(player.volume_db, _track_db(&"level_1") - 1.0, "fading down")
+	assert_gt(player.volume_db, -80.0, "not yet at the end of the 2 s fade")
 	assert_eq(player.stream, Audio.music_streams[&"level_1"], "still the faded track")
-	await wait_seconds(0.4)
+	await wait_seconds(1.8)
 	assert_false(player.playing, "stopped after the fade")
 	assert_almost_eq(player.volume_db, _base_db(), 0.0001, "base volume restored")
 	assert_eq(Audio.current_music(), &"")
 
 
-func test_play_during_a_fade_restores_the_volume() -> void:
+## Playtest pt7-k: the same track asked for while it fades out comes back on the
+## same player where it is (no restart); fade 0 puts it straight back.
+func test_play_during_a_fade_brings_the_same_track_back() -> void:
 	assert_true(await UnscaledClock.settle(self), "unscaled clock settled")
 	_register_music()
+	Audio.play_music(&"level_1", 0.0)
 	var player: AudioStreamPlayer = Audio.music_player()
-	Audio.play_music(&"level_1")
 	Audio.stop_music()
-	await wait_seconds(0.2)
-	assert_lt(player.volume_db, -1.0, "fading")
-	Audio.play_music(&"level_1")
+	await wait_seconds(0.3)
+	assert_lt(player.volume_db, _track_db(&"level_1") - 1.0, "fading")
+	Audio.play_music(&"level_1", 0.0)
 	assert_eq(Audio.current_music(), &"level_1", "plays again during the fade")
+	assert_eq(Audio.music_player(), player, "the same player, not restarted")
+	assert_true(player.playing)
 	assert_almost_eq(player.volume_db, _track_db(&"level_1"), 0.0001, "fade killed, the track volume")
-	await wait_seconds(0.5)
+	await wait_seconds(2.0)
 	assert_almost_eq(player.volume_db, _track_db(&"level_1"), 0.0001, "the old fade never ends it")
+	assert_true(player.playing)
 	assert_eq(Audio.current_music(), &"level_1")
 
 
 func test_zero_fade_stop_during_a_fade_stops_at_once() -> void:
 	assert_true(await UnscaledClock.settle(self), "unscaled clock settled")
 	_register_music()
+	Audio.play_music(&"level_1", 0.0)
 	var player: AudioStreamPlayer = Audio.music_player()
-	Audio.play_music(&"level_1")
 	Audio.stop_music()
 	await wait_seconds(0.2)
-	assert_lt(player.volume_db, -1.0, "fading")
+	assert_lt(player.volume_db, _track_db(&"level_1") - 1.0, "fading")
 	Audio.stop_music(0.0)
 	assert_false(player.playing, "stopped at once")
 	assert_almost_eq(player.volume_db, _base_db(), 0.0001, "base volume")
@@ -433,8 +501,8 @@ func test_zero_fade_stop_during_a_fade_stops_at_once() -> void:
 
 func test_stop_with_zero_fade_or_nothing_playing() -> void:
 	_register_music()
+	Audio.play_music(&"level_1", 0.0)
 	var player: AudioStreamPlayer = Audio.music_player()
-	Audio.play_music(&"level_1")
 	Audio.stop_music(0.0)
 	assert_false(player.playing, "stopped at once")
 	assert_almost_eq(player.volume_db, _base_db(), 0.0001)
@@ -448,12 +516,14 @@ func test_missing_stream_warns_once_and_stays_silent() -> void:
 	Log.sink = _capture
 	Audio.music_streams[&"level_1"] = _stream()
 	Audio.music_streams.erase(&"boss")
-	var player: AudioStreamPlayer = Audio.music_player()
 	Audio.apply_music_action(&"level_1")
+	var player: AudioStreamPlayer = Audio.music_player()
 	Audio.apply_music_action(&"boss")
 	assert_eq(Audio.current_music(), &"", "stays silent")
-	assert_false(player.playing, "the combat track stopped at once")
-	assert_almost_eq(player.volume_db, _base_db(), 0.0001)
+	for each: AudioStreamPlayer in Audio.music_players():
+		assert_false(each.playing, "every music player stopped at once")
+		assert_almost_eq(each.volume_db, _base_db(), 0.0001)
+	assert_false(player.playing, "the level track stopped at once")
 	assert_eq(_lines_containing("[WARN][audio]").size(), 1, "one warning")
 	Audio.apply_music_action(&"boss")
 	assert_eq(_lines_containing("[WARN][audio]").size(), 1, "no new warning for the same id")
@@ -478,10 +548,19 @@ func test_music_ids_mirror_the_validator_actions() -> void:
 func test_music_gain_lifts_only_its_track() -> void:
 	assert_almost_eq(Audio.music_gain_db(&"epilogue"), Config.num("audio.music_gain_db.epilogue"), 0.0001)
 	assert_almost_eq(Audio.music_gain_db(&"boss"), 0.0, 0.0001, "no gain for boss")
-	Audio.play_music(&"epilogue")
+	Audio.play_music(&"epilogue", 0.0)
 	assert_almost_eq(Audio.music_player().volume_db, _base_db() + Audio.music_gain_db(&"epilogue"), 0.0001, "base + gain")
 	Audio.stop_music(0.0)
 	assert_almost_eq(Audio.music_player().volume_db, _base_db(), 0.0001, "the stop restores the base")
+
+
+## Playtest pt7-k: the in-game tracks rose 3 dB; the tracks heard without combat
+## effects (epilogue, game_over, menu) sit about 3 dB under them by gain.
+func test_quiet_tracks_sit_under_the_in_game_mix() -> void:
+	assert_almost_eq(Config.num("audio.music_gain_db.game_over"), 3.0, 0.0001, "the sting keeps its old absolute level")
+	assert_true(Config.section("audio.music_gain_db").has("menu"), "the menu track has a gain")
+	assert_almost_eq(Config.num("audio.music_crossfade_s"), 1.5, 0.0001)
+	assert_almost_eq(Config.num("audio.music_fade_in_s"), 1.5, 0.0001)
 
 
 ## Playtest pt7-e: a fade-in starts silent and rises to the track volume; asking
@@ -489,8 +568,8 @@ func test_music_gain_lifts_only_its_track() -> void:
 func test_fade_in_rises_and_a_repeat_play_keeps_it() -> void:
 	assert_true(await UnscaledClock.settle(self), "unscaled clock settled")
 	_register_music()
-	var player: AudioStreamPlayer = Audio.music_player()
 	Audio.play_music(&"level_1", 0.5)
+	var player: AudioStreamPlayer = Audio.music_player()
 	assert_true(player.playing, "playing at once")
 	assert_eq(Audio.current_music(), &"level_1")
 	assert_almost_eq(player.volume_db, Audio.MUSIC_SILENT_DB, 0.5, "starts silent")
@@ -509,11 +588,12 @@ func test_fade_in_rises_and_a_repeat_play_keeps_it() -> void:
 func test_stop_during_a_fade_in_fades_out() -> void:
 	assert_true(await UnscaledClock.settle(self), "unscaled clock settled")
 	_register_music()
-	var player: AudioStreamPlayer = Audio.music_player()
 	Audio.play_music(&"level_1", 1.0)
+	var player: AudioStreamPlayer = Audio.music_player()
 	await wait_seconds(0.2)
 	Audio.stop_music(0.2)
 	assert_eq(Audio.current_music(), &"", "silent from the call on")
+	assert_true(player.playing, "still audible while it fades")
 	await wait_seconds(0.35)
 	assert_false(player.playing, "stopped after the fade-out")
 	assert_almost_eq(player.volume_db, _base_db(), 0.0001, "base volume restored")
@@ -557,3 +637,15 @@ func test_a_finished_track_clears_the_current_music() -> void:
 ## audio.music_gain_db (playtest pt7-i: the level tracks are levelled by gain).
 func _track_db(id: StringName) -> float:
 	return _base_db() + Audio.music_gain_db(id)
+
+
+## pt7-k review: is_fading_out() is true only while a stopped track fades.
+func test_is_fading_out_only_while_a_stopped_track_fades() -> void:
+	Audio.stop_music(0.0)
+	assert_false(Audio.is_fading_out(), "silent")
+	Audio.play_music(&"menu", 0.0)
+	assert_false(Audio.is_fading_out(), "playing")
+	Audio.stop_music(1.0)
+	assert_true(Audio.is_fading_out(), "fading to silence")
+	Audio.stop_music(0.0)
+	assert_false(Audio.is_fading_out(), "stopped")

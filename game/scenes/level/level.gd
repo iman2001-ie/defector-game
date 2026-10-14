@@ -62,6 +62,16 @@ extends Node2D
 ## WaveDirector starts, with this scene's WaveDirector, Player, CommsChannel and
 ## FinalChoice and its numbers from tuning debug.level_bench / debug.bench. A
 ## level that fails to load aborts it (FAIL), so the run never hangs.
+##
+## Title card (Epic 7 playtest L, 2026-10-14): a campaign level (id 1 to
+## progression.level_count) first emits Events.level_intro_started(id, name,
+## hold) for the HUD's LevelIntroCard ("LEVEL N" and the level name), then waits
+## the card's whole time (ui.level_intro fade_in_s + hold + fade_out_s) on a
+## pausable game-time timer before the WaveDirector starts (its briefing or wave
+## 1) and the debug `--comms` requests go out. The hold is hold_s, or
+## retry_hold_s on a retry; a hold of 0 skips the card. Dev levels (id 0), a
+## failed config, the level bench and `intro_card = false` (tests) start at
+## once. Nothing pauses or requests comms during the card.
 
 const SANDBOX_SCENE_PATH: String = "res://scenes/sandbox/sandbox.tscn"
 
@@ -78,6 +88,10 @@ var user_args: PackedStringArray = OS.get_cmdline_user_args()
 ## recorder before add_child (calling the real one in GUT would replace the
 ## test runner's scene).
 var change_scene: Callable
+
+## False starts the level at once with no title card (tests set it before
+## add_child; playtest L).
+var intro_card: bool = true
 
 ## The level bench's quit callable (Story 8.3); empty means get_tree().quit.
 ## Tests inject a recorder before add_child.
@@ -145,13 +159,31 @@ func _ready() -> void:
 	var ally: String = ally_id(data)
 	if not ally.is_empty():
 		_spawn_ally(ally)
-	_director.start_level(data, Config.LEVEL_PATH_FORMAT % level_id)
 	# One explosion per tier off-screen, so the first real impact doesn't hitch.
 	if should_prewarm(OS.is_debug_build(), args):
 		Feedback.prewarm()
 	else:
 		Log.info("scene", "Feedback pre-warm skipped (--no-prewarm)")
-	for comms_id: StringName in debug_comms_ids(OS.is_debug_build(), args):
+	var comms_ids: Array[StringName] = debug_comms_ids(OS.is_debug_build(), args)
+	var hold: float = 0.0
+	if intro_card and bench == null and Config.load_error.is_empty() and is_campaign_level(id, Config.int_("progression.level_count")):
+		hold = intro_hold_s(GameState.is_retry, Config.num("ui.level_intro.hold_s"), Config.num("ui.level_intro.retry_hold_s"))
+	if hold <= 0.0:
+		_begin(data, comms_ids)
+		return
+	var wait_s: float = LevelIntroCard.total_s(Config.num("ui.level_intro.fade_in_s"), hold, Config.num("ui.level_intro.fade_out_s"))
+	Log.info("scene", "Level %d title card (%.2f s)" % [id, wait_s])
+	Events.level_intro_started.emit(id, str(data.get("name", "")), hold)
+	# Game time, pausable: the card and the wait freeze together under a pause.
+	# The connection dies with the level, so a level freed first starts nothing.
+	get_tree().create_timer(wait_s, false).timeout.connect(_begin.bind(data, comms_ids))
+
+
+## Starts the WaveDirector (the briefing or wave 1), then the debug `--comms`
+## requests (deferred).
+func _begin(data: Dictionary, comms_ids: Array[StringName]) -> void:
+	_director.start_level(data, Config.LEVEL_PATH_FORMAT % level_id)
+	for comms_id: StringName in comms_ids:
 		Log.info("debug", "--comms: requesting comms sequence '%s'" % comms_id)
 		_request_comms.call_deferred(comms_id)
 
@@ -231,6 +263,17 @@ func _log_kill_share() -> void:
 static func kill_share_line(total: int, ally: int, lo: float, hi: float) -> String:
 	var pct: int = roundi(100.0 * float(ally) / float(total)) if total > 0 else 0
 	return "Kills: %d total, ally %d (%d%%); target %d-%d%%" % [total, ally, pct, roundi(lo * 100.0), roundi(hi * 100.0)]
+
+
+## True for a campaign level id (1..level_count): only those show a title card.
+static func is_campaign_level(id: int, level_count: int) -> bool:
+	return id >= 1 and id <= level_count
+
+
+## The title card's hold: retry_hold_s on a retry, else hold_s (0 or less: no
+## card).
+static func intro_hold_s(is_retry: bool, hold_s: float, retry_hold_s: float) -> float:
+	return maxf(retry_hold_s if is_retry else hold_s, 0.0)
 
 
 ## The level's ally id: "tarek" or "ryn" from the data's "ally" key; "" when

@@ -40,6 +40,7 @@ const EVENTS: Dictionary = {
 	"enemy_killed": [TYPE_STRING_NAME, TYPE_VECTOR2, TYPE_BOOL],
 	"asteroid_destroyed": [TYPE_STRING_NAME, TYPE_VECTOR2],
 	"level_started": [TYPE_INT],
+	"level_intro_started": [TYPE_INT, TYPE_STRING, TYPE_FLOAT],
 	"wave_started": [TYPE_INT, TYPE_INT],
 	"wave_progress_changed": [TYPE_INT, TYPE_FLOAT],
 	"wave_cleared": [TYPE_INT],

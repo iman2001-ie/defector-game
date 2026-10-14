@@ -1,4 +1,4 @@
-[gd_scene load_steps=26 format=3]
+[gd_scene load_steps=27 format=3]
 
 [ext_resource type="Script" path="res://scenes/level/level.gd" id="1_level"]
 [ext_resource type="PackedScene" path="res://entities/player/player.tscn" id="2_player"]
@@ -24,6 +24,7 @@
 [ext_resource type="PackedScene" path="res://systems/comms/final_choice.tscn" id="22_final_choice"]
 [ext_resource type="Script" path="res://scenes/level/level_background.gd" id="23_background"]
 [ext_resource type="Script" path="res://systems/story/tarek_fall_scene.gd" id="24_tarek_fall"]
+[ext_resource type="Script" path="res://ui/hud/level_intro_card.gd" id="25_level_intro"]
 
 [sub_resource type="Environment" id="Environment_glow"]
 background_mode = 3
@@ -173,6 +174,16 @@ text = "LEVEL CLEAR"
 horizontal_alignment = 1
 vertical_alignment = 1
 script = ExtResource("6_banner")
+
+[node name="LevelIntroCard" type="Control" parent="HUD"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme = ExtResource("9_theme")
+script = ExtResource("25_level_intro")
 
 [node name="Comms" type="CanvasLayer" parent="."]
 layer = 20

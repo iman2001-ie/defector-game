@@ -218,6 +218,7 @@ func _load_flags(overrides: Dictionary) -> void:
 func _make_level() -> Node2D:
 	(Config.tuning["waves"] as Dictionary)["gap_s"] = 0.05
 	_level = LEVEL_SCENE.instantiate() as Node2D
+	_level.set("intro_card", false)  # Playtest L: start at once, no title card.
 	_level.set("level_id", LEVEL_ID)
 	_level.user_args = PackedStringArray()
 	_level.get_node("World/Enemies").child_entered_tree.connect(_on_enemy_entered)

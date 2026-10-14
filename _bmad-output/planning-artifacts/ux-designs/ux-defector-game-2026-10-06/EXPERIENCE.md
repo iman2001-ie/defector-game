@@ -45,6 +45,7 @@ This is the core UX rule, from GDD decision #22.
 
 | Kind | When | Game paused? | Where | Advances |
 |---|---|---|---|---|
+| **Level title card** | Start of each campaign level, before its briefing or wave 1 (playtest L, GDD #77) | No (nothing starts until it has gone; it freezes with a pause) | Centred: `LEVEL N` (120 px, `coalition` with its glow) and the level name under it (40 px, `text`) | Fades in 0.4 s, holds 1.6 s (0.6 s on a retry), fades out 0.6 s |
 | **Briefing / debrief** | Level start / level end; also the opening | Yes, with dim | Centred story panel | Click anywhere |
 | **Big mid-fight moment** | L1 surrender offer, L3 Final Choice lead-in (only these two); both end in a two-button choice (L1: SURRENDER / REFUSE, GDD #63) | Yes, with dim | Centred story panel, then the Final Choice buttons | Click anywhere, then a button |
 | **Scripted scene** | Tarek's fall (L2 W5, GDD #63, #76): alarm, red lock-on line on Vale, a paused story beat with Tarek's warning, then Tarek intercepts and the Ram strikes in slow motion; a second paused beat with Vale's call-out and a nameless "..." over static | Twice (story panel, click to continue); otherwise controls lock, enemies hold fire, Vale can't be hit | In the world, plus the centred story panel for the two beats | Control returns on its own about 1 s after the second beat |

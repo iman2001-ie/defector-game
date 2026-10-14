@@ -337,7 +337,7 @@ The visual sprite may be shorter. No ray/shape casts are needed.
   - `pitch_scale = pitch * (1 + randf_range(-pitch_jitter, pitch_jitter))`, and `volume_db` is set on the player.
   - The stream comes from the `Audio.SFX` registry (id → preloaded stream). An unknown id logs `Log.warn` once per id and returns `null`.
   - Two pools of `AudioStreamPlayer` nodes, both on the `SFX` bus: the combat pool, 12 (`POOL_SIZE`) players named `Sfx<n>`, and the reserved comms pool (DW-80), 2 (`COMMS_POOL_SIZE`) players named `Comms<n>`. `play_sfx` routes the `comms_*` ids in the const `COMMS_SFX` (`comms_open`, `comms_open_nobeep`, `comms_static`, `comms_click`, `comms_handover`) to the comms pool and every other id to the combat pool. Each pool uses its first free player; when all are busy it stops and reuses its own player started longest ago. A pool never takes a player from the other, so a flood of combat SFX can't cut the cut-off `comms_static` short. `newest_player()` spans both pools; `comms_players()` lists the comms pool (tests). Pool sizes are constants, not tuning.
-- **Music (built, Story 5.3; tracks since Story 8.1):** one `Music` `AudioStreamPlayer` child on the `Music` bus and the `Audio.music_streams` registry (id → stream). It starts as a copy of the const `Audio.MUSIC` (since playtest pt7-i one track per campaign level, `level_1`, `level_2` and `level_3`, which replace the shared `combat` track; `boss`; since playtest pt7-e `epilogue`; since pt7-g the one-shot `game_over`: preloaded CC0 OGGs in `assets/audio/music/`, imported with `loop=true` except the sting), so tests can swap or remove entries and restore `Audio.MUSIC`; the player's base volume is `audio.music_volume_db` (-10 dB), read in `_ready` and again at every `play_music`, so an F5 reload applies a retune on the next play. `SceneRouter.complete_level` of the last campaign level calls `stop_music()` before the epilogue or the end screen (DW-100), so the boss track never reaches them; since playtest pt7-e the council epilogue and the end screen then fade in the gentle `epilogue` track, and `goto_title()` fades any music out. `Audio.apply_music_action(action)` (the WaveDirector `music` action: `&"stop"` → `stop_music()`, anything else → `play_music(action)`), `play_music(id, fade_in_s := 0.0)` (plays or switches at once, or rises from silence over `fade_in_s`; the volume is `audio.music_volume_db` plus the optional `audio.music_gain_db.<id>`; the same id, playing or fading in, is a no-op; a missing stream warns once per id, stops the current track at once and stays silent), `stop_music(fade_s := -1.0)` (a negative fade uses `audio.music_fade_out_s`, 0.5 s), `current_music()`, `music_player()`. `Audio.duck_music(on: bool)` is not built, and no Epic 8 acceptance criterion requires it (Story 8.1 left it out).
+- **Music (built, Story 5.3; tracks since Story 8.1; crossfades since playtest pt7-k, see its as-built section, which supersedes the single-player, 0.5 s and -10 dB details below):** one `Music` `AudioStreamPlayer` child on the `Music` bus and the `Audio.music_streams` registry (id → stream). It starts as a copy of the const `Audio.MUSIC` (since playtest pt7-i one track per campaign level, `level_1`, `level_2` and `level_3`, which replace the shared `combat` track; `boss`; since playtest pt7-e `epilogue`; since pt7-g the one-shot `game_over`: preloaded CC0 OGGs in `assets/audio/music/`, imported with `loop=true` except the sting), so tests can swap or remove entries and restore `Audio.MUSIC`; the player's base volume is `audio.music_volume_db` (-10 dB), read in `_ready` and again at every `play_music`, so an F5 reload applies a retune on the next play. `SceneRouter.complete_level` of the last campaign level calls `stop_music()` before the epilogue or the end screen (DW-100), so the boss track never reaches them; since playtest pt7-e the council epilogue and the end screen then fade in the gentle `epilogue` track, and `goto_title()` fades any music out. `Audio.apply_music_action(action)` (the WaveDirector `music` action: `&"stop"` → `stop_music()`, anything else → `play_music(action)`), `play_music(id, fade_in_s := 0.0)` (plays or switches at once, or rises from silence over `fade_in_s`; the volume is `audio.music_volume_db` plus the optional `audio.music_gain_db.<id>`; the same id, playing or fading in, is a no-op; a missing stream warns once per id, stops the current track at once and stays silent), `stop_music(fade_s := -1.0)` (a negative fade uses `audio.music_fade_out_s`, 0.5 s), `current_music()`, `music_player()`. `Audio.duck_music(on: bool)` is not built, and no Epic 8 acceptance criterion requires it (Story 8.1 left it out).
 - SFX are in-world but on a fixed screen, so there's no positional audio (`AudioStreamPlayer`, not `2D`).
 - Explosion tier → SFX: each `tuning.json → feedback.tiers` row carries `sfx`, `sfx_pitch` and `sfx_volume_db` (GDD decision #26). `Feedback.impact` calls `Audio.play_sfx(row.sfx, Audio.DEFAULT_PITCH_JITTER, row.sfx_volume_db, row.sfx_pitch)`.
 
@@ -525,6 +525,7 @@ signal wave_started(wave_index: int, wave_count: int)
 signal wave_progress_changed(wave_index: int, ratio: float)
 signal wave_cleared(wave_index: int)
 signal level_cleared(level_id: int)
+signal level_intro_started(level_number: int, level_name: String, hold_s: float)  # pt7-l: the HUD title card
 signal level_failed(reason: StringName)              # &"hearts" | &"convoy"
 
 # Escort / boss
@@ -2098,7 +2099,7 @@ The sound pass (GDD decision #65; DW-100). No `Events`, Feedback code, WaveDirec
 - **SFX:** `Audio.SFX` holds 20 ids, each its own `assets/audio/sfx/sfx_<id>.wav` (no aliases): the combat sounds are CC0 Kenney sounds (Sci-Fi Sounds, 63 Digital sound effects, Interface Sounds, from the OpenGameArt mirrors), written by `tools/import_cc0_audio.py --packs <dir>` (stdlib plus `ffmpeg`: mono 44.1 kHz 16-bit, an optional trim with a 5 ms fade-in and a fade-out, two-pass peak normalise to -1 dBFS; the docstring records the page URLs and source SHA-256; tests in `tools/test_import_cc0_audio.py`). New ids `shield_on` (played by `Player.try_shield` after `Shield.raise()`; a denied or repeated raise plays nothing new) and `needle_lock` (played by `Needle._enter_state(LOCKED)`, once per lock), both on the combat pool with the default jitter. `tools/gen_placeholder_sfx.py` now writes only `comms_open`, `comms_open_nobeep`, `comms_click`, `comms_handover` and `maul_alarm`, byte-identical; `comms_static` is unchanged.
 - **Music:** see [Audio Architecture](#audio-architecture). The tracks are MintoDog "Space Adventure" (`combat`) and "Space Boss Battle" (`boss`), copied byte-for-byte with a SHA-256 check.
 - **Tuning:** `audio.music_volume_db` -10.0; `feedback.tiers.small.sfx_pitch` 1.0 -> 1.2 (pitch falls small 1.2 > medium 1.0 > large 0.8).
-- **SceneRouter:** `complete_level(level_count)` saves, then `Audio.stop_music()` (fade over `audio.music_fade_out_s`), then the epilogue or the end screen, whatever the flag or `Config.load_error`; earlier clears leave the music alone.
+- **SceneRouter:** `complete_level(level_count)` saves, then `Audio.stop_music()` (fade over `audio.music_fade_out_s`), then the epilogue or the end screen, whatever the flag or `Config.load_error`; earlier clears leave the music alone (superseded by playtest pt7-k: earlier clears fade it out too).
 - **Credits:** every file under `assets/audio/` has a `assets/CREDITS.md` row; a data test enforces it, and that every `feedback.tiers` sfx and every non-`stop` music action is registered.
 - **Owed to the operator (playtest, not claimed by tests):** listen to every pick in play: loudness against the -10 dB music, the loop seams, the explosion pitch ladder and whether each cue fits. Any retune goes in `tuning.json` with a decision-log entry.
 
@@ -2220,6 +2221,41 @@ Tarek's fall as paused story beats (GDD decision log #76; provisional until the 
 - **Allies:** `allies.ship_px` 96 (was 64).
 - **Audio:** `tarek_burn` in `Audio.SFX`; `tools/import_cc0_audio.py` layers gain `rate` and `delay_s`, and an empty `echo` skips `aecho`.
 
+## As-built 2026-10-14 (Epic 7 playtest L)
+
+The "LEVEL N" title card (GDD decision log #77; provisional until the operator looks).
+
+- **Events:** a new `level_intro_started(level_number: int, level_name: String, hold_s: float)`, emitted by `level.gd` and read only by the HUD.
+- **Level start:** after the level's setup (background, convoy, ally, the Feedback pre-warm), a campaign level emits the Event, then waits `LevelIntroCard.total_s(fade_in_s, hold, fade_out_s)` on `get_tree().create_timer(wait_s, false)`, which is game time and freezes under a pause. Only then does `_begin` call `WaveDirector.start_level` and send the debug `--comms` requests. The hold is `hold_s`, or `retry_hold_s` on a retry, and 0 skips the card. Dev levels, a failed config, the level bench and the `intro_card` seam (false in the level-flow tests) start at once.
+- **HUD:** `HUD/LevelIntroCard` (`ui/hud/level_intro_card.gd`, a full-rect Control, PAUSABLE, mouse-transparent) builds the Number and Name Labels in code, lays them out from `ui.level_intro` and styles them from the Theme type `LevelIntro` (`colors/number`, `colors/number_glow`, `colors/name`, `constants/glow_px`). It fades on `_process` with `alpha_at` and shows nothing on a failed config.
+- **Tests:** `tests/unit/test_level_intro.gd` (the maths, the card, the gating, retry, skip, dev, the seam, pause); `test_data_files.gd` (`ui.level_intro` shape); `test_project_settings.gd` (the Events catalogue); the Level 1 to 3 flow tests set `intro_card = false`.
+
+
+
+## As-built 2026-10-14 (Epic 7 playtest K)
+
+The music flow and mix pass (GDD decision log #78; provisional until the operator listens). It supersedes the single music player, the 0.5 s fade, the -10 dB base and the silent title noted above.
+
+- **Two music players:** `Audio` owns `Music` and `MusicCrossfade`. `music_player()` is the active one (the current or last-started track); `music_players()` returns both, active first.
+  - `play_music(id, fade_in_s := -1.0)`: a negative value uses the defaults (a crossfade over `audio.music_crossfade_s` when a track is still audible, also one fading out, else a fade-in over `audio.music_fade_in_s`); a positive value fades the new track in over that time; 0 is a hard cut (the old track stops at once).
+  - A new track always starts on the idle player, so no playing stream is handed between players. A third track during a crossfade stops the oldest leg at once.
+  - The same track asked for while it fades out is faded back in where it is, not restarted.
+  - `stop_music(fade_s := -1.0)` fades the active player over `audio.music_fade_out_s` (2.0 s); 0 stops both players at once.
+  - A one-shot track (`game_over`) ending on the active player clears `current_music()`.
+  - Every fade is a tween that ignores time_scale; `Audio` processes always.
+- **Hooks:**
+  - `SceneRouter.complete_level(n < level_count)` fades the music out before starting the next level, so its briefing starts in silence; the level's own track fades in at its wave-1 trigger.
+  - The title and Level Select play `Audio.MENU_MUSIC` (`menu`), a no-op when it already plays. `goto_title()` keeps the menu track and fades any other; `start_level()` fades the menu track out (the opening story and every level from the menus).
+  - The loss sting and RETRY keep the pt7-g flow; the sting now crossfades in over the fading level track.
+  - `audio.epilogue_music_delay_s` is 2.0, at least `music_fade_out_s`, so the boss track has faded before the epilogue track fades in.
+- **Mix (`tuning.json` `audio`):** `music_volume_db` -10 -> -7 (+3 dB for the in-game tracks); `music_fade_out_s` 0.5 -> 2.0; `music_fade_in_s` 2.5 -> 2.0; new `music_crossfade_s` 2.0; `music_gain_db` `game_over` +6 -> +3 (same absolute level), `epilogue` +7 and the new `menu` -1.5, so the tracks heard without combat effects sit about 3 dB under the in-game ones.
+- **Assets:**
+  - `menu`: Fupi "Synthwave House Loop" (CC0, copied byte-for-byte, looping).
+  - `epilogue`: Centurion_of_war "Space Echo" (CC0, copied byte-for-byte, looping), replacing Heavenly Loop.
+  - `explosion_mid` (the turret kills, boss-chain rows 0-2 and every convoy-chain row) is now Joth's "Chunky Explosion" scaled down through the import tool's new per-source `SfxSource.af` filter chain (run first, on the decoded source): pitch and speed x1.32, a 130 Hz highpass, the first 1.35 s with a 0.6 s fade-out. EZduzziteh's explosion3 is retired. The final blast stays Joth's raw file (`explosion_boss_death`).
+  - `comms_static`: xhunterko's "Static" (`ScatterNoise1.mp3`, CC0), the steadiest 2.5 s from 3.0 s in, used raw, +5 dB to about -20 LUFS, with the old 5 ms fade-in and 0.2 s fade-out; bretbernhoft's recording is retired. Documented as an ffmpeg command in `CREDITS.md`, as before.
+  - The registry holds 21 SFX ids and 7 music tracks; `LevelValidator.MUSIC_ACTIONS` gains `menu`.
+- **Owed to the operator:** listen to the crossfades, the louder in-game mix, the menu track, Space Echo, the scaled-down medium blasts and the new static.
 ---
 
 _Generated by the GDS Game Architecture Workflow v1.0 (autonomous run)_

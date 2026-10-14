@@ -4,7 +4,9 @@ Reads files from unzipped CC0 packs, writes the combat SFX into
 game/assets/audio/sfx/ and the music tracks into game/assets/audio/music/.
 Stdlib only, plus `ffmpeg` on the PATH.
 
-SFX: each source is decoded, downmixed to mono at 44.1 kHz, optionally trimmed
+SFX: each source is decoded, optionally run through its own ffmpeg filter
+chain `af` first (playtest pt7-k: `explosion_mid` is Joth's blast pitched and
+sped up x1.32, high-passed, trimmed and faded), downmixed to mono at 44.1 kHz, optionally trimmed
 to its first `trim_s` seconds (then a 5 ms fade-in and a `fade_out_s` fade-out
 at its end), and peak-normalised to -1 dBFS in two passes (pass 1 measures the
 peak with `astats`, pass 2 applies the gain), written as 16-bit PCM
@@ -30,18 +32,19 @@ https://opengameart.org/sites/default/files/<file>):
 - MintoDog "Space Boss Battle", https://opengameart.org/content/space-boss-battle
   space_boss_battle_bpm175_0.ogg
   sha256 4fc0898456099db3d9e63bd97450fedc3f9ff0a05cd65a8d363b3f2904415e60
-- isaiah658 "Heavenly Loop", https://opengameart.org/content/heavenly-loop
-  Heavenly Loop_0.ogg (the epilogue track; playtest pt7-e)
-  sha256 a842e9e054019132cacc8fd352e7b31c000ebb51e0b227a2511e1bccb4eb166e
+- Centurion_of_war "Space Echo", https://opengameart.org/content/space-echo
+  space_echo.ogg (the epilogue track; playtest pt7-k, replacing Heavenly Loop)
+  sha256 331fa9ceb811a33a31819652c9c22296879c199e1ebe407822ee7b1399b959be
+- Fupi "Synthwave House Loop", https://opengameart.org/content/synthwave-house-loop
+  synthwavehouse_0.ogg (the title and Level Select `menu` track; playtest pt7-k)
+  sha256 ac6a7af314f55de46e28c8068249ebb26c471e67d1a4745ee04eb0c0c9bacf0b
 - Joth "Chunky Explosion", https://opengameart.org/content/chunky-explosion
-  Chunky Explosion.mp3 (the final Flagship blast, full length; playtest pt7-i)
+  Chunky Explosion.mp3 (the final Flagship blast, full length; playtest pt7-i;
+  scaled down, it is also `explosion_mid`, the medium blasts; playtest pt7-k)
   sha256 4de53bffac187e59d3f5b43096df2f8fcb4160076b65b71a67074947950e025f
 - Kistol "Game Over", https://opengameart.org/content/game-over
   Game Over_1.ogg (the game-over sting; playtest pt7-g)
   sha256 eb16aeb17fed5b13575702e082b54db00b296f6f4f2e9ee89c63aca895bc085e
-- EZduzziteh "Explosions", https://opengameart.org/content/explosions-4
-  explosion3.ogg (the medium blasts; playtest pt7-i)
-  sha256 ffacf6f1f6cc8deb364cec27b1b0abcb5191d8c6b4f5dfa5b58b27aef9f75b23
 - Holizna "Retro Wave" collection, https://opengameart.org/content/retro-wave-collection
   retro_wave_1.zip, file "02 HoliznaCC0 - Retro Soundtrack.ogg" (Level 1)
   sha256 of that file 2c336e7d0fa1993749a8d0fc656b07fab7e14284b2ac5234408eceb5f9eeae6b
@@ -100,12 +103,15 @@ MUSIC_DIR = REPO_ROOT / "game" / "assets" / "audio" / "music"
 
 @dataclass(frozen=True)
 class SfxSource:
-    """One SFX: the pack it comes from, its file name in the pack and the optional trim."""
+    """One SFX: the pack it comes from, its file name in the pack, the optional
+    trim and an optional ffmpeg filter chain `af` run first, on the decoded
+    source (playtest pt7-k)."""
 
     pack: str
     file: str
     trim_s: float | None = None
     fade_out_s: float | None = None
+    af: str = ""
 
 
 @dataclass(frozen=True)
@@ -145,7 +151,6 @@ class MusicSource:
 SCI_FI = "Kenney Sci-Fi Sounds"
 INTERFACE = "Kenney Interface Sounds"
 JOTH = 'Joth "Chunky Explosion"'
-EZDUZZITEH = 'EZduzziteh "Explosions"'
 ANTUM_FIRE = 'AntumDeluge "Fire Crackling"'
 SPRING_SFX = 'Spring Spring "Various Sound Effects"'
 
@@ -157,7 +162,9 @@ SFX_SOURCES: dict[str, SfxSource] = {
     "explosion_small": SfxSource(SCI_FI, "explosionCrunch_000.ogg"),
     "explosion_medium": SfxSource(SCI_FI, "explosionCrunch_001.ogg"),
     "explosion_large": SfxSource(SCI_FI, "explosionCrunch_004.ogg"),
-    "explosion_mid": SfxSource(EZDUZZITEH, "explosion3.ogg"),
+    # Playtest pt7-k: the medium blasts are Joth's blast scaled down (pitch and
+    # speed x1.32, a 130 Hz high-pass, the first 1.35 s with a 0.6 s fade-out).
+    "explosion_mid": SfxSource(JOTH, "Chunky Explosion.mp3", af="asetrate=44100*1.32,aresample=44100,highpass=f=130,atrim=end=1.35,afade=t=out:st=0.75:d=0.6"),
     "explosion_boss_death": SfxSource(JOTH, "Chunky Explosion.mp3"),
     "player_hit": SfxSource(SCI_FI, "impactMetal_002.ogg"),
     "player_death": SfxSource(SCI_FI, "explosionCrunch_003.ogg"),
@@ -205,8 +212,12 @@ MUSIC_SOURCES: dict[str, MusicSource] = {
         "4fc0898456099db3d9e63bd97450fedc3f9ff0a05cd65a8d363b3f2904415e60",
     ),
     "epilogue": MusicSource(
-        "Heavenly Loop_0.ogg",
-        "a842e9e054019132cacc8fd352e7b31c000ebb51e0b227a2511e1bccb4eb166e",
+        "space_echo.ogg",
+        "331fa9ceb811a33a31819652c9c22296879c199e1ebe407822ee7b1399b959be",
+    ),
+    "menu": MusicSource(
+        "synthwavehouse_0.ogg",
+        "ac6a7af314f55de46e28c8068249ebb26c471e67d1a4745ee04eb0c0c9bacf0b",
     ),
     "game_over": MusicSource(
         "Game Over_1.ogg",
@@ -226,8 +237,10 @@ def music_name(music_id: str) -> str:
 
 
 def filter_chain(source: SfxSource) -> str:
-    """The shared filters: mono float at 44.1 kHz, then the optional trim and fades."""
-    filters = [f"aformat=sample_fmts=flt:sample_rates={RATE}:channel_layouts=mono"]
+    """The shared filters: the source's own `af` chain (if any), mono float at
+    44.1 kHz, then the optional trim and fades."""
+    filters = [source.af] if source.af else []
+    filters.append(f"aformat=sample_fmts=flt:sample_rates={RATE}:channel_layouts=mono")
     if source.trim_s is not None:
         filters.append(f"atrim=end={source.trim_s:g}")
         filters.append(f"afade=t=in:d={FADE_IN_S:g}")

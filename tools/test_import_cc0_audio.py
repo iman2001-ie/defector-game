@@ -30,7 +30,7 @@ class MappingTest(unittest.TestCase):
             "explosion_small": (tool.SCI_FI, "explosionCrunch_000.ogg", None, None),
             "explosion_medium": (tool.SCI_FI, "explosionCrunch_001.ogg", None, None),
             "explosion_large": (tool.SCI_FI, "explosionCrunch_004.ogg", None, None),
-            "explosion_mid": (tool.EZDUZZITEH, "explosion3.ogg", None, None),
+            "explosion_mid": (tool.JOTH, "Chunky Explosion.mp3", None, None),
             "explosion_boss_death": (tool.JOTH, "Chunky Explosion.mp3", None, None),
             "player_hit": (tool.SCI_FI, "impactMetal_002.ogg", None, None),
             "player_death": (tool.SCI_FI, "explosionCrunch_003.ogg", None, None),
@@ -43,8 +43,15 @@ class MappingTest(unittest.TestCase):
         self.assertEqual(actual, expected)
 
     def test_every_source_file_is_distinct(self) -> None:
-        files = [s.file for s in tool.SFX_SOURCES.values()]
-        self.assertEqual(len(files), len(set(files)), "no two ids share a source (no aliases)")
+        # Playtest pt7-k: one file may feed two ids only through different processing.
+        keys = [(s.file, s.trim_s, s.fade_out_s, s.af) for s in tool.SFX_SOURCES.values()]
+        self.assertEqual(len(keys), len(set(keys)), "no two ids share a source and its processing (no aliases)")
+
+    def test_explosion_mid_is_a_scaled_joth(self) -> None:
+        mid = tool.SFX_SOURCES["explosion_mid"]
+        self.assertEqual(mid.file, tool.SFX_SOURCES["explosion_boss_death"].file, "the same recording")
+        self.assertEqual(mid.af, "asetrate=44100*1.32,aresample=44100,highpass=f=130,atrim=end=1.35,afade=t=out:st=0.75:d=0.6")
+        self.assertEqual(tool.SFX_SOURCES["explosion_boss_death"].af, "", "the final blast is the raw file")
 
     def test_kept_cues_are_never_written(self) -> None:
         self.assertFalse(KEPT & set(tool.SFX_SOURCES), "the comms cues, maul_alarm and the static stay")
@@ -63,7 +70,8 @@ class MappingTest(unittest.TestCase):
                 "level_2": ("synth_5.mp3", "5c36241db12e49600052588321851625a7678affebce3bd0763b0739ae789cf1", True),
                 "level_3": ("Anti Matter Magic.ogg", "7b19b04738264ef5e1c9df4d82af4a34192c6657ede915b4610d693b3388efe7", True),
                 "boss": ("space_boss_battle_bpm175_0.ogg", "4fc0898456099db3d9e63bd97450fedc3f9ff0a05cd65a8d363b3f2904415e60", False),
-                "epilogue": ("Heavenly Loop_0.ogg", "a842e9e054019132cacc8fd352e7b31c000ebb51e0b227a2511e1bccb4eb166e", False),
+                "epilogue": ("space_echo.ogg", "331fa9ceb811a33a31819652c9c22296879c199e1ebe407822ee7b1399b959be", False),
+                "menu": ("synthwavehouse_0.ogg", "ac6a7af314f55de46e28c8068249ebb26c471e67d1a4745ee04eb0c0c9bacf0b", False),
                 "game_over": ("Game Over_1.ogg", "eb16aeb17fed5b13575702e082b54db00b296f6f4f2e9ee89c63aca895bc085e", False),
             },
         )
@@ -78,10 +86,10 @@ class MappingTest(unittest.TestCase):
             "119340f351a5098ad814f78719438c0da355a9ce8a4c8a3af6a8d48aa3d49e04",
             "f2193d072726d6758a5f7871b2dcc54dcce0d5c35c6f0a62f92549b327c81232",
             "4fc0898456099db3d9e63bd97450fedc3f9ff0a05cd65a8d363b3f2904415e60",
-            "a842e9e054019132cacc8fd352e7b31c000ebb51e0b227a2511e1bccb4eb166e",
+            "331fa9ceb811a33a31819652c9c22296879c199e1ebe407822ee7b1399b959be",
+            "ac6a7af314f55de46e28c8068249ebb26c471e67d1a4745ee04eb0c0c9bacf0b",
             "4de53bffac187e59d3f5b43096df2f8fcb4160076b65b71a67074947950e025f",
             "eb16aeb17fed5b13575702e082b54db00b296f6f4f2e9ee89c63aca895bc085e",
-            "ffacf6f1f6cc8deb364cec27b1b0abcb5191d8c6b4f5dfa5b58b27aef9f75b23",
             "2c336e7d0fa1993749a8d0fc656b07fab7e14284b2ac5234408eceb5f9eeae6b",
             "5c36241db12e49600052588321851625a7678affebce3bd0763b0739ae789cf1",
             "7b19b04738264ef5e1c9df4d82af4a34192c6657ede915b4610d693b3388efe7",
@@ -116,6 +124,10 @@ class FfmpegArgsTest(unittest.TestCase):
     def test_untrimmed_chain_is_only_the_format(self) -> None:
         chain = tool.filter_chain(tool.SfxSource("p", "a.ogg"))
         self.assertEqual(chain, "aformat=sample_fmts=flt:sample_rates=44100:channel_layouts=mono")
+
+    def test_own_filter_chain_runs_first(self) -> None:
+        chain = tool.filter_chain(tool.SfxSource("p", "a.ogg", af="highpass=f=130"))
+        self.assertEqual(chain, "highpass=f=130,aformat=sample_fmts=flt:sample_rates=44100:channel_layouts=mono")
 
     def test_trimmed_chain_trims_then_fades_in_and_out(self) -> None:
         chain = tool.filter_chain(tool.SFX_SOURCES["missile_launch"])

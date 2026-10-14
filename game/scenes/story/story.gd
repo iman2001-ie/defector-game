@@ -48,6 +48,18 @@ func _ready() -> void:
 	if _sequence == SceneRouter.ENDING_SEQUENCE:
 		_start_epilogue_music()
 	Events.comms_sequence_finished.connect(_on_events_comms_sequence_finished)
+	if _sequence != SceneRouter.ENDING_SEQUENCE and Audio.is_fading_out() and Config.load_error.is_empty():
+		# The menu track is still fading (PLAY from the title): the opening
+		# briefing starts once it is silent (playtest pt7-k review). The
+		# epilogue keeps its own timing (the boss fade runs under its first
+		# line, as before). Real time, so the story pause can't hold it; the
+		# connection dies with the scene.
+		get_tree().create_timer(Config.num("audio.music_fade_out_s"), true, false, true).timeout.connect(_request_sequence)
+		return
+	_request_sequence()
+
+
+func _request_sequence() -> void:
 	Events.comms_sequence_requested.emit(_sequence)
 
 

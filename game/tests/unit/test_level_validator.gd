@@ -287,7 +287,7 @@ func test_music_action_must_be_stop_combat_boss_or_epilogue() -> void:
 		var data: Dictionary = _valid()
 		data["waves"][0]["triggers"][0]["actions"].append({"music": good})
 		assert_eq(_validate(data), [] as Array[String], good)
-	assert_eq(LevelValidator.MUSIC_ACTIONS, ["stop", "level_1", "level_2", "level_3", "boss", "epilogue", "game_over"] as Array[String])
+	assert_eq(LevelValidator.MUSIC_ACTIONS, ["stop", "level_1", "level_2", "level_3", "boss", "epilogue", "game_over", "menu"] as Array[String])
 	for bad: String in ["loud", "Combat", "calm"]:
 		var data: Dictionary = _valid()
 		data["waves"][0]["triggers"][0]["actions"].append({"music": bad})

@@ -17,9 +17,12 @@ extends Node
 ## switches to) that track. A missing stream warns once per id, stops the
 ## current music at once and stays silent.
 ##
-## Playtest pt7-e: play_music() takes an optional fade-in (from MUSIC_SILENT_DB
-## up to the track's volume) and each track plays at audio.music_volume_db plus
-## its optional audio.music_gain_db.<id> (the quiet epilogue track is lifted).
+## Playtest pt7-e: each track plays at audio.music_volume_db plus its optional
+## audio.music_gain_db.<id>. Playtest pt7-k: two music players. Every start
+## fades in (audio.music_fade_in_s), every stop fades out (audio.music_fade_out_s)
+## and a switch from an audible track crossfades over audio.music_crossfade_s,
+## the new track starting on the idle player (play_music's fade_in_s of 0 is a
+## hard cut). The title and Level Select play MENU_MUSIC.
 ## play_sfx_solo() stops any combat-pool copy of the same id before playing, so
 ## a burst of one cue (the energy orb) never stacks.
 
@@ -69,7 +72,11 @@ const MUSIC: Dictionary[StringName, AudioStream] = {
 	&"boss": preload("res://assets/audio/music/music_boss.ogg"),
 	&"epilogue": preload("res://assets/audio/music/music_epilogue.ogg"),
 	&"game_over": preload("res://assets/audio/music/music_game_over.ogg"),
+	# The title and Level Select track (playtest pt7-k).
+	&"menu": preload("res://assets/audio/music/music_menu.ogg"),
 }
+## The title and Level Select track (playtest pt7-k).
+const MENU_MUSIC: StringName = &"menu"
 ## The music ids that play once instead of looping (their import has loop off).
 const ONE_SHOT_MUSIC: Array[StringName] = [&"game_over"]
 ## The ids that play on the comms pool; every other id plays on the combat pool.
@@ -97,11 +104,17 @@ var _warned_ids: Dictionary[StringName, bool] = {}
 
 ## Music id -> stream: a copy of MUSIC, so tests can swap or remove entries.
 var music_streams: Dictionary[StringName, AudioStream] = MUSIC.duplicate()
+## The two music players (playtest pt7-k): `_music` is the active one (the
+## current or last-started track), `_music_other` the one a crossfade is
+## fading out. A new track always starts on the idle one, so a crossfade never
+## hands a playing stream from one player to the other.
 var _music: AudioStreamPlayer
+var _music_other: AudioStreamPlayer
 ## The id playing now; &"" when silent or fading out.
 var _music_id: StringName = &""
 var _music_base_db: float = 0.0
-var _music_tween: Tween
+## Player -> its running volume tween (a fade-in, a fade-out or a crossfade leg).
+var _music_tweens: Dictionary[AudioStreamPlayer, Tween] = {}
 var _warned_music: Dictionary[StringName, bool] = {}
 
 
@@ -125,16 +138,10 @@ func _ready() -> void:
 		_comms_players.append(player)
 		_comms_in_use.append(false)
 		_comms_serials.append(-1)
-	_music = AudioStreamPlayer.new()
-	_music.name = "Music"
-	_music.bus = MUSIC_BUS
-	# A one-shot track (game_over) ending leaves the music silent, so a later
-	# play_music of the same id starts it again.
-	_music.finished.connect(_on_music_finished)
-	add_child(_music)
 	# Config is an earlier autoload, so the tuning is loaded here.
 	_music_base_db = Config.num("audio.music_volume_db")
-	_music.volume_db = _music_base_db
+	_music = _make_music_player("Music")
+	_music_other = _make_music_player("MusicCrossfade")
 
 
 ## Plays a registered SFX. pitch_scale = pitch * (1 + random in +-pitch_jitter).
@@ -215,7 +222,7 @@ func _on_comms_player_finished(index: int) -> void:
 # --- Music ----------------------------------------------------------------------
 
 ## The WaveDirector `music` action: &"stop" fades the music out, any other value
-## plays that track.
+## plays that track (with the default fade-in or crossfade).
 func apply_music_action(action: StringName) -> void:
 	if action == MUSIC_STOP:
 		stop_music()
@@ -223,12 +230,20 @@ func apply_music_action(action: StringName) -> void:
 		play_music(action)
 
 
-## Plays music `id` (switching from any current track at once). Does nothing when
-## `id` already plays. A missing stream warns once per id, stops the current
-## music at once and leaves it silent. With `fade_in_s` > 0 the track starts at
-## MUSIC_SILENT_DB and rises to its volume over that many seconds (playtest
-## pt7-e); a hit-stop never freezes the fade.
-func play_music(id: StringName, fade_in_s: float = 0.0) -> void:
+## Plays music `id`. Does nothing when `id` already plays (or fades in).
+##
+## `fade_in_s` (playtest pt7-k): a negative value uses the defaults, a
+## crossfade over audio.music_crossfade_s when a track is still audible (also
+## one fading out), else a fade-in over audio.music_fade_in_s; a positive value
+## fades the new track in over that many seconds (the old one, if any, still
+## fades out over audio.music_crossfade_s); 0 is a hard cut: the old track
+## stops at once and the new one starts at its volume.
+##
+## The same track still fading out on the active player is faded back in where
+## it is, not restarted. A missing stream warns once per id, stops all music at
+## once and leaves it silent. Fades ignore time_scale, so a hit-stop never
+## freezes them.
+func play_music(id: StringName, fade_in_s: float = -1.0) -> void:
 	# A fade-out clears _music_id, so a match is this track playing or fading in.
 	if id == _music_id:
 		return
@@ -239,27 +254,42 @@ func play_music(id: StringName, fade_in_s: float = 0.0) -> void:
 		if not _warned_music.has(id):
 			_warned_music[id] = true
 			Log.warn("audio", "no music stream for '%s'; music stays silent" % id)
-		_kill_music_fade()
-		_music.stop()
-		_music.volume_db = _music_base_db
+		_stop_player(_music)
+		_stop_player(_music_other)
 		_music_id = &""
 		return
-	_kill_music_fade()
 	var target_db: float = _music_base_db + music_gain_db(id)
+	var audible: bool = _music.playing
+	if audible and _music.stream == stream:
+		# The same track fading out: bring it back where it is.
+		var back_s: float = fade_in_s if fade_in_s >= 0.0 else Config.num("audio.music_fade_in_s")
+		_music_id = id
+		_fade_player(_music, target_db, back_s, false)
+		_log_play(id, back_s)
+		return
+	var fade: float = fade_in_s
+	if fade < 0.0:
+		fade = Config.num("audio.music_crossfade_s") if audible else Config.num("audio.music_fade_in_s")
+	# An older fade-out still running on the idle player ends now.
+	_stop_player(_music_other)
+	if audible:
+		if fade_in_s == 0.0:
+			_stop_player(_music)
+		else:
+			_fade_player(_music, MUSIC_SILENT_DB, Config.num("audio.music_crossfade_s"), true)
+	var next: AudioStreamPlayer = _music_other
+	_music_other = _music
+	_music = next
 	_music.stream = stream
 	_music_id = id
-	if fade_in_s > 0.0:
+	if fade > 0.0:
 		_music.volume_db = MUSIC_SILENT_DB
 		_music.play()
-		_music_tween = create_tween()
-		_music_tween.set_ignore_time_scale(true)
-		_music_tween.tween_property(_music, "volume_db", target_db, fade_in_s)
-		_music_tween.tween_callback(_end_music_fade_in)
-		Log.info("audio", "Music '%s' playing (%.2f s fade-in)" % [id, fade_in_s])
-		return
-	_music.volume_db = target_db
-	_music.play()
-	Log.info("audio", "Music '%s' playing" % id)
+		_fade_player(_music, target_db, fade, false)
+	else:
+		_music.volume_db = target_db
+		_music.play()
+	_log_play(id, fade)
 
 
 ## The extra gain of music `id` (audio.music_gain_db.<id>, 0 when absent), so a
@@ -274,26 +304,23 @@ func music_gain_db(id: StringName) -> float:
 
 ## Fades the music out over `fade_s` seconds (a negative value uses
 ## audio.music_fade_out_s), then stops it and restores the base volume. A fade
-## of 0 stops at once; with nothing playing it only clears the current id.
+## of 0 stops every music player at once; with nothing playing it only clears
+## the current id (a crossfade's outgoing leg keeps fading).
 ## current_music() is &"" from this call on.
 func stop_music(fade_s: float = -1.0) -> void:
 	var fade: float = fade_s if fade_s >= 0.0 else Config.num("audio.music_fade_out_s")
 	var was: StringName = _music_id
 	_music_id = &""
-	if was.is_empty():
-		if fade <= 0.0 and _is_fading():
-			_kill_music_fade()
-			_end_music_fade()
-		return
-	_kill_music_fade()
-	Log.info("audio", "Music '%s' stopping (%.2f s fade)" % [was, maxf(fade, 0.0)])
 	if fade <= 0.0:
-		_end_music_fade()
+		if not was.is_empty():
+			Log.info("audio", "Music '%s' stopping (0.00 s fade)" % was)
+		_stop_player(_music)
+		_stop_player(_music_other)
 		return
-	_music_tween = create_tween()
-	_music_tween.set_ignore_time_scale(true)  # A hit-stop never freezes the fade.
-	_music_tween.tween_property(_music, "volume_db", MUSIC_SILENT_DB, fade)
-	_music_tween.tween_callback(_end_music_fade)
+	if was.is_empty():
+		return
+	Log.info("audio", "Music '%s' stopping (%.2f s fade)" % [was, fade])
+	_fade_player(_music, MUSIC_SILENT_DB, fade, true)
 
 
 ## The music id playing now (&"" when silent or fading out).
@@ -301,30 +328,87 @@ func current_music() -> StringName:
 	return _music_id
 
 
-## The music player (tests).
+## The active music player: the current or last-started track (tests).
 func music_player() -> AudioStreamPlayer:
 	return _music
 
 
-func _on_music_finished() -> void:
-	_music_id = &""
+## Both music players, active first (tests).
+func music_players() -> Array[AudioStreamPlayer]:
+	return [_music, _music_other]
 
 
+func _make_music_player(player_name: String) -> AudioStreamPlayer:
+	var player: AudioStreamPlayer = AudioStreamPlayer.new()
+	player.name = player_name
+	player.bus = MUSIC_BUS
+	player.volume_db = _music_base_db
+	# A one-shot track (game_over) ending leaves the music silent, so a later
+	# play_music of the same id starts it again.
+	player.finished.connect(_on_music_finished.bind(player))
+	add_child(player)
+	return player
+
+
+## Tweens `player`'s volume to `to_db` over `seconds` (at once for 0); with
+## `stop_at_end` the player then stops and returns to the base volume.
+func _fade_player(player: AudioStreamPlayer, to_db: float, seconds: float, stop_at_end: bool) -> void:
+	_kill_fade(player)
+	if seconds <= 0.0:
+		if stop_at_end:
+			_stop_player(player)
+		else:
+			player.volume_db = to_db
+		return
+	var tween: Tween = create_tween()
+	tween.set_ignore_time_scale(true)
+	tween.tween_property(player, "volume_db", to_db, seconds)
+	tween.tween_callback(_end_fade.bind(player, stop_at_end))
+	_music_tweens[player] = tween
+
+
+func _end_fade(player: AudioStreamPlayer, stop_at_end: bool) -> void:
+	_music_tweens.erase(player)
+	if stop_at_end:
+		player.stop()
+		player.volume_db = _music_base_db
+
+
+func _stop_player(player: AudioStreamPlayer) -> void:
+	_kill_fade(player)
+	player.stop()
+	player.volume_db = _music_base_db
+
+
+func _kill_fade(player: AudioStreamPlayer) -> void:
+	var tween: Tween = _music_tweens.get(player) as Tween
+	if tween != null and tween.is_valid():
+		tween.kill()
+	_music_tweens.erase(player)
+
+
+## True while a track is fading out to silence (no current track, a fade still
+## running): a story scene waits for it, so no music tail plays under a
+## briefing (playtest pt7-k review).
+func is_fading_out() -> bool:
+	return _music_id == &"" and _is_fading()
+
+
+## True while any music fade or crossfade leg runs (tests).
 func _is_fading() -> bool:
-	return _music_tween != null and _music_tween.is_valid() and _music_tween.is_running()
+	for tween: Tween in _music_tweens.values():
+		if tween != null and tween.is_valid() and tween.is_running():
+			return true
+	return false
 
 
-func _kill_music_fade() -> void:
-	if _music_tween != null and _music_tween.is_valid():
-		_music_tween.kill()
-	_music_tween = null
+func _log_play(id: StringName, fade: float) -> void:
+	if fade > 0.0:
+		Log.info("audio", "Music '%s' playing (%.2f s fade-in)" % [id, fade])
+	else:
+		Log.info("audio", "Music '%s' playing" % id)
 
 
-func _end_music_fade_in() -> void:
-	_music_tween = null
-
-
-func _end_music_fade() -> void:
-	_music_tween = null
-	_music.stop()
-	_music.volume_db = _music_base_db
+func _on_music_finished(player: AudioStreamPlayer) -> void:
+	if player == _music:
+		_music_id = &""

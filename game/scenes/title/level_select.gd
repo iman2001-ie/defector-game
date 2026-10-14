@@ -63,6 +63,8 @@ func _ready() -> void:
 		_locked_alpha = Config.num("ui.level_select.locked_alpha")
 		_build_cards()
 		_layout()
+		# Playtest pt7-k: the menu track keeps playing from the title.
+		Audio.play_music(Audio.MENU_MUSIC)
 	_back.pressed.connect(_on_back_pressed)
 	Log.info("scene", "Level select ready (%d levels, %d unlocked)" % [_level_count, _unlocked_count])
 

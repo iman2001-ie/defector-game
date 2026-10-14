@@ -20,6 +20,9 @@ signal asteroid_destroyed(size: StringName, position: Vector2)
 
 # Waves / level
 signal level_started(level_id: int)
+## Epic 7 playtest L: a campaign level shows its "LEVEL N" title card for
+## `hold_s` (between its fades) before its briefing or wave 1 starts.
+signal level_intro_started(level_number: int, level_name: String, hold_s: float)
 signal wave_started(wave_index: int, wave_count: int)
 signal wave_progress_changed(wave_index: int, ratio: float)
 signal wave_cleared(wave_index: int)

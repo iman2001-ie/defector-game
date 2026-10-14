@@ -367,15 +367,17 @@
 		"pause_menu": { "panel_w": 520, "panel_padding_px": 40, "heading_px": 48, "heading_gap_px": 40, "button_w": 400, "button_h": 72, "button_gap_px": 24, "recent_comms": 3, "comms_gap_px": 32, "comms_w": 1200, "comms_padding_px": 20, "comms_line_gap_px": 8 },
 		"comms_panel": { "x": 410, "y": 300, "w": 1100, "h": 300, "padding_px": 32, "portrait_px": 200, "portrait_gap_px": 24, "name_h_px": 36, "name_gap_px": 8, "cue_h_px": 24 },
 		"comms_box": { "w": 900, "h": 124, "bottom_margin_px": 28, "rise_px": 24, "edge_px": 4, "padding_px": 8, "portrait_px": 88, "portrait_gap_px": 14, "name_h_px": 42, "text_line_h_px": 33, "text_lines": 2, "see_through_alpha": 0.3, "see_through_margin_px": 24, "see_through_fade_per_s": 5.0 },
+		"level_intro": { "center_y": 420, "number_px": 120, "name_px": 40, "gap_px": 16, "fade_in_s": 0.4, "hold_s": 1.6, "retry_hold_s": 0.6, "fade_out_s": 0.6 },
 		"hint_pill": { "center_y": 560, "h": 52, "padding_px": 24, "gap_px": 12, "fade_in_s": 0.2, "fade_out_s": 0.2, "show_s": 5.0, "move_dismiss_px": 150 },
 		"final_choice": { "button_w": 480, "button_h": 120, "button_gap_px": 48, "buttons_top_y": 680, "font_px": 28 },
 		"end_screen": { "logo_y": 320, "logo_width_px": 1100, "line_y": 480, "line_px": 30, "thanks_y": 560, "thanks_px": 28, "button_w": 400, "button_h": 72, "button_top_y": 700 }
 	},
 	"audio": {
-		"music_fade_out_s": 0.5,
-		"music_volume_db": -10.0,
-		"music_fade_in_s": 2.5,
-		"music_gain_db": { "level_1": 2.0, "level_2": 3.5, "level_3": -1.5, "epilogue": 6.0, "game_over": 6.0 },
+		"music_fade_out_s": 1.0,
+		"music_volume_db": -7.0,
+		"music_fade_in_s": 1.5,
+		"music_crossfade_s": 1.5,
+		"music_gain_db": { "level_1": 2.0, "level_2": 3.5, "level_3": -1.5, "epilogue": 7.0, "game_over": 3.0, "menu": -1.5 },
 		"epilogue_music_delay_s": 1.0
 	},
 	"render": {

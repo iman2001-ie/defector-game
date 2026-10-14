@@ -75,6 +75,8 @@ func _ready() -> void:
 	else:
 		_error.visible = false
 		_layout()
+		# Playtest pt7-k: the menu track (a no-op when it already plays).
+		Audio.play_music(Audio.MENU_MUSIC)
 	_play.pressed.connect(_on_play_pressed)
 	_level_select.pressed.connect(_on_level_select_pressed)
 	_quit.pressed.connect(_on_quit_pressed)

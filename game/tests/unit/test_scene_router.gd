@@ -982,13 +982,41 @@ func _record_with_music(path: String) -> Error:
 	return OK
 
 
-func test_earlier_clear_leaves_the_music_alone() -> void:
+## Playtest pt7-k: clearing an earlier level fades its track out across the
+## change, so the next level's briefing starts in silence.
+func test_earlier_clear_fades_the_music_out() -> void:
 	Audio.play_music(&"level_1")
 	SceneRouter.complete_level(1)
-	assert_eq(Audio.current_music(), &"level_1", "the level track keeps playing")
-	assert_false(Audio._is_fading(), "no fade")
-	assert_eq(_count_starting("[INFO][audio] Music 'level_1' stopping"), 0, "no stopping line")
+	_assert_music_fading_out(&"level_1")
 	assert_eq(_calls, [SceneRouter.LEVEL_SCENE_PATH] as Array[String], "level 2 starts")
+
+
+## Playtest pt7-k: the menu track keeps playing into the title (no fade) and
+## fades out when a level (or the opening story) starts from the menus.
+func test_goto_title_keeps_the_menu_track() -> void:
+	Audio.stop_music(0.0)
+	Audio.play_music(Audio.MENU_MUSIC)
+	SceneRouter.goto_title()
+	assert_eq(Audio.current_music(), Audio.MENU_MUSIC, "still the menu track")
+	assert_eq(_count_starting("[INFO][audio] Music 'menu' stopping"), 0, "no fade")
+	Audio.stop_music(0.0)
+
+
+func test_starting_a_level_fades_the_menu_track_out() -> void:
+	Audio.stop_music(0.0)
+	Audio.play_music(Audio.MENU_MUSIC)
+	SceneRouter.start_level("2")
+	_assert_music_fading_out(Audio.MENU_MUSIC)
+	assert_eq(_calls, [SceneRouter.LEVEL_SCENE_PATH] as Array[String], "level 2 starts")
+	Audio.stop_music(0.0)
+
+
+func test_starting_a_level_leaves_other_music_alone() -> void:
+	Audio.stop_music(0.0)
+	Audio.play_music(&"boss")
+	SceneRouter.start_level("2")
+	assert_eq(Audio.current_music(), &"boss", "only the menu track is faded by a start")
+	Audio.stop_music(0.0)
 
 
 func test_last_clear_in_silence_is_quiet() -> void:

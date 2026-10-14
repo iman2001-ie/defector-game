@@ -1170,13 +1170,16 @@ func test_after_sfx_collector_self_check() -> void:
 	assert_eq(_after_sfx({}).size(), 0, "nothing to find")
 
 
+## Playtest pt7-k: music fades out smoothly (was 0.5 s).
 func test_music_fade_out_tuning() -> void:
-	assert_almost_eq(Config.num("audio.music_fade_out_s"), 0.5, 0.0001, "audio.music_fade_out_s")
+	assert_almost_eq(Config.num("audio.music_fade_out_s"), 1.0, 0.0001, "audio.music_fade_out_s")
+	assert_gt(Config.num("audio.music_crossfade_s"), 0.0, "audio.music_crossfade_s > 0")
 
 
-## Story 8.1: the base music volume sits below the SFX (decision #65).
+## Story 8.1: the base music volume sits below the SFX (decision #65); playtest
+## pt7-k raised it 3 dB (-10 -> -7) so the in-game tracks cut through the effects.
 func test_music_volume_tuning() -> void:
-	assert_almost_eq(Config.num("audio.music_volume_db"), -10.0, 0.0001, "audio.music_volume_db")
+	assert_almost_eq(Config.num("audio.music_volume_db"), -7.0, 0.0001, "audio.music_volume_db")
 
 
 const ASSETS_DIR: String = "res://assets/"
@@ -1280,6 +1283,10 @@ func test_sound_pass_tuning() -> void:
 	assert_lte(speed, 1.0, "the chain plays at or below authored speed")
 	assert_gt(Config.num("audio.music_fade_in_s"), 0.0, "music_fade_in_s > 0")
 	assert_gte(Config.num("audio.epilogue_music_delay_s"), Config.num("audio.music_fade_out_s"), "the boss fade ends before the epilogue starts")
+	# pt7-k review: the next level's title card outlasts the previous track's
+	# fade-out, so its briefing starts in silence.
+	var card_s: float = Config.num("ui.level_intro.fade_in_s") + Config.num("ui.level_intro.hold_s") + Config.num("ui.level_intro.fade_out_s")
+	assert_gte(card_s, Config.num("audio.music_fade_out_s"), "the title card outlasts the music fade-out")
 	for id: Variant in Config.section("audio.music_gain_db"):
 		assert_true(Audio.MUSIC.has(StringName(str(id))), "music_gain_db.%s is a track" % str(id))
 	assert_lt(Config.num("energy.orb_sfx.volume_db"), 0.0, "the orb chime is attenuated")
@@ -1385,6 +1392,21 @@ func test_dev_isolde_level_shape() -> void:
 
 
 # --- Control hints (Story 5.8) ---------------------------------------------------
+
+## Epic 7 playtest L: the "LEVEL N" title card's layout and timing.
+func test_level_intro_tuning() -> void:
+	var keys: Array[String] = ["center_y", "number_px", "name_px", "gap_px", "fade_in_s", "hold_s", "retry_hold_s", "fade_out_s"]
+	var section: Dictionary = Config.section("ui.level_intro")
+	assert_eq(section.size(), keys.size(), "exactly the title card keys")
+	for key: String in keys:
+		assert_true(section.get(key) is float or section.get(key) is int, "ui.level_intro.%s is a number" % key)
+		assert_gte(Config.num("ui.level_intro.%s" % key), 0.0, "ui.level_intro.%s >= 0" % key)
+	for key: String in ["number_px", "name_px", "fade_in_s", "hold_s", "fade_out_s"]:
+		assert_gt(Config.num("ui.level_intro.%s" % key), 0.0, "ui.level_intro.%s > 0" % key)
+	assert_lte(Config.num("ui.level_intro.retry_hold_s"), Config.num("ui.level_intro.hold_s"), "a retry's card is no longer than the first run's")
+	var bottom: float = Config.num("ui.level_intro.center_y") + Config.num("ui.level_intro.number_px") / 2.0 + Config.num("ui.level_intro.gap_px") + Config.num("ui.level_intro.name_px")
+	assert_lt(bottom, Playfield.SIZE.y, "the card fits on screen")
+
 
 func test_hint_pill_tuning() -> void:
 	var expected: Dictionary = {"center_y": 560.0, "h": 52.0, "padding_px": 24.0, "gap_px": 12.0,

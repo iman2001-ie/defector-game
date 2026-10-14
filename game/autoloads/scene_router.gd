@@ -172,11 +172,14 @@ func start_new(id: String) -> void:
 ## While Config.load_error is set no level can start: logs an ERROR and changes
 ## nothing.
 ## Level OPENING_LEVEL_ID plays the opening story first (goto_story); every
-## other id loads level.tscn at once.
+## other id loads level.tscn at once. Leaving the menus fades the menu track
+## out (playtest pt7-k), so it never carries into the game.
 func start_level(id: String) -> void:
 	if not Config.load_error.is_empty():
 		Log.error("scene", "Cannot start level '%s': config failed to load (%s)" % [id, Config.load_error])
 		return
+	if Audio.current_music() == Audio.MENU_MUSIC:
+		Audio.stop_music()
 	if id == OPENING_LEVEL_ID:
 		goto_story(OPENING_SEQUENCE, int(id))
 		return
@@ -231,10 +234,14 @@ func finish_story() -> void:
 ## The title screen: the unlock restored from the save and energy 0
 ## (restore_saved_progress()), no level id. Writes no save. Fades out any music
 ## (the end screen's epilogue track, or a level track when quitting to the
-## title; playtest pt7-e): the title has no track. A broken config stops it at
-## once (no fade time can be read then).
+## title; playtest pt7-e) except the menu track, which the title keeps playing
+## (playtest pt7-k: the title then crossfades into it). A broken config stops
+## the music at once (no fade time can be read then).
 func goto_title() -> void:
-	Audio.stop_music(-1.0 if Config.load_error.is_empty() else 0.0)
+	if not Config.load_error.is_empty():
+		Audio.stop_music(0.0)
+	elif Audio.current_music() != Audio.MENU_MUSIC:
+		Audio.stop_music()
 	restore_saved_progress()
 	GameState.current_level_id = ""
 	_change_to(TITLE_SCENE_PATH, "Going to the title screen")
@@ -263,7 +270,8 @@ func goto_level_select() -> void:
 
 ## Level `n` was cleared. A campaign level (1..progression.level_count) raises
 ## highest_unlocked_level to max(current, min(n + 1, level_count)), saves, then
-## starts level n + 1 with the current energy. After the last level it first
+## starts level n + 1 with the current energy, fading the music out first
+## (playtest pt7-k). After the last level it first
 ## fades the music out (Audio.stop_music(), over audio.music_fade_out_s; Story
 ## 8.1, DW-100), so the boss track never carries on into the epilogue or the end
 ## screen, then plays the council epilogue (goto_story(ENDING_SEQUENCE,
@@ -281,6 +289,9 @@ func complete_level(n: int) -> void:
 	GameState.highest_unlocked_level = maxi(GameState.highest_unlocked_level, mini(n + 1, level_count))
 	SaveManager.save()
 	if n < level_count:
+		# Playtest pt7-k: the level's track fades out across the change, so the
+		# next level's briefing starts in silence (its own track starts at wave 1).
+		Audio.stop_music()
 		start_level(str(n + 1))
 		return
 	Audio.stop_music()
@@ -315,6 +326,9 @@ func _reload_level(energy: int, label: String) -> void:
 	GameState.energy = energy
 	GameState.level_start_energy = energy
 	GameState.is_retry = true
+	# Restart from the pause menu fades whatever plays (the boss track too); the
+	# level's own wave-1 trigger brings its track back (playtest pt7-k review).
+	Audio.stop_music()
 	_change_to(LEVEL_SCENE_PATH, "%s: reloading level '%s'" % [label, GameState.current_level_id])
 
 

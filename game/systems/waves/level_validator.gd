@@ -56,7 +56,7 @@ extends RefCounted
 
 const WHENS: Array[String] = ["wave_start", "progress", "wave_clear", "boss_phase", "boss_hp_le"]
 const ACTION_KEYS: Array[String] = ["comms", "spawn_group", "story_event", "music", "wait", "hint"]
-const MUSIC_ACTIONS: Array[String] = ["stop", "level_1", "level_2", "level_3", "boss", "epilogue", "game_over"]
+const MUSIC_ACTIONS: Array[String] = ["stop", "level_1", "level_2", "level_3", "boss", "epilogue", "game_over", "menu"]
 ## The control-hint requests a `hint` action may make (Story 5.8). The energy
 ## hints (shield, barrage) are never requested by data.
 const HINT_ACTIONS: Array[String] = ["move_fire", "missile"]

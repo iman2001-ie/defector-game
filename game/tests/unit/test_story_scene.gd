@@ -343,6 +343,8 @@ func test_title_play_opens_with_the_story_then_level_1() -> void:
 	title.queue_free()
 	await wait_process_frames(1)
 	_make()
+	# The menu track fades first (pt7-k review); the briefing starts once silent.
+	await get_tree().create_timer(Config.num("audio.music_fade_out_s") + 0.3, true, false, true).timeout
 	_click_through()
 	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH, SceneRouter.LEVEL_SCENE_PATH] as Array[String], "then the level")
 	assert_eq(GameState.current_level_id, "1")
@@ -362,6 +364,8 @@ func test_level_select_card_1_opens_with_the_story_then_level_1() -> void:
 	screen.queue_free()
 	await wait_process_frames(1)
 	_make()
+	# The menu track fades first (pt7-k review); the briefing starts once silent.
+	await get_tree().create_timer(Config.num("audio.music_fade_out_s") + 0.3, true, false, true).timeout
 	_click_through()
 	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH, SceneRouter.LEVEL_SCENE_PATH] as Array[String], "then the level")
 	assert_eq(GameState.current_level_id, "1")
@@ -449,3 +453,22 @@ func test_ending_council_is_the_same_for_every_final_choice() -> void:
 		_story.queue_free()
 		_story = null
 		await wait_process_frames(1)
+
+
+## pt7-k review: PLAY from the title while the menu track fades out: the
+## opening briefing waits for silence (audio.music_fade_out_s), so no music
+## tail plays under it.
+func test_opening_waits_for_the_menu_fade_out() -> void:
+	Audio.play_music(&"menu", 0.0)
+	Audio.stop_music()
+	_story = _make_with(SceneRouter.OPENING_SEQUENCE, 1)
+	assert_false(_channel().is_showing(), "not while the menu track fades")
+	await get_tree().create_timer(Config.num("audio.music_fade_out_s") + 0.3, true, false, true).timeout
+	assert_true(_channel().is_showing(), "the briefing starts once silent")
+
+
+## Without a fade the briefing starts at once, as before.
+func test_opening_starts_at_once_in_silence() -> void:
+	Audio.stop_music(0.0)
+	_story = _make_with(SceneRouter.OPENING_SEQUENCE, 1)
+	assert_true(_channel().is_showing())
