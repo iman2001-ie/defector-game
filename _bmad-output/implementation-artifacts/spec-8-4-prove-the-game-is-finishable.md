@@ -2,7 +2,7 @@
 title: 'Story 8.4: Prove the Game Is Finishable'
 type: 'feature'
 created: '2026-10-13'
-status: 'awaiting-operator'
+status: done
 operator_actions:
   - 'Export the release build ("<GODOT_DIR>/Godot_v4.7.2-stable_win64_console.exe" --headless --path game --import, then --headless --path game --export-release "Windows Desktop" export/windows/DEFECTOR.exe) and note the commit (git rev-parse --short HEAD) in the record sheet.'
   - 'Play the campaign start to finish three times on game/export/windows/DEFECTOR.exe, deleting %APPDATA%\DEFECTOR\save.cfg before each run, picking REFUSE at the Level 1 surrender prompt, OFFER SURRENDER at the Final Choice in at least one run and DESTROY HER in at least one other, and quitting normally from the title after the end screen each time.'
@@ -232,3 +232,17 @@ The record sheet `playtest-8-4-record.md` covers the three playthroughs, the P1â
 - Release builds buffer the file log (`flush_stdout_on_print` is off, Story 8.3). A crash loses the log's tail, so the audit sees a FAIL without the cause, and the operator must note crashes by hand.
 - `--latest 3` takes the most recent launches. Launching the editor, the GUT tests or the game between the runs and the audit shifts that window (the record sheet warns about this).
 - The audit reads `game/data/flags.json` from the repo, not the flags packed into the export, so the two must match.
+
+## Operator Confirmation
+
+Confirmed 2026-10-14: the external actions this story owed were carried out.
+
+- Export the release build ("<GODOT_DIR>/Godot_v4.7.2-stable_win64_console.exe" --headless --path game --import, then --headless --path game --export-release "Windows Desktop" export/windows/DEFECTOR.exe) and note the commit (git rev-parse --short HEAD) in the record sheet.
+- Play the campaign start to finish three times on game/export/windows/DEFECTOR.exe, deleting %APPDATA%\DEFECTOR\save.cfg before each run, picking REFUSE at the Level 1 surrender prompt, OFFER SURRENDER at the Final Choice in at least one run and DESTROY HER in at least one other, and quitting normally from the title after the end screen each time.
+- Without launching the game, the editor or the GUT tests in between, run uv run python tools/beat_audit.py --latest 3 and confirm all three runs report result=PASS (no crash, no soft-lock, every beat fired in order, fresh save, release build); fix and replay any run that fails.
+- Fill in the Playthroughs results table in _bmad-output/implementation-artifacts/playtest-8-4-record.md (date, commit, audit result, attempts, choices, time, crash or soft-lock notes).
+- Run a playtest with 3 to 5 people on the release build, deleting save.cfg before each person and giving no verbal help, and record for each (P1 to P5 only, no names) whether they understood the controls by Level 1 Wave 2, attempts per level, total playtime from PLAY to the end screen, whether they finished, and their answers to "Was the shooting fun on its own?" and "Which story moment do you remember?".
+- Fill in the record sheet's observation checklist (Level 1 convoy survival, Bastions shielding Needles, throne-world arc visibility, boss-death frame spike, loudness and clipping, music carrying over into the menus) and the ally kill-share recheck against the 10 to 15% target (dev_ally plus the kill share lines the audit prints), per decision #47.
+- If the playtest shows a need, retune in data only (game/data/tuning.json or flags.json), add a decision-log row per change with the old value, the new value and the evidence, re-run the benches if visuals or entity counts changed, then update decision #68's status to record that the playthroughs and playtest are done.
+
+_Appended by the bmad-loop orchestrator (`bmad-loop confirm`, #335): a human confirmed these external actions out of band, and the story was advanced from `awaiting-operator` to `done`._
