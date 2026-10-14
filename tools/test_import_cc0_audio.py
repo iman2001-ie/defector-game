@@ -31,7 +31,7 @@ class MappingTest(unittest.TestCase):
             "explosion_medium": (tool.SCI_FI, "explosionCrunch_001.ogg", None, None),
             "explosion_large": (tool.SCI_FI, "explosionCrunch_004.ogg", None, None),
             "explosion_boss_part": (tool.SCI_FI, "lowFrequency_explosion_001.ogg", None, None),
-            "explosion_boss_death": (tool.SCI_FI, "lowFrequency_explosion_000.ogg", None, None),
+            "explosion_big": (tool.JOTH, "Chunky Explosion.mp3", 3.0, 1.0),
             "player_hit": (tool.SCI_FI, "impactMetal_002.ogg", None, None),
             "player_death": (tool.SCI_FI, "explosionCrunch_003.ogg", None, None),
             "shield_on": (tool.SCI_FI, "forceField_000.ogg", None, None),
@@ -62,6 +62,7 @@ class MappingTest(unittest.TestCase):
                 "combat": ("space_adventure_bpm140_0.ogg", "30e31ee6da7a24bea35bf22d6c125f8100f803fca20a3f59637e52a4fd764ce3"),
                 "boss": ("space_boss_battle_bpm175_0.ogg", "4fc0898456099db3d9e63bd97450fedc3f9ff0a05cd65a8d363b3f2904415e60"),
                 "epilogue": ("Heavenly Loop_0.ogg", "a842e9e054019132cacc8fd352e7b31c000ebb51e0b227a2511e1bccb4eb166e"),
+                "game_over": ("Game Over_1.ogg", "eb16aeb17fed5b13575702e082b54db00b296f6f4f2e9ee89c63aca895bc085e"),
             },
         )
 
@@ -77,8 +78,28 @@ class MappingTest(unittest.TestCase):
             "30e31ee6da7a24bea35bf22d6c125f8100f803fca20a3f59637e52a4fd764ce3",
             "4fc0898456099db3d9e63bd97450fedc3f9ff0a05cd65a8d363b3f2904415e60",
             "a842e9e054019132cacc8fd352e7b31c000ebb51e0b227a2511e1bccb4eb166e",
+            "4de53bffac187e59d3f5b43096df2f8fcb4160076b65b71a67074947950e025f",
+            "eb16aeb17fed5b13575702e082b54db00b296f6f4f2e9ee89c63aca895bc085e",
         ):
             self.assertIn(digest, doc)
+
+    def test_layered_boss_death_mapping(self) -> None:
+        self.assertEqual(set(tool.LAYERED_SOURCES), {"explosion_boss_death"})
+        source = tool.LAYERED_SOURCES["explosion_boss_death"]
+        self.assertEqual(
+            [(layer.pack, layer.file, layer.volume) for layer in source.layers],
+            [
+                (tool.JOTH, "Chunky Explosion.mp3", 1.0),
+                (tool.SCI_FI, "explosionCrunch_004.ogg", 0.7),
+                (tool.SCI_FI, "lowFrequency_explosion_000.ogg", 0.8),
+            ],
+        )
+        self.assertEqual(source.echo, "0.8:0.6:120|260:0.35|0.22")
+        self.assertEqual((source.length_s, source.fade_out_s), (4.5, 1.3))
+
+    def test_no_id_is_both_plain_and_layered(self) -> None:
+        self.assertFalse(set(tool.SFX_SOURCES) & set(tool.LAYERED_SOURCES))
+        self.assertFalse(KEPT & set(tool.LAYERED_SOURCES))
 
 
 class FfmpegArgsTest(unittest.TestCase):
@@ -119,6 +140,35 @@ class FfmpegArgsTest(unittest.TestCase):
         self.assertEqual(args[args.index("-map_metadata") + 1], "-1")
         self.assertIn("+bitexact", args)
         self.assertEqual(args[-1], "out.wav")
+
+    def test_layered_graph_mixes_echoes_trims_and_fades(self) -> None:
+        source = tool.LAYERED_SOURCES["explosion_boss_death"]
+        graph = tool.layered_graph(source)
+        fmt = "aformat=sample_fmts=flt:sample_rates=44100:channel_layouts=mono"
+        self.assertEqual(
+            graph,
+            f"[0:a]{fmt},volume=1[l0];[1:a]{fmt},volume=0.7[l1];[2:a]{fmt},volume=0.8[l2];"
+            "[l0][l1][l2]amix=inputs=3:duration=longest:normalize=0,"
+            "aecho=0.8:0.6:120|260:0.35|0.22,atrim=end=4.5,afade=t=out:st=3.2:d=1.3",
+        )
+
+    def test_layered_measure_and_render_args(self) -> None:
+        source = tool.LAYERED_SOURCES["explosion_boss_death"]
+        srcs = [Path("a.mp3"), Path("b.ogg"), Path("c.ogg")]
+        measure = tool.layered_measure_args(srcs, source)
+        self.assertEqual([measure[i + 1] for i, a in enumerate(measure) if a == "-i"], ["a.mp3", "b.ogg", "c.ogg"])
+        graph = measure[measure.index("-filter_complex") + 1]
+        self.assertTrue(graph.startswith(tool.layered_graph(source) + ",astats="), graph)
+        self.assertTrue(graph.endswith("[out]"))
+        self.assertEqual(measure[measure.index("-map") + 1], "[out]")
+        self.assertEqual(measure[-3:], ["-f", "null", "-"])
+        render = tool.layered_render_args(srcs, Path("out.wav"), source, -1.5)
+        self.assertEqual(render[render.index("-filter_complex") + 1], tool.layered_graph(source) + ",volume=-1.500000dB[out]")
+        self.assertIn("-y", render)
+        self.assertEqual(render[render.index("-c:a") + 1], "pcm_s16le")
+        self.assertEqual(render[render.index("-ac") + 1], "1")
+        self.assertIn("+bitexact", render)
+        self.assertEqual(render[-1], "out.wav")
 
     def test_render_args_negative_gain(self) -> None:
         args = tool.render_args(Path("in.ogg"), Path("out.wav"), tool.SFX_SOURCES["laser_zap"], -1.470460)

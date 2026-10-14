@@ -9,9 +9,10 @@ extends Control
 ## throne-world planet (and the starfield) drawn by the reused LevelBackground (the
 ## `Background` child, first, so it draws behind the labels and the button).
 ##
-## Healthy config: the layout comes from `ui.end_screen` (each text label spans
-## the full canvas width, centred horizontally, with its vertical centre on its
-## `*_y` at its `*_px` font size, as the title logo uses `logo_y`; the button is
+## Healthy config: the layout comes from `ui.end_screen` (the DEFECTOR wordmark
+## is TitleScreen's logo: TitleScreen.logo_rect at `logo_width_px`, centred on
+## `logo_y`; each text label spans the full canvas width, centred horizontally,
+## with its vertical centre on its `*_y` at its `*_px` font size; the button is
 ## centred horizontally with its top at `button_top_y`, as the title's
 ## `buttons_top_y`). Fatal config (Config.load_error set, so the data is
 ## empty): no Config getter is called (each would assert on the empty data) and
@@ -32,28 +33,24 @@ extends Control
 ## empty), the end-of-run beat tools/beat_audit.py reads.
 
 const THEME_TYPE: StringName = &"EndScreen"
-const COLOR_LOGO: StringName = &"logo"
-const COLOR_LOGO_GLOW: StringName = &"logo_glow"
 const COLOR_TEXT: StringName = &"text"
 const COLOR_MUTED: StringName = &"muted"
-const CONSTANT_LOGO_GLOW_PX: StringName = &"logo_glow_px"
 const FONT_SIZE_BUTTON: StringName = &"button"
 const STYLE_BUTTON_NORMAL: StringName = &"button_normal"
 const STYLE_BUTTON_HOVER: StringName = &"button_hover"
 const STYLE_BUTTON_FOCUS: StringName = &"button_focus"
-const TEXT_LOGO: String = "DEFECTOR"
 const TEXT_CLOSING: String = "The Sovereignty has fallen. The war is over."
 const TEXT_THANKS: String = "Thanks for playing"
 const TEXT_BACK: String = "BACK TO TITLE"
 ## A text label is this many times its font size tall, so the glyphs fit
-## inside it (as TitleScreen.LOGO_BOX_SCALE).
+## inside it.
 const TEXT_BOX_SCALE: float = 2.0
 
 var _leaving: bool = false
 var _config_failed: bool = false
 
 @onready var _background: LevelBackground = $Background
-@onready var _logo: Label = $Logo
+@onready var _logo: TextureRect = $Logo
 @onready var _closing: Label = $ClosingLine
 @onready var _thanks: Label = $Thanks
 @onready var _back: Button = $Back
@@ -69,7 +66,7 @@ func _ready() -> void:
 		# after audio.epilogue_music_delay_s, so the boss track's fade-out
 		# finishes first. Not on a fatal config: no Config getter may run then.
 		_start_epilogue_music()
-	_logo.text = TEXT_LOGO
+	TitleScreen.setup_logo(_logo)
 	_closing.text = TEXT_CLOSING
 	_thanks.text = TEXT_THANKS
 	_back.text = TEXT_BACK
@@ -127,7 +124,9 @@ func _on_back_pressed() -> void:
 
 ## Healthy config only: positions and text sizes from ui.end_screen.
 func _layout() -> void:
-	_place_text(_logo, "ui.end_screen.logo_y", "ui.end_screen.logo_px")
+	var logo: Rect2 = TitleScreen.logo_rect(Playfield.SIZE.x, Config.num("ui.end_screen.logo_y"), Config.num("ui.end_screen.logo_width_px"))
+	_logo.position = logo.position
+	_logo.size = logo.size
 	_place_text(_closing, "ui.end_screen.line_y", "ui.end_screen.line_px")
 	_place_text(_thanks, "ui.end_screen.thanks_y", "ui.end_screen.thanks_px")
 	var button: Vector2 = Vector2(Config.num("ui.end_screen.button_w"), Config.num("ui.end_screen.button_h"))
@@ -148,11 +147,6 @@ func _place_text(label: Label, y_key: String, px_key: String) -> void:
 ## Copies the EndScreen theme items onto the children (their own theme types
 ## are Label / Button). Reads only the Theme, never Config.
 func _apply_theme() -> void:
-	_logo.add_theme_color_override(&"font_color", get_theme_color(COLOR_LOGO, THEME_TYPE))
-	_logo.add_theme_color_override(&"font_shadow_color", get_theme_color(COLOR_LOGO_GLOW, THEME_TYPE))
-	_logo.add_theme_constant_override(&"shadow_offset_x", 0)
-	_logo.add_theme_constant_override(&"shadow_offset_y", 0)
-	_logo.add_theme_constant_override(&"shadow_outline_size", get_theme_constant(CONSTANT_LOGO_GLOW_PX, THEME_TYPE))
 	var text_color: Color = get_theme_color(COLOR_TEXT, THEME_TYPE)
 	_closing.add_theme_color_override(&"font_color", text_color)
 	_thanks.add_theme_color_override(&"font_color", get_theme_color(COLOR_MUTED, THEME_TYPE))

@@ -69,3 +69,13 @@ The game now draws the throne-world planet in code. If you'd rather have a paint
 > The lower half of a huge, dark, regal planet seen from below, filling the top of a wide 16:9 frame: the Sovereignty's throne world. Deep violet and indigo surface with swirling cloud bands, thin glowing city lights on the night side forming geometric patterns, and a thin violet atmosphere glow along the edge. Dark, moody and not too bright: it sits behind gameplay. Black space below it with faint stars. Clean digital illustration, no text. 3840 x 1080, PNG.
 
 Put it at `game/assets/backgrounds/throne_world_planet.png` and tell me, and I'll use it instead.
+
+---
+
+## App icon (square; the wordmark is too wide for it)
+
+Windows shows the icon from 16 px (title bar) up to 256 px (desktop). It must read as a simple shape at 16 px, so it carries no text, or at most one letter.
+
+> Square app icon for DEFECTOR, a neon sci-fi space shooter, in the same style as the DEFECTOR wordmark: bold electric-cyan (#22E6FF) shapes with a thin dark navy outline, glossy highlights and a soft cyan glow, with a hot magenta (#FF2BD6) accent. Subject: a sleek arrow-shaped cyan starfighter, nose up, breaking away from a magenta chevron or V-formation behind it (the general who defects). Simple, bold, centred silhouette that is readable at 16 x 16 pixels; no text, no fine detail. Background: a rounded-square tile in near-black navy (#05070F) with a faint cyan rim. 1024 x 1024 PNG.
+
+Put it at `game/assets/icon/defector_icon.png` and tell me. I'll switch the exe and window icon over from the current SVG.

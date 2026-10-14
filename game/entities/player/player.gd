@@ -606,7 +606,8 @@ func step_lock(mouse: Vector2) -> void:
 func _has_live_convoy() -> bool:
 	if _convoy == null or not is_instance_valid(_convoy):
 		return false
-	return _convoy.is_inside_tree() and not _convoy.is_queued_for_deletion()
+	# A lost convoy stays solid until its last ship has blown up (playtest pt7-g).
+	return _convoy.is_inside_tree() and not _convoy.is_queued_for_deletion() and not (_convoy.is_lost() and _convoy.is_wrecked())
 
 
 ## The ship's position after moving from `from` toward `to` (both centres) past

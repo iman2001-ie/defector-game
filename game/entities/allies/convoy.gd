@@ -27,6 +27,12 @@ extends Node2D
 ## Events.level_failed(&"convoy") once. The first outcome wins: after
 ## level_cleared or any level_failed every hit is ignored (no HP change, no events).
 ##
+## Death (playtest pt7-g): at HP 0 the convoy stops moving and, right after the
+## failure, blows up ship by ship: Feedback.convoy_death over the ship centres in
+## DEATH_ORDER (the lead first, then the flanks), each ConvoyShip.destroy()ed
+## (hidden, no longer hittable) as its explosion plays. A lost convoy is no
+## longer solid (the Player stops resolving against its hull).
+##
 ## Solid hull (DW-83, GDD #51): hull_polygon() returns the cached formation
 ## polygon, the convex outline of the three global hitbox rects with the gaps
 ## included (6 points: flank-left bottom-left and top-left, lead top-left and
@@ -43,6 +49,8 @@ const FLANK_RIGHT: int = 2
 const LAYOUT_SHIPS: int = 3
 ## Points in hull_polygon().
 const HULL_POINTS: int = 6
+## The order the ships blow up in when the convoy is lost.
+const DEATH_ORDER: Array[int] = [LEAD, FLANK_LEFT, FLANK_RIGHT]
 
 var ship_width: float = 0.0
 var ship_height: float = 0.0
@@ -101,8 +109,11 @@ func _physics_process(delta: float) -> void:
 	step(delta)
 
 
-## One movement tick: advance the span by speed_px_s * delta and re-place the ships.
+## One movement tick: advance the span by speed_px_s * delta and re-place the
+## ships. A lost convoy stays where it died.
 func step(delta: float) -> void:
+	if _lost:
+		return
 	var next: Vector2 = step_span(_left_x, _dir, speed_px_s * delta, span(), Playfield.SIZE.x)
 	_left_x = next.x
 	_dir = int(next.y)
@@ -164,6 +175,40 @@ func apply_damage(amount: int, _source: Node) -> void:
 		_lost = true
 		Log.info("combat", "Convoy lost: HP reached 0")
 		Events.level_failed.emit(&"convoy")
+		_explode()
+
+
+## The ship centres in DEATH_ORDER (the explosion chain's positions).
+func death_positions() -> Array[Vector2]:
+	var out: Array[Vector2] = []
+	for index: int in DEATH_ORDER:
+		if index < _ships.size() and is_instance_valid(_ships[index]):
+			out.append(_ships[index].global_position)
+	return out
+
+
+## Starts the explosion chain over the ships (playtest pt7-g).
+func _explode() -> void:
+	Feedback.convoy_death(death_positions(), _on_death_step)
+
+
+## Explosion `k` of the chain is playing: destroy that ship.
+func _on_death_step(k: int) -> void:
+	if k < 0 or k >= DEATH_ORDER.size() or DEATH_ORDER[k] >= _ships.size():
+		return
+	# Check before typing: a typed variable rejects a freed instance.
+	var ship: Variant = _ships[DEATH_ORDER[k]]
+	if is_instance_valid(ship):
+		(ship as ConvoyShip).destroy()
+
+
+## True once every ship has blown up in the death chain (or none is left), so
+## the player can fly through the wreck site (playtest pt7-g review).
+func is_wrecked() -> bool:
+	for ship: Variant in _ships:
+		if is_instance_valid(ship) and not (ship as ConvoyShip).is_destroyed():
+			return false
+	return true
 
 
 func _on_events_level_cleared(_level_id: int) -> void:

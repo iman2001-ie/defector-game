@@ -41,6 +41,7 @@ const SFX: Dictionary[StringName, AudioStream] = {
 	&"explosion_large": preload("res://assets/audio/sfx/sfx_explosion_large.wav"),
 	&"explosion_boss_part": preload("res://assets/audio/sfx/sfx_explosion_boss_part.wav"),
 	&"explosion_boss_death": preload("res://assets/audio/sfx/sfx_explosion_boss_death.wav"),
+	&"explosion_big": preload("res://assets/audio/sfx/sfx_explosion_big.wav"),
 	&"player_hit": preload("res://assets/audio/sfx/sfx_player_hit.wav"),
 	&"player_death": preload("res://assets/audio/sfx/sfx_player_death.wav"),
 	&"shield_on": preload("res://assets/audio/sfx/sfx_shield_on.wav"),
@@ -55,13 +56,17 @@ const SFX: Dictionary[StringName, AudioStream] = {
 	&"comms_handover": preload("res://assets/audio/sfx/sfx_comms_handover.wav"),
 	&"maul_alarm": preload("res://assets/audio/sfx/sfx_maul_alarm.wav"),
 }
-## The shipped music tracks (Story 8.1), imported with loop on. The ids are the
-## LevelValidator MUSIC_ACTIONS other than `stop`.
+## The shipped music tracks (Story 8.1), imported with loop on, except the
+## one-shot `game_over` sting (playtest pt7-g), which plays once under the retry
+## prompt. The ids are the LevelValidator MUSIC_ACTIONS other than `stop`.
 const MUSIC: Dictionary[StringName, AudioStream] = {
 	&"combat": preload("res://assets/audio/music/music_combat.ogg"),
 	&"boss": preload("res://assets/audio/music/music_boss.ogg"),
 	&"epilogue": preload("res://assets/audio/music/music_epilogue.ogg"),
+	&"game_over": preload("res://assets/audio/music/music_game_over.ogg"),
 }
+## The music ids that play once instead of looping (their import has loop off).
+const ONE_SHOT_MUSIC: Array[StringName] = [&"game_over"]
 ## The ids that play on the comms pool; every other id plays on the combat pool.
 const COMMS_SFX: Dictionary[StringName, bool] = {
 	&"comms_open": true,
@@ -118,6 +123,9 @@ func _ready() -> void:
 	_music = AudioStreamPlayer.new()
 	_music.name = "Music"
 	_music.bus = MUSIC_BUS
+	# A one-shot track (game_over) ending leaves the music silent, so a later
+	# play_music of the same id starts it again.
+	_music.finished.connect(_on_music_finished)
 	add_child(_music)
 	# Config is an earlier autoload, so the tuning is loaded here.
 	_music_base_db = Config.num("audio.music_volume_db")
@@ -291,6 +299,10 @@ func current_music() -> StringName:
 ## The music player (tests).
 func music_player() -> AudioStreamPlayer:
 	return _music
+
+
+func _on_music_finished() -> void:
+	_music_id = &""
 
 
 func _is_fading() -> bool:

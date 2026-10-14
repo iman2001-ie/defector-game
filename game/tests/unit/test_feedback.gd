@@ -538,7 +538,7 @@ func test_chain_spreads_the_explosions_evenly_over_chain_s() -> void:
 				flashes += 1
 			sfx_after.append(Audio.newest_player() != before and Audio.newest_player().stream == _chain_stream(seen))
 			var row_pitch: float = _chain_pitch(seen)
-			assert_almost_eq(Audio.newest_player().pitch_scale, row_pitch, row_pitch * Audio.DEFAULT_PITCH_JITTER + 0.0001, "explosion %d at its row's pitch" % seen)
+			assert_almost_eq(Audio.newest_player().pitch_scale, row_pitch, 0.0001, "explosion %d at exactly its row's pitch (no jitter)" % seen)
 			times.append(t)
 			seen = explosions.size()
 	assert_eq(seen, count, "one explosion per offset")
@@ -859,3 +859,100 @@ func test_ordinary_impacts_play_at_speed_one() -> void:
 	assert_eq(explosions.size(), 1)
 	if explosions.size() == 1:
 		assert_almost_eq(explosions[0].speed, 1.0, 0.0001)
+
+
+# --- Playtest pt7-g: the convoy death chain ------------------------------------------
+
+const CONVOY_POSITIONS: Array[Vector2] = [Vector2(400, 820), Vector2(220, 840), Vector2(580, 840)]
+
+
+func test_convoy_chain_tuning() -> void:
+	assert_gt(Config.num("feedback.convoy_death_chain_s"), 0.0)
+	assert_gt(Config.num("feedback.convoy_death_explosion_scale"), Config.num("feedback.tiers.large.explosion_scale"), "bigger than a Large kill")
+	var rows: Array = Config.section("feedback").get("convoy_death_chain_sfx", []) as Array
+	assert_eq(rows.size(), 3, "one sound per ship")
+	for row: Variant in rows:
+		assert_true(Audio.SFX.has(StringName(str((row as Dictionary)["sfx"]))), "a registered sound")
+		assert_gte(float((row as Dictionary)["sfx_pitch"]), 0.9, "never pitched down into mud")
+
+
+func test_convoy_death_plays_a_full_impact_then_queues_the_rest() -> void:
+	_setup_listeners()
+	var steps: Array[int] = []
+	Feedback.convoy_death(CONVOY_POSITIONS, func(k: int) -> void: steps.append(k))
+	assert_eq(steps, [0] as Array[int], "explosion 0 inside the call")
+	var explosions: Array[Explosion] = _explosions()
+	assert_eq(explosions.size(), 1)
+	if explosions.size() == 1:
+		var e: Explosion = explosions[0]
+		assert_eq(e.global_position, CONVOY_POSITIONS[0])
+		assert_eq(e.scale, Vector2.ONE * Config.num("feedback.convoy_death_explosion_scale"), "the convoy scale")
+		assert_eq(e.extras, [&"debris", &"shockwave"] as Array[StringName], "the Large extras")
+		assert_almost_eq(e.speed, Config.num("feedback.boss_death_chain_anim_speed"), 0.0001, "the slow chain speed")
+	assert_almost_eq(_camera.current_amplitude(), Config.num("feedback.tiers.large.shake_px"), 0.0001, "a full impact shakes")
+	assert_eq(Audio.newest_player().stream, Audio.SFX[&"explosion_big"], "the big explosion")
+	assert_eq(Feedback.chain_pending(), 2)
+	Feedback.reset()
+
+
+func test_convoy_chain_spreads_over_chain_s_with_its_rows() -> void:
+	_setup_listeners()
+	var steps: Array[int] = []
+	var chain_s: float = Config.num("feedback.convoy_death_chain_s")
+	Feedback.convoy_death(CONVOY_POSITIONS, func(k: int) -> void: steps.append(k))
+	var t: float = 0.0
+	var times: Array[float] = []
+	var rows: Array = Config.section("feedback").get("convoy_death_chain_sfx", []) as Array
+	for i: int in ceili(chain_s / CHAIN_DT) + 2:
+		var before: int = steps.size()
+		Feedback.step_chain(CHAIN_DT)
+		t += CHAIN_DT
+		if steps.size() > before:
+			times.append(t)
+			var k: int = steps.back()
+			var row: Dictionary = rows[k] as Dictionary
+			assert_eq(Audio.newest_player().stream, Audio.SFX[StringName(str(row["sfx"]))], "explosion %d plays its row" % k)
+			var pitch: float = float(row["sfx_pitch"])
+			assert_almost_eq(Audio.newest_player().pitch_scale, pitch, pitch * Audio.DEFAULT_PITCH_JITTER + 0.0001)
+			var e: Explosion = _explosions().back()
+			assert_eq(e.global_position, CONVOY_POSITIONS[k])
+			assert_eq(e.extras, [&"debris", &"shockwave"] as Array[StringName], "every convoy blast keeps the extras")
+	assert_eq(steps, [0, 1, 2] as Array[int])
+	assert_eq(times.size(), 2)
+	for j: int in times.size():
+		assert_almost_eq(times[j], float(j + 1) * chain_s / 2.0, CHAIN_DT + 0.0001)
+
+
+func test_reset_drops_the_convoy_chain_without_calling_back() -> void:
+	var steps: Array[int] = []
+	Feedback.convoy_death(CONVOY_POSITIONS, func(k: int) -> void: steps.append(k))
+	Feedback.reset()
+	Feedback.step_chain(10.0)
+	assert_eq(steps, [0] as Array[int], "nothing after the reset")
+	assert_eq(Feedback.chain_pending(), 0)
+
+
+func test_convoy_death_with_no_positions_does_nothing() -> void:
+	var steps: Array[int] = []
+	Feedback.convoy_death([] as Array[Vector2], func(k: int) -> void: steps.append(k))
+	assert_eq(steps, [] as Array[int])
+	assert_eq(Feedback.chain_pending(), 0)
+
+
+func test_boss_chain_after_a_convoy_chain_uses_the_boss_settings() -> void:
+	_setup_listeners()
+	var steps: Array[int] = []
+	Feedback.convoy_death(CONVOY_POSITIONS, func(k: int) -> void: steps.append(k))
+	Feedback.boss_death(CHAIN_POS)
+	Feedback.step_chain(Config.num("feedback.boss_death_chain_s") + 1.0)
+	assert_eq(steps, [0] as Array[int], "the boss chain replaced the convoy's callback")
+	assert_eq(_explosions().back().scale, _boss_death_scale(), "boss-death scale")
+	assert_eq(_explosions().back().extras, [] as Array[StringName], "later boss blasts have no extras")
+
+
+func test_convoy_sfx_row_falls_back_to_the_large_tier() -> void:
+	(Config.tuning["feedback"] as Dictionary)["convoy_death_chain_sfx"] = [{"sfx": "", "sfx_pitch": 1.0, "sfx_volume_db": 0}]
+	Feedback.load_tiers()
+	assert_push_error("feedback.convoy_death_chain_sfx entry")
+	assert_eq(Feedback.convoy_sfx_row(0)["sfx"], &"explosion_large", "a malformed row uses the Large tier")
+	assert_eq(Feedback.convoy_sfx_row(5)["sfx"], &"explosion_large", "a missing row too")

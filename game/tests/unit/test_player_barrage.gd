@@ -87,7 +87,9 @@ func test_activate_spends_cost_and_launches_one_at_once() -> void:
 		assert_not_null(micro, "a MicroMissile")
 		if micro != null:
 			assert_eq(micro.global_position, _muzzle(), "at the muzzle")
-			assert_eq(micro.velocity, Vector2.UP * Config.num("abilities.barrage.speed_px_s"), "launched straight up")
+			var fan: float = Config.num("abilities.barrage.launch_fan_deg")
+			var expected: Vector2 = Vector2.UP.rotated(deg_to_rad(-fan)) * Config.num("abilities.barrage.speed_px_s")
+			assert_almost_eq(micro.velocity, expected, Vector2(0.001, 0.001), "the first launch fans out to the left")
 			assert_eq(micro.damage, 6)
 	assert_eq(Audio.newest_player().stream, Audio.SFX[&"barrage_whoosh"], "whoosh played")
 	assert_true((_player.get_node("Muzzle/MuzzleFlash") as Node2D).visible, "muzzle flash")
@@ -294,3 +296,38 @@ func test_denied_barrage_emits_no_player_action() -> void:
 	assert_false(_player.try_barrage())
 	assert_signal_emit_count(Events, "ability_denied", 1)
 	assert_signal_not_emitted(Events, "player_action")
+
+
+# --- Playtest pt7-h: the launch fan -------------------------------------------------
+
+func test_fan_angle_alternates_and_stays_within_the_fan() -> void:
+	var fan: float = 18.0
+	var angles: Array[float] = []
+	for i: int in 6:
+		angles.append(PlayerWeapons.fan_angle_deg(i, fan))
+	var expected: Array[float] = [-18.0, 18.0, -9.9, 9.9, -14.4, 14.4]
+	for i: int in expected.size():
+		assert_almost_eq(angles[i], expected[i], 0.0001, "launch %d: left, right, cycling FAN_SPREAD" % i)
+	for i: int in 40:
+		assert_lte(absf(PlayerWeapons.fan_angle_deg(i, fan)), fan + 0.0001, "launch %d inside the fan" % i)
+	assert_eq(PlayerWeapons.fan_angle_deg(3, 0.0), 0.0, "no fan: straight up")
+
+
+func test_a_volley_fans_out_at_full_speed() -> void:
+	_start()
+	_ticks(200)
+	var micros: Array[Node] = _projectiles.get_children()
+	assert_eq(micros.size(), Config.int_("abilities.barrage.missiles"), "the whole volley in flight")
+	var speed: float = Config.num("abilities.barrage.speed_px_s")
+	var lefts: int = 0
+	var rights: int = 0
+	for node: Node in micros:
+		var micro: MicroMissile = node as MicroMissile
+		if micro == null:
+			continue
+		assert_almost_eq(micro.velocity.length(), speed, 0.01, "speed unchanged")
+		if micro.velocity.x < 0.0:
+			lefts += 1
+		elif micro.velocity.x > 0.0:
+			rights += 1
+	assert_eq(lefts, rights, "as many to the left as to the right")

@@ -34,6 +34,15 @@ extends Node
 ## blasts. A missing row (fewer rows than offsets) uses the tier sfx; a
 ## malformed one logs an error at load and does the same. Every chain explosion
 ## plays at feedback.boss_death_chain_anim_speed (Explosion `speed`).
+##
+## Convoy death (playtest pt7-g): convoy_death(positions, on_step) runs the same
+## pending-chain machinery over the convoy's ships: explosion k at positions[k]
+## at k * feedback.convoy_death_chain_s / (N - 1), each a Large-tier explosion
+## scaled to feedback.convoy_death_explosion_scale with the Large extras, at the
+## chain playback speed, playing row k of feedback.convoy_death_chain_sfx (else
+## the Large tier sfx). Explosion 0 is a full impact (shake and hit-stop). The
+## optional on_step(k) is called as explosion k plays, so the convoy can hide
+## that ship. Only one chain is pending at a time; a new one replaces it.
 
 ## Where prewarm() spawns its explosions: off-screen left, vertically centred.
 const PREWARM_POSITION: Vector2 = Vector2(-1000, 540)
@@ -63,6 +72,19 @@ var _chain_t: float = 0.0
 ## sfx), and feedback.boss_death_chain_anim_speed, cached in load_tiers().
 var _chain_sfx: Array[Dictionary] = []
 var _chain_anim_speed: float = 1.0
+## feedback.convoy_death_chain_s, convoy_death_explosion_scale and
+## convoy_death_chain_sfx, cached in load_tiers().
+var _convoy_chain_s: float = 0.0
+var _convoy_scale: float = 1.0
+var _convoy_sfx: Array[Dictionary] = []
+## The pending chain's settings (the boss's or the convoy's): the tier row its
+## explosions use, its sound rows and their fallback, whether every explosion
+## keeps the row's extras (else only explosion 0 does), and the step callback.
+var _active_row: Dictionary = {}
+var _active_sfx: Array[Dictionary] = []
+var _active_fallback_sfx: Dictionary = {}
+var _active_step_extras: bool = false
+var _active_on_step: Callable = Callable()
 ## Slow motion: the current target scale (1.0 when idle), the scale it started
 ## at, the real seconds of hold left, the ramp length and the real seconds into
 ## the ramp. _slow_last_usec is the real clock at the last _process.
@@ -165,15 +187,15 @@ func impact(tier: int, position: Vector2) -> void:
 	_impact_row(row, position, row, 1.0)
 
 
-## A full impact of `row` at `position` whose sound comes from `sfx_row` and
-## whose explosion plays at `speed`.
-func _impact_row(row: Dictionary, position: Vector2, sfx_row: Dictionary, speed: float) -> void:
+## A full impact of `row` at `position` whose sound comes from `sfx_row` (at
+## `pitch_jitter`) and whose explosion plays at `speed`.
+func _impact_row(row: Dictionary, position: Vector2, sfx_row: Dictionary, speed: float, pitch_jitter: float = Audio.DEFAULT_PITCH_JITTER) -> void:
 	_spawn_explosion_with(row, position, row["extras"] as Array, speed)
 	_shake(row)
 	var stop_ms: float = row["hit_stop_ms"]
 	if stop_ms > 0.0:
 		hit_stop(stop_ms)
-	_play_sfx(sfx_row)
+	_play_sfx(sfx_row, pitch_jitter)
 
 
 ## Shakes the registered camera with the tier's shake_px / shake_s only: no
@@ -285,22 +307,61 @@ func boss_death(pos: Vector2) -> void:
 		_chain_times[k] = 0.0 if count == 1 else float(k) * _chain_s / float(count - 1)
 	_chain_t = 0.0
 	_chain_next = 1
-	var row: Dictionary = _tiers[ImpactTier.BOSS_DEATH]
-	_impact_row(row, _chain_positions[0], chain_sfx_row(0), _chain_anim_speed)
+	_active_row = _tiers[ImpactTier.BOSS_DEATH]
+	_active_sfx = _chain_sfx
+	_active_fallback_sfx = _active_row
+	_active_step_extras = false
+	_active_on_step = Callable()
+	_impact_row(_active_row, _chain_positions[0], chain_sfx_row(0), _chain_anim_speed, 0.0)
 
 
-## Advances the pending boss-death chain by `delta` seconds of game time: each
-## explosion whose time has come plays (the Boss-death scale, no extras) with
-## the tier sfx. Does nothing when no chain is pending.
+## The convoy's death (playtest pt7-g): one explosion per entry of `positions`
+## (the ships' centres), spread evenly over feedback.convoy_death_chain_s.
+## Explosion 0 plays now as a full impact; the rest are queued for step_chain.
+## on_step(k), when valid, is called as explosion k plays. A new call replaces
+## a chain still pending. An empty `positions` does nothing.
+func convoy_death(positions: Array[Vector2], on_step: Callable = Callable()) -> void:
+	var count: int = positions.size()
+	if count == 0:
+		return
+	if ImpactTier.LARGE >= _tiers.size():
+		Log.error("combat", "convoy_death: no Large tier row; the ships are cleared without explosions")
+		if on_step.is_valid():
+			for k: int in count:
+				on_step.call(k)
+		return
+	_chain_positions.resize(count)
+	_chain_times.resize(count)
+	for k: int in count:
+		_chain_positions[k] = positions[k]
+		_chain_times[k] = 0.0 if count == 1 else float(k) * _convoy_chain_s / float(count - 1)
+	_chain_t = 0.0
+	_chain_next = 1
+	_active_row = _tiers[ImpactTier.LARGE].duplicate()
+	_active_row["explosion_scale"] = _convoy_scale
+	_active_sfx = _convoy_sfx
+	_active_fallback_sfx = _tiers[ImpactTier.LARGE]
+	_active_step_extras = true
+	_active_on_step = on_step
+	_impact_row(_active_row, _chain_positions[0], _active_sfx_row(0), _chain_anim_speed, 0.0)
+	_call_on_step(0)
+
+
+## Advances the pending chain (the boss's or the convoy's) by `delta` seconds of
+## game time: each explosion whose time has come plays (the chain row's scale;
+## the boss chain without extras, the convoy chain with them) with its sound
+## row, then calls the chain's on_step. Does nothing when no chain is pending.
 func step_chain(delta: float) -> void:
 	if _chain_next >= _chain_positions.size():
 		return
 	_chain_t += delta
-	var row: Dictionary = _tiers[ImpactTier.BOSS_DEATH]
 	while _chain_next < _chain_positions.size() and _chain_t + CHAIN_EPSILON_S >= _chain_times[_chain_next]:
-		_spawn_explosion_with(row, _chain_positions[_chain_next], [], _chain_anim_speed)
-		_play_sfx(chain_sfx_row(_chain_next))
+		var k: int = _chain_next
+		var extras: Array = _active_row.get("extras", []) as Array if _active_step_extras else []
+		_spawn_explosion_with(_active_row, _chain_positions[k], extras, _chain_anim_speed)
+		_play_sfx(_active_sfx_row(k), 0.0)
 		_chain_next += 1
+		_call_on_step(k)
 
 
 ## The sound row of chain explosion `k`: its feedback.boss_death_chain_sfx row,
@@ -311,13 +372,33 @@ func chain_sfx_row(k: int) -> Dictionary:
 	return _tiers[ImpactTier.BOSS_DEATH] if ImpactTier.BOSS_DEATH < _tiers.size() else {}
 
 
-## Explosions of the boss-death chain still to play (tests, F1).
+## The convoy chain's sound row `k`: its feedback.convoy_death_chain_sfx row,
+## else the Large tier's own sfx, pitch and volume.
+func convoy_sfx_row(k: int) -> Dictionary:
+	if k >= 0 and k < _convoy_sfx.size() and not _convoy_sfx[k].is_empty():
+		return _convoy_sfx[k]
+	return _tiers[ImpactTier.LARGE] if ImpactTier.LARGE < _tiers.size() else {}
+
+
+## The pending chain's sound row `k` (its own row, else its fallback).
+func _active_sfx_row(k: int) -> Dictionary:
+	if k >= 0 and k < _active_sfx.size() and not _active_sfx[k].is_empty():
+		return _active_sfx[k]
+	return _active_fallback_sfx
+
+
+func _call_on_step(k: int) -> void:
+	if _active_on_step.is_valid():
+		_active_on_step.call(k)
+
+
+## Explosions of the pending chain (boss or convoy) still to play (tests, F1).
 func chain_pending() -> int:
 	return maxi(_chain_positions.size() - _chain_next, 0)
 
 
 ## Ends any hit-stop at once; pending timers become stale. Cancels slow motion
-## and drops a pending boss-death chain.
+## and drops a pending chain (boss or convoy) without calling its on_step.
 func reset() -> void:
 	_hit_stop_serial += 1
 	_hit_stop_end_usec = 0
@@ -325,6 +406,7 @@ func reset() -> void:
 	_slow_scale = 1.0
 	Engine.time_scale = 1.0
 	_chain_next = _chain_positions.size()
+	_active_on_step = Callable()
 
 
 ## Shakes the registered camera with the row's shake_px / shake_s (see shake).
@@ -332,10 +414,12 @@ func _shake(row: Dictionary) -> void:
 	shake(row["shake_px"] as float, row["shake_s"] as float)
 
 
-func _play_sfx(row: Dictionary) -> void:
+## Plays the row's sfx. Chain rows pass a jitter of 0: each row already sets
+## its own pitch, and jitter could push one below the 0.9 floor.
+func _play_sfx(row: Dictionary, pitch_jitter: float = Audio.DEFAULT_PITCH_JITTER) -> void:
 	if row.is_empty():
 		return
-	Audio.play_sfx(row["sfx"] as StringName, Audio.DEFAULT_PITCH_JITTER, row["sfx_volume_db"] as float, row["sfx_pitch"] as float)
+	Audio.play_sfx(row["sfx"] as StringName, pitch_jitter, row["sfx_volume_db"] as float, row["sfx_pitch"] as float)
 
 
 ## Spawns one explosion at the row's scale with the given extras and playback
@@ -373,33 +457,45 @@ func _load_chain() -> void:
 		_chain_anim_speed = 1.0
 	_chain_anim_speed = maxf(_chain_anim_speed, Explosion.MIN_SPEED)
 	_load_chain_sfx()
+	_convoy_chain_s = maxf(Config.num("feedback.convoy_death_chain_s"), 0.0)
+	_convoy_scale = maxf(Config.num("feedback.convoy_death_explosion_scale"), 0.0)
+	_convoy_sfx = _load_sfx_rows("convoy_death_chain_sfx")
 	_chain_positions.clear()
 	_chain_times.clear()
 	_chain_next = 0
+	_active_on_step = Callable()
 
 
-## Caches feedback.boss_death_chain_sfx: each entry a {sfx (string), sfx_pitch,
-## sfx_volume_db (numbers)} row; a malformed entry logs an error and becomes {}
-## (the tier sfx). A missing key means every explosion uses the tier sfx.
+## Caches feedback.boss_death_chain_sfx (see _load_sfx_rows).
 func _load_chain_sfx() -> void:
-	_chain_sfx.clear()
-	var raw: Variant = Config.section("feedback").get("boss_death_chain_sfx", [])
+	_chain_sfx = _load_sfx_rows("boss_death_chain_sfx")
+
+
+## The rows of feedback.<key>: each entry a {sfx (non-empty string), sfx_pitch
+## (> 0), sfx_volume_db (numbers)} row; a malformed entry logs an error and
+## becomes {} (the tier sfx). A missing key means every explosion uses the tier
+## sfx; a non-array logs an error and does the same.
+func _load_sfx_rows(key: String) -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	var raw: Variant = Config.section("feedback").get(key, [])
 	if not (raw is Array):
-		Log.error("data", "feedback.boss_death_chain_sfx is not an array; the chain uses the tier sfx")
-		return
+		Log.error("data", "feedback.%s is not an array; the chain uses the tier sfx" % key)
+		return rows
 	for entry: Variant in raw as Array:
 		var row: Dictionary = entry as Dictionary if entry is Dictionary else {}
 		var pitch: Variant = row.get("sfx_pitch")
 		var volume: Variant = row.get("sfx_volume_db")
-		if not (row.get("sfx") is String) or (row.get("sfx") as String).is_empty() or not (pitch is float or pitch is int) or float(pitch) <= 0.0 or not (volume is float or volume is int):
-			Log.error("data", "feedback.boss_death_chain_sfx entry %s is not a {sfx, sfx_pitch, sfx_volume_db} row; the tier sfx plays instead" % str(entry))
-			_chain_sfx.append({})
+		var sfx: Variant = row.get("sfx")
+		if not (sfx is String) or (sfx as String).is_empty() or not (pitch is float or pitch is int) or float(pitch) <= 0.0 or not (volume is float or volume is int):
+			Log.error("data", "feedback.%s entry %s is not a {sfx, sfx_pitch, sfx_volume_db} row; the tier sfx plays instead" % [key, str(entry)])
+			rows.append({})
 			continue
-		_chain_sfx.append({
-			"sfx": StringName(row["sfx"] as String),
+		rows.append({
+			"sfx": StringName(sfx as String),
 			"sfx_pitch": float(pitch),
 			"sfx_volume_db": float(volume),
 		})
+	return rows
 
 
 func _end_hit_stop(serial: int) -> void:

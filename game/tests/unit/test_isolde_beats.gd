@@ -327,7 +327,7 @@ func test_surrender_loses_the_level_after_the_accept_lines() -> void:
 	assert_true(_kill_one_counted())
 	assert_eq(_director().resolved_count(), resolved, "a dead attempt's kills don't count")
 	var prompt: RetryPrompt = _level.get_node("Overlay/RetryPrompt") as RetryPrompt
-	var end_ms: int = Time.get_ticks_msec() + int((Config.num("feedback.player_death_pause_s") + 3.0) * 1000.0)
+	var end_ms: int = Time.get_ticks_msec() + int((Config.num("feedback.loss_pause_s.surrender") + 3.0) * 1000.0)
 	while not prompt.visible and Time.get_ticks_msec() < end_ms:
 		await get_tree().process_frame
 	assert_true(prompt.visible, "the retry prompt follows")

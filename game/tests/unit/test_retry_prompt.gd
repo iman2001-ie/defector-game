@@ -1,6 +1,8 @@
 extends GutTest
 ## RetryPrompt (Story 3.2): hidden until Events.level_failed, then a pausable
-## feedback.player_death_pause_s beat, then PauseArbiter.push(&"death") and
+## feedback.loss_pause_s.<reason> beat (playtest pt7-g: per reason, the music
+## fading out at the failure and the game-over sting playing at the prompt),
+## then PauseArbiter.push(&"death") and
 ## the dim + loss reason + RETRY / QUIT TO TITLE (ui.retry_prompt layout).
 ## RETRY -> SceneRouter.retry_level() (a death's retry starts at 0 energy, not
 ## at the attempt's start energy; playtest 2026-10-13), QUIT ->
@@ -8,7 +10,7 @@ extends GutTest
 
 const PROMPT_SCENE: PackedScene = preload("res://ui/menus/retry_prompt.tscn")
 const THEME_PATH: String = "res://ui/theme/defector_theme.tres"
-## Short beat for the tests (the shipped value is 1.5 s).
+## Short beat for the tests (the shipped hearts value is 1.5 s).
 const BEAT_S: float = 0.2
 ## QUIT reaches goto_title(), which reads the save: a test file, never the real one.
 const TEST_SAVE: String = "user://test_retry_prompt_save.cfg"
@@ -41,6 +43,7 @@ func after_each() -> void:
 	GameState.is_retry = false
 	Config.load_data()
 	Feedback.reset()
+	Audio.stop_music(0.0)
 	PauseArbiter.clear()
 	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
@@ -59,8 +62,11 @@ func _capture(level: String, category: String, msg: String) -> void:
 	_lines.append(Log.format(level, category, msg))
 
 
-func _make(beat_s: float = BEAT_S) -> RetryPrompt:
-	(Config.tuning["feedback"] as Dictionary)["player_death_pause_s"] = beat_s
+## Every reason's beat set to `beat_s` (the convoy's to `convoy_s` when >= 0).
+func _make(beat_s: float = BEAT_S, convoy_s: float = -1.0) -> RetryPrompt:
+	(Config.tuning["feedback"] as Dictionary)["loss_pause_s"] = {
+		"hearts": beat_s, "convoy": beat_s if convoy_s < 0.0 else convoy_s, "surrender": beat_s,
+	}
 	var prompt: RetryPrompt = PROMPT_SCENE.instantiate() as RetryPrompt
 	add_child_autofree(prompt)
 	return prompt
@@ -93,7 +99,9 @@ func _assert_color(actual: Color, expected: Color, what: String) -> void:
 # --- Setup and layout -------------------------------------------------------------
 
 func test_tuning() -> void:
-	assert_eq(Config.num("feedback.player_death_pause_s"), 1.5)
+	assert_eq(Config.num("feedback.loss_pause_s.hearts"), 1.5)
+	assert_eq(Config.num("feedback.loss_pause_s.surrender"), 1.5)
+	assert_gt(Config.num("feedback.loss_pause_s.convoy"), Config.num("feedback.convoy_death_chain_s"), "the convoy chain ends before the prompt")
 	assert_eq(Config.num("ui.retry_prompt.headline_y"), 440.0)
 	assert_eq(Config.num("ui.retry_prompt.headline_px"), 48.0)
 	assert_eq(Config.num("ui.retry_prompt.button_w"), 320.0)
@@ -331,3 +339,42 @@ func test_surrender_loss_shows_executed_at_dawn_without_a_warning() -> void:
 		if line.begins_with("[WARN]") and line.contains("unknown loss reason"):
 			warns += 1
 	assert_eq(warns, 0, "surrender is a known reason: no warning")
+
+
+# --- Playtest pt7-g: per-reason beats and the game-over sting ----------------------
+
+func test_beats_come_from_loss_pause_s_per_reason() -> void:
+	var prompt: RetryPrompt = _make(0.3, 0.9)
+	assert_almost_eq(prompt.beat_for(&"hearts"), 0.3, 0.0001)
+	assert_almost_eq(prompt.beat_for(&"surrender"), 0.3, 0.0001)
+	assert_almost_eq(prompt.beat_for(&"convoy"), 0.9, 0.0001)
+	assert_almost_eq(prompt.beat_for(&"mystery"), 0.3, 0.0001, "an unknown reason uses the hearts beat")
+
+
+func test_convoy_beat_is_its_own() -> void:
+	var prompt: RetryPrompt = _make(BEAT_S, BEAT_S * 4.0)
+	Events.level_failed.emit(&"convoy")
+	await _wait_always(BEAT_S * 2.0)
+	assert_false(prompt.is_shown(), "the convoy waits longer than the other losses")
+	await _wait_always(BEAT_S * 3.0)
+	assert_true(prompt.is_shown(), "then shows")
+
+
+func test_failure_fades_the_music_and_the_prompt_plays_the_sting() -> void:
+	Audio.play_music(&"combat")
+	var prompt: RetryPrompt = _make()
+	Events.level_failed.emit(&"hearts")
+	assert_eq(Audio.current_music(), &"", "the level music fades out at the failure")
+	await _wait_always(BEAT_S * 2.0)
+	assert_true(prompt.is_shown())
+	assert_eq(Audio.current_music(), &"game_over", "the sting plays under the prompt")
+	assert_eq(Audio.music_player().stream, Audio.music_streams[&"game_over"])
+
+
+func test_retry_fades_the_sting_out() -> void:
+	var prompt: RetryPrompt = _make()
+	Events.level_failed.emit(&"surrender")
+	await _wait_always(BEAT_S * 2.0)
+	assert_eq(Audio.current_music(), &"game_over")
+	_retry(prompt).pressed.emit()
+	assert_eq(Audio.current_music(), &"", "silent before the reload")

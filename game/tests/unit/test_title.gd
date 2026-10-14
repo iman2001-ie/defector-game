@@ -84,8 +84,8 @@ func _make_bad() -> TitleScreen:
 	return _make()
 
 
-func _logo(title: TitleScreen) -> Label:
-	return title.get_node("Logo") as Label
+func _logo(title: TitleScreen) -> TextureRect:
+	return title.get_node("Logo") as TextureRect
 
 
 func _buttons(title: TitleScreen) -> VBoxContainer:
@@ -143,7 +143,7 @@ func _assert_button_styles(button: Button) -> void:
 
 func test_tuning() -> void:
 	assert_eq(Config.num("ui.title.logo_y"), 300.0)
-	assert_eq(Config.num("ui.title.logo_px"), 120.0)
+	assert_eq(Config.num("ui.title.logo_width_px"), 1100.0)
 	assert_eq(Config.num("ui.title.button_w"), 400.0)
 	assert_eq(Config.num("ui.title.button_h"), 72.0)
 	assert_eq(Config.num("ui.title.button_gap_px"), 24.0)
@@ -152,13 +152,9 @@ func test_tuning() -> void:
 
 func test_theme_items() -> void:
 	var theme: Theme = load("res://ui/theme/defector_theme.tres") as Theme
-	_assert_color(theme.get_color(&"logo", &"Title"), Color("#22E6FF"), "logo")
-	var glow: Color = theme.get_color(&"logo_glow", &"Title")
-	_assert_color(Color(glow, 1.0), Color("#22E6FF"), "logo_glow hue")
-	assert_almost_eq(glow.a, 0.5, 0.05, "logo_glow alpha")
 	_assert_color(theme.get_color(&"error", &"Title"), Color("#FF1F4B"), "error")
 	_assert_color(theme.get_color(&"text", &"Title"), Color("#E8F4FF"), "text")
-	assert_gt(theme.get_constant(&"logo_glow_px", &"Title"), 0, "logo glow outline")
+	assert_false(theme.has_color(&"logo", &"Title"), "the wordmark PNG carries its own colour (pt7-h)")
 	assert_eq(theme.get_font_size(&"button", &"Title"), 28)
 	assert_eq(theme.get_font_size(&"error", &"Title"), 28)
 	for style: StringName in [&"button_normal", &"button_hover", &"button_focus"]:
@@ -171,10 +167,12 @@ func test_theme_items() -> void:
 func test_healthy_layout() -> void:
 	var title: TitleScreen = _make()
 	await wait_process_frames(1)
-	var logo: Label = _logo(title)
+	var logo: TextureRect = _logo(title)
 	assert_almost_eq(logo.position.y + logo.size.y / 2.0, 300.0, 0.5, "logo centred at y 300")
-	assert_eq(logo.get_theme_font_size(&"font_size"), 120, "logo 120 px")
+	assert_almost_eq(logo.size.x, 1100.0, 0.5, "logo 1100 px wide")
+	assert_almost_eq(logo.size.y, 1100.0 * TitleScreen.logo_aspect(), 0.5, "as tall as the wordmark's aspect")
 	assert_almost_eq(logo.position.x + logo.size.x / 2.0, 960.0, 0.5, "logo centred horizontally")
+	assert_lt(logo.position.y + logo.size.y, 560.0, "above the buttons")
 	var play: Rect2 = _button_rect(title, _play(title))
 	var level_select: Rect2 = _button_rect(title, _level_select(title))
 	var quit: Rect2 = _button_rect(title, _quit(title))
@@ -190,16 +188,16 @@ func test_healthy_layout() -> void:
 func test_layout_follows_ui_title_tuning() -> void:
 	var ui_title: Dictionary = (Config.tuning["ui"] as Dictionary)["title"]
 	ui_title["logo_y"] = 400
-	ui_title["logo_px"] = 100
+	ui_title["logo_width_px"] = 800
 	ui_title["button_w"] = 300
 	ui_title["button_h"] = 60
 	ui_title["button_gap_px"] = 10
 	ui_title["buttons_top_y"] = 600
 	var title: TitleScreen = _make()
 	await wait_process_frames(1)
-	var logo: Label = _logo(title)
+	var logo: TextureRect = _logo(title)
 	assert_almost_eq(logo.position.y + logo.size.y / 2.0, 400.0, 0.5, "logo centred at logo_y")
-	assert_eq(logo.get_theme_font_size(&"font_size"), 100, "logo font is logo_px")
+	assert_almost_eq(logo.size.x, 800.0, 0.5, "logo width is logo_width_px")
 	assert_eq(_button_rect(title, _play(title)), Rect2(810, 600, 300, 60), "PLAY rect")
 	assert_eq(_button_rect(title, _level_select(title)), Rect2(810, 670, 300, 60), "LEVEL SELECT rect")
 	assert_eq(_button_rect(title, _quit(title)), Rect2(810, 740, 300, 60), "QUIT rect")
@@ -207,7 +205,7 @@ func test_layout_follows_ui_title_tuning() -> void:
 
 func test_texts_and_font_sizes() -> void:
 	var title: TitleScreen = _make()
-	assert_eq(_logo(title).text, "DEFECTOR")
+	_assert_wordmark(_logo(title))
 	assert_eq(_play(title).text, "PLAY")
 	assert_eq(_level_select(title).text, "LEVEL SELECT")
 	assert_eq(_quit(title).text, "QUIT")
@@ -342,8 +340,10 @@ func test_bad_config_shows_the_error_instead_of_the_buttons() -> void:
 	assert_eq(error.position.y, 560.0, "in the place of the buttons")
 	_assert_color(error.get_theme_color(&"font_color"), Color("#FF1F4B"), "error colour")
 	assert_eq(error.get_theme_font_size(&"font_size"), 28, "error font")
-	var logo: Label = _logo(title)
+	var logo: TextureRect = _logo(title)
 	assert_almost_eq(logo.position.y + logo.size.y / 2.0, 300.0, 0.5, "authored logo centre")
+	assert_almost_eq(logo.position.x + logo.size.x / 2.0, 960.0, 0.5, "authored logo centred horizontally")
+	_assert_wordmark(logo)
 	assert_eq(_lines_starting("[ERROR][data]"), [] as Array[String], "no Config getter called")
 	assert_eq(_lines_starting("[INFO][scene] Title ready ").size(), 1, "ready line still logged")
 	assert_eq(PauseArbiter.current_mouse_mode(), Input.MOUSE_MODE_VISIBLE)
@@ -357,3 +357,20 @@ func test_bad_config_buttons_start_nothing() -> void:
 	assert_eq(_calls, [] as Array[String], "no scene change")
 	assert_eq(_quits, 0, "no quit")
 	assert_eq(GameState.current_level_id, "", "no level id")
+
+
+## The Logo shows the DEFECTOR wordmark (playtest pt7-h), aspect kept, mipmapped.
+func _assert_wordmark(logo: TextureRect) -> void:
+	assert_eq(logo.texture, TitleScreen.LOGO_TEXTURE, "the wordmark texture")
+	assert_eq(logo.texture.resource_path, "res://assets/logo/defector_logo.png")
+	assert_eq(logo.expand_mode, TextureRect.EXPAND_IGNORE_SIZE)
+	assert_eq(logo.stretch_mode, TextureRect.STRETCH_KEEP_ASPECT_CENTERED, "aspect kept")
+	assert_eq(logo.texture_filter, CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS, "sampled through its mipmaps")
+	assert_true(logo.texture.get_image().has_mipmaps(), "imported with mipmaps")
+
+
+func test_logo_rect_keeps_the_wordmark_aspect() -> void:
+	var aspect: float = TitleScreen.logo_aspect()
+	assert_almost_eq(aspect, 284.0 / 1536.0, 0.0001, "the 1536 x 284 wordmark")
+	assert_eq(TitleScreen.logo_rect(1920.0, 300.0, 1000.0), Rect2(Vector2(460.0, 300.0 - 500.0 * aspect), Vector2(1000.0, 1000.0 * aspect)))
+	assert_eq(TitleScreen.logo_rect(1920.0, 300.0, 0.0).size.x, 1.0, "at least 1 px wide")

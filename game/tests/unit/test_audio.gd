@@ -3,8 +3,8 @@ extends GutTest
 ## unknown ids, pitch jitter and per-call volume and pitch. Story 5.3: the
 ## Music player, play / switch / fade-stop and the missing-stream warning.
 ## DW-80: the reserved comms pool (comms_* ids only; combat SFX never steal it).
-## Story 8.1: 20 registered SFX, each its own file (no aliases); the MUSIC
-## registry (combat, boss), looping, copied into music_streams at start and
+## Story 8.1: 21 registered SFX (pt7-g adds explosion_big), each its own file (no aliases); the MUSIC
+## registry (combat, boss and epilogue looping; game_over one-shot), copied into music_streams at start and
 ## played at audio.music_volume_db.
 
 const UnscaledClock := preload("res://tests/fixtures/unscaled_clock.gd")
@@ -106,14 +106,17 @@ func test_process_mode_always() -> void:
 const SFX_IDS: Array[StringName] = [
 	&"laser_zap", &"missile_launch", &"barrage_whoosh",
 	&"explosion_small", &"explosion_medium", &"explosion_large", &"explosion_boss_part", &"explosion_boss_death",
+	&"explosion_big",
 	&"player_hit", &"player_death", &"shield_on", &"energy_pickup", &"needle_fire", &"ability_denied",
 	&"comms_open", &"comms_open_nobeep", &"comms_static", &"comms_click", &"comms_handover", &"maul_alarm",
 ]
 
 
-## Story 8.1: exactly the 20 ids, each its own sfx_<id>.wav (no aliases).
+## Story 8.1 (+ playtest pt7-g's explosion_big): exactly the 21 ids, each its
+## own sfx_<id>.wav (no aliases).
 func test_registry_streams() -> void:
-	assert_eq(Audio.SFX.size(), 20, "20 sfx ids")
+	assert_eq(Audio.SFX.size(), 21, "21 sfx ids")
+	assert_eq(Audio.SFX.size(), SFX_IDS.size(), "the list names every id")
 	var paths: Dictionary[String, StringName] = {}
 	for id: StringName in SFX_IDS:
 		var stream: AudioStream = Audio.SFX.get(id) as AudioStream
@@ -291,13 +294,22 @@ func test_music_player_on_the_music_bus() -> void:
 	assert_eq(Audio.current_music(), &"", "silent at start")
 
 
-## Story 8.1 (+ playtest pt7-e's epilogue): three shipped tracks, preloaded,
-## imported looping; music_streams starts as a copy of the registry (tests may
-## swap entries).
+## Story 8.1 (+ playtest pt7-e's epilogue and pt7-g's game-over sting): four
+## shipped tracks, preloaded, imported looping except the one-shot sting;
+## music_streams starts as a copy of the registry (tests may swap entries).
 func test_music_registry_ships_looping_tracks() -> void:
-	assert_eq(Audio.MUSIC.size(), 3, "three tracks")
+	assert_eq(Audio.MUSIC.size(), 4, "four tracks")
 	assert_true(Audio.MUSIC.has(&"combat") and Audio.MUSIC.has(&"boss") and Audio.MUSIC.has(&"epilogue"), "combat, boss and epilogue")
+	assert_true(Audio.MUSIC.has(&"game_over"), "the game-over sting")
+	assert_eq(Audio.ONE_SHOT_MUSIC, [&"game_over"] as Array[StringName])
+	var sting: AudioStreamOggVorbis = Audio.MUSIC[&"game_over"] as AudioStreamOggVorbis
+	assert_not_null(sting)
+	if sting != null:
+		assert_false(sting.loop, "the sting plays once")
+		assert_between(sting.get_length(), 5.0, 30.0, "a short sting")
 	for id: StringName in Audio.MUSIC:
+		if Audio.ONE_SHOT_MUSIC.has(id):
+			continue
 		var stream: AudioStreamOggVorbis = Audio.MUSIC[id] as AudioStreamOggVorbis
 		assert_not_null(stream, "%s is an Ogg Vorbis stream" % id)
 		if stream == null:
@@ -518,3 +530,16 @@ func test_play_sfx_solo_never_stacks_one_id() -> void:
 	assert_almost_eq(second.pitch_scale, 1.1, 0.0001)
 	assert_null(Audio.play_sfx_solo(&"no_such_id"), "unknown ids still warn and return null")
 	assert_push_warning_count(1)
+
+
+## Review fix (pt7-g): a one-shot track ending clears the current id, so the
+## same id can start again.
+func test_a_finished_track_clears_the_current_music() -> void:
+	Audio.stop_music(0.0)
+	Audio.play_music(&"game_over")
+	assert_eq(Audio.current_music(), &"game_over")
+	Audio.music_player().finished.emit()
+	assert_eq(Audio.current_music(), &"", "silent once it ends")
+	Audio.play_music(&"game_over")
+	assert_eq(Audio.current_music(), &"game_over", "plays again")
+	Audio.stop_music(0.0)

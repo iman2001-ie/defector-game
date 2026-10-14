@@ -24,3 +24,6 @@ __pycache__/
 
 # Operator art hand-off folder (source drops; the used copies live under game/ and docs/)
 defector_cartoon_assets/
+
+# Local music audition clips (not shipped)
+music_audition/

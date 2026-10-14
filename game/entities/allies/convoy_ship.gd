@@ -22,6 +22,7 @@ var convoy: Convoy = null
 var _size: Vector2 = Vector2.ZERO
 var _hitbox_size: Vector2 = Vector2.ZERO
 var _outline: PackedVector2Array = PackedVector2Array()
+var _destroyed: bool = false
 
 @onready var _hitbox: CollisionShape2D = $Hitbox
 @onready var _sprite: Sprite2D = get_node_or_null(^"Sprite") as Sprite2D
@@ -56,6 +57,23 @@ func hull_rect() -> Rect2:
 ## The drawn hull outline (local points, nose-up).
 func outline() -> PackedVector2Array:
 	return _outline
+
+
+## Blows the hull away (playtest pt7-g, the convoy's death chain): hides it,
+## clears its collision layer and stops it being monitorable (deferred: it may
+## run in a physics callback), so shots pass through. Idempotent.
+func destroy() -> void:
+	if _destroyed:
+		return
+	_destroyed = true
+	visible = false
+	set_deferred(&"collision_layer", 0)
+	set_deferred(&"monitorable", false)
+
+
+## True once destroy() ran.
+func is_destroyed() -> bool:
+	return _destroyed
 
 
 ## Forwards a hit to the Convoy's shared HP pool (nothing without a Convoy).

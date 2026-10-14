@@ -133,11 +133,9 @@ func _assert_button_styles(button: Button) -> void:
 
 func test_theme_items() -> void:
 	var theme: Theme = load("res://ui/theme/defector_theme.tres") as Theme
-	_assert_color(theme.get_color(&"logo", &"EndScreen"), theme.get_color(&"logo", &"Title"), "logo = Title logo")
-	_assert_color(theme.get_color(&"logo_glow", &"EndScreen"), theme.get_color(&"logo_glow", &"Title"), "logo_glow = Title logo_glow")
+	assert_false(theme.has_color(&"logo", &"EndScreen"), "the wordmark PNG carries its own colour (pt7-h)")
 	_assert_color(theme.get_color(&"text", &"EndScreen"), Color("#E8F4FF"), "text")
 	_assert_color(theme.get_color(&"muted", &"EndScreen"), Color("#93A7C2"), "muted")
-	assert_eq(theme.get_constant(&"logo_glow_px", &"EndScreen"), 16, "logo glow outline")
 	assert_eq(theme.get_font_size(&"button", &"EndScreen"), 28)
 	for style: StringName in [&"button_normal", &"button_hover", &"button_focus"]:
 		assert_true(theme.has_stylebox(style, &"EndScreen"), "EndScreen/styles/%s" % style)
@@ -152,7 +150,7 @@ func test_scene_shape_and_texts() -> void:
 	for child: Node in screen.get_children():
 		names.append(String(child.name))
 	assert_eq(names, ["Background", "Logo", "ClosingLine", "Thanks", "Back"] as Array[String], "children in draw order")
-	assert_eq(_label(screen, "Logo").text, "DEFECTOR")
+	_assert_wordmark(_logo(screen))
 	assert_eq(_label(screen, "ClosingLine").text, EndScreen.TEXT_CLOSING)
 	assert_eq(EndScreen.TEXT_CLOSING, "The Sovereignty has fallen. The war is over.")
 	assert_eq(_label(screen, "Thanks").text, "Thanks for playing")
@@ -185,7 +183,8 @@ func test_healthy_layout() -> void:
 	var screen: EndScreen = _make()
 	await wait_process_frames(1)
 	assert_false(screen.is_config_error())
-	_assert_text_at(_label(screen, "Logo"), 320.0, 120)
+	_assert_logo_at(_logo(screen), 320.0, 1100.0)
+	assert_lte(_logo(screen).position.y + _logo(screen).size.y, _label(screen, "ClosingLine").position.y + 15.0, "the logo ends above the closing line's glyphs")
 	_assert_text_at(_label(screen, "ClosingLine"), 480.0, 30)
 	_assert_text_at(_label(screen, "Thanks"), 560.0, 28)
 	var back: Button = _back(screen)
@@ -195,7 +194,7 @@ func test_healthy_layout() -> void:
 func test_layout_follows_ui_end_screen_tuning() -> void:
 	var tuned: Dictionary = (Config.tuning["ui"] as Dictionary)["end_screen"]
 	tuned["logo_y"] = 300
-	tuned["logo_px"] = 100
+	tuned["logo_width_px"] = 800
 	tuned["line_y"] = 500
 	tuned["line_px"] = 40
 	tuned["thanks_y"] = 600
@@ -205,7 +204,7 @@ func test_layout_follows_ui_end_screen_tuning() -> void:
 	tuned["button_top_y"] = 800
 	var screen: EndScreen = _make()
 	await wait_process_frames(1)
-	_assert_text_at(_label(screen, "Logo"), 300.0, 100)
+	_assert_logo_at(_logo(screen), 300.0, 800.0)
 	_assert_text_at(_label(screen, "ClosingLine"), 500.0, 40)
 	_assert_text_at(_label(screen, "Thanks"), 600.0, 24)
 	var back: Button = _back(screen)
@@ -214,14 +213,6 @@ func test_layout_follows_ui_end_screen_tuning() -> void:
 
 func test_colours_and_button_style() -> void:
 	var screen: EndScreen = _make()
-	var logo: Label = _label(screen, "Logo")
-	_assert_color(logo.get_theme_color(&"font_color"), Color("#22E6FF"), "logo colour")
-	var glow: Color = logo.get_theme_color(&"font_shadow_color")
-	_assert_color(Color(glow, 1.0), Color("#22E6FF"), "logo glow hue")
-	assert_almost_eq(glow.a, 0.5, 0.05, "logo glow alpha")
-	assert_eq(logo.get_theme_constant(&"shadow_outline_size"), 16, "logo glow outline")
-	assert_eq(logo.get_theme_constant(&"shadow_offset_x"), 0)
-	assert_eq(logo.get_theme_constant(&"shadow_offset_y"), 0)
 	_assert_color(_label(screen, "ClosingLine").get_theme_color(&"font_color"), Color("#E8F4FF"), "closing line in text")
 	_assert_color(_label(screen, "Thanks").get_theme_color(&"font_color"), Color("#93A7C2"), "thanks in muted")
 	var back: Button = _back(screen)
@@ -318,12 +309,12 @@ func test_bad_config_keeps_the_authored_layout_and_calls_no_getter() -> void:
 	var screen: EndScreen = _make_bad()
 	assert_true(screen.is_config_error())
 	await wait_process_frames(1)
-	_assert_text_at(_label(screen, "Logo"), 320.0, 120)
+	_assert_logo_at(_logo(screen), 320.0, 1100.0)
 	_assert_text_at(_label(screen, "ClosingLine"), 480.0, 30)
 	_assert_text_at(_label(screen, "Thanks"), 560.0, 28)
 	var back: Button = _back(screen)
 	assert_eq(Rect2(back.position, back.size), Rect2(760, 700, 400, 72), "authored BACK TO TITLE rect")
-	assert_eq(_label(screen, "Logo").text, "DEFECTOR")
+	_assert_wordmark(_logo(screen))
 	assert_eq(_label(screen, "ClosingLine").text, EndScreen.TEXT_CLOSING)
 	assert_eq(_label(screen, "Thanks").text, "Thanks for playing")
 	assert_eq(back.text, "BACK TO TITLE")
@@ -380,3 +371,22 @@ func test_back_fades_the_epilogue_track_out() -> void:
 	_back(screen).pressed.emit()
 	assert_eq(Audio.current_music(), &"", "silent from the press on")
 	assert_eq(_lines_starting("[INFO][audio] Music 'epilogue' stopping").size(), 1, "one fade-out")
+
+
+func _logo(screen: EndScreen) -> TextureRect:
+	return screen.get_node("Logo") as TextureRect
+
+
+## The Logo is `width` wide at the wordmark's aspect, centred on (960, centre_y).
+func _assert_logo_at(logo: TextureRect, centre_y: float, width: float) -> void:
+	assert_almost_eq(logo.position.y + logo.size.y / 2.0, centre_y, 0.5, "logo centred at y %.0f" % centre_y)
+	assert_almost_eq(logo.position.x + logo.size.x / 2.0, 960.0, 0.5, "logo centred horizontally")
+	assert_almost_eq(logo.size.x, width, 0.5, "logo %.0f px wide" % width)
+	assert_almost_eq(logo.size.y, width * TitleScreen.logo_aspect(), 0.5, "at the wordmark's aspect")
+
+
+## The Logo shows the title's DEFECTOR wordmark (playtest pt7-h).
+func _assert_wordmark(logo: TextureRect) -> void:
+	assert_eq(logo.texture, TitleScreen.LOGO_TEXTURE, "the title's wordmark")
+	assert_eq(logo.stretch_mode, TextureRect.STRETCH_KEEP_ASPECT_CENTERED, "aspect kept")
+	assert_eq(logo.texture_filter, CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS, "sampled through its mipmaps")

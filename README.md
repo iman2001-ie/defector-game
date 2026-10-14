@@ -49,7 +49,7 @@ Found a bug? Please open an issue on the [Issues](../../issues) page and attach 
 Every third-party asset in DEFECTOR is free and CC0. The pieces made for this project are project-owned.
 
 - **Kenney** ([kenney.nl](https://kenney.nl)): the ship, enemy, asteroid and background art (Space Shooter Redux and Extension), most sound effects (Sci-Fi Sounds, Interface Sounds) and the Kenney Future font.
-- **OpenGameArt authors:** MintoDog ("Space Adventure" and "Space Boss Battle", the music), isaiah658 ("Heavenly Loop", the epilogue music) and bretbernhoft (the comms static).
+- **OpenGameArt authors:** MintoDog ("Space Adventure" and "Space Boss Battle", the music), isaiah658 ("Heavenly Loop", the epilogue music), Kistol ("Game Over", the game-over sting), Joth ("Chunky Explosion", the big explosions) and bretbernhoft (the comms static).
 - **Project-owned** (made for this project, not CC0): the comms portraits and the logo (AI-generated with ChatGPT image generation), the Flagship hull, the app icon, the comms cues and the Maul alarm.
 
 Every asset, its source and its licence are listed in [`game/assets/CREDITS.md`](game/assets/CREDITS.md).

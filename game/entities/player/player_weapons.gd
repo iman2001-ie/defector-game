@@ -31,6 +31,8 @@ const MISSILE_FLASH_S: float = 0.05
 const LASER_SFX: StringName = &"laser_zap"
 const MISSILE_SFX: StringName = &"missile_launch"
 const MICRO_TYPE: StringName = &"micro_missile"
+## Playtest pt7-h: each left/right launch pair's share of launch_fan_deg, in turn.
+const FAN_SPREAD: Array[float] = [1.0, 0.55, 0.8]
 const WHOOSH_SFX: StringName = &"barrage_whoosh"
 ## Events.player_action ids (Story 5.8).
 const ACTION_LASER: StringName = &"laser"
@@ -65,6 +67,9 @@ var _barrage_valid: bool = false
 var _barrage_left: int = 0
 ## Seconds until the next launch; carried (no drift) like the laser cooldown.
 var _barrage_cooldown: float = 0.0
+## Playtest pt7-h: the launch fan's half-angle and the volley's launch count.
+var _barrage_fan_deg: float = 0.0
+var _barrage_launched: int = 0
 
 var _muzzle: Node2D
 var _muzzle_flash: Node2D
@@ -97,6 +102,7 @@ func _ready() -> void:
 	var barrage_duration: float = Config.num("abilities.barrage.duration_s")
 	_barrage_damage = Config.int_("abilities.barrage.damage")
 	_barrage_speed = Config.num("abilities.barrage.speed_px_s")
+	_barrage_fan_deg = maxf(Config.num("abilities.barrage.launch_fan_deg"), 0.0)
 	_barrage_valid = _barrage_missiles > 0 and barrage_duration > 0.0
 	if _barrage_valid:
 		_barrage_interval = barrage_duration / float(_barrage_missiles)
@@ -194,6 +200,7 @@ func start_barrage() -> void:
 		return
 	_barrage_left = _barrage_missiles
 	_barrage_cooldown = 0.0
+	_barrage_launched = 0
 	_step_launch()
 
 
@@ -222,14 +229,25 @@ func _step_launch() -> void:
 		Feedback.impact(ImpactTier.LARGE, _muzzle.global_position)
 
 
+## The launch angle (degrees from straight up, negative to the left) of
+## micro-missile `index` in a volley (playtest pt7-h): it alternates left and
+## right, cycling through FAN_SPREAD, so a volley fans out evenly and
+## predictably within +-fan_deg.
+static func fan_angle_deg(index: int, fan_deg: float) -> float:
+	var side: float = -1.0 if index % 2 == 0 else 1.0
+	return side * fan_deg * FAN_SPREAD[floori(index / 2.0) % FAN_SPREAD.size()]
+
+
 ## One launch. Without a spawner (or on a failed spawn) it still counts but
 ## plays nothing.
 func _launch_micro() -> void:
 	if not _can_spawn():
 		return
+	var angle: float = PlayerWeapons.fan_angle_deg(_barrage_launched, _barrage_fan_deg)
+	_barrage_launched += 1
 	var micro: Projectile = _spawner.spawn_projectile(MICRO_TYPE, {
 		"position": _muzzle.global_position,
-		"velocity": Vector2.UP * _barrage_speed,
+		"velocity": Vector2.UP.rotated(deg_to_rad(angle)) * _barrage_speed,
 		"damage": _barrage_damage,
 	})
 	if micro == null:

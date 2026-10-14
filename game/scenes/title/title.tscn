@@ -17,15 +17,16 @@ script = ExtResource("1_title")
 [node name="Background" type="Node2D" parent="."]
 script = ExtResource("9_background")
 
-[node name="Logo" type="Label" parent="."]
+[node name="Logo" type="TextureRect" parent="."]
+texture_filter = 4
 layout_mode = 0
-offset_top = 180.0
-offset_right = 1920.0
-offset_bottom = 420.0
-theme_override_font_sizes/font_size = 120
-text = "DEFECTOR"
-horizontal_alignment = 1
-vertical_alignment = 1
+offset_left = 410.0
+offset_top = 198.3
+offset_right = 1510.0
+offset_bottom = 401.7
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
 
 [node name="Buttons" type="VBoxContainer" parent="."]
 layout_mode = 0

@@ -610,7 +610,7 @@ func _retry_start_lines() -> int:
 ## Acceptance: death in a real level -> beat -> prompt + `death` pause -> RETRY
 ## -> SceneRouter reloads level.tscn; the reloaded level is clean.
 func test_death_and_retry_reload_a_clean_level() -> void:
-	(Config.tuning["feedback"] as Dictionary)["player_death_pause_s"] = 0.2
+	(Config.tuning["feedback"] as Dictionary)["loss_pause_s"] = {"hearts": 0.2, "convoy": 0.2, "surrender": 0.2}
 	SceneRouter.change_scene = _record_scene
 	_make_level()
 	await wait_process_frames(1)
@@ -1348,7 +1348,7 @@ func test_convoy_hp_persists_across_a_wave_change() -> void:
 ## once, the WaveDirector stops counting, CONVOY LOST after the beat, and
 ## RETRY restarts the level (wave 1, energy reset).
 func test_convoy_loss_runs_the_retry_flow() -> void:
-	(Config.tuning["feedback"] as Dictionary)["player_death_pause_s"] = 0.2
+	(Config.tuning["feedback"] as Dictionary)["loss_pause_s"] = {"hearts": 0.2, "convoy": 0.2, "surrender": 0.2}
 	SceneRouter.change_scene = _record_scene
 	GameState.energy = 40
 	_make_level("dev_convoy")

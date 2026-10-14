@@ -815,6 +815,13 @@ func test_barrage_matches_the_gdd_and_feel_keys_are_positive() -> void:
 	assert_gt(Config.num("abilities.barrage.speed_px_s"), 0.0, "speed_px_s > 0")
 	assert_gt(Config.num("abilities.barrage.turn_rate_deg_s"), 0.0, "turn_rate_deg_s > 0")
 	assert_gt(Config.num("abilities.barrage.lifetime_s"), 0.0, "lifetime_s > 0")
+	# Playtest pt7-h: the smoother flight and the launch fan.
+	assert_gte(Config.num("abilities.barrage.turn_ease_s"), 0.0, "turn_ease_s >= 0")
+	var start: float = Config.num("abilities.barrage.turn_ease_start")
+	assert_true(start > 0.0 and start <= 1.0, "turn_ease_start in (0, 1]")
+	assert_gt(Config.num("abilities.barrage.rotation_smoothing"), 0.0, "rotation_smoothing > 0")
+	var fan: float = Config.num("abilities.barrage.launch_fan_deg")
+	assert_true(fan >= 0.0 and fan < 90.0, "launch_fan_deg in [0, 90): every launch still climbs")
 
 
 # --- Dialogue (Story 5.1) -----------------------------------------------------
@@ -2338,18 +2345,22 @@ func test_final_choice_ui_tuning() -> void:
 	assert_gte(Config.int_("ui.final_choice.font_px"), 20, "no text below 20 px")
 
 
-## Story 7.7: the end screen layout (UX "End screen": DEFECTOR 120 px at y 320,
-## the closing line 30 px at y 480, "Thanks for playing" 28 px at y 560, BACK
-## TO TITLE 400 x 72 at y 700) fits the 1920 x 1080 canvas, top to bottom in
-## that order without overlapping, with no text below 20 px.
+## Story 7.7: the end screen layout (UX "End screen": the DEFECTOR wordmark
+## (playtest pt7-h: 1100 px wide, centred at y 320), the closing line 30 px at
+## y 480, "Thanks for playing" 28 px at y 560, BACK TO TITLE 400 x 72 at y 700)
+## fits the 1920 x 1080 canvas, top to bottom in that order without
+## overlapping, with no text below 20 px.
 func test_end_screen_ui_tuning() -> void:
-	var keys: Array[String] = ["logo_y", "logo_px", "line_y", "line_px", "thanks_y", "thanks_px", "button_w", "button_h", "button_top_y"]
+	var keys: Array[String] = ["logo_y", "logo_width_px", "line_y", "line_px", "thanks_y", "thanks_px", "button_w", "button_h", "button_top_y"]
 	var values: Array[float] = []
 	for key: String in keys:
 		values.append(Config.num("ui.end_screen.%s" % key))
-	assert_eq(values, [320.0, 120.0, 480.0, 30.0, 560.0, 28.0, 400.0, 72.0, 700.0] as Array[float], "the UX layout")
-	var texts: Array[Array] = [["logo_y", "logo_px"], ["line_y", "line_px"], ["thanks_y", "thanks_px"]]
-	var last_bottom: float = 0.0
+	assert_eq(values, [320.0, 1100.0, 480.0, 30.0, 560.0, 28.0, 400.0, 72.0, 700.0] as Array[float], "the UX layout")
+	var logo: Rect2 = TitleScreen.logo_rect(Playfield.SIZE.x, Config.num("ui.end_screen.logo_y"), Config.num("ui.end_screen.logo_width_px"))
+	assert_gte(logo.position.y, 0.0, "the logo on screen")
+	assert_lte(logo.size.x, Playfield.SIZE.x, "the logo fits the screen width")
+	var texts: Array[Array] = [["line_y", "line_px"], ["thanks_y", "thanks_px"]]
+	var last_bottom: float = logo.end.y
 	for pair: Array in texts:
 		var y: float = Config.num("ui.end_screen.%s" % pair[0])
 		var px: int = Config.int_("ui.end_screen.%s" % pair[1])
@@ -2391,3 +2402,30 @@ func test_level_3_sits_below_the_throne_world() -> void:
 	assert_gt(rows.x, Config.num("waves.formation.top_y"), "Level 3's rows sit lower than the other levels'")
 	var hull_top: float = Config.num("boss.hull.station_y") - Config.num("boss.hull.height_px") / 2.0
 	assert_gte(hull_top, HUD_BAND_BOTTOM_Y, "the Flagship hull clears the top HUD band")
+
+
+## Playtest pt7-g: the loss beats, the convoy death chain and the big explosion
+## rows. The convoy chain ends before its retry prompt pauses the tree; no boss
+## or convoy chain row is pitched below 0.9 (the "muffled" fix); the game-over
+## sting is a one-shot track.
+func test_loss_and_explosion_tuning() -> void:
+	var pauses: Dictionary = Config.section("feedback.loss_pause_s")
+	assert_eq(pauses.keys().size(), 3, "hearts, convoy, surrender")
+	for reason: String in ["hearts", "convoy", "surrender"]:
+		assert_true(pauses.get(reason) is float, "loss_pause_s.%s is a number" % reason)
+		assert_gt(float(pauses.get(reason, 0.0)), 0.0, "loss_pause_s.%s > 0" % reason)
+	assert_false(Config.section("feedback").has("player_death_pause_s"), "replaced by loss_pause_s")
+	# The last blast starts at convoy_death_chain_s and plays for Explosion.LIFETIME_S
+	# stretched by the chain's anim speed: it must finish before the prompt pauses the tree.
+	var last_blast_end: float = Config.num("feedback.convoy_death_chain_s") + Explosion.LIFETIME_S / Config.num("feedback.boss_death_chain_anim_speed")
+	assert_lt(last_blast_end, Config.num("feedback.loss_pause_s.convoy"), "the chain's last blast ends before the prompt")
+	assert_gt(Config.num("feedback.convoy_death_explosion_scale"), 0.0)
+	for key: String in ["boss_death_chain_sfx", "convoy_death_chain_sfx"]:
+		for row: Variant in Config.section("feedback").get(key, []) as Array:
+			var r: Dictionary = row as Dictionary
+			assert_true(Audio.SFX.has(StringName(str(r.get("sfx", "")))), "%s sfx '%s' registered" % [key, str(r.get("sfx"))])
+			assert_gte(float(r.get("sfx_pitch", 0.0)), 0.9, "%s never pitched into mud" % key)
+	var convoy_rows: Array = Config.section("feedback").get("convoy_death_chain_sfx", []) as Array
+	assert_eq(convoy_rows.size(), Convoy.DEATH_ORDER.size(), "one row per convoy ship")
+	assert_true(Audio.ONE_SHOT_MUSIC.has(&"game_over"), "the sting plays once")
+	assert_gte(Audio.music_gain_db(&"game_over"), 0.0, "the quiet sting is lifted, not cut")

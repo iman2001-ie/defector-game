@@ -23,6 +23,8 @@ func before_each() -> void:
 func after_each() -> void:
 	Log.sink = Callable()
 	Config.load_data()
+	Feedback.reset()  # Drop a pending death chain (and its hit-stop).
+	Feedback.load_tiers()
 
 
 func _capture(level: String, category: String, msg: String) -> void:
@@ -490,3 +492,78 @@ func test_stray_enemy_bullet_costs_the_convoy_stray_amount() -> void:
 	assert_eq(convoy.hp(), 98)
 	assert_signal_emit_count(Events, "convoy_hp_changed", 2, "the start value and one hit")
 	assert_true(not is_instance_valid(bullet) or bullet.is_queued_for_deletion(), "the bullet is spent")
+
+
+# --- Playtest pt7-g: the convoy blows up --------------------------------------------
+
+## Steps the pending Feedback chain until it has run out (bounded).
+func _run_chain() -> void:
+	for i: int in ceili(Config.num("feedback.convoy_death_chain_s") / DT) + 10:
+		Feedback.step_chain(DT)
+
+
+func test_loss_blows_the_ships_up_in_order() -> void:
+	var convoy: Convoy = _make()
+	var lead: ConvoyShip = convoy.ships()[Convoy.LEAD]
+	var left: ConvoyShip = convoy.ships()[Convoy.FLANK_LEFT]
+	var right: ConvoyShip = convoy.ships()[Convoy.FLANK_RIGHT]
+	convoy.apply_damage(100, null)
+	assert_true(lead.is_destroyed(), "the lead blows up at once")
+	assert_false(lead.visible, "and vanishes")
+	assert_false(left.is_destroyed(), "the flanks follow")
+	assert_eq(Feedback.chain_pending(), 2, "two more explosions queued")
+	Feedback.step_chain(Config.num("feedback.convoy_death_chain_s") / 2.0 + 0.01)
+	assert_true(left.is_destroyed(), "then the left flank")
+	assert_false(right.is_destroyed())
+	_run_chain()
+	assert_true(right.is_destroyed(), "then the right flank")
+	assert_eq(Feedback.chain_pending(), 0)
+
+
+func test_death_positions_follow_the_death_order() -> void:
+	var convoy: Convoy = _make()
+	var positions: Array[Vector2] = convoy.death_positions()
+	assert_eq(positions.size(), 3)
+	for k: int in Convoy.DEATH_ORDER.size():
+		assert_eq(positions[k], convoy.ships()[Convoy.DEATH_ORDER[k]].global_position)
+
+
+func test_a_lost_convoy_stops_moving() -> void:
+	var convoy: Convoy = _make()
+	convoy.apply_damage(100, null)
+	var left: float = convoy.left_x()
+	var lead_pos: Vector2 = convoy.ships()[Convoy.LEAD].global_position
+	convoy.step(1.0)
+	assert_eq(convoy.left_x(), left, "it stays where it died")
+	assert_eq(convoy.ships()[Convoy.LEAD].global_position, lead_pos)
+
+
+func test_destroyed_ship_is_off_every_layer() -> void:
+	var convoy: Convoy = _make()
+	var ship: ConvoyShip = convoy.ships()[Convoy.LEAD]
+	assert_ne(ship.collision_layer, 0, "hittable while alive")
+	ship.destroy()
+	ship.destroy()
+	await wait_physics_frames(1)
+	assert_eq(ship.collision_layer, 0, "shots pass through the wreck")
+	assert_false(ship.monitorable)
+	assert_false(ship.visible)
+
+
+func test_no_chain_when_the_level_already_ended() -> void:
+	var convoy: Convoy = _make()
+	Events.level_failed.emit(&"hearts")
+	convoy.apply_damage(100, null)
+	assert_eq(Feedback.chain_pending(), 0, "no explosions for a convoy that never died")
+	for ship: ConvoyShip in convoy.ships():
+		assert_false(ship.is_destroyed())
+
+
+## Review fix (pt7-g): the wreck stays solid until its last ship has blown up.
+func test_is_wrecked_only_after_every_ship_is_destroyed() -> void:
+	var convoy: Convoy = _make()
+	assert_false(convoy.is_wrecked(), "intact")
+	var ships: Array = convoy.ships()
+	for i: int in ships.size():
+		(ships[i] as ConvoyShip).destroy()
+		assert_eq(convoy.is_wrecked(), i == ships.size() - 1, "wrecked only once all %d ships are gone" % ships.size())

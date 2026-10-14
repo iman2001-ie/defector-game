@@ -5,8 +5,9 @@ extends Control
 ## the opening (playtest 2026-10-13); LEVEL SELECT (Story 4.3) opens Level
 ## Select.
 ##
-## Healthy config: the layout comes from `ui.title` (logo centre y and size,
-## button size, gap and first top; the button stack is centred horizontally).
+## Healthy config: the layout comes from `ui.title` (logo centre y and width,
+## button size, gap and first top; the logo and the button stack are centred
+## horizontally).
 ## Fatal config (Config.load_error set, so the data is empty): the buttons are
 ## hidden and disabled and the Error label shows the message in their place.
 ## That branch never calls a Config getter (each would assert on the empty
@@ -20,25 +21,27 @@ extends Control
 ## no button takes focus. The `Background` child (first, so it draws behind
 ## everything) is a LevelBackground showing LevelBackground.MENU_BACKGROUND
 ## (Story 8.2).
+##
+## Playtest pt7-h: the `Logo` is a TextureRect showing the DEFECTOR wordmark
+## (LOGO_TEXTURE, AI-generated for the project; its glow is baked into the PNG),
+## logo_width_px wide and as tall as the texture's aspect makes it. The end
+## screen reuses LOGO_TEXTURE and logo_rect().
 
 const THEME_TYPE: StringName = &"Title"
-const COLOR_LOGO: StringName = &"logo"
-const COLOR_LOGO_GLOW: StringName = &"logo_glow"
 const COLOR_ERROR: StringName = &"error"
 const COLOR_TEXT: StringName = &"text"
-const CONSTANT_LOGO_GLOW_PX: StringName = &"logo_glow_px"
 const FONT_SIZE_BUTTON: StringName = &"button"
 const FONT_SIZE_ERROR: StringName = &"error"
 const STYLE_BUTTON_NORMAL: StringName = &"button_normal"
 const STYLE_BUTTON_HOVER: StringName = &"button_hover"
 const STYLE_BUTTON_FOCUS: StringName = &"button_focus"
-const TEXT_LOGO: String = "DEFECTOR"
 const TEXT_PLAY: String = "PLAY"
 const TEXT_LEVEL_SELECT: String = "LEVEL SELECT"
 const TEXT_QUIT: String = "QUIT"
 const TEXT_ERROR_HEADER: String = "CONFIG ERROR"
-## The Logo label is this many times logo_px tall, so the glyphs fit inside it.
-const LOGO_BOX_SCALE: float = 2.0
+## The DEFECTOR wordmark (playtest pt7-h), imported with mipmaps because it is
+## drawn smaller than its 1536 px width.
+const LOGO_TEXTURE: Texture2D = preload("res://assets/logo/defector_logo.png")
 
 ## Quits the application. Defaults to get_tree().quit in _ready; tests inject a
 ## recorder before add_child.
@@ -48,7 +51,7 @@ var _leaving: bool = false
 var _config_failed: bool = false
 
 @onready var _background: LevelBackground = $Background
-@onready var _logo: Label = $Logo
+@onready var _logo: TextureRect = $Logo
 @onready var _buttons: VBoxContainer = $Buttons
 @onready var _play: Button = $Buttons/Play
 @onready var _level_select: Button = $Buttons/LevelSelect
@@ -62,7 +65,7 @@ func _ready() -> void:
 	if not quit_game.is_valid():
 		quit_game = get_tree().quit
 	_config_failed = not Config.load_error.is_empty()
-	_logo.text = TEXT_LOGO
+	TitleScreen.setup_logo(_logo)
 	_play.text = TEXT_PLAY
 	_level_select.text = TEXT_LEVEL_SELECT
 	_quit.text = TEXT_QUIT
@@ -83,10 +86,28 @@ func is_config_error() -> bool:
 	return _config_failed
 
 
-## The logo label's rect: `logo_px` font, centred on y `logo_y`, full canvas width.
-static func logo_rect(canvas_w: float, logo_y: float, logo_px: float) -> Rect2:
-	var height: float = logo_px * LOGO_BOX_SCALE
-	return Rect2(Vector2(0.0, logo_y - height / 2.0), Vector2(canvas_w, height))
+## The logo's rect: `width` wide (at least 1 px), as tall as the texture's
+## aspect makes it, centred horizontally and on y `logo_y`.
+static func logo_rect(canvas_w: float, logo_y: float, width: float) -> Rect2:
+	var w: float = maxf(width, 1.0)
+	var height: float = w * logo_aspect()
+	return Rect2(Vector2((canvas_w - w) / 2.0, logo_y - height / 2.0), Vector2(w, height))
+
+
+## The wordmark's height / width.
+static func logo_aspect() -> float:
+	var size: Vector2 = LOGO_TEXTURE.get_size()
+	return size.y / size.x if size.x > 0.0 else 0.0
+
+
+## Shows LOGO_TEXTURE in `logo`, scaled to its rect with the aspect kept and
+## sampled through its mipmaps.
+static func setup_logo(logo: TextureRect) -> void:
+	logo.texture = LOGO_TEXTURE
+	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	logo.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
 ## The button stack's rect: `count` buttons of `button` size with `gap` between
@@ -131,9 +152,7 @@ func _on_quit_pressed() -> void:
 
 ## Healthy config only: positions from ui.title.
 func _layout() -> void:
-	var logo_px: int = maxi(Config.int_("ui.title.logo_px"), 1)
-	var logo: Rect2 = logo_rect(Playfield.SIZE.x, Config.num("ui.title.logo_y"), float(logo_px))
-	_logo.add_theme_font_size_override(&"font_size", logo_px)
+	var logo: Rect2 = logo_rect(Playfield.SIZE.x, Config.num("ui.title.logo_y"), Config.num("ui.title.logo_width_px"))
 	_logo.position = logo.position
 	_logo.size = logo.size
 	var button: Vector2 = Vector2(Config.num("ui.title.button_w"), Config.num("ui.title.button_h"))
@@ -150,11 +169,6 @@ func _layout() -> void:
 ## Copies the Title theme items onto the children (their own theme types are
 ## Label / Button). Reads only the Theme, never Config.
 func _apply_theme() -> void:
-	_logo.add_theme_color_override(&"font_color", get_theme_color(COLOR_LOGO, THEME_TYPE))
-	_logo.add_theme_color_override(&"font_shadow_color", get_theme_color(COLOR_LOGO_GLOW, THEME_TYPE))
-	_logo.add_theme_constant_override(&"shadow_offset_x", 0)
-	_logo.add_theme_constant_override(&"shadow_offset_y", 0)
-	_logo.add_theme_constant_override(&"shadow_outline_size", get_theme_constant(CONSTANT_LOGO_GLOW_PX, THEME_TYPE))
 	_error.add_theme_color_override(&"font_color", get_theme_color(COLOR_ERROR, THEME_TYPE))
 	var error_px: int = get_theme_font_size(FONT_SIZE_ERROR, THEME_TYPE)
 	if error_px > 0:

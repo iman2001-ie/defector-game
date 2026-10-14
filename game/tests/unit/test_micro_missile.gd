@@ -84,7 +84,38 @@ func test_reads_tuning_and_points_along_travel() -> void:
 	var micro: MicroMissile = _make()
 	assert_eq(micro.turn_rate_deg_s, 540.0)
 	assert_eq(micro.lifetime_s, 3.0)
+	assert_eq(micro.turn_ease_s, Config.num("abilities.barrage.turn_ease_s"))
+	assert_eq(micro.turn_ease_start, Config.num("abilities.barrage.turn_ease_start"))
+	assert_eq(micro.rotation_smoothing, Config.num("abilities.barrage.rotation_smoothing"))
 	assert_almost_eq(micro.rotation, 0.0, 0.0001, "nose up")
+
+
+func test_launch_aims_the_nose_exactly_along_a_fanned_velocity() -> void:
+	var micro: MicroMissile = _make(LAUNCH, Vector2.UP.rotated(deg_to_rad(-18.0)) * _speed())
+	assert_almost_eq(micro.rotation, deg_to_rad(-18.0), 0.0001, "nose along the launch heading")
+
+
+# --- Playtest pt7-h: exhaust ------------------------------------------------------
+
+func test_exhaust_trail_streams_in_world_space_behind_the_body() -> void:
+	var micro: MicroMissile = _make()
+	var exhaust: GPUParticles2D = micro.get_node_or_null(^"Exhaust") as GPUParticles2D
+	assert_not_null(exhaust, "an Exhaust GPUParticles2D")
+	if exhaust == null:
+		return
+	assert_false(exhaust.local_coords, "world coordinates: the trail stays behind")
+	assert_true(exhaust.emitting, "emits from launch")
+	assert_gt(exhaust.position.y, 0.0, "at the tail (local +Y)")
+	assert_lt(exhaust.get_index(), micro.get_node(^"Body").get_index(), "drawn under the body")
+	var mat: ParticleProcessMaterial = exhaust.process_material as ParticleProcessMaterial
+	assert_not_null(mat, "a ParticleProcessMaterial")
+	if mat == null:
+		return
+	assert_eq(mat.direction, Vector3(0, 1, 0), "blown out of the tail")
+	var ramp: Gradient = (mat.color_ramp as GradientTexture1D).gradient
+	assert_eq(ramp.get_color(0).to_html(false), "ffd23f", "starts energy gold")
+	assert_almost_eq(ramp.get_color(ramp.get_point_count() - 1).a, 0.0, 0.0001, "fades out")
+	assert_lte(exhaust.lifetime, 0.4, "a short trail")
 
 
 # --- nearest_enemy ------------------------------------------------------------
@@ -168,14 +199,48 @@ func test_no_enemies_flies_straight_up() -> void:
 	assert_almost_eq(micro.global_position.y, LAUNCH.y - _speed() * DT * 10.0, 0.01, "moved straight up")
 
 
-func test_steers_toward_target_at_turn_rate() -> void:
+func test_steers_toward_target_at_the_eased_turn_rate() -> void:
 	_wasp(LAUNCH + Vector2(400, 0))
 	var micro: MicroMissile = _make()
 	micro._physics_process(DT)
 	var turned: float = Vector2.UP.angle_to(micro.velocity)
-	assert_almost_eq(turned, deg_to_rad(540.0) * DT, 0.0001, "turned by the max rate toward +x")
+	var factor: float = MicroMissile.turn_factor(DT, micro.turn_ease_s, micro.turn_ease_start)
+	assert_almost_eq(turned, deg_to_rad(540.0) * factor * DT, 0.0001, "turned by the eased rate toward +x")
+	assert_lt(factor, 1.0, "less than the full rate just after launch")
 	assert_almost_eq(micro.velocity.length(), _speed(), 0.001, "speed kept")
-	assert_almost_eq(micro.rotation, micro.velocity.angle() + PI / 2.0, 0.0001, "nose along travel")
+	var heading: float = MicroMissile.heading_rotation(micro.velocity)
+	assert_gt(micro.rotation, 0.0, "the nose starts to follow")
+	assert_lt(micro.rotation, heading, "but lags the heading (smoothed)")
+	var expected: float = lerp_angle(0.0, heading, 1.0 - exp(-micro.rotation_smoothing * DT))
+	assert_almost_eq(micro.rotation, expected, 0.0001, "exponential lerp_angle at rotation_smoothing")
+
+
+func test_full_turn_rate_after_the_ease() -> void:
+	_wasp(LAUNCH + Vector2(400, 0))
+	var micro: MicroMissile = _make()
+	var ticks: int = ceili(micro.turn_ease_s / DT) + 1
+	var before: Vector2 = micro.velocity
+	for i: int in ticks:
+		before = micro.velocity
+		micro._physics_process(DT)
+	assert_almost_eq(absf(before.angle_to(micro.velocity)), deg_to_rad(540.0) * DT, 0.0001, "the full rate once eased in")
+
+
+func test_nose_settles_on_the_heading() -> void:
+	var micro: MicroMissile = _make(LAUNCH, Vector2.UP * _speed())
+	micro.rotation = 0.8
+	for i: int in 60:
+		micro._physics_process(DT)
+	assert_almost_eq(micro.rotation, MicroMissile.heading_rotation(micro.velocity), 0.001, "converged, no snapping needed")
+
+
+func test_turn_factor_eases_linearly() -> void:
+	assert_almost_eq(MicroMissile.turn_factor(0.0, 0.25, 0.35), 0.35, 0.0001, "start at launch")
+	assert_almost_eq(MicroMissile.turn_factor(0.125, 0.25, 0.35), 0.675, 0.0001, "halfway")
+	assert_almost_eq(MicroMissile.turn_factor(0.25, 0.25, 0.35), 1.0, 0.0001, "full at ease_s")
+	assert_almost_eq(MicroMissile.turn_factor(5.0, 0.25, 0.35), 1.0, 0.0001, "stays full")
+	assert_almost_eq(MicroMissile.turn_factor(0.0, 0.0, 0.35), 1.0, 0.0001, "no ease: full at once")
+	assert_almost_eq(MicroMissile.turn_factor(0.0, 0.25, -1.0), 0.0, 0.0001, "start clamped to [0, 1]")
 
 
 func test_target_lost_with_none_left_never_scans_again() -> void:

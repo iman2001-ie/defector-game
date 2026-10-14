@@ -4,10 +4,15 @@ extends Control
 ## panel, just a dim, the loss reason in `danger` and RETRY · QUIT TO TITLE.
 ##
 ## Events in, SceneRouter out: it never reads gameplay nodes. On the first
-## Events.level_failed it starts a pausable feedback.player_death_pause_s timer
-## (the death beat: it freezes under any pause and stretches with hit-stop);
-## when that fires, show_prompt() pushes the `death` pause reason and shows the
-## prompt with RETRY focused (focus ring hidden). Later failures are ignored,
+## Events.level_failed it fades the music out (Audio.stop_music) and starts a
+## pausable timer of feedback.loss_pause_s.<reason> (the death beat: it freezes
+## under any pause and stretches with hit-stop; an unknown reason uses the
+## `hearts` beat). The convoy's beat is longer, so its explosion chain finishes
+## first (playtest pt7-g). When it fires, show_prompt() pushes the `death` pause
+## reason, plays the one-shot `game_over` sting (Audio.play_music) and shows the
+## prompt with RETRY focused (focus ring hidden). RETRY also fades the sting out
+## before the reload (the level's own trigger starts its music again). Later
+## failures are ignored,
 ## and so is any failure after Events.level_cleared (the first outcome wins,
 ## DW-75: a convoy loss can't fail a cleared level). RETRY calls
 ## SceneRouter.retry_level() (energy 0), QUIT TO TITLE SceneRouter.goto_title(); a
@@ -34,8 +39,16 @@ const TEXT_SURRENDER: String = "EXECUTED AT DAWN"
 const TEXT_RETRY: String = "RETRY"
 const TEXT_QUIT: String = "QUIT TO TITLE"
 
-## Seconds of unpaused time between level_failed and the prompt.
-var beat_s: float = 0.0
+## The loss reasons with their own beat in feedback.loss_pause_s.
+const REASONS: Array[StringName] = [&"hearts", &"convoy", &"surrender"]
+## The reason whose beat an unknown reason uses.
+const DEFAULT_REASON: StringName = &"hearts"
+## The music id played when the prompt shows.
+const GAME_OVER_MUSIC: StringName = &"game_over"
+
+## Seconds of unpaused time between level_failed and the prompt, per reason
+## (feedback.loss_pause_s, each floored at 0).
+var beats: Dictionary[StringName, float] = {}
 var headline_y: float = 0.0
 var headline_px: int = 0
 var button_size: Vector2 = Vector2.ZERO
@@ -61,7 +74,9 @@ func _init() -> void:
 
 
 func _ready() -> void:
-	beat_s = maxf(Config.num("feedback.player_death_pause_s"), 0.0)
+	beats.clear()
+	for reason: StringName in REASONS:
+		beats[reason] = maxf(Config.num("feedback.loss_pause_s.%s" % reason), 0.0)
 	headline_y = Config.num("ui.retry_prompt.headline_y")
 	headline_px = maxi(Config.int_("ui.retry_prompt.headline_px"), 1)
 	button_size = Vector2(Config.num("ui.retry_prompt.button_w"), Config.num("ui.retry_prompt.button_h"))
@@ -104,6 +119,11 @@ static func button_rects(canvas_w: float, button: Vector2, gap: float, top_y: fl
 	]
 
 
+## The beat before the prompt for `reason` (an unknown reason uses DEFAULT_REASON's).
+func beat_for(reason: StringName) -> float:
+	return beats.get(reason, beats.get(DEFAULT_REASON, 0.0)) as float
+
+
 ## The headline for a level_failed reason; unknown reasons fall back to HULL DESTROYED.
 static func text_for(reason: StringName) -> String:
 	if reason == &"convoy":
@@ -126,6 +146,7 @@ func show_prompt(reason: StringName) -> void:
 		Log.warn("scene", "Retry prompt: unknown loss reason '%s', showing %s" % [reason, TEXT_HULL])
 	_reason_label.text = text_for(reason)
 	PauseArbiter.push(PAUSE_REASON)
+	Audio.play_music(GAME_OVER_MUSIC)
 	visible = true
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	# Mouse-only UI: keep RETRY focused but hide the focus ring, so only hover highlights.
@@ -137,7 +158,8 @@ func _on_events_level_failed(reason: StringName) -> void:
 		return
 	_pending = true
 	_reason = reason
-	get_tree().create_timer(beat_s, false).timeout.connect(_on_beat_timeout)
+	Audio.stop_music()
+	get_tree().create_timer(beat_for(reason), false).timeout.connect(_on_beat_timeout)
 
 
 func _on_events_level_cleared(_level_id: int) -> void:
@@ -154,6 +176,7 @@ func _on_retry_pressed() -> void:
 	if not _shown or _leaving:
 		return
 	_leaving = true
+	Audio.stop_music()
 	SceneRouter.retry_level()
 
 

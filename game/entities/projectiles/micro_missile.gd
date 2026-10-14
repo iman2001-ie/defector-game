@@ -8,9 +8,20 @@ extends Projectile
 ## lifetime_s. Hits use the Projectile base: the first enemy or asteroid area
 ## overlapped takes `damage`, so asteroids block it; a convoy ship blocks it with
 ## no damage and the SMALL blocked-shot effect (Story 6.1, GDD #46).
+##
+## Playtest pt7-h (smoother flight): the allowed turn rate eases in after
+## launch, from abilities.barrage.turn_ease_start x turn_rate_deg_s up to the
+## full rate over turn_ease_s (turn_factor), so the path bends smoothly out of
+## the launch instead of snapping. The nose follows the heading through an
+## exponential lerp_angle at rotation_smoothing per second (it is aimed exactly
+## only at launch). The `Exhaust` child (GPUParticles2D, world coordinates)
+## streams a short gold-to-red flame fading into grey smoke behind it.
 
 var turn_rate_deg_s: float = 0.0
 var lifetime_s: float = 0.0
+var turn_ease_s: float = 0.0
+var turn_ease_start: float = 1.0
+var rotation_smoothing: float = 0.0
 
 var _age: float = 0.0
 ## Untyped on purpose: a typed Node2D variable rejects a freed instance.
@@ -22,6 +33,9 @@ var _gave_up: bool = false
 func _ready() -> void:
 	turn_rate_deg_s = Config.num("abilities.barrage.turn_rate_deg_s")
 	lifetime_s = Config.num("abilities.barrage.lifetime_s")
+	turn_ease_s = Config.num("abilities.barrage.turn_ease_s")
+	turn_ease_start = clampf(Config.num("abilities.barrage.turn_ease_start"), 0.0, 1.0)
+	rotation_smoothing = maxf(Config.num("abilities.barrage.rotation_smoothing"), 0.0)
 	super._ready()
 	_pick_target()
 	_orient()
@@ -42,8 +56,9 @@ func _physics_process(delta: float) -> void:
 		var to_target: Vector2 = node.global_position - global_position
 		if to_target != Vector2.ZERO:
 			desired = to_target
-	velocity = MicroMissile.steer(velocity, desired, deg_to_rad(turn_rate_deg_s) * delta)
-	_orient()
+	var factor: float = MicroMissile.turn_factor(_age, turn_ease_s, turn_ease_start)
+	velocity = MicroMissile.steer(velocity, desired, deg_to_rad(turn_rate_deg_s) * factor * delta)
+	_follow_heading(delta)
 	super._physics_process(delta)
 
 
@@ -67,7 +82,31 @@ func _pick_target() -> void:
 func _orient() -> void:
 	if velocity != Vector2.ZERO:
 		# Local -Y (the capsule axis and the nose) points along travel.
-		rotation = velocity.angle() + PI / 2.0
+		rotation = heading_rotation(velocity)
+
+
+## Turns the nose toward the heading by the exponential smoothing step for
+## `delta` (at once when rotation_smoothing is 0).
+func _follow_heading(delta: float) -> void:
+	if velocity == Vector2.ZERO:
+		return
+	if rotation_smoothing <= 0.0:
+		_orient()
+		return
+	rotation = lerp_angle(rotation, heading_rotation(velocity), 1.0 - exp(-rotation_smoothing * maxf(delta, 0.0)))
+
+
+## The node rotation that points local -Y (the nose) along `v`.
+static func heading_rotation(v: Vector2) -> float:
+	return v.angle() + PI / 2.0
+
+
+## The share of turn_rate_deg_s allowed `age` seconds after launch: `start`
+## at launch, rising linearly to 1.0 at `ease_s` (1.0 at once for ease_s <= 0).
+static func turn_factor(age: float, ease_s: float, start: float) -> float:
+	if ease_s <= 0.0:
+		return 1.0
+	return lerpf(clampf(start, 0.0, 1.0), 1.0, clampf(age / ease_s, 0.0, 1.0))
 
 
 ## The Node2D in `nodes` nearest to `from`, skipping non-Node2D nodes, nodes
