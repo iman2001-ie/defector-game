@@ -52,18 +52,11 @@ GOOGLE_KEY = "AI" + "za" + "Sy" + "A1b2C3d4E5" * 3 + "abc"
 GITLAB_TOKEN = "gl" + "pat-" + "abcdefghij" * 2
 NPM_TOKEN = "np" + "m_" + "A1b2C3d4E5" * 3 + "abcdef"
 
-# Story 8.5: tracked bmad-loop run archives committed before .gitignore covered
-# .bmad-loop/archive/, and already pushed. They hold machine-specific run logs
-# that must not be published (history purge pending). This is a pre-existing
-# leak: per AGENTS.md section 1 it is fixed only by the operator's history
-# rewrite and force-push, never by `git rm` or a follow-up commit. Empty this list once they are purged; the test below fails until
-# then, so a stale entry can't hide a new leak.
-KNOWN_LEAKS = {
-    ".bmad-loop/archive/20261007-092930-9035.tar.gz",
-    ".bmad-loop/archive/20261007-102223-b4f6.tar.gz",
-    ".bmad-loop/archive/20261007-124327-8aef.tar.gz",
-    ".bmad-loop/archive/20261007-155431-5f04.tar.gz",
-}
+# Tracked files allowed to have findings: pre-existing leaks awaiting a history
+# rewrite and force-push (AGENTS.md section 1), never `git rm` or a follow-up
+# commit. Story 8.5's four bmad-loop run archives were purged from history, so
+# it is empty. The test below fails on a stale entry, so one can't hide a new leak.
+KNOWN_LEAKS: set[str] = set()
 
 
 def rules(line: str, deny: list[str] | None = None) -> list[str]:
