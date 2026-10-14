@@ -27,7 +27,7 @@ inputs:
 
 **Core fantasy:** "You are the general who walked away from a tyrant, and now you're the one who brings her down."
 
-**Player takeaway:** the rush of a good shooter, plus one or two story moments that stick: the mentor going silent mid-sentence, and the dictator refusing your offer of surrender.
+**Player takeaway:** the rush of a good shooter, plus one or two story moments that stick: the mentor falling in front of you, then only static on his channel, and the dictator refusing your offer of surrender.
 
 ### Target Audience
 
@@ -357,9 +357,9 @@ N/A. DEFECTOR is single-player only. Multiplayer is out of scope (see Out of Sco
 - **Dialogue model** (decision #22):
   - **Briefings and debriefs carry the story.** Every level opens with a paused briefing and closes with a short paused debrief. The player clicks to advance each line. Paused dialogue appears in a centred panel over a dimmed playfield.
   - **Interruptions are rare.** At most 1–2 per level, each a single short line that auto-dismisses without pausing, shown in a small top-left box. They are only Isolde mocking Vale or an ally warning Vale.
-  - **Only two mid-fight pauses in the whole game:** the Level 1 surrender offer and the Level 3 Final Choice.
+  - **Only three mid-fight pause moments in the whole game:** the Level 1 surrender offer, Tarek's fall in Level 2 (two short story beats, decision #76) and the Level 3 Final Choice.
   - **Tutorials are on-screen control hints, not dialogue** (for example "Hold LMB to fire").
-- Story lines pause the game, so they only fire at level start, at level end, or at the two scripted mid-fight pauses.
+- Story lines pause the game, so they only fire at level start, at level end, or at those scripted mid-fight pauses.
 
 ### Level Progression
 
@@ -388,7 +388,7 @@ N/A. DEFECTOR is single-player only. Multiplayer is out of scope (see Out of Sco
 | 2 | 1 Bastion, 8 Wasps | |
 | 3 | 3 Needles, 3 Lancers, 2 medium asteroids | Isolde interruption |
 | 4 | 2 Bastions, 10 Wasps, 1 large asteroid | |
-| 5 | 2 Bastions, 2 Needles, 4 Lancers, 2 medium asteroids | When 75% of the wave is destroyed, Tarek's fall plays as a short scene (decision #63; no pause): an alarm and a red lock-on line mark Vale, Vale's controls lock and enemies hold fire, Tarek dashes between Vale and the threat ("Watch out! Get behind me, I've got you co..."), a Ram (a bigger Maul, too fast to dodge) dives at Vale and strikes Tarek in slow motion. On impact his line cuts to static with the strong cut-off shake (18 px for 0.9 s, decision #43), the music stops, and his burning ship spins away; he is gravely injured, not killed. Control returns and the comms channel stays silent until the wave clears. |
+| 5 | 2 Bastions, 2 Needles, 4 Lancers, 2 medium asteroids | When 75% of the wave is destroyed, Tarek's fall plays as a short scene (decisions #63 and #76): an alarm and a red lock-on line mark Vale, Vale's controls lock and enemies (and Tarek) hold fire. The game pauses on Tarek's warning ("Watch out, General! Get behind me, I've got you covered!"); on the click Tarek dashes between Vale and the threat, and a Ram (a bigger Maul, too fast to dodge) dives at Vale and strikes Tarek in slow motion. On impact the music stops and his burning ship spins away and down with a burning-crash sound; he is gravely injured, not killed. The game pauses again: Vale calls "Admiral? Admiral Tarek?! ADMIRAL!", then a nameless, portrait-less "..." line plays over the comms static, because his fate is unknown. Control returns and the comms channel stays silent until the wave clears. |
 
 - After the wave clears, Ryn reports that Tarek is alive but gravely injured, and that she is taking command.
 
@@ -590,7 +590,7 @@ Measured informally with 3–5 hackathon playtesters:
   - The opening sequence.
   - The level briefings and debriefs, and Tarek's ambush warning.
   - Isolde's interruptions.
-  - Tarek's cut-off line.
+  - Tarek's fall: his warning, then Vale's call-out and the static (paused story beats, decision #76).
   - Ryn's report.
   - Isolde's two Final Choice responses and her final line.
 

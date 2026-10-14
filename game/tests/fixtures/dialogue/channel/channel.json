@@ -17,6 +17,21 @@
 				}
 			]
 		},
+		"story_down": {
+			"mode": "story",
+			"silence_after": "until_wave_clear",
+			"lines": [
+				{
+					"speaker": "vale",
+					"text": "Admiral?"
+				},
+				{
+					"speaker": "static",
+					"text": "...",
+					"sfx": "comms_static"
+				}
+			]
+		},
 		"story_b": {
 			"mode": "story",
 			"lines": [

@@ -17,7 +17,7 @@ extends RefCounted
 ## Cut-off lines (Story 5.4), combat sequences only:
 ##   { "speaker", "text", "cut_off_at": <int>, "after"?: { "silence"?:
 ##     "until_wave_clear", "shake"?: "<ImpactTier name>"|"cutoff", "sfx"?: "<sfx id>",
-##     "music"?: "stop"|"combat"|"boss" } }
+##     "music"?: one of LevelValidator.MUSIC_ACTIONS } }
 ## One problem each for: `cut_off_at` in a story sequence; `cut_off_at` not a
 ## whole number from 1 to text length - 1 (a JSON float with no fraction is
 ## whole); `after` without `cut_off_at` or not an object; an unknown `after`
@@ -40,8 +40,20 @@ extends RefCounted
 ## string; a `fail` not in FAIL_REASONS. Whether `next` names a known story
 ## sequence is a cross-file check (the data test; CommsChannel logs an unknown
 ## one and finishes at once).
+##
+## Story line sound and silence (Epic 7 playtest J, Tarek's fall as story
+## beats), story sequences only:
+##   a line's optional "sfx": "<sfx id>" plays when the line shows (and stops
+##   when it ends); a sequence's optional "silence_after": "until_wave_clear"
+##   silences combat comms once the sequence finishes, as a cut-off line's
+##   `after.silence` does.
+## One problem each for: `sfx` on a combat line (combat lines use the cut-off
+## `after.sfx`); `sfx` not a non-empty string; `silence_after` on a combat
+## sequence; `silence_after` other than `until_wave_clear`.
+## The `static` speaker (the open channel's noise) has an empty name and no
+## portrait in comms.speakers.
 
-const SPEAKERS: Array[StringName] = [&"vale", &"isolde", &"tarek", &"ryn", &"system"]
+const SPEAKERS: Array[StringName] = [&"vale", &"isolde", &"tarek", &"ryn", &"system", &"static"]
 const MODES: Array[StringName] = [&"story", &"combat"]
 const MODE_STORY: StringName = &"story"
 const MODE_COMBAT: StringName = &"combat"
@@ -71,6 +83,10 @@ const CHOICE_IDS: Array[String] = ["surrender", "destroy", "refuse"]
 const FAIL_REASONS: Array[String] = ["surrender"]
 ## A choice has exactly this many options.
 const CHOICE_OPTIONS: int = 2
+## Story line key: an sfx id played while the line shows (Epic 7 playtest J).
+const LINE_SFX_KEY: String = "sfx"
+## Story sequence key: silence combat comms once it finishes (Epic 7 playtest J).
+const SILENCE_AFTER_KEY: String = "silence_after"
 
 
 ## Returns every problem in the file (empty when it is valid).
@@ -110,6 +126,12 @@ static func validate_sequence(id: String, seq: Variant, path: String, story_max_
 		problems.append(_problem(path, seq_path + ".lines", "is empty"))
 		return problems
 	problems.append_array(_choice_problems(dict, mode, path, seq_path))
+	if dict.has(SILENCE_AFTER_KEY):
+		var silence_path: String = seq_path + "." + SILENCE_AFTER_KEY
+		if mode != MODE_STORY:
+			problems.append(_problem(path, silence_path, "silence_after is only allowed in story sequences"))
+		elif not (dict[SILENCE_AFTER_KEY] is String and (dict[SILENCE_AFTER_KEY] as String) == SILENCE_UNTIL_WAVE_CLEAR):
+			problems.append(_problem(path, silence_path, "must be '%s', not '%s'" % [SILENCE_UNTIL_WAVE_CLEAR, str(dict[SILENCE_AFTER_KEY])]))
 	if mode == MODE_COMBAT and (lines as Array).size() != 1:
 		problems.append(_problem(path, seq_path + ".lines", "combat sequence has %d lines, exactly 1 allowed" % (lines as Array).size()))
 	for i: int in (lines as Array).size():
@@ -123,6 +145,13 @@ static func validate_sequence(id: String, seq: Variant, path: String, story_max_
 		if not (speaker_raw is String and SPEAKERS.has(StringName(speaker_raw as String))):
 			problems.append(_problem(path, line_path + ".speaker", "unknown speaker '%s'" % str(speaker_raw)))
 		problems.append_array(_cut_off_problems(line_dict, mode, path, line_path))
+		if line_dict.has(LINE_SFX_KEY):
+			var sfx_path: String = line_path + "." + LINE_SFX_KEY
+			var sfx: Variant = line_dict[LINE_SFX_KEY]
+			if mode != MODE_STORY:
+				problems.append(_problem(path, sfx_path, "a line sfx is only allowed in story sequences"))
+			elif not (sfx is String and not (sfx as String).strip_edges().is_empty()):
+				problems.append(_problem(path, sfx_path, "must be a non-empty sfx id, not '%s'" % str(sfx)))
 		var text_raw: Variant = line_dict.get("text")
 		if not (text_raw is String):
 			problems.append(_problem(path, line_path + ".text", "missing or not a string"))

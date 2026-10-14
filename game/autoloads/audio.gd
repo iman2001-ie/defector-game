@@ -39,9 +39,8 @@ const SFX: Dictionary[StringName, AudioStream] = {
 	&"explosion_small": preload("res://assets/audio/sfx/sfx_explosion_small.wav"),
 	&"explosion_medium": preload("res://assets/audio/sfx/sfx_explosion_medium.wav"),
 	&"explosion_large": preload("res://assets/audio/sfx/sfx_explosion_large.wav"),
-	&"explosion_boss_part": preload("res://assets/audio/sfx/sfx_explosion_boss_part.wav"),
+	&"explosion_mid": preload("res://assets/audio/sfx/sfx_explosion_mid.wav"),
 	&"explosion_boss_death": preload("res://assets/audio/sfx/sfx_explosion_boss_death.wav"),
-	&"explosion_big": preload("res://assets/audio/sfx/sfx_explosion_big.wav"),
 	&"player_hit": preload("res://assets/audio/sfx/sfx_player_hit.wav"),
 	&"player_death": preload("res://assets/audio/sfx/sfx_player_death.wav"),
 	&"shield_on": preload("res://assets/audio/sfx/sfx_shield_on.wav"),
@@ -55,12 +54,18 @@ const SFX: Dictionary[StringName, AudioStream] = {
 	&"comms_click": preload("res://assets/audio/sfx/sfx_comms_click.wav"),
 	&"comms_handover": preload("res://assets/audio/sfx/sfx_comms_handover.wav"),
 	&"maul_alarm": preload("res://assets/audio/sfx/sfx_maul_alarm.wav"),
+	# Tarek's burning fall (playtest pt7-j), a layered CC0 build.
+	&"tarek_burn": preload("res://assets/audio/sfx/sfx_tarek_burn.wav"),
 }
 ## The shipped music tracks (Story 8.1), imported with loop on, except the
 ## one-shot `game_over` sting (playtest pt7-g), which plays once under the retry
-## prompt. The ids are the LevelValidator MUSIC_ACTIONS other than `stop`.
+## prompt. Each campaign level has its own track (playtest pt7-i: `level_1`,
+## `level_2`, `level_3`; the old shared `combat` track is retired). The ids are
+## the LevelValidator MUSIC_ACTIONS other than `stop`.
 const MUSIC: Dictionary[StringName, AudioStream] = {
-	&"combat": preload("res://assets/audio/music/music_combat.ogg"),
+	&"level_1": preload("res://assets/audio/music/music_level_1.ogg"),
+	&"level_2": preload("res://assets/audio/music/music_level_2.ogg"),
+	&"level_3": preload("res://assets/audio/music/music_level_3.ogg"),
 	&"boss": preload("res://assets/audio/music/music_boss.ogg"),
 	&"epilogue": preload("res://assets/audio/music/music_epilogue.ogg"),
 	&"game_over": preload("res://assets/audio/music/music_game_over.ogg"),

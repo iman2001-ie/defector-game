@@ -951,9 +951,9 @@ func test_last_clear_with_the_epilogue_stops_the_music() -> void:
 
 func test_last_clear_without_the_epilogue_stops_the_music() -> void:
 	Config.flags["council_epilogue"] = false
-	Audio.play_music(&"combat")
+	Audio.play_music(&"level_1")
 	SceneRouter.complete_level(3)
-	_assert_music_fading_out(&"combat")
+	_assert_music_fading_out(&"level_1")
 	assert_eq(_calls, [SceneRouter.END_SCENE_PATH] as Array[String], "then the end screen")
 
 
@@ -983,11 +983,11 @@ func _record_with_music(path: String) -> Error:
 
 
 func test_earlier_clear_leaves_the_music_alone() -> void:
-	Audio.play_music(&"combat")
+	Audio.play_music(&"level_1")
 	SceneRouter.complete_level(1)
-	assert_eq(Audio.current_music(), &"combat", "the combat track keeps playing")
+	assert_eq(Audio.current_music(), &"level_1", "the level track keeps playing")
 	assert_false(Audio._is_fading(), "no fade")
-	assert_eq(_count_starting("[INFO][audio] Music 'combat' stopping"), 0, "no stopping line")
+	assert_eq(_count_starting("[INFO][audio] Music 'level_1' stopping"), 0, "no stopping line")
 	assert_eq(_calls, [SceneRouter.LEVEL_SCENE_PATH] as Array[String], "level 2 starts")
 
 

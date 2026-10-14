@@ -79,6 +79,14 @@ extends Node
 ##   id; nothing is emitted for `next`, which nobody requested. Without a
 ##   `final_choice` view the sequence logs an error and finishes as a plain
 ##   story (no event); an unknown `next` logs an error and finishes at once.
+## - Story line sfx (Epic 7 playtest J): a story line with `sfx` plays that id
+##   (Audio.play_sfx, no jitter) when it shows; it stops when the next line
+##   shows, the sequence finishes or the channel leaves the tree. Audio keeps
+##   playing under the story pause, so the nameless static line is heard.
+## - Story silence (Epic 7 playtest J): a story sequence with
+##   `silence_after: until_wave_clear` turns the combat silence on once it
+##   finishes (after `finished` is emitted), as a cut-off line's
+##   `after.silence` does; Events.wave_cleared lifts it.
 
 const PAUSE_REASON: StringName = &"story"
 ## The pause reason held while the Final Choice buttons are up (Story 7.5).
@@ -156,6 +164,9 @@ var _cutoff_shake_s: float = 0.0
 ## stream (the pool may hand the player to another sound).
 var _cut_sfx_player: AudioStreamPlayer = null
 var _cut_sfx_stream: AudioStream = null
+## The player and stream of the showing story line's `sfx` (Epic 7 playtest J).
+var _line_sfx_player: AudioStreamPlayer = null
+var _line_sfx_stream: AudioStream = null
 
 ## Cut-off state of the playing combat line (Story 5.4); NONE for a plain line.
 var _cut_phase: CutPhase = CutPhase.NONE
@@ -195,6 +206,7 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	_stop_cut_sfx()
+	_stop_line_sfx()
 	if final_choice != null and is_instance_valid(final_choice) and final_choice.chosen.is_connected(_on_final_choice_chosen):
 		final_choice.chosen.disconnect(_on_final_choice_chosen)
 	if Events.comms_sequence_requested.is_connected(_on_events_comms_sequence_requested):
@@ -317,13 +329,37 @@ func _start(sequence_id: StringName) -> void:
 
 
 func _show_line() -> void:
+	_stop_line_sfx()
 	if panel == null or _index >= _lines.size():
 		return
 	var line: Dictionary = _lines[_index]
 	var speaker: StringName = StringName(str(line.get("speaker", "")))
 	var text: String = str(line.get("text", ""))
 	panel.show_line(speaker, text)
+	var sfx: Variant = line.get(DialogueValidator.LINE_SFX_KEY)
+	if sfx is String and not (sfx as String).is_empty():
+		_line_sfx_player = Audio.play_sfx(StringName(sfx as String), 0.0)
+		_line_sfx_stream = _line_sfx_player.stream if _line_sfx_player != null else null
 	Events.comms_line_shown.emit(speaker, text, MODE_STORY)
+
+
+## The showing story line's sfx player while it still plays that stream, else
+## null (tests).
+func line_sfx_player() -> AudioStreamPlayer:
+	if _line_sfx_player == null or not is_instance_valid(_line_sfx_player):
+		return null
+	if _line_sfx_player.stream != _line_sfx_stream or not _line_sfx_player.playing:
+		return null
+	return _line_sfx_player
+
+
+## Stops the showing story line's sfx.
+func _stop_line_sfx() -> void:
+	var player: AudioStreamPlayer = line_sfx_player()
+	if player != null:
+		player.stop()
+	_line_sfx_player = null
+	_line_sfx_stream = null
 
 
 func _emit_finished(sequence_id: StringName) -> void:
@@ -379,6 +415,8 @@ func _finish() -> void:
 		return
 	var finished_id: StringName = _requested
 	var fail: StringName = _fail_reason
+	var silence_after: bool = Config.sequence(finished_id).get(DialogueValidator.SILENCE_AFTER_KEY) == DialogueValidator.SILENCE_UNTIL_WAVE_CLEAR
+	_stop_line_sfx()
 	Log.info("comms", "Story sequence '%s' finished" % finished_id)
 	_requested = &""
 	_choice_options = []
@@ -390,6 +428,8 @@ func _finish() -> void:
 		var next_id: StringName = _queue.pop_front()
 		_raise_fail(fail)
 		Events.comms_sequence_finished.emit(finished_id)
+		if silence_after:
+			_silence_on("story '%s'" % finished_id)
 		_start(next_id)
 		return
 	_current = &""
@@ -404,6 +444,8 @@ func _finish() -> void:
 	# surrender).
 	_raise_fail(fail)
 	Events.comms_sequence_finished.emit(finished_id)
+	if silence_after:
+		_silence_on("story '%s'" % finished_id)
 	if not is_showing() and not is_playing_combat():
 		_start_next_combat()
 
@@ -620,9 +662,9 @@ func _cut_off() -> void:
 
 ## Silences comms until the wave clears and drops every queued combat sequence
 ## (a deferred `finished` each).
-func _silence_on() -> void:
+func _silence_on(source: String = "") -> void:
 	_silenced = true
-	Log.info("comms", "Comms silenced until the wave clears (cut-off '%s')" % _combat)
+	Log.info("comms", "Comms silenced until the wave clears (%s)" % (source if not source.is_empty() else "cut-off '%s'" % _combat))
 	for dropped: StringName in _combat_queue:
 		Log.debug("comms", "Comms silenced: dropped queued combat sequence '%s'" % dropped)
 		_emit_finished.call_deferred(dropped)

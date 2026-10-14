@@ -23,7 +23,7 @@ const TAREK_WARNING: StringName = &"l1_w3_tarek_warning"
 const INTERRUPT: StringName = &"l1_w3_isolde_interrupt"
 const SURRENDER: StringName = &"l1_w5_surrender"
 const CLOSING: StringName = &"l1_tarek_closing"
-const MUSIC_ID: StringName = &"combat"
+const MUSIC_ID: StringName = &"level_1"
 ## Large enough that no stray shot or Maul ram can end the run.
 const TEST_CONVOY_HP: int = 100000
 

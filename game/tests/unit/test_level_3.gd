@@ -37,9 +37,9 @@ const FINAL_CHOICE: StringName = &"l3_final_choice"
 const FINAL_LINE: StringName = &"l3_isolde_final"
 const ENDING: StringName = &"ending_council"
 const STORY_SCENE: PackedScene = preload("res://scenes/story/story.tscn")
-const COMBAT_MUSIC: StringName = &"combat"
+const COMBAT_MUSIC: StringName = &"level_3"
 const BOSS_MUSIC: StringName = &"boss"
-const MUSIC_IDS: Array[StringName] = [&"combat", &"boss"]
+const MUSIC_IDS: Array[StringName] = [&"level_3", &"boss"]
 const HUNTER_SKIP_LINE: String = "waves[1].spawns[2]: 4 x hunter_wasp skipped (flag 'hunter_wasp' off); not counted"
 ## A click below the story panel and clear of the Final Choice buttons.
 const CLICK_AT: Vector2 = Vector2(960, 1000)

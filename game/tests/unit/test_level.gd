@@ -1650,7 +1650,7 @@ func test_dev_ally_level_spawns_tarek_who_fires_and_scores() -> void:
 	assert_eq(ally.collision_layer, CollisionLayers.ALLIES)
 	assert_eq(ally.collision_mask, 0)
 	assert_eq(ally.spawner, _level.get_node("Spawner"))
-	assert_eq(ally.global_position, Vector2(32, 690))
+	assert_eq(ally.global_position, Vector2(Config.num("allies.ship_px") / 2.0, 690))
 	assert_eq(_lines_containing("Ally 'tarek' spawned").size(), 1, "spawn logged")
 	_ally_kills = 0
 	Events.enemy_killed.connect(_on_kill_count_ally)
@@ -1840,18 +1840,19 @@ func _clear_until_wave(director: WaveDirector, wave: int, seconds: float) -> voi
 		await wait_seconds(0.05)
 
 
-## Acceptance (Story 6.5, reworked in Epic 7 playtest D, flag on): on the real
-## level.tscn, dev_tarek_fall wave 2 at 50 % destroyed fires the tarek_fall
-## story event and TarekFallScene runs: Vale is locked and enemy fire is held,
-## Tarek dashes to intercept_offset_px above Vale and holds there, the
-## l2_w5_tarek_cutoff line is requested once (impact_s minus its typing time
-## later) and plays in the interruption box with no pause, the Ram dives and
-## the game slows; at the impact Tarek is hit, and at the cut (cut_off_at
-## characters plus the suffix) the static plays, the cut-off shake lands, the
-## music drops out and comms go silent. Controls and enemy fire come back
-## release_after_s after the impact; Tarek spins away damaged with his fire
-## trail and leaves for good; no ally bolt is fired from the event on;
-## clearing wave 2 lifts the silence and wave 3 runs with no ally.
+## Acceptance (Story 6.5, reworked in Epic 7 playtests D and J, flag on): on
+## the real level.tscn, dev_tarek_fall wave 2 at 50 % destroyed fires the
+## tarek_fall story event and TarekFallScene runs: Vale is locked and enemy fire
+## is held under the lock-on line; warn_after_s later Tarek's warning plays as a
+## paused story beat; once it is clicked through Tarek dashes to
+## intercept_offset_px above Vale and holds there, the Ram dives and the game
+## slows; at the impact Tarek is hit, the music drops out and the burning-fall
+## sound plays; aftermath_after_s later the down beat pauses the game: Vale
+## calls out, then the nameless "..." line plays the comms static; clicking it
+## through silences comms. Controls and enemy fire come back release_after_s
+## later; Tarek spins away damaged with his fire trail and leaves for good; no
+## ally bolt is fired from the event on; clearing wave 2 lifts the silence and
+## wave 3 runs with no ally.
 func test_dev_tarek_fall_flag_on() -> void:
 	(Config.tuning["waves"] as Dictionary)["gap_s"] = 0.05
 	Log.sink = _capture
@@ -1864,9 +1865,9 @@ func test_dev_tarek_fall_flag_on() -> void:
 	var spawner: Spawner = _level.get_node("Spawner") as Spawner
 	var scene: TarekFallScene = _level.get_node("TarekFallScene") as TarekFallScene
 	var channel: CommsChannel = _level.get_node("Comms/CommsChannel") as CommsChannel
-	var box: CommsBox = _level.get_node("Comms/CommsBox") as CommsBox
-	var camera: ShakeCamera = _level.get_node("ShakeCamera") as ShakeCamera
-	var text: Label = box.get_node("Box/Text") as Label
+	var panel: CommsPanel = _level.get_node("Comms/CommsPanel") as CommsPanel
+	var name_label: Label = panel.get_node("Panel/Name") as Label
+	var text_label: Label = panel.get_node("Panel/Text") as Label
 	var allies: Array[AllyShip] = _live_allies()
 	assert_eq(allies.size(), 1, "Tarek flies")
 	if allies.size() != 1:
@@ -1884,69 +1885,83 @@ func test_dev_tarek_fall_flag_on() -> void:
 	assert_gte(float(director.resolved_count()) / float(director.total_count()), 0.5, "at 50 %")
 	var known: Dictionary = _ally_bolt_ids()
 	var new_bolts: Dictionary = {}
-	# The scene starts: lock, held fire, the dash; the line comes later.
-	assert_eq(scene.phase(), TarekFallScene.Phase.RUNNING, "the scene runs")
+	# The lock-on: lock, held fire, the line; Tarek waits for his warning.
+	assert_eq(scene.phase(), TarekFallScene.Phase.LOCK, "the scene runs")
 	assert_true(player.is_scripted_locked(), "Vale's controls are locked")
 	assert_true(spawner.hold_enemy_fire, "enemies hold their fire")
 	assert_true(scene.line_visible(), "the lock-on line shows")
 	assert_eq(scene.intercept_point(), player.global_position + Vector2(0.0, -Config.num("story.tarek_fall.intercept_offset_px")), "the point above Vale")
-	assert_eq(channel.current_combat(), &"", "the line is not requested at once")
-	assert_false(get_tree().paused, "no pause")
-	assert_false(PauseArbiter.is_paused(), "no pause reason")
+	assert_false(get_tree().paused, "no pause yet")
 	assert_true(is_instance_valid(ally), "Tarek still here")
 	if not is_instance_valid(ally):
 		_end_fall_music()
 		return
+	assert_eq(ally.state(), AllyShip.State.PATROL, "Tarek has not dashed yet")
+	var locked_at: Vector2 = player.global_position
+	# The warning beat: a paused story line from Tarek.
+	var end_ms: int = Time.get_ticks_msec() + 10000
+	while channel.current_sequence() != TarekFallScene.WARNING_SEQUENCE and Time.get_ticks_msec() < end_ms:
+		await get_tree().physics_frame
+	assert_eq(channel.current_sequence(), TarekFallScene.WARNING_SEQUENCE, "the warning beat shows")
+	assert_true(get_tree().paused, "it pauses the game")
+	assert_true(PauseArbiter.has_reason(&"story"), "a story pause")
+	assert_eq(name_label.text, "TAREK", "Tarek speaks")
+	assert_eq(text_label.text, "Watch out, General! Get behind me, I've got you covered!")
+	assert_eq(ally.state(), AllyShip.State.PATROL, "frozen under the pause")
+	_click_story_through(channel, TarekFallScene.WARNING_SEQUENCE)
+	assert_false(get_tree().paused, "play resumes")
+	assert_eq(scene.phase(), TarekFallScene.Phase.RUNNING, "the dash")
 	assert_eq(ally.state(), AllyShip.State.APPROACH, "Tarek dashes to Vale")
 	assert_eq(ally.intercept_point(), scene.intercept_point(), "to the scene's point")
-	var locked_at: Vector2 = player.global_position
-	# Freeze the shake decay so the amplitude reads exactly what the cut set.
-	camera.set_process(false)
+	# The dash, the Ram, the slow motion and the impact, up to the down beat.
 	var saw_hold: bool = false
 	var saw_damaged: bool = false
 	var saw_trail: bool = false
 	var saw_ram: bool = false
 	var saw_slowmo: bool = false
-	var line_at: float = -1.0
-	var end_ms: int = Time.get_ticks_msec() + 15000
-	while channel.cut_phase() != CommsChannel.CutPhase.HOLD and Time.get_ticks_msec() < end_ms:
+	var saw_burn: bool = false
+	end_ms = Time.get_ticks_msec() + 15000
+	while channel.current_sequence() != TarekFallScene.DOWN_SEQUENCE and Time.get_ticks_msec() < end_ms:
 		await get_tree().physics_frame
 		_record_new_ally_bolts(known, new_bolts)
-		if line_at < 0.0 and channel.current_combat() == &"l2_w5_tarek_cutoff":
-			line_at = scene.elapsed()
-			assert_true(box.visible, "in the interruption box")
 		saw_ram = saw_ram or scene.ram() != null
 		saw_slowmo = saw_slowmo or Feedback.is_slow_motion()
+		saw_burn = saw_burn or _burn_playing()
 		if is_instance_valid(ally) and not ally.is_queued_for_deletion():
 			saw_hold = saw_hold or ally.is_holding()
 			if ally.is_damaged():
 				saw_damaged = true
 				saw_trail = saw_trail or ally.fire_trail().emitting
-	assert_eq(channel.cut_phase(), CommsChannel.CutPhase.HOLD, "the cut-off landed")
-	assert_gte(line_at, scene.line_request_time(), "the line came at its request time")
-	assert_almost_eq(line_at, scene.line_request_time(), 0.1, "within a frame of it")
+	assert_eq(channel.current_sequence(), TarekFallScene.DOWN_SEQUENCE, "the down beat shows")
 	assert_true(saw_hold, "Tarek held at the point")
 	assert_true(saw_ram, "the Ram dived")
 	assert_true(saw_slowmo, "the game slowed before the impact")
-	assert_true(player.global_position.is_equal_approx(locked_at), "Vale held in place")
-	var full: String = str((Config.sequence(&"l2_w5_tarek_cutoff").get("lines") as Array)[0].get("text"))
-	var cut_at: int = int((Config.sequence(&"l2_w5_tarek_cutoff").get("lines") as Array)[0].get("cut_off_at"))
-	assert_eq(text.text, full.left(cut_at) + str(Config.section("comms").get("cutoff_suffix")), "cut after cut_off_at characters, plus the suffix")
-	var cut_sfx: AudioStreamPlayer = channel.cut_sfx_player()
-	assert_not_null(cut_sfx, "the static plays")
-	if cut_sfx != null:
-		assert_eq(cut_sfx.stream, Audio.SFX[&"comms_static"], "comms_static")
-	assert_almost_eq(camera.current_amplitude(), Config.num("comms.cutoff_shake_px"), 0.0001, "the cut-off shake")
+	assert_true(saw_burn, "the burning fall played")
+	assert_true(saw_damaged, "Tarek was hit")
 	assert_eq(Audio.current_music(), &"", "the music dropped out")
+	assert_true(player.global_position.is_equal_approx(locked_at), "Vale held in place")
+	assert_true(get_tree().paused, "the down beat pauses")
+	assert_eq(name_label.text, "VALE", "Vale calls out")
+	assert_eq(text_label.text, "Admiral? Admiral Tarek?! ADMIRAL!")
+	channel.advance()
+	channel.advance()
+	assert_eq(channel.line_index(), 1, "the static line")
+	assert_eq(text_label.text, "...")
+	assert_false(name_label.visible, "no name")
+	assert_false((panel.get_node("Panel/Portrait") as Control).visible, "no portrait")
+	var static_player: AudioStreamPlayer = channel.line_sfx_player()
+	assert_not_null(static_player, "the static plays")
+	if static_player != null:
+		assert_eq(static_player.stream, Audio.SFX[&"comms_static"], "comms_static")
+	_click_story_through(channel, TarekFallScene.DOWN_SEQUENCE)
+	assert_false(get_tree().paused, "play resumes")
 	assert_true(channel.is_silenced(), "comms silenced")
-	camera.set_process(true)
 	# The release: controls and enemy fire come back.
 	end_ms = Time.get_ticks_msec() + 10000
 	while scene.phase() != TarekFallScene.Phase.DONE and Time.get_ticks_msec() < end_ms:
 		await get_tree().physics_frame
 		_record_new_ally_bolts(known, new_bolts)
 		if is_instance_valid(ally) and not ally.is_queued_for_deletion() and ally.is_damaged():
-			saw_damaged = true
 			saw_trail = saw_trail or ally.fire_trail().emitting
 	assert_eq(scene.phase(), TarekFallScene.Phase.DONE, "the scene ended")
 	assert_false(player.is_scripted_locked(), "Vale's controls are back")
@@ -1957,15 +1972,14 @@ func test_dev_tarek_fall_flag_on() -> void:
 		await get_tree().physics_frame
 		_record_new_ally_bolts(known, new_bolts)
 		if is_instance_valid(ally) and not ally.is_queued_for_deletion() and ally.is_damaged():
-			saw_damaged = true
 			saw_trail = saw_trail or ally.fire_trail().emitting
-	assert_true(saw_damaged, "Tarek fell damaged")
 	assert_true(saw_trail, "with his fire trail")
 	await get_tree().process_frame
 	assert_false(is_instance_valid(ally), "Tarek freed")
 	assert_eq(_live_allies().size(), 0, "no AllyShip left")
 	assert_eq(_lines_containing("Tarek's fall: Tarek has left the level").size(), 1, "left once")
-	assert_eq(_lines_containing("Combat sequence 'l2_w5_tarek_cutoff' started").size(), 1, "the cut-off line played once")
+	assert_eq(_lines_containing("Story sequence 'l2_w5_tarek_warning' started").size(), 1, "the warning played once")
+	assert_eq(_lines_containing("Story sequence 'l2_w5_tarek_down' started").size(), 1, "the down beat played once")
 	_record_new_ally_bolts(known, new_bolts)
 	assert_eq(new_bolts.size(), 0, "no AllyBolt spawned after the event")
 	assert_eq(director.wave_number(), 2, "still wave 2")
@@ -1979,8 +1993,27 @@ func test_dev_tarek_fall_flag_on() -> void:
 	Log.sink = Callable()
 
 
+## Clicks the story sequence `id` through on the channel's advance path (as a
+## click release does) until it has finished.
+func _click_story_through(channel: CommsChannel, id: StringName) -> void:
+	for i: int in 20:
+		if channel.current_sequence() != id:
+			return
+		channel.advance()
+	assert_ne(channel.current_sequence(), id, "%s clicked through" % id)
+
+
+## True while the burning-fall sound plays on any Audio player.
+func _burn_playing() -> bool:
+	for child: Node in Audio.get_children():
+		var player: AudioStreamPlayer = child as AudioStreamPlayer
+		if player != null and player.playing and player.stream == Audio.SFX[TarekFallScene.BURN_SFX]:
+			return true
+	return false
+
+
 ## Acceptance (Story 6.5, flag off): with tarek_fall false, wave 2 passing 50 %
-## fires no story event and no cut-off line; Tarek keeps patrolling and firing
+## fires no story event and no fall beat; Tarek keeps patrolling and firing
 ## and wave 2 still clears into wave 3.
 func test_dev_tarek_fall_flag_off() -> void:
 	(Config.tuning["waves"] as Dictionary)["gap_s"] = 0.05
@@ -2005,8 +2038,9 @@ func test_dev_tarek_fall_flag_off() -> void:
 	while _new_ally_bolts(known) == 0 and Time.get_ticks_msec() < end_ms:
 		await get_tree().physics_frame
 	assert_eq(_lines_containing("story event").size(), 0, "no story event")
-	assert_eq(_lines_containing("l2_w5_tarek_cutoff").size(), 0, "no cut-off line")
-	assert_ne(channel.current_combat(), &"l2_w5_tarek_cutoff")
+	assert_eq(_lines_containing("l2_w5_tarek_warning").size(), 0, "no warning beat")
+	assert_eq(_lines_containing("l2_w5_tarek_down").size(), 0, "no down beat")
+	assert_ne(channel.current_sequence(), TarekFallScene.WARNING_SEQUENCE)
 	assert_false(channel.is_silenced())
 	assert_true(is_instance_valid(ally) and not ally.is_queued_for_deletion(), "Tarek still here")
 	if is_instance_valid(ally):

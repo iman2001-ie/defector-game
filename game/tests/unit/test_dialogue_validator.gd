@@ -26,7 +26,7 @@ func _only_problem(problems: Array[String], fragment: String) -> void:
 
 
 func test_constants() -> void:
-	assert_eq(DialogueValidator.SPEAKERS, [&"vale", &"isolde", &"tarek", &"ryn", &"system"] as Array[StringName])
+	assert_eq(DialogueValidator.SPEAKERS, [&"vale", &"isolde", &"tarek", &"ryn", &"system", &"static"] as Array[StringName])
 	assert_eq(DialogueValidator.MODES, [&"story", &"combat"] as Array[StringName])
 
 
@@ -229,7 +229,7 @@ func test_after_bad_values() -> void:
 	_only_problem(_cut_problems("combat", {"cut_off_at": 39, "after": {"shake": 18}}), "lines[0].after.shake: must be one of")
 	_only_problem(_cut_problems("combat", {"cut_off_at": 39, "after": {"sfx": ""}}), "lines[0].after.sfx: must be a non-empty sfx id")
 	_only_problem(_cut_problems("combat", {"cut_off_at": 39, "after": {"sfx": 5}}), "lines[0].after.sfx")
-	_only_problem(_cut_problems("combat", {"cut_off_at": 39, "after": {"music": "loud"}}), "lines[0].after.music: must be one of stop, combat, boss")
+	_only_problem(_cut_problems("combat", {"cut_off_at": 39, "after": {"music": "loud"}}), "lines[0].after.music: must be one of stop, level_1, level_2, level_3, boss")
 
 
 func test_cut_off_line_is_not_an_interruption() -> void:
@@ -349,3 +349,44 @@ func test_fail_must_be_a_known_reason() -> void:
 		var options: Array = _surrender_options()
 		(options[0] as Dictionary)["fail"] = bad
 		_only_problem(_choice_problems({"options": options}), "choice.options[0].fail: must be one of surrender, not '%s'" % str(bad))
+
+
+# --- Story line sfx and silence (Epic 7 playtest J) ------------------------------------
+
+func test_line_sfx_and_silence_constants() -> void:
+	assert_eq(DialogueValidator.LINE_SFX_KEY, "sfx")
+	assert_eq(DialogueValidator.SILENCE_AFTER_KEY, "silence_after")
+
+
+func test_valid_story_line_sfx_and_silence_after() -> void:
+	var line: Dictionary = _line("static", "...")
+	line["sfx"] = "comms_static"
+	var seq: Dictionary = _seq("story", [_line("vale", "Admiral?"), line])
+	seq["silence_after"] = "until_wave_clear"
+	assert_eq(DialogueValidator.validate_sequence("down", seq, SRC, MAX, CMAX), [] as Array[String])
+
+
+func test_line_sfx_only_in_story_sequences() -> void:
+	var line: Dictionary = _line("isolde", "Still alive?")
+	line["sfx"] = "comms_static"
+	_only_problem(DialogueValidator.validate_sequence("c", _seq("combat", [line]), SRC, MAX, CMAX), "lines[0].sfx: a line sfx is only allowed in story sequences")
+
+
+func test_line_sfx_must_be_a_non_empty_string() -> void:
+	for bad: Variant in ["", "  ", 3, null]:
+		var line: Dictionary = _line("vale", "Hi.")
+		line["sfx"] = bad
+		_only_problem(DialogueValidator.validate_sequence("s", _seq("story", [line]), SRC, MAX, CMAX), "lines[0].sfx: must be a non-empty sfx id")
+
+
+func test_silence_after_only_in_story_sequences() -> void:
+	var seq: Dictionary = _seq("combat", [_line("isolde", "Still alive?")])
+	seq["silence_after"] = "until_wave_clear"
+	_only_problem(DialogueValidator.validate_sequence("c", seq, SRC, MAX, CMAX), "sequences.c.silence_after: silence_after is only allowed in story sequences")
+
+
+func test_silence_after_must_be_until_wave_clear() -> void:
+	for bad: Variant in ["forever", "", 1, null]:
+		var seq: Dictionary = _seq("story", [_line("vale", "Hi.")])
+		seq["silence_after"] = bad
+		_only_problem(DialogueValidator.validate_sequence("s", seq, SRC, MAX, CMAX), "sequences.s.silence_after: must be 'until_wave_clear'")

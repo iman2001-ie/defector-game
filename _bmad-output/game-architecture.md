@@ -337,7 +337,7 @@ The visual sprite may be shorter. No ray/shape casts are needed.
   - `pitch_scale = pitch * (1 + randf_range(-pitch_jitter, pitch_jitter))`, and `volume_db` is set on the player.
   - The stream comes from the `Audio.SFX` registry (id → preloaded stream). An unknown id logs `Log.warn` once per id and returns `null`.
   - Two pools of `AudioStreamPlayer` nodes, both on the `SFX` bus: the combat pool, 12 (`POOL_SIZE`) players named `Sfx<n>`, and the reserved comms pool (DW-80), 2 (`COMMS_POOL_SIZE`) players named `Comms<n>`. `play_sfx` routes the `comms_*` ids in the const `COMMS_SFX` (`comms_open`, `comms_open_nobeep`, `comms_static`, `comms_click`, `comms_handover`) to the comms pool and every other id to the combat pool. Each pool uses its first free player; when all are busy it stops and reuses its own player started longest ago. A pool never takes a player from the other, so a flood of combat SFX can't cut the cut-off `comms_static` short. `newest_player()` spans both pools; `comms_players()` lists the comms pool (tests). Pool sizes are constants, not tuning.
-- **Music (built, Story 5.3; tracks since Story 8.1):** one `Music` `AudioStreamPlayer` child on the `Music` bus and the `Audio.music_streams` registry (id → stream). It starts as a copy of the const `Audio.MUSIC` (`combat`, `boss` and, since playtest pt7-e, `epilogue`: preloaded CC0 OGGs in `assets/audio/music/`, imported with `loop=true`), so tests can swap or remove entries and restore `Audio.MUSIC`; the player's base volume is `audio.music_volume_db` (-10 dB), read in `_ready` and again at every `play_music`, so an F5 reload applies a retune on the next play. `SceneRouter.complete_level` of the last campaign level calls `stop_music()` before the epilogue or the end screen (DW-100), so the boss track never reaches them; since playtest pt7-e the council epilogue and the end screen then fade in the gentle `epilogue` track, and `goto_title()` fades any music out. `Audio.apply_music_action(action)` (the WaveDirector `music` action: `&"stop"` → `stop_music()`, anything else → `play_music(action)`), `play_music(id, fade_in_s := 0.0)` (plays or switches at once, or rises from silence over `fade_in_s`; the volume is `audio.music_volume_db` plus the optional `audio.music_gain_db.<id>`; the same id, playing or fading in, is a no-op; a missing stream warns once per id, stops the current track at once and stays silent), `stop_music(fade_s := -1.0)` (a negative fade uses `audio.music_fade_out_s`, 0.5 s), `current_music()`, `music_player()`. `Audio.duck_music(on: bool)` is not built, and no Epic 8 acceptance criterion requires it (Story 8.1 left it out).
+- **Music (built, Story 5.3; tracks since Story 8.1):** one `Music` `AudioStreamPlayer` child on the `Music` bus and the `Audio.music_streams` registry (id → stream). It starts as a copy of the const `Audio.MUSIC` (since playtest pt7-i one track per campaign level, `level_1`, `level_2` and `level_3`, which replace the shared `combat` track; `boss`; since playtest pt7-e `epilogue`; since pt7-g the one-shot `game_over`: preloaded CC0 OGGs in `assets/audio/music/`, imported with `loop=true` except the sting), so tests can swap or remove entries and restore `Audio.MUSIC`; the player's base volume is `audio.music_volume_db` (-10 dB), read in `_ready` and again at every `play_music`, so an F5 reload applies a retune on the next play. `SceneRouter.complete_level` of the last campaign level calls `stop_music()` before the epilogue or the end screen (DW-100), so the boss track never reaches them; since playtest pt7-e the council epilogue and the end screen then fade in the gentle `epilogue` track, and `goto_title()` fades any music out. `Audio.apply_music_action(action)` (the WaveDirector `music` action: `&"stop"` → `stop_music()`, anything else → `play_music(action)`), `play_music(id, fade_in_s := 0.0)` (plays or switches at once, or rises from silence over `fade_in_s`; the volume is `audio.music_volume_db` plus the optional `audio.music_gain_db.<id>`; the same id, playing or fading in, is a no-op; a missing stream warns once per id, stops the current track at once and stays silent), `stop_music(fade_s := -1.0)` (a negative fade uses `audio.music_fade_out_s`, 0.5 s), `current_music()`, `music_player()`. `Audio.duck_music(on: bool)` is not built, and no Epic 8 acceptance criterion requires it (Story 8.1 left it out).
 - SFX are in-world but on a fixed screen, so there's no positional audio (`AudioStreamPlayer`, not `2D`).
 - Explosion tier → SFX: each `tuning.json → feedback.tiers` row carries `sfx`, `sfx_pitch` and `sfx_volume_db` (GDD decision #26). `Feedback.impact` calls `Audio.play_sfx(row.sfx, Audio.DEFAULT_PITCH_JITTER, row.sfx_volume_db, row.sfx_pitch)`.
 
@@ -791,7 +791,7 @@ These patterns keep the implementation consistent across all AI agents.
   "id": 1,
   "name": "Cargo Ambush",
   "background": "space_1",
-  "music": "combat",
+  "music": "level_1",
   "convoy": true,
   "ally": "tarek",
   "intro_sequence": null,
@@ -893,7 +893,7 @@ func _run_actions(trigger: BeatTrigger) -> void:
 		elif action.has("story_event"):
 			Events.story_event_requested.emit(StringName(action.story_event))
 		elif action.has("music"):
-			Audio.apply_music_action(StringName(action.music))   # &"stop" | &"combat" | &"boss"
+			Audio.apply_music_action(StringName(action.music))   # &"stop" | &"level_1".."level_3" | &"boss" | ...
 		elif action.has("wait"):
 			await get_tree().create_timer(float(action.wait), false).timeout
 	_running_chains -= 1
@@ -2195,6 +2195,30 @@ GDD decision log #74. Provisional until the operator looks.
   - `Logo` is a TextureRect.
   - `TitleScreen.LOGO_TEXTURE`, `logo_aspect()`, `logo_rect(canvas_w, logo_y, width)` and `setup_logo(rect)` are shared by both screens.
   - The layout keys are `ui.title.logo_width_px` and `ui.end_screen.logo_width_px`; `logo_px` and the Theme logo colours are gone.
+
+## As-built 2026-10-14 (Epic 7 playtest I)
+
+The operator's music and explosion picks (GDD decision log #75; provisional until the operator listens). It supersedes the earlier notes on the `combat` track, `explosion_big`, `explosion_boss_part` and the layered `explosion_boss_death`.
+
+- **Music:** one track per campaign level.
+  - `Audio.MUSIC` and `LevelValidator.MUSIC_ACTIONS` gain `level_1`, `level_2` and `level_3` and drop `combat`; `music_combat.ogg` is deleted.
+  - Each level's wave-1 `wave_start` trigger plays its own id; the level JSON's unread root `music` key names it too.
+  - `tools/import_cc0_audio.py` gains `MusicSource.transcode`: the level tracks are SHA-256 checked, then re-encoded (`transcode_args`: stereo 44.1 kHz OGG Vorbis q`MUSIC_QUALITY` 4, no metadata, bit-exact flags) instead of copied, so each stays under 3.5 MB.
+  - Their `.import` sidecars set `loop=true`.
+  - Loudness against the boss track (-11.3 LUFS) is levelled through `audio.music_gain_db`: Level 1 at -13.1 LUFS gets +2.0, Level 2 at -14.9 gets +3.5, Level 3 at -10.0 gets -1.5.
+- **Explosions:**
+  - The new `explosion_mid` (EZduzziteh "explosion3") plays for the turret kills (`feedback.tiers.boss_part.sfx`), the first three boss-chain rows (pitches 1.0, 0.95, 1.05) and every convoy-chain row.
+  - `explosion_boss_death` is Joth's full "Chunky Explosion", a plain `SFX_SOURCES` row, and its layered recipe is removed. The layered machinery itself (`LAYERED_SOURCES`, `Layer`, `LayeredSfxSource`, `layered_*`) stays for playtest J's `tarek_burn`, its only layered source.
+  - `explosion_big` and `explosion_boss_part` are retired. With J's `tarek_burn`, the registry holds 21 SFX ids.
+
+## As-built 2026-10-14 (Epic 7 playtest J)
+
+Tarek's fall as paused story beats (GDD decision log #76; provisional until the operator plays it). It supersedes the earlier as-built notes on the `l2_w5_tarek_cutoff` cut-off line and the scene's single RUNNING timeline.
+
+- **TarekFallScene** (`systems/story/tarek_fall_scene.gd`): `Phase { IDLE, LOCK, WARNING, RUNNING, AFTERMATH, CALLOUT, SETTLE, DONE }`; `elapsed()` is the current phase's clock (LOCK from the event, RUNNING from the warning's end, AFTERMATH from the impact, SETTLE from the down beat's end). It requests `WARNING_SEQUENCE` (`l2_w5_tarek_warning`) and `DOWN_SEQUENCE` (`l2_w5_tarek_down`) and moves on from `Events.comms_sequence_finished`. At the lock-on it sets `AllyShip.hold_fire`, so Tarek keeps patrolling without shooting until the dash. At the impact it calls `Audio.stop_music()` and plays `BURN_SFX` (`tarek_burn`) at `story.tarek_fall.burn_volume_db`. New tuning: `warn_after_s`, `aftermath_after_s`, `burn_volume_db`; `impact_s` is measured from the dash.
+- **Comms:** `DialogueValidator.SPEAKERS` gains `static`; `LINE_SFX_KEY` (`sfx`, story lines only) and `SILENCE_AFTER_KEY` (`silence_after`, story sequences only, `until_wave_clear`). `CommsChannel` plays a line's `sfx` when it shows (`line_sfx_player()`), stops it on the next line, the finish or exit, and turns the silence on after a `silence_after` sequence's `finished`. `CommsPanel.show_line` hides the name label for an empty name.
+- **Allies:** `allies.ship_px` 96 (was 64).
+- **Audio:** `tarek_burn` in `Audio.SFX`; `tools/import_cc0_audio.py` layers gain `rate` and `delay_s`, and an empty `echo` skips `aecho`.
 
 ---
 

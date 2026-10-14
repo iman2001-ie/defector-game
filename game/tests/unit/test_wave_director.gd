@@ -680,12 +680,12 @@ func test_group_requested_before_death_spawns_uncounted_and_the_chain_stops() ->
 ## DW-78: a death during a wait stops the chain: no later action of any kind runs.
 func test_death_during_a_wait_stops_the_chain() -> void:
 	_load_dialogue()
-	Audio.music_streams[&"combat"] = _silent_wav()
+	Audio.music_streams[&"level_1"] = _silent_wav()
 	_start([{
 		"spawns": [_wasps(1)],
 		"groups": {"r": [_wasps(2)]},
 		"triggers": [{"when": "wave_start", "actions": [
-			{"wait": 0.1}, {"music": "combat"}, {"comms": "story_a"}, {"story_event": "e"},
+			{"wait": 0.1}, {"music": "level_1"}, {"comms": "story_a"}, {"story_event": "e"},
 			{"hint": "move_fire"}, {"spawn_group": "r"},
 		]}],
 	}])
@@ -1279,19 +1279,19 @@ func _silent_wav() -> AudioStreamWAV:
 
 func test_music_actions_play_switch_and_fade_stop() -> void:
 	assert_true(await UnscaledClock.settle(self), "unscaled clock settled")
-	Audio.music_streams[&"combat"] = _silent_wav()
+	Audio.music_streams[&"level_1"] = _silent_wav()
 	Audio.music_streams[&"boss"] = _silent_wav()
 	_start([{
 		"spawns": [_wasps(2)],
 		"triggers": [
-			{"when": "wave_start", "actions": [{"music": "combat"}]},
+			{"when": "wave_start", "actions": [{"music": "level_1"}]},
 			{"when": "progress", "at": 0.5, "actions": [{"music": "boss"}]},
 			{"when": "progress", "at": 1.0, "actions": [{"music": "stop"}]},
 		],
 	}])
 	var player: AudioStreamPlayer = Audio.music_player()
-	assert_eq(Audio.current_music(), &"combat")
-	assert_eq(player.stream, Audio.music_streams[&"combat"])
+	assert_eq(Audio.current_music(), &"level_1")
+	assert_eq(player.stream, Audio.music_streams[&"level_1"])
 	_kill(1)
 	assert_eq(Audio.current_music(), &"boss", "switched")
 	assert_eq(player.stream, Audio.music_streams[&"boss"])
@@ -1311,14 +1311,14 @@ func test_music_actions_play_the_shipped_tracks() -> void:
 	_start([{
 		"spawns": [_wasps(2)],
 		"triggers": [
-			{"when": "wave_start", "actions": [{"music": "combat"}]},
+			{"when": "wave_start", "actions": [{"music": "level_1"}]},
 			{"when": "progress", "at": 0.5, "actions": [{"music": "boss"}]},
 		],
 	}])
 	var player: AudioStreamPlayer = Audio.music_player()
-	assert_eq(player.stream, Audio.MUSIC[&"combat"], "the shipped combat track")
+	assert_eq(player.stream, Audio.MUSIC[&"level_1"], "the shipped Level 1 track")
 	assert_eq(player.bus, &"Music")
-	assert_almost_eq(player.volume_db, Config.num("audio.music_volume_db"), 0.0001, "at audio.music_volume_db")
+	assert_almost_eq(player.volume_db, Config.num("audio.music_volume_db") + Audio.music_gain_db(&"level_1"), 0.0001, "at audio.music_volume_db plus its gain")
 	_kill(1)
 	assert_eq(Audio.current_music(), &"boss")
 	assert_eq(player.stream, Audio.MUSIC[&"boss"], "the shipped boss track")
@@ -1327,9 +1327,9 @@ func test_music_actions_play_the_shipped_tracks() -> void:
 
 
 func test_missing_music_stream_warns_once_and_stays_silent() -> void:
-	Audio.music_streams[&"combat"] = _silent_wav()
+	Audio.music_streams[&"level_1"] = _silent_wav()
 	Audio.music_streams.erase(&"boss")
-	_start_chain([{"music": "combat"}, {"music": "boss"}, {"music": "boss"}])
+	_start_chain([{"music": "level_1"}, {"music": "boss"}, {"music": "boss"}])
 	assert_eq(Audio.current_music(), &"", "silent")
 	assert_false(Audio.music_player().playing, "combat stopped")
 	assert_eq(_lines_containing("[WARN][audio]").size(), 1, "one warning")

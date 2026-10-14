@@ -58,13 +58,16 @@ const BOLT_TYPE: StringName = &"ally_bolt"
 ## The story event that starts Tarek's fall, and the only ally it applies to.
 const FALL_EVENT: StringName = &"tarek_fall"
 const FALL_ALLY_ID: String = "tarek"
-## The FireTrail sits at the tail: y = ship_px * this (24 px at ship_px 64).
+## The FireTrail sits at the tail: y = ship_px * this (36 px at ship_px 96).
 const TRAIL_Y_RATIO: float = 0.375
 
 ## "tarek" or "ryn" (from setup's `ally` key).
 var ally_id: String = ""
 ## Set by Spawner.spawn_ally before add_child; shots are requested through it.
 var spawner: Spawner = null
+## True while Tarek's fall holds him on patrol through the lock-on and his
+## warning beat (Epic 7 playtest J): he keeps flying but fires nothing.
+var hold_fire: bool = false
 
 var ship_px: float = 0.0
 var speed_px_s: float = 0.0
@@ -303,7 +306,7 @@ static func patrol_step(x: float, dir: int, distance: float, lo: float, hi: floa
 ## Advances the fire clock; when it reaches fire_interval_s it keeps the
 ## remainder and fires once (at most one shot per step).
 func _tick_fire(delta: float) -> void:
-	if _ended or fire_interval_s <= 0.0:
+	if _ended or hold_fire or fire_interval_s <= 0.0:
 		return
 	_fire_clock += maxf(delta, 0.0)
 	if _fire_clock < fire_interval_s:

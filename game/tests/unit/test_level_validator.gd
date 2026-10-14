@@ -276,7 +276,7 @@ func test_action_value_types() -> void:
 		data["waves"][0]["triggers"][0]["actions"].append(c[0])
 		_assert_one(data, "waves[0].triggers[0].actions[1].%s" % c[1])
 	var ok: Dictionary = _valid()
-	ok["waves"][0]["triggers"][0]["actions"].append_array([{"comms": "a"}, {"story_event": "b"}, {"music": "combat"}, {"wait": 0.0}, {"hint": "move_fire"}])
+	ok["waves"][0]["triggers"][0]["actions"].append_array([{"comms": "a"}, {"story_event": "b"}, {"music": "level_1"}, {"wait": 0.0}, {"hint": "move_fire"}])
 	assert_eq(_validate(ok), [] as Array[String], "valid action values")
 
 
@@ -287,14 +287,14 @@ func test_music_action_must_be_stop_combat_boss_or_epilogue() -> void:
 		var data: Dictionary = _valid()
 		data["waves"][0]["triggers"][0]["actions"].append({"music": good})
 		assert_eq(_validate(data), [] as Array[String], good)
-	assert_eq(LevelValidator.MUSIC_ACTIONS, ["stop", "combat", "boss", "epilogue", "game_over"] as Array[String])
+	assert_eq(LevelValidator.MUSIC_ACTIONS, ["stop", "level_1", "level_2", "level_3", "boss", "epilogue", "game_over"] as Array[String])
 	for bad: String in ["loud", "Combat", "calm"]:
 		var data: Dictionary = _valid()
 		data["waves"][0]["triggers"][0]["actions"].append({"music": bad})
 		_assert_one(data, "waves[0].triggers[0].actions[1].music")
 		var problems: Array[String] = _validate(data)
 		if problems.size() == 1:
-			assert_string_contains(problems[0], "must be one of stop, combat, boss")
+			assert_string_contains(problems[0], "must be one of stop, level_1, level_2, level_3, boss")
 
 
 # --- Story 5.8: hint values -----------------------------------------------------

@@ -30,8 +30,8 @@ class MappingTest(unittest.TestCase):
             "explosion_small": (tool.SCI_FI, "explosionCrunch_000.ogg", None, None),
             "explosion_medium": (tool.SCI_FI, "explosionCrunch_001.ogg", None, None),
             "explosion_large": (tool.SCI_FI, "explosionCrunch_004.ogg", None, None),
-            "explosion_boss_part": (tool.SCI_FI, "lowFrequency_explosion_001.ogg", None, None),
-            "explosion_big": (tool.JOTH, "Chunky Explosion.mp3", 3.0, 1.0),
+            "explosion_mid": (tool.EZDUZZITEH, "explosion3.ogg", None, None),
+            "explosion_boss_death": (tool.JOTH, "Chunky Explosion.mp3", None, None),
             "player_hit": (tool.SCI_FI, "impactMetal_002.ogg", None, None),
             "player_death": (tool.SCI_FI, "explosionCrunch_003.ogg", None, None),
             "shield_on": (tool.SCI_FI, "forceField_000.ogg", None, None),
@@ -57,12 +57,14 @@ class MappingTest(unittest.TestCase):
 
     def test_music_mapping_matches_the_spec(self) -> None:
         self.assertEqual(
-            {k: (s.file, s.sha256) for k, s in tool.MUSIC_SOURCES.items()},
+            {k: (s.file, s.sha256, s.transcode) for k, s in tool.MUSIC_SOURCES.items()},
             {
-                "combat": ("space_adventure_bpm140_0.ogg", "30e31ee6da7a24bea35bf22d6c125f8100f803fca20a3f59637e52a4fd764ce3"),
-                "boss": ("space_boss_battle_bpm175_0.ogg", "4fc0898456099db3d9e63bd97450fedc3f9ff0a05cd65a8d363b3f2904415e60"),
-                "epilogue": ("Heavenly Loop_0.ogg", "a842e9e054019132cacc8fd352e7b31c000ebb51e0b227a2511e1bccb4eb166e"),
-                "game_over": ("Game Over_1.ogg", "eb16aeb17fed5b13575702e082b54db00b296f6f4f2e9ee89c63aca895bc085e"),
+                "level_1": ("02 HoliznaCC0 - Retro Soundtrack.ogg", "2c336e7d0fa1993749a8d0fc656b07fab7e14284b2ac5234408eceb5f9eeae6b", True),
+                "level_2": ("synth_5.mp3", "5c36241db12e49600052588321851625a7678affebce3bd0763b0739ae789cf1", True),
+                "level_3": ("Anti Matter Magic.ogg", "7b19b04738264ef5e1c9df4d82af4a34192c6657ede915b4610d693b3388efe7", True),
+                "boss": ("space_boss_battle_bpm175_0.ogg", "4fc0898456099db3d9e63bd97450fedc3f9ff0a05cd65a8d363b3f2904415e60", False),
+                "epilogue": ("Heavenly Loop_0.ogg", "a842e9e054019132cacc8fd352e7b31c000ebb51e0b227a2511e1bccb4eb166e", False),
+                "game_over": ("Game Over_1.ogg", "eb16aeb17fed5b13575702e082b54db00b296f6f4f2e9ee89c63aca895bc085e", False),
             },
         )
 
@@ -75,27 +77,35 @@ class MappingTest(unittest.TestCase):
         for digest in (
             "119340f351a5098ad814f78719438c0da355a9ce8a4c8a3af6a8d48aa3d49e04",
             "f2193d072726d6758a5f7871b2dcc54dcce0d5c35c6f0a62f92549b327c81232",
-            "30e31ee6da7a24bea35bf22d6c125f8100f803fca20a3f59637e52a4fd764ce3",
             "4fc0898456099db3d9e63bd97450fedc3f9ff0a05cd65a8d363b3f2904415e60",
             "a842e9e054019132cacc8fd352e7b31c000ebb51e0b227a2511e1bccb4eb166e",
             "4de53bffac187e59d3f5b43096df2f8fcb4160076b65b71a67074947950e025f",
             "eb16aeb17fed5b13575702e082b54db00b296f6f4f2e9ee89c63aca895bc085e",
+            "ffacf6f1f6cc8deb364cec27b1b0abcb5191d8c6b4f5dfa5b58b27aef9f75b23",
+            "2c336e7d0fa1993749a8d0fc656b07fab7e14284b2ac5234408eceb5f9eeae6b",
+            "5c36241db12e49600052588321851625a7678affebce3bd0763b0739ae789cf1",
+            "7b19b04738264ef5e1c9df4d82af4a34192c6657ede915b4610d693b3388efe7",
+            "f922929805bc6afdf0a35727fa3998033db544c1b6f62ed3aeab94341ed6ddeb",
+            "f79f07a733eb27822fb4567318e38b150a482d340bdabad7a30c099815109588",
         ):
             self.assertIn(digest, doc)
 
-    def test_layered_boss_death_mapping(self) -> None:
-        self.assertEqual(set(tool.LAYERED_SOURCES), {"explosion_boss_death"})
-        source = tool.LAYERED_SOURCES["explosion_boss_death"]
+    def test_only_tarek_burn_is_layered(self) -> None:
+        # Playtest pt7-i: the final Flagship blast is Joth's file alone; pt7-j layers the burn.
+        self.assertEqual(set(tool.LAYERED_SOURCES), {"tarek_burn"})
+
+    def test_layered_tarek_burn_mapping(self) -> None:
+        source = tool.LAYERED_SOURCES["tarek_burn"]
         self.assertEqual(
-            [(layer.pack, layer.file, layer.volume) for layer in source.layers],
+            [(layer.pack, layer.file, layer.volume, layer.rate, layer.delay_s) for layer in source.layers],
             [
-                (tool.JOTH, "Chunky Explosion.mp3", 1.0),
-                (tool.SCI_FI, "explosionCrunch_004.ogg", 0.7),
-                (tool.SCI_FI, "lowFrequency_explosion_000.ogg", 0.8),
+                (tool.SCI_FI, "thrusterFire_000.ogg", 0.8, 0.7, 0.0),
+                (tool.ANTUM_FIRE, "fire-1_0.ogg", 1.0, 1.0, 0.0),
+                (tool.SPRING_SFX, "dull_explosion.wav", 0.6, 1.0, 2.2),
             ],
         )
-        self.assertEqual(source.echo, "0.8:0.6:120|260:0.35|0.22")
-        self.assertEqual((source.length_s, source.fade_out_s), (4.5, 1.3))
+        self.assertEqual(source.echo, "", "no echo")
+        self.assertEqual((source.length_s, source.fade_out_s), (4.6, 1.2))
 
     def test_no_id_is_both_plain_and_layered(self) -> None:
         self.assertFalse(set(tool.SFX_SOURCES) & set(tool.LAYERED_SOURCES))
@@ -141,19 +151,34 @@ class FfmpegArgsTest(unittest.TestCase):
         self.assertIn("+bitexact", args)
         self.assertEqual(args[-1], "out.wav")
 
-    def test_layered_graph_mixes_echoes_trims_and_fades(self) -> None:
-        source = tool.LAYERED_SOURCES["explosion_boss_death"]
+    def test_transcode_args(self) -> None:
+        args = tool.transcode_args(Path("in.mp3"), Path("out.ogg"))
+        self.assertEqual(args[0], "ffmpeg")
+        self.assertIn("-y", args)
+        self.assertEqual(args[args.index("-i") + 1], "in.mp3")
+        self.assertEqual(args[args.index("-c:a") + 1], "libvorbis")
+        self.assertEqual(args[args.index("-q:a") + 1], str(tool.MUSIC_QUALITY))
+        self.assertEqual(args[args.index("-ac") + 1], "2")
+        self.assertEqual(args[args.index("-ar") + 1], "44100")
+        self.assertEqual(args[args.index("-map_metadata") + 1], "-1")
+        self.assertIn("+bitexact", args)
+        self.assertEqual(args[-1], "out.ogg")
+
+    def test_layered_graph_pitches_and_delays_layers_and_skips_an_empty_echo(self) -> None:
+        source = tool.LAYERED_SOURCES["tarek_burn"]
         graph = tool.layered_graph(source)
         fmt = "aformat=sample_fmts=flt:sample_rates=44100:channel_layouts=mono"
         self.assertEqual(
             graph,
-            f"[0:a]{fmt},volume=1[l0];[1:a]{fmt},volume=0.7[l1];[2:a]{fmt},volume=0.8[l2];"
+            f"[0:a]{fmt},asetrate=30870,aresample=44100,volume=0.8[l0];"
+            f"[1:a]{fmt},volume=1[l1];"
+            f"[2:a]{fmt},adelay=2200:all=1,volume=0.6[l2];"
             "[l0][l1][l2]amix=inputs=3:duration=longest:normalize=0,"
-            "aecho=0.8:0.6:120|260:0.35|0.22,atrim=end=4.5,afade=t=out:st=3.2:d=1.3",
+            "atrim=end=4.6,afade=t=out:st=3.4:d=1.2",
         )
 
     def test_layered_measure_and_render_args(self) -> None:
-        source = tool.LAYERED_SOURCES["explosion_boss_death"]
+        source = tool.LAYERED_SOURCES["tarek_burn"]
         srcs = [Path("a.mp3"), Path("b.ogg"), Path("c.ogg")]
         measure = tool.layered_measure_args(srcs, source)
         self.assertEqual([measure[i + 1] for i, a in enumerate(measure) if a == "-i"], ["a.mp3", "b.ogg", "c.ogg"])
@@ -229,7 +254,7 @@ class ImportMusicTest(unittest.TestCase):
         return packs, root / "out"
 
     def test_wrong_hash_raises_and_writes_nothing(self) -> None:
-        sources = {"combat": tool.MusicSource("track.ogg", tool.sha256_of(Path(__file__)))}
+        sources = {"level_1": tool.MusicSource("track.ogg", tool.sha256_of(Path(__file__)))}
         with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(tool.MUSIC_SOURCES, sources, clear=True):
             packs, out = self._packs(Path(tmp), b"not the track")
             with self.assertRaises(ValueError):
@@ -245,6 +270,18 @@ class ImportMusicTest(unittest.TestCase):
                 tool.import_music(packs, out)
             self.assertEqual(sorted(p.name for p in out.iterdir()), ["music_boss.ogg"])
             self.assertEqual((out / "music_boss.ogg").read_bytes(), data)
+
+    def test_transcoded_track_runs_ffmpeg_after_the_hash_check(self) -> None:
+        data = b"fake mp3 bytes"
+        with tempfile.TemporaryDirectory() as tmp:
+            packs, out = self._packs(Path(tmp), data)
+            sha = tool.sha256_of(packs / "music" / "track.ogg")
+            sources = {"level_2": tool.MusicSource("track.ogg", sha, transcode=True)}
+            with mock.patch.dict(tool.MUSIC_SOURCES, sources, clear=True), \
+                    mock.patch.object(tool, "_run", return_value="") as run, \
+                    contextlib.redirect_stdout(io.StringIO()):
+                tool.import_music(packs, out)
+            run.assert_called_once_with(tool.transcode_args(packs / "music" / "track.ogg", out / "music_level_2.ogg"))
 
 
 class MainTest(unittest.TestCase):

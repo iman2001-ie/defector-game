@@ -3,9 +3,9 @@ extends GutTest
 ## level_id "2", by killing counted enemies through all five waves: Tarek
 ## flying and no convoy, Tarek's paused briefing holding wave 1, the Needle,
 ## Bastion and Lancer waves with their asteroids, Isolde's interruption in the
-## calm after wave 2 clears (Epic 7 playtest C), Tarek's fall scene and his
-## cut-off line at 0.75 of wave 5 (Epic 7 playtest D; no pause,
-## comms silenced until the wave clears, Tarek leaving the fight), Ryn's report
+## calm after wave 2 clears (Epic 7 playtest C), Tarek's fall scene at 0.75 of
+## wave 5 with its two paused story beats (Epic 7 playtests D and J; comms
+## silenced until the wave clears, Tarek leaving the fight), Ryn's report
 ## as the paused outro, then exactly one level_cleared(2) and the router loading
 ## level 3. The flag-off row loads a temp flags file the way F5 re-reads it
 ## (Config.load_data(tuning, flags)); after_each restores the shipped data. The
@@ -22,9 +22,10 @@ const TEST_SAVE: String = "user://test_level_2_save.cfg"
 const LEVEL_ID: String = "2"
 const BRIEFING: StringName = &"l2_briefing"
 const INTERRUPT: StringName = &"l2_w3_isolde_interrupt"
-const CUTOFF: StringName = &"l2_w5_tarek_cutoff"
+const WARNING: StringName = TarekFallScene.WARNING_SEQUENCE
+const DOWN: StringName = TarekFallScene.DOWN_SEQUENCE
 const REPORT: StringName = &"l2_ryn_report"
-const MUSIC_ID: StringName = &"combat"
+const MUSIC_ID: StringName = &"level_2"
 const FALL_EVENT_LINE: String = "[INFO][beat] Level 2 wave 5: story event 'tarek_fall'"
 
 var _level: Node2D
@@ -417,19 +418,19 @@ func _assert_clean_log() -> void:
 
 ## The whole level with the shipped flags: the briefing, waves 1-4 and the
 ## interruption, then (once Isolde's line is done, as in play) nothing at 0.5
-## of wave 5 and Tarek's fall on the 0.75 crossing (Epic 7 playtest D): no
-## pause, Vale locked and enemy fire held, the cut-off line requested by the
-## scene and its cut landing (comms silenced, the music stopped), the controls
-## coming back, Tarek leaving, Ryn's report before the clear, one clear and the
-## router loading level 3.
+## of wave 5 and Tarek's fall on the 0.75 crossing (Epic 7 playtests D and J):
+## Vale locked and enemy fire held, Tarek's warning as a paused story beat, his
+## dash and the Ram's strike (the music stopped), the down beat (Vale's call and
+## the static) pausing again and silencing comms, the controls coming back,
+## Tarek leaving, Ryn's report before the clear, one clear and the router
+## loading level 3.
 func test_shipped_flags_play_level_2_to_the_clear() -> void:
 	assert_true(Config.flag("isolde_interruptions"), "shipped: interruptions on")
 	assert_true(Config.flag("tarek_fall"), "shipped: Tarek's fall on")
 	_make_level()
 	_start_through_briefing()
 	await _play_waves_1_to_4(true)
-	# Wave 5: let Isolde's line finish first (in play waves 3 and 4 outlast
-	# it), so the cut-off plays at once on the crossing instead of queueing.
+	# Wave 5: let Isolde's line finish first (in play waves 3 and 4 outlast it).
 	var director: WaveDirector = _director()
 	var idle_ms: int = Time.get_ticks_msec() + 10000
 	while (_channel().current_combat() != &"" or not _channel().combat_queued().is_empty()) and Time.get_ticks_msec() < idle_ms:
@@ -445,28 +446,34 @@ func test_shipped_flags_play_level_2_to_the_clear() -> void:
 	var scene: TarekFallScene = _level.get_node("TarekFallScene") as TarekFallScene
 	var player: Player = _level.get_node("World/Player") as Player
 	var spawner: Spawner = _level.get_node("Spawner") as Spawner
-	assert_eq(scene.phase(), TarekFallScene.Phase.RUNNING, "the scene runs")
+	assert_eq(scene.phase(), TarekFallScene.Phase.LOCK, "the scene runs")
 	assert_true(player.is_scripted_locked(), "Vale's controls are locked")
 	assert_true(spawner.hold_enemy_fire, "enemies hold their fire")
-	assert_false(get_tree().paused, "the fall doesn't pause")
-	assert_false(PauseArbiter.is_paused(), "no pause reason")
 	var tarek: AllyShip = _tarek()
 	assert_not_null(tarek, "Tarek still here at the event")
 	if tarek != null:
-		assert_eq(tarek.state(), AllyShip.State.APPROACH, "Tarek dashes to Vale")
-	assert_true(_info(CUTOFF).is_empty(), "the cut-off line is not requested at once")
-	# The line comes impact_s minus its typing time later, then the cut lands
-	# on the impact.
-	var end_ms: int = Time.get_ticks_msec() + 15000
-	while _channel().cut_phase() != CommsChannel.CutPhase.HOLD and not _channel().is_silenced() and Time.get_ticks_msec() < end_ms:
+		assert_eq(tarek.state(), AllyShip.State.PATROL, "Tarek waits for his warning")
+	assert_true(_info(WARNING).is_empty(), "the warning is not requested at once")
+	# The warning beat pauses; clicked through, Tarek dashes in.
+	var end_ms: int = Time.get_ticks_msec() + 10000
+	while _channel().current_sequence() != WARNING and Time.get_ticks_msec() < end_ms:
 		await get_tree().physics_frame
-	var cutoff: Dictionary = _info(CUTOFF)
-	assert_false(cutoff.is_empty(), "the cut-off line requested")
-	assert_eq(cutoff.get("wave"), 5, "in wave 5")
-	assert_gte(float(cutoff.get("resolved", 0)) / float(maxi(int(cutoff.get("total", 1)), 1)), 0.75, "after 0.75 of wave 5 (%s/%s)" % [cutoff.get("resolved"), cutoff.get("total")])
-	assert_true(_channel().cut_phase() == CommsChannel.CutPhase.HOLD or _channel().is_silenced(), "the cut-off landed")
+	var warning: Dictionary = _info(WARNING)
+	assert_false(warning.is_empty(), "the warning requested")
+	assert_eq(warning.get("wave"), 5, "in wave 5")
+	assert_gte(float(warning.get("resolved", 0)) / float(maxi(int(warning.get("total", 1)), 1)), 0.75, "after 0.75 of wave 5 (%s/%s)" % [warning.get("resolved"), warning.get("total")])
+	assert_true(get_tree().paused, "the warning pauses")
+	_click_through()
+	assert_eq(scene.phase(), TarekFallScene.Phase.RUNNING, "Tarek dashes in")
+	# The strike, then the down beat pauses; clicked through, comms go silent.
+	end_ms = Time.get_ticks_msec() + 15000
+	while _channel().current_sequence() != DOWN and Time.get_ticks_msec() < end_ms:
+		await get_tree().physics_frame
+	assert_eq(_channel().current_sequence(), DOWN, "the down beat shows")
+	assert_eq(Audio.current_music(), &"", "the strike stopped the music")
+	assert_true(get_tree().paused, "the down beat pauses")
+	_click_through()
 	assert_true(_channel().is_silenced(), "comms silenced until the wave clears")
-	assert_eq(Audio.current_music(), &"", "the cut-off stopped the music")
 	assert_eq(director.wave_number(), 5, "still wave 5")
 	# Controls come back once the scene releases.
 	end_ms = Time.get_ticks_msec() + 10000
@@ -485,7 +492,7 @@ func test_shipped_flags_play_level_2_to_the_clear() -> void:
 	assert_eq(_lines_matching("Tarek's fall: the Ram struck Tarek").size(), 1, "the Ram struck him once")
 	assert_eq(director.wave_number(), 5, "still wave 5 after he left")
 	await _finish_level()
-	assert_eq(_requested, [BRIEFING, INTERRUPT, CUTOFF, REPORT] as Array[StringName], "comms request order")
+	assert_eq(_requested, [BRIEFING, INTERRUPT, WARNING, DOWN, REPORT] as Array[StringName], "comms request order")
 	assert_eq(_lines_matching("Ally 'tarek' spawned").size(), 1, "Tarek never re-created")
 	_assert_clean_log()
 
@@ -493,7 +500,7 @@ func test_shipped_flags_play_level_2_to_the_clear() -> void:
 # --- Acceptance 2: tarek_fall off ------------------------------------------------
 
 ## tarek_fall off (isolde_interruptions as shipped): wave 5 passing 0.75 fires
-## no story event and no cut-off line; Tarek is still patrolling and undamaged
+## no story event and no fall beat; Tarek is still patrolling and undamaged
 ## at the clear; Ryn's report still plays before the clear and the level clears
 ## to level 3.
 func test_tarek_fall_off_keeps_tarek_flying_and_clears() -> void:
@@ -506,7 +513,7 @@ func test_tarek_fall_off_keeps_tarek_flying_and_clears() -> void:
 	assert_gte(float(director.resolved_count()) / float(director.total_count()), 0.75, "past 75 %")
 	await get_tree().process_frame
 	assert_eq(_lines_matching("story event").size(), 0, "no story event")
-	assert_false(_requested.has(CUTOFF), "the cut-off line was never requested")
+	assert_false(_requested.has(WARNING) or _requested.has(DOWN), "no fall beat was ever requested")
 	assert_false(_channel().is_silenced(), "comms not silenced")
 	assert_false(get_tree().paused, "no pause at 0.75")
 	assert_eq((_level.get_node("TarekFallScene") as TarekFallScene).phase(), TarekFallScene.Phase.IDLE, "the fall scene never starts")
@@ -517,7 +524,7 @@ func test_tarek_fall_off_keeps_tarek_flying_and_clears() -> void:
 		assert_eq(tarek.state(), AllyShip.State.PATROL, "still patrolling")
 		assert_false(tarek.is_damaged(), "not damaged")
 	await _finish_level()
-	assert_eq(_requested, [BRIEFING, INTERRUPT, REPORT] as Array[StringName], "no cut-off in the requests")
+	assert_eq(_requested, [BRIEFING, INTERRUPT, REPORT] as Array[StringName], "no fall beat in the requests")
 	assert_eq(_lines_matching("Tarek's fall").size(), 0, "no fall at all")
 	_assert_clean_log()
 

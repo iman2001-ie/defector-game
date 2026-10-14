@@ -110,7 +110,7 @@ func test_tuning() -> void:
 	assert_eq(Config.num("allies.speed_px_s"), 150.0)
 	assert_eq(Config.int_("allies.damage"), 1)
 	assert_eq(Config.num("allies.fire_interval_s"), 1.0)
-	assert_eq(Config.num("allies.ship_px"), 64.0)
+	assert_eq(Config.num("allies.ship_px"), 96.0, "the player ship's size (playtest pt7-j)")
 	assert_eq(Config.num("allies.shot_speed_px_s"), 1200.0)
 	assert_eq(Config.num("allies.kill_share.min"), 0.10)
 	assert_eq(Config.num("allies.kill_share.max"), 0.15)
@@ -144,7 +144,7 @@ func test_setup_sets_the_ally_id() -> void:
 
 func test_starts_at_the_left_edge_on_the_band_centre_heading_right() -> void:
 	var ally: AllyShip = _make()
-	assert_eq(ally.global_position, Vector2(32, 690))
+	assert_eq(ally.global_position, Vector2(48, 690))
 	assert_between(ally.global_position.y, 620.0, 760.0)
 	assert_eq(ally.direction(), 1)
 
@@ -152,16 +152,16 @@ func test_starts_at_the_left_edge_on_the_band_centre_heading_right() -> void:
 func test_moves_at_speed_and_keeps_its_y() -> void:
 	var ally: AllyShip = _make()
 	ally.step(1.0)
-	assert_almost_eq(ally.global_position.x, 32.0 + 150.0, 0.001, "150 px/s")
+	assert_almost_eq(ally.global_position.x, 48.0 + 150.0, 0.001, "150 px/s")
 	assert_eq(ally.global_position.y, 690.0)
 	ally.step(DT)
-	assert_almost_eq(ally.global_position.x, 182.0 + 150.0 * DT, 0.001)
+	assert_almost_eq(ally.global_position.x, 198.0 + 150.0 * DT, 0.001)
 
 
 func test_physics_process_steps() -> void:
 	var ally: AllyShip = _make()
 	ally._physics_process(1.0)
-	assert_almost_eq(ally.global_position.x, 182.0, 0.001)
+	assert_almost_eq(ally.global_position.x, 198.0, 0.001)
 
 
 func test_patrol_step_pure() -> void:
@@ -180,7 +180,7 @@ func test_two_crossings_ping_pong_on_screen() -> void:
 	var min_x: float = INF
 	var max_x: float = -INF
 	var off_band: int = 0
-	# One crossing is (1920 - 64) / 150 = 12.4 s; 2.2 crossings.
+	# One crossing is (1920 - 96) / 150 = 12.16 s; 2.26 crossings.
 	for i: int in int(27.5 / DT):
 		ally.step(DT)
 		if ally.global_position.y != 690.0:
@@ -192,8 +192,8 @@ func test_two_crossings_ping_pong_on_screen() -> void:
 			last_dir = ally.direction()
 	assert_eq(flips, 2, "turned at the right edge, then at the left edge")
 	assert_eq(ally.direction(), 1, "heading right again")
-	assert_almost_eq(max_x, 1888.0, 0.001, "reaches the right edge, never past it")
-	assert_almost_eq(min_x, 32.0, 0.001, "back at the left edge, never past it")
+	assert_almost_eq(max_x, 1872.0, 0.001, "reaches the right edge, never past it")
+	assert_almost_eq(min_x, 48.0, 0.001, "back at the left edge, never past it")
 	assert_eq(off_band, 0, "y never changes")
 
 
@@ -400,9 +400,9 @@ func test_fighter_outline_is_ship_px_nose_up_in_coalition() -> void:
 	for p: Vector2 in pts:
 		lo = Vector2(minf(lo.x, p.x), minf(lo.y, p.y))
 		hi = Vector2(maxf(hi.x, p.x), maxf(hi.y, p.y))
-	assert_almost_eq(hi.y - lo.y, 64.0, 0.001, "ship_px tall")
-	assert_almost_eq(hi.x - lo.x, 64.0, 0.001, "ship_px wide")
-	assert_eq(pts[0], Vector2(0, -32), "nose up")
+	assert_almost_eq(hi.y - lo.y, 96.0, 0.001, "ship_px tall")
+	assert_almost_eq(hi.x - lo.x, 96.0, 0.001, "ship_px wide")
+	assert_eq(pts[0], Vector2(0, -48), "nose up")
 	assert_eq(AllyShip.OUTLINE_COLOR, Color("#22E6FF"))
 
 
@@ -483,7 +483,7 @@ func test_fire_trail_node() -> void:
 	assert_eq(ally.fire_trail(), trail)
 	assert_false(trail.emitting, "off while patrolling")
 	assert_false(trail.local_coords, "world-space particles")
-	assert_eq(trail.position, Vector2(0, 24))
+	assert_eq(trail.position, Vector2(0, Config.num("allies.ship_px") * AllyShip.TRAIL_Y_RATIO))
 	var mat: CanvasItemMaterial = trail.material as CanvasItemMaterial
 	assert_not_null(mat, "a CanvasItemMaterial")
 	if mat != null:
@@ -667,9 +667,10 @@ func test_damaged_outline_has_the_right_wing_tip_broken_off() -> void:
 	for p: Vector2 in pts:
 		lo_x = minf(lo_x, p.x)
 		hi_x = maxf(hi_x, p.x)
-	assert_almost_eq(lo_x, -32.0, 0.001, "the left wing is whole")
-	assert_lt(hi_x, 32.0 * 0.8, "the right wing tip is gone")
-	assert_eq(pts[0], Vector2(0, -32), "nose up")
+	var half: float = Config.num("allies.ship_px") / 2.0
+	assert_almost_eq(lo_x, -half, 0.001, "the left wing is whole")
+	assert_lt(hi_x, half * 0.8, "the right wing tip is gone")
+	assert_eq(pts[0], Vector2(0, -half), "nose up")
 
 
 ## Story 8.2: the hit swaps the hull to the dimmed, battle-damaged texture (same
@@ -692,7 +693,7 @@ func test_falling_swaps_to_the_damaged_texture() -> void:
 func test_gone_once_off_screen_and_freed() -> void:
 	var ally: AllyShip = _make()
 	_to_falling(ally, Vector2(400, 750))
-	var bounds: Rect2 = Playfield.RECT.grow(64.0)
+	var bounds: Rect2 = Playfield.RECT.grow(Config.num("allies.ship_px"))
 	var trail: GPUParticles2D = ally.fire_trail()
 	var guard: int = 400
 	while ally.state() == AllyShip.State.FALLING and guard > 0:
@@ -735,3 +736,18 @@ func test_zero_approach_ends_on_the_first_step() -> void:
 	ally.step(STEP)
 	assert_eq(ally.state(), AllyShip.State.HOLD, "approach over in one step")
 	assert_eq(ally.global_position, POINT)
+
+
+## Epic 7 playtest J: Tarek's fall holds his fire through the lock-on and his
+## warning; he keeps patrolling, and lifting the hold lets him shoot again.
+func test_hold_fire_keeps_patrolling_without_shots() -> void:
+	var ally: AllyShip = _make()
+	_wasp(Vector2(300, 690))
+	ally.hold_fire = true
+	var x0: float = ally.global_position.x
+	_steps(ally, 16)
+	assert_eq(_bolts().size(), 0, "no shot while held")
+	assert_gt(ally.global_position.x, x0, "still patrolling")
+	ally.hold_fire = false
+	_steps(ally, 16)
+	assert_gt(_bolts().size(), 0, "shooting again once released")

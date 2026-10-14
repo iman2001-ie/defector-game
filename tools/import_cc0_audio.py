@@ -1,16 +1,19 @@
 """Import DEFECTOR's CC0 sounds and music (Story 8.1).
 
 Reads files from unzipped CC0 packs, writes the combat SFX into
-game/assets/audio/sfx/ and copies the four music tracks into
-game/assets/audio/music/. Stdlib only, plus `ffmpeg` on the PATH.
+game/assets/audio/sfx/ and the music tracks into game/assets/audio/music/.
+Stdlib only, plus `ffmpeg` on the PATH.
 
 SFX: each source is decoded, downmixed to mono at 44.1 kHz, optionally trimmed
 to its first `trim_s` seconds (then a 5 ms fade-in and a `fade_out_s` fade-out
 at its end), and peak-normalised to -1 dBFS in two passes (pass 1 measures the
 peak with `astats`, pass 2 applies the gain), written as 16-bit PCM
-`sfx_<id>.wav`. Music: copied byte-for-byte to `music_<id>.ogg` after a SHA-256
-check. Set `loop=true` in each looping music `.import` sidecar after Godot
-imports it (`game_over` is a one-shot sting and stays `loop=false`).
+`sfx_<id>.wav`. Music: SHA-256 checked, then either copied byte-for-byte to
+`music_<id>.ogg` or, for the per-level tracks (playtest pt7-i), transcoded to
+OGG Vorbis at quality MUSIC_QUALITY (44.1 kHz, stereo, bit-exact flags) so the
+long tracks stay small. Set `loop=true` in each looping music `.import` sidecar
+after Godot imports it (`game_over` is a one-shot sting and stays
+`loop=false`).
 
 The five generated comms cues and `maul_alarm` (tools/gen_placeholder_sfx.py)
 and the recorded `comms_static` are not touched.
@@ -24,9 +27,6 @@ https://opengameart.org/sites/default/files/<file>):
 - Kenney "Interface Sounds", https://opengameart.org/content/interface-sounds
   kenney_interfaceSounds.zip
   sha256 f2193d072726d6758a5f7871b2dcc54dcce0d5c35c6f0a62f92549b327c81232
-- MintoDog "Space Adventure", https://opengameart.org/content/space-adventure
-  space_adventure_bpm140_0.ogg
-  sha256 30e31ee6da7a24bea35bf22d6c125f8100f803fca20a3f59637e52a4fd764ce3
 - MintoDog "Space Boss Battle", https://opengameart.org/content/space-boss-battle
   space_boss_battle_bpm175_0.ogg
   sha256 4fc0898456099db3d9e63bd97450fedc3f9ff0a05cd65a8d363b3f2904415e60
@@ -34,18 +34,41 @@ https://opengameart.org/sites/default/files/<file>):
   Heavenly Loop_0.ogg (the epilogue track; playtest pt7-e)
   sha256 a842e9e054019132cacc8fd352e7b31c000ebb51e0b227a2511e1bccb4eb166e
 - Joth "Chunky Explosion", https://opengameart.org/content/chunky-explosion
-  Chunky Explosion.mp3 (the big explosions; playtest pt7-g)
+  Chunky Explosion.mp3 (the final Flagship blast, full length; playtest pt7-i)
   sha256 4de53bffac187e59d3f5b43096df2f8fcb4160076b65b71a67074947950e025f
 - Kistol "Game Over", https://opengameart.org/content/game-over
   Game Over_1.ogg (the game-over sting; playtest pt7-g)
   sha256 eb16aeb17fed5b13575702e082b54db00b296f6f4f2e9ee89c63aca895bc085e
+- EZduzziteh "Explosions", https://opengameart.org/content/explosions-4
+  explosion3.ogg (the medium blasts; playtest pt7-i)
+  sha256 ffacf6f1f6cc8deb364cec27b1b0abcb5191d8c6b4f5dfa5b58b27aef9f75b23
+- Holizna "Retro Wave" collection, https://opengameart.org/content/retro-wave-collection
+  retro_wave_1.zip, file "02 HoliznaCC0 - Retro Soundtrack.ogg" (Level 1)
+  sha256 of that file 2c336e7d0fa1993749a8d0fc656b07fab7e14284b2ac5234408eceb5f9eeae6b
+- G_P "synthwave", https://opengameart.org/content/synthwave-1
+  synth_5.mp3 (Level 2)
+  sha256 5c36241db12e49600052588321851625a7678affebce3bd0763b0739ae789cf1
+- tricksntraps "T & T Free Cyberpunk Pack",
+  https://opengameart.org/content/t-t-free-cyberpunk-pack
+  Anti Matter Magic.ogg (Level 3)
+  sha256 7b19b04738264ef5e1c9df4d82af4a34192c6657ede915b4610d693b3388efe7
+- AntumDeluge "Fire Crackling", https://opengameart.org/content/fire-crackling
+  fire-1_0.ogg (the download name of fire-1.ogg; a layer of `tarek_burn`, playtest pt7-j)
+  sha256 f922929805bc6afdf0a35727fa3998033db544c1b6f62ed3aeab94341ed6ddeb
+- Spring Spring "Various Sound Effects", https://opengameart.org/content/various-sound-effects-0
+  dull_explosion.wav (a layer of `tarek_burn`, playtest pt7-j)
+  sha256 f79f07a733eb27822fb4567318e38b150a482d340bdabad7a30c099815109588
 
-Layered SFX (playtest pt7-g): `explosion_boss_death` mixes several sources
-(LAYERED_SOURCES: each layer at its volume, summed without normalising), then
-an echo, a trim and a fade-out, and is peak-normalised like any other SFX.
+Layered SFX (playtest pt7-j): `tarek_burn` (Tarek's burning fall) mixes several
+sources (LAYERED_SOURCES: each layer at its volume, summed without normalising;
+a layer may be pitched with `rate`, asetrate then resampled back to 44.1 kHz,
+and delayed with `delay_s`, adelay), then an optional echo (empty for none), a
+trim and a fade-out, and is peak-normalised like any other SFX. Since playtest
+pt7-i, `explosion_boss_death` is Joth's file alone, not layered.
 
 Download the files, unzip each archive into its own empty folder under one
-packs folder, put the loose OGGs and the MP3 in that packs folder too, then run from the repo
+packs folder, put the loose OGGs and MP3s (and the Retro Soundtrack OGG from
+retro_wave_1.zip) in that packs folder too, then run from the repo
 root:
 
     uv run python tools/import_cc0_audio.py --packs <packs folder>
@@ -67,6 +90,8 @@ from pathlib import Path
 
 RATE = 44100
 TARGET_PEAK_DB = -1.0
+# libvorbis VBR quality for transcoded music (about 128 kbps stereo).
+MUSIC_QUALITY = 4
 FADE_IN_S = 0.005
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SFX_DIR = REPO_ROOT / "game" / "assets" / "audio" / "sfx"
@@ -85,18 +110,21 @@ class SfxSource:
 
 @dataclass(frozen=True)
 class Layer:
-    """One input of a layered SFX: its pack, its file name and its volume (linear)."""
+    """One input of a layered SFX: its pack, its file name, its volume (linear),
+    its playback rate (pitch and speed; 1.0 leaves it as is) and its delay."""
 
     pack: str
     file: str
     volume: float
+    rate: float = 1.0
+    delay_s: float = 0.0
 
 
 @dataclass(frozen=True)
 class LayeredSfxSource:
     """A layered SFX: the layers summed (no normalising), then `aecho` with
-    `echo` (its in_gain:out_gain:delays:decays arguments), trimmed to
-    `length_s` with a `fade_out_s` fade-out at its end."""
+    `echo` (its in_gain:out_gain:delays:decays arguments; empty for none),
+    trimmed to `length_s` with a `fade_out_s` fade-out at its end."""
 
     layers: tuple[Layer, ...]
     echo: str
@@ -106,15 +134,20 @@ class LayeredSfxSource:
 
 @dataclass(frozen=True)
 class MusicSource:
-    """One music track: its file name and the SHA-256 of the downloaded file."""
+    """One music track: its file name, the SHA-256 of the downloaded file and
+    whether it is transcoded (True) or copied byte-for-byte (False)."""
 
     file: str
     sha256: str
+    transcode: bool = False
 
 
 SCI_FI = "Kenney Sci-Fi Sounds"
 INTERFACE = "Kenney Interface Sounds"
 JOTH = 'Joth "Chunky Explosion"'
+EZDUZZITEH = 'EZduzziteh "Explosions"'
+ANTUM_FIRE = 'AntumDeluge "Fire Crackling"'
+SPRING_SFX = 'Spring Spring "Various Sound Effects"'
 
 # Registry id -> source. The game writes `sfx_<id>.wav`.
 SFX_SOURCES: dict[str, SfxSource] = {
@@ -124,8 +157,8 @@ SFX_SOURCES: dict[str, SfxSource] = {
     "explosion_small": SfxSource(SCI_FI, "explosionCrunch_000.ogg"),
     "explosion_medium": SfxSource(SCI_FI, "explosionCrunch_001.ogg"),
     "explosion_large": SfxSource(SCI_FI, "explosionCrunch_004.ogg"),
-    "explosion_boss_part": SfxSource(SCI_FI, "lowFrequency_explosion_001.ogg"),
-    "explosion_big": SfxSource(JOTH, "Chunky Explosion.mp3", trim_s=3.0, fade_out_s=1.0),
+    "explosion_mid": SfxSource(EZDUZZITEH, "explosion3.ogg"),
+    "explosion_boss_death": SfxSource(JOTH, "Chunky Explosion.mp3"),
     "player_hit": SfxSource(SCI_FI, "impactMetal_002.ogg"),
     "player_death": SfxSource(SCI_FI, "explosionCrunch_003.ogg"),
     "shield_on": SfxSource(SCI_FI, "forceField_000.ogg"),
@@ -134,25 +167,38 @@ SFX_SOURCES: dict[str, SfxSource] = {
     "ability_denied": SfxSource(INTERFACE, "error_007.ogg"),
 }
 
-# Registry id -> layered source (playtest pt7-g). Also written as `sfx_<id>.wav`.
+# Registry id -> layered source (playtest pt7-j). Also written as `sfx_<id>.wav`.
 LAYERED_SOURCES: dict[str, LayeredSfxSource] = {
-    "explosion_boss_death": LayeredSfxSource(
+    # Tarek's burning fall (playtest pt7-j): a falling thruster roar pitched
+    # down, the fire crackle, and a dull distant crash 2.2 s in.
+    "tarek_burn": LayeredSfxSource(
         layers=(
-            Layer(JOTH, "Chunky Explosion.mp3", 1.0),
-            Layer(SCI_FI, "explosionCrunch_004.ogg", 0.7),
-            Layer(SCI_FI, "lowFrequency_explosion_000.ogg", 0.8),
+            Layer(SCI_FI, "thrusterFire_000.ogg", 0.8, rate=0.7),
+            Layer(ANTUM_FIRE, "fire-1_0.ogg", 1.0),
+            Layer(SPRING_SFX, "dull_explosion.wav", 0.6, delay_s=2.2),
         ),
-        echo="0.8:0.6:120|260:0.35|0.22",
-        length_s=4.5,
-        fade_out_s=1.3,
+        echo="",
+        length_s=4.6,
+        fade_out_s=1.2,
     ),
 }
 
-# Music id -> source. The game copies it to `music_<id>.ogg`.
+# Music id -> source. The game writes it to `music_<id>.ogg`.
 MUSIC_SOURCES: dict[str, MusicSource] = {
-    "combat": MusicSource(
-        "space_adventure_bpm140_0.ogg",
-        "30e31ee6da7a24bea35bf22d6c125f8100f803fca20a3f59637e52a4fd764ce3",
+    "level_1": MusicSource(
+        "02 HoliznaCC0 - Retro Soundtrack.ogg",
+        "2c336e7d0fa1993749a8d0fc656b07fab7e14284b2ac5234408eceb5f9eeae6b",
+        transcode=True,
+    ),
+    "level_2": MusicSource(
+        "synth_5.mp3",
+        "5c36241db12e49600052588321851625a7678affebce3bd0763b0739ae789cf1",
+        transcode=True,
+    ),
+    "level_3": MusicSource(
+        "Anti Matter Magic.ogg",
+        "7b19b04738264ef5e1c9df4d82af4a34192c6657ede915b4610d693b3388efe7",
+        transcode=True,
     ),
     "boss": MusicSource(
         "space_boss_battle_bpm175_0.ogg",
@@ -214,14 +260,18 @@ def layered_graph(source: LayeredSfxSource) -> str:
     parts = []
     labels = ""
     for i, layer in enumerate(source.layers):
-        parts.append(
-            f"[{i}:a]aformat=sample_fmts=flt:sample_rates={RATE}:channel_layouts=mono,volume={layer.volume:g}[l{i}]"
-        )
+        chain = f"[{i}:a]aformat=sample_fmts=flt:sample_rates={RATE}:channel_layouts=mono"
+        if layer.rate != 1.0:
+            chain += f",asetrate={RATE * layer.rate:g},aresample={RATE}"
+        if layer.delay_s > 0.0:
+            chain += f",adelay={round(layer.delay_s * 1000)}:all=1"
+        parts.append(f"{chain},volume={layer.volume:g}[l{i}]")
         labels += f"[l{i}]"
     start = source.length_s - source.fade_out_s
+    echo = f"aecho={source.echo}," if source.echo else ""
     parts.append(
         f"{labels}amix=inputs={len(source.layers)}:duration=longest:normalize=0,"
-        f"aecho={source.echo},atrim=end={source.length_s:g},"
+        f"{echo}atrim=end={source.length_s:g},"
         f"afade=t=out:st={start:g}:d={source.fade_out_s:g}"
     )
     return ";".join(parts)
@@ -307,6 +357,16 @@ def import_sfx(packs: Path, out_dir: Path) -> None:
         print(f"wrote {out.name} from {len(srcs)} layers (peak {peak:.2f} dB, gain {gain:+.2f} dB)")
 
 
+def transcode_args(src: Path, out: Path) -> list[str]:
+    """A per-level track: decoded and re-encoded as stereo 44.1 kHz OGG Vorbis at
+    MUSIC_QUALITY, with no metadata and bit-exact flags."""
+    return [
+        "ffmpeg", "-hide_banner", "-nostats", "-y", "-i", str(src), "-vn",
+        "-map_metadata", "-1", "-fflags", "+bitexact", "-flags:a", "+bitexact",
+        "-ac", "2", "-ar", str(RATE), "-c:a", "libvorbis", "-q:a", str(MUSIC_QUALITY), str(out),
+    ]
+
+
 def import_music(packs: Path, out_dir: Path) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     for music_id, source in MUSIC_SOURCES.items():
@@ -315,8 +375,12 @@ def import_music(packs: Path, out_dir: Path) -> None:
         if actual != source.sha256:
             raise ValueError(f"{source.file}: sha256 {actual}, expected {source.sha256}")
         out = out_dir / music_name(music_id)
-        shutil.copyfile(src, out)
-        print(f"copied {out.name} from {source.file}")
+        if source.transcode:
+            _run(transcode_args(src, out))
+            print(f"transcoded {out.name} from {source.file} (q{MUSIC_QUALITY})")
+        else:
+            shutil.copyfile(src, out)
+            print(f"copied {out.name} from {source.file}")
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -232,7 +232,7 @@
 		"damage": 1,
 		"fire_interval_s": 1.0,
 		"kill_share": { "min": 0.10, "max": 0.15 },
-		"ship_px": 64,
+		"ship_px": 96,
 		"shot_speed_px_s": 1200,
 		"fall": {
 			"approach_s": 0.8,
@@ -243,13 +243,16 @@
 	},
 	"story": {
 		"tarek_fall": {
-			"impact_s": 3.6,
+			"warn_after_s": 1.0,
+			"impact_s": 1.6,
 			"ram_travel_s": 0.45,
 			"ram_scale": 1.5,
 			"ram_start_y": -150,
 			"intercept_offset_px": 150,
-			"release_after_s": 1.2,
+			"aftermath_after_s": 1.4,
+			"release_after_s": 1.0,
 			"line_pulse_hz": 4,
+			"burn_volume_db": 0.0,
 			"slowmo": { "lead_s": 0.12, "scale": 0.2, "hold_s": 1.0, "ramp_s": 1.0 }
 		}
 	},
@@ -284,7 +287,8 @@
 			"isolde": { "name": "ISOLDE", "portrait": true },
 			"tarek": { "name": "TAREK", "portrait": true },
 			"ryn": { "name": "RYN", "portrait": true },
-			"system": { "name": "SYSTEM", "portrait": false }
+			"system": { "name": "SYSTEM", "portrait": false },
+			"static": { "name": "", "portrait": false }
 		}
 	},
 	"feedback": {
@@ -303,7 +307,7 @@
 			},
 			"boss_part": {
 				"explosion_scale": 1.5, "shake_px": 6, "shake_s": 0.2, "hit_stop_ms": 30,
-				"extras": [], "sfx": "explosion_boss_part", "sfx_pitch": 1.0, "sfx_volume_db": 0
+				"extras": [], "sfx": "explosion_mid", "sfx_pitch": 1.0, "sfx_volume_db": 0
 			},
 			"boss_death": {
 				"explosion_scale": 6.0, "shake_px": 40, "shake_s": 1.5, "hit_stop_ms": 150,
@@ -321,18 +325,18 @@
 		"boss_death_chain_s": 3.0,
 		"boss_death_chain_offsets_px": [[0, 114], [-270, 35], [270, 35], [0, 0]],
 		"boss_death_chain_sfx": [
-			{ "sfx": "explosion_big", "sfx_pitch": 1.0, "sfx_volume_db": 0 },
-			{ "sfx": "explosion_big", "sfx_pitch": 0.92, "sfx_volume_db": 0 },
-			{ "sfx": "explosion_big", "sfx_pitch": 1.05, "sfx_volume_db": 0 },
+			{ "sfx": "explosion_mid", "sfx_pitch": 1.0, "sfx_volume_db": 0 },
+			{ "sfx": "explosion_mid", "sfx_pitch": 0.95, "sfx_volume_db": 0 },
+			{ "sfx": "explosion_mid", "sfx_pitch": 1.05, "sfx_volume_db": 0 },
 			{ "sfx": "explosion_boss_death", "sfx_pitch": 1.0, "sfx_volume_db": 0 }
 		],
 		"boss_death_chain_anim_speed": 0.6,
 		"convoy_death_chain_s": 2.0,
 		"convoy_death_explosion_scale": 2.5,
 		"convoy_death_chain_sfx": [
-			{ "sfx": "explosion_big", "sfx_pitch": 1.0, "sfx_volume_db": 0 },
-			{ "sfx": "explosion_big", "sfx_pitch": 0.95, "sfx_volume_db": -1 },
-			{ "sfx": "explosion_big", "sfx_pitch": 1.05, "sfx_volume_db": -1 }
+			{ "sfx": "explosion_mid", "sfx_pitch": 1.0, "sfx_volume_db": 0 },
+			{ "sfx": "explosion_mid", "sfx_pitch": 0.95, "sfx_volume_db": -1 },
+			{ "sfx": "explosion_mid", "sfx_pitch": 1.05, "sfx_volume_db": -1 }
 		],
 		"white_flash": { "alpha": 0.7, "duration_s": 0.3 },
 		"loss_pause_s": { "hearts": 1.5, "convoy": 3.8, "surrender": 1.5 },
@@ -371,7 +375,7 @@
 		"music_fade_out_s": 0.5,
 		"music_volume_db": -10.0,
 		"music_fade_in_s": 2.5,
-		"music_gain_db": { "epilogue": 6.0, "game_over": 6.0 },
+		"music_gain_db": { "level_1": 2.0, "level_2": 3.5, "level_3": -1.5, "epilogue": 6.0, "game_over": 6.0 },
 		"epilogue_music_delay_s": 1.0
 	},
 	"render": {

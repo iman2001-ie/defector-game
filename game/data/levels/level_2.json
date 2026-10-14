@@ -2,7 +2,7 @@
 	"id": 2,
 	"name": "The Blockade",
 	"background": "space_2",
-	"music": "combat",
+	"music": "level_2",
 	"convoy": false,
 	"ally": "tarek",
 	"intro_sequence": "l2_briefing",
@@ -18,7 +18,7 @@
 				{ "size": "large", "count": 1 }
 			],
 			"triggers": [
-				{ "when": "wave_start", "actions": [ { "music": "combat" } ] }
+				{ "when": "wave_start", "actions": [ { "music": "level_2" } ] }
 			]
 		},
 		{

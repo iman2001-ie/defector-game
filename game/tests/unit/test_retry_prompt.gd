@@ -361,7 +361,7 @@ func test_convoy_beat_is_its_own() -> void:
 
 
 func test_failure_fades_the_music_and_the_prompt_plays_the_sting() -> void:
-	Audio.play_music(&"combat")
+	Audio.play_music(&"level_1")
 	var prompt: RetryPrompt = _make()
 	Events.level_failed.emit(&"hearts")
 	assert_eq(Audio.current_music(), &"", "the level music fades out at the failure")

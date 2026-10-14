@@ -155,6 +155,8 @@ func show_line(speaker: StringName, text: String) -> void:
 	var with_portrait: bool = info.get("portrait") is bool and bool(info.get("portrait"))
 	var accent: Color = accent_color(speaker)
 	_name.text = display_name
+	# A nameless speaker (the `static` channel noise, Epic 7 playtest J) shows no name.
+	_name.visible = not display_name.is_empty()
 	_name.add_theme_color_override(&"font_color", accent)
 	_portrait.visible = with_portrait
 	if with_portrait:

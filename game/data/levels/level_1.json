@@ -2,7 +2,7 @@
 	"id": 1,
 	"name": "Cargo Ambush",
 	"background": "space_1",
-	"music": "combat",
+	"music": "level_1",
 	"convoy": true,
 	"ally": "tarek",
 	"teach_controls": true,
@@ -15,7 +15,7 @@
 			],
 			"asteroids": [],
 			"triggers": [
-				{ "when": "wave_start", "actions": [ { "music": "combat" }, { "hint": "move_fire" } ] }
+				{ "when": "wave_start", "actions": [ { "music": "level_1" }, { "hint": "move_fire" } ] }
 			]
 		},
 		{

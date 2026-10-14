@@ -14,11 +14,18 @@
 				{ "speaker": "isolde", "text": "Every ship you lead here dies, Arden. Every one." }
 			]
 		},
-		"l2_w5_tarek_cutoff": {
-			"mode": "combat",
+		"l2_w5_tarek_warning": {
+			"mode": "story",
 			"lines": [
-				{ "speaker": "tarek", "text": "Watch out! Get behind me, I've got you covered!",
-					"cut_off_at": 41, "after": { "silence": "until_wave_clear", "shake": "cutoff", "sfx": "comms_static", "music": "stop" } }
+				{ "speaker": "tarek", "text": "Watch out, General! Get behind me, I've got you covered!" }
+			]
+		},
+		"l2_w5_tarek_down": {
+			"mode": "story",
+			"silence_after": "until_wave_clear",
+			"lines": [
+				{ "speaker": "vale", "text": "Admiral? Admiral Tarek?! ADMIRAL!" },
+				{ "speaker": "static", "text": "...", "sfx": "comms_static" }
 			]
 		},
 		"l2_ryn_report": {

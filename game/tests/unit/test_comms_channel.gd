@@ -48,7 +48,7 @@ const MENU_SCENE: PackedScene = preload("res://ui/menus/pause_menu.tscn")
 const CHANNEL_DIR: String = "res://tests/fixtures/dialogue/channel/"
 const CLICK_AT: Vector2 = Vector2(960, 900)
 ## Music id the cut-off tests play (restored in after_each).
-const TEST_MUSIC: StringName = &"combat"
+const TEST_MUSIC: StringName = &"level_1"
 ## The text of cut_a / cut_plain / cut_large and their cut point.
 const CUT_TEXT: String = "General, get behind me, I've got you cov—"
 const CUT_AT: int = 39
@@ -1490,3 +1490,72 @@ func test_cut_off_line_emits_its_shown_text() -> void:
 	assert_eq(_shown, [[&"tarek", expected, &"combat"]], "cut to cut_off_at plus the suffix")
 	assert_eq(CommsChannel.shown_text("abcdef", 3, "..."), "abc...")
 	assert_eq(CommsChannel.shown_text("abcdef", -1, "..."), "abcdef", "a plain line is shown whole")
+
+
+# --- Story line sfx and silence_after (Epic 7 playtest J) ------------------------------
+
+## The nameless static line: no name, no portrait, and its `sfx` plays while it
+## shows (the line before it has none).
+func test_story_line_sfx_plays_on_its_line() -> void:
+	_request(&"story_down")
+	assert_eq(_name(), "VALE")
+	assert_null(_channel.line_sfx_player(), "no line sfx on Vale's line")
+	_channel.advance()
+	_channel.advance()
+	assert_eq(_channel.line_index(), 1, "on the static line")
+	assert_eq(_name(), "", "no name")
+	assert_false((_panel.get_node("Panel/Name") as Label).visible, "the name label is hidden")
+	assert_false((_panel.get_node("Panel/Portrait") as Control).visible, "no portrait")
+	var player: AudioStreamPlayer = _channel.line_sfx_player()
+	assert_not_null(player, "the line's sfx plays")
+	if player != null:
+		assert_eq(player.stream, Audio.SFX[&"comms_static"], "comms_static")
+		assert_true(player.playing, "playing under the story pause")
+
+
+## The line sfx stops when the sequence ends.
+func test_story_line_sfx_stops_at_the_end() -> void:
+	_request(&"story_down")
+	_channel.advance()
+	_channel.advance()
+	var player: AudioStreamPlayer = _channel.line_sfx_player()
+	assert_not_null(player)
+	_click_to_end()
+	assert_null(_channel.line_sfx_player(), "stopped with the sequence")
+	if player != null:
+		assert_false(player.playing and player.stream == Audio.SFX[&"comms_static"], "the static stopped")
+
+
+## A named line after a nameless one shows its name again.
+func test_a_named_line_after_the_static_shows_its_name() -> void:
+	_request(&"story_down")
+	_request(&"story_b")
+	for i: int in 10:
+		if _channel.current_sequence() != &"story_down":
+			break
+		_channel.advance()
+	assert_eq(_channel.current_sequence(), &"story_b", "the queued story plays")
+	assert_eq(_name(), "RYN")
+	assert_true((_panel.get_node("Panel/Name") as Label).visible, "the name label is back")
+
+
+## silence_after: the combat silence starts once the sequence finishes (after
+## its `finished`), and a wave clear lifts it.
+func test_silence_after_silences_combat_once_the_story_ends() -> void:
+	_request(&"story_down")
+	assert_false(_channel.is_silenced(), "not while it plays")
+	_click_to_end()
+	assert_eq(_finished, [&"story_down"] as Array[StringName], "finished")
+	assert_true(_channel.is_silenced(), "silenced after it")
+	assert_eq(_count_lines("[INFO][comms] Comms silenced until the wave clears (story 'story_down')"), 1)
+	_request(&"combat_a")
+	assert_eq(_channel.current_combat(), &"", "combat is dropped")
+	Events.wave_cleared.emit(1)
+	assert_false(_channel.is_silenced(), "the wave clear lifts it")
+
+
+## A story without silence_after leaves combat alone.
+func test_a_plain_story_does_not_silence() -> void:
+	_request(&"story_b")
+	_click_to_end()
+	assert_false(_channel.is_silenced())

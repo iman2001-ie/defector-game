@@ -1029,3 +1029,35 @@ source_spec: `spec-8-2-make-the-game-look-neon.md`
 severity: low
 reason: Headless GUT runs on the dummy renderer and can't sample pixels. _draw calls draw_texture_rect(tiles, tile_rect(), true) before the throne-world early return, and nothing records that call. Closing the gap needs a seam that records draw calls, or a screenshot check. Until then the operator's look-check covers it.
 status: open
+
+### DW-109: A `silence_after` story sequence turns comms silence on even when its wave cleared before the sequence was requested, so the silence can carry into the next wave.
+origin: review pt7-j
+location: game/systems/comms/comms_channel.gd (_finish, silence_after)
+source_spec: `spec-pt7-j-tarek-fall-story-beats.md`
+severity: low
+reason: Tarek's down beat is requested 1.4 s after impact. If the wave clears in that gap, the silence lasts until the following wave clears. The cut-off path guards this with `_cut_wave_cleared`. Level 2 wave 5 is the last wave, so only `level_dev_tarek_fall` can hit it. Fix: track whether a wave is active and skip the silence when none is.
+status: open
+
+### DW-110: Tarek's burn sound (4.6 s, combat pool, process-always) keeps playing into the next scene after a quit or retry from the pause menu during the down beat.
+origin: review pt7-j
+location: game/systems/story/tarek_fall_scene.gd (impact), game/autoloads/audio.gd
+source_spec: `spec-pt7-j-tarek-fall-story-beats.md`
+severity: low
+reason: Nothing stops a combat-pool sfx on a scene change. Fix: stop the burn player in the director's `_exit_tree`, or stop the combat pool on SceneRouter._change_to.
+status: open
+
+### DW-111: CommsBox.show_line doesn't hide an empty speaker name, so a combat line using the nameless `static` speaker would show an empty name row. Only the story panel hides it.
+origin: review pt7-j
+location: game/systems/comms/comms_box.gd (show_line)
+source_spec: `spec-pt7-j-tarek-fall-story-beats.md`
+severity: low
+reason: Latent. `static` is only used in a story sequence today. Fix: mirror CommsPanel's empty-name handling, or have the validator reject `static` in combat sequences.
+status: open
+
+### DW-112: `tools/import_cc0_audio.py` checks sha256 only for music. The SFX sources' hashes appear only in its docstring.
+origin: review pt7-i
+location: tools/import_cc0_audio.py
+source_spec: `spec-pt7-i-level-music-and-explosions.md`
+severity: low
+reason: Pre-existing design (Story 8.1). A changed upstream file would be imported silently. Fix: give SfxSource and Layer an optional sha256 and verify it as the music sources already do.
+status: open

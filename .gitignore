@@ -27,3 +27,6 @@ defector_cartoon_assets/
 
 # Local music audition clips (not shipped)
 music_audition/
+
+# Local reference screenshots (not shipped)
+screenshots/

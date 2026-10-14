@@ -154,7 +154,7 @@ func test_level_1_cargo_ambush_shape() -> void:
 	assert_eq(data.get("id"), 1.0, "id 1")
 	assert_eq(data.get("name"), "Cargo Ambush")
 	assert_eq(data.get("background"), "space_1")
-	assert_eq(data.get("music"), "combat")
+	assert_eq(data.get("music"), "level_1")
 	assert_eq(data.get("convoy"), true, "convoy on")
 	assert_eq(data.get("ally"), "tarek", "Tarek flies")
 	assert_true(data.has("intro_sequence"), "intro_sequence key present")
@@ -191,7 +191,7 @@ func test_level_1_cargo_ambush_shape() -> void:
 	assert_eq((waves[1] as Dictionary).get("asteroids"), [{"size": "small", "count": 3.0}, {"size": "medium", "count": 1.0}], "wave 2: 3 small and 1 medium asteroid")
 	assert_eq((waves[4] as Dictionary).get("groups"), {"reinforcements": [{"type": "maul", "count": 4.0, "formation": "grid_4x1", "entry": "sides"}]}, "wave 5: 4 Maul reinforcements")
 	var expected_triggers: Array = [
-		[{"when": "wave_start", "actions": [{"music": "combat"}, {"hint": "move_fire"}]}],
+		[{"when": "wave_start", "actions": [{"music": "level_1"}, {"hint": "move_fire"}]}],
 		[
 			{"when": "wave_start", "actions": [{"hint": "missile"}]},
 			{"when": "wave_clear", "actions": [{"comms": "l1_w3_tarek_warning"}]},
@@ -230,7 +230,7 @@ func test_level_2_blockade_shape() -> void:
 	assert_eq(data.get("id"), 2.0, "id 2")
 	assert_eq(data.get("name"), "The Blockade")
 	assert_eq(data.get("background"), "space_2")
-	assert_eq(data.get("music"), "combat")
+	assert_eq(data.get("music"), "level_2")
 	assert_eq(data.get("convoy"), false, "no convoy")
 	assert_eq(data.get("ally"), "tarek", "Tarek flies")
 	assert_eq(data.get("intro_sequence"), "l2_briefing", "Tarek's briefing is the intro")
@@ -280,7 +280,7 @@ func test_level_2_blockade_shape() -> void:
 		[{"size": "medium", "count": 2.0}],
 	]
 	var expected_triggers: Array = [
-		[{"when": "wave_start", "actions": [{"music": "combat"}]}],
+		[{"when": "wave_start", "actions": [{"music": "level_2"}]}],
 		[{"when": "wave_clear", "flag": "isolde_interruptions", "actions": [{"comms": "l2_w3_isolde_interrupt"}]}],
 		[],
 		[],
@@ -335,7 +335,7 @@ func test_level_3_siege_shape() -> void:
 	assert_eq(data.get("id"), 3.0, "id 3")
 	assert_eq(data.get("name"), "Siege of the Throne World")
 	assert_eq(data.get("background"), "throne_world")
-	assert_eq(data.get("music"), "combat")
+	assert_eq(data.get("music"), "level_3")
 	assert_eq(data.get("convoy"), false, "no convoy")
 	assert_eq(data.get("ally"), "ryn", "Ryn flies")
 	assert_eq(data.get("intro_sequence"), "l3_briefing", "Ryn's briefing is the intro")
@@ -376,7 +376,7 @@ func test_level_3_siege_shape() -> void:
 		[],
 	]
 	var expected_triggers: Array = [
-		[{"when": "wave_start", "actions": [{"music": "combat"}]}],
+		[{"when": "wave_start", "actions": [{"music": "level_3"}]}],
 		[{"when": "wave_clear", "flag": "isolde_interruptions", "actions": [{"comms": "l3_w3_isolde_taunt"}]}],
 		[],
 	]
@@ -923,7 +923,13 @@ func test_every_speaker_has_comms_tuning() -> void:
 		if not (entry is Dictionary):
 			continue
 		var display_name: Variant = (entry as Dictionary).get("name")
-		assert_true(display_name is String and not (display_name as String).is_empty(), "comms.speakers.%s.name" % speaker)
+		assert_true(display_name is String, "comms.speakers.%s.name is a String" % speaker)
+		if speaker == &"static":
+			# The open channel's noise (Epic 7 playtest J): no name, no portrait.
+			assert_eq(display_name, "", "comms.speakers.static has no name")
+			assert_eq((entry as Dictionary).get("portrait"), false, "comms.speakers.static has no portrait")
+		else:
+			assert_false(display_name is String and (display_name as String).is_empty(), "comms.speakers.%s.name" % speaker)
 		assert_true((entry as Dictionary).get("portrait") is bool, "comms.speakers.%s.portrait is a bool" % speaker)
 	assert_gt(Config.num("comms.chars_per_s"), 0.0, "comms.chars_per_s")
 
@@ -1123,6 +1129,32 @@ func test_every_after_sfx_is_a_comms_sfx() -> void:
 	var refs: Array[Array] = _after_sfx(_all_sequences())
 	assert_gt(refs.size(), 0, "dialogue has an after.sfx to check")
 	for ref: Array in refs:
+		assert_true(Audio.COMMS_SFX.has(StringName(str(ref[1]))), "%s: sfx '%s' is in Audio.COMMS_SFX" % [ref[0], ref[1]])
+
+
+## Every story line `sfx` (Epic 7 playtest J) in `sequences`, as
+## ["<id>.lines[<i>].sfx", value] pairs.
+static func _line_sfx(sequences: Dictionary) -> Array[Array]:
+	var out: Array[Array] = []
+	for id: Variant in sequences:
+		var seq: Variant = sequences[id]
+		var lines: Variant = (seq as Dictionary).get("lines") if seq is Dictionary else null
+		if not (lines is Array):
+			continue
+		for i: int in (lines as Array).size():
+			var line: Variant = (lines as Array)[i]
+			if line is Dictionary and (line as Dictionary).has(DialogueValidator.LINE_SFX_KEY):
+				out.append(["%s.lines[%d].sfx" % [id, i], str((line as Dictionary)[DialogueValidator.LINE_SFX_KEY])])
+	return out
+
+
+## A story line's sfx is registered and plays on the reserved comms pool, so
+## combat SFX can't steal it (Epic 7 playtest J).
+func test_every_line_sfx_is_a_registered_comms_sfx() -> void:
+	var refs: Array[Array] = _line_sfx(_all_sequences())
+	assert_gt(refs.size(), 0, "dialogue has a line sfx to check")
+	for ref: Array in refs:
+		assert_true(Audio.SFX.has(StringName(str(ref[1]))), "%s: sfx '%s' is in Audio.SFX" % [ref[0], ref[1]])
 		assert_true(Audio.COMMS_SFX.has(StringName(str(ref[1]))), "%s: sfx '%s' is in Audio.COMMS_SFX" % [ref[0], ref[1]])
 
 
@@ -1396,7 +1428,8 @@ const CAMPAIGN_SCRIPT: Array[Array] = [
 	["level_1.json", "l1_tarek_closing", "story", ["tarek"], 1, 2],
 	["level_2.json", "l2_briefing", "story", ["tarek"], 2, 3],
 	["level_2.json", "l2_w3_isolde_interrupt", "combat", ["isolde"], 1, 1],
-	["level_2.json", "l2_w5_tarek_cutoff", "combat", ["tarek"], 1, 1],
+	["level_2.json", "l2_w5_tarek_warning", "story", ["tarek"], 1, 1],
+	["level_2.json", "l2_w5_tarek_down", "story", ["vale", "static"], 2, 2],
 	["level_2.json", "l2_ryn_report", "story", ["ryn"], 1, 10],
 	["level_3.json", "l3_briefing", "story", ["ryn"], 1, 10],
 	["level_3.json", "l3_w3_isolde_taunt", "combat", ["isolde"], 1, 1],
@@ -1411,9 +1444,9 @@ const CAMPAIGN_SCRIPT: Array[Array] = [
 const GENDERED_ADDRESS: Array[String] = ["sir", "ma'am", "madam", "mister", "mr", "mrs", "ms", "lady", "lord", "son"]
 
 ## The most lines Vale speaks across the campaign files (2 in the opening, line
-## 1 of each Final Choice refusal and the last line of the council epilogue,
-## Story 7.8).
-const MAX_VALE_LINES: int = 5
+## 1 of each Final Choice refusal, the last line of the council epilogue, Story
+## 7.8, and the call to the downed Tarek, Epic 7 playtest J).
+const MAX_VALE_LINES: int = 6
 
 
 ## The sequences of one campaign file (id String -> Dictionary), empty when it
@@ -1445,7 +1478,7 @@ func _lines_of(id: String) -> Array:
 ## in the campaign; only the Final Choice lead-in (Story 7.5) and Isolde's
 ## Level 1 surrender offer (Epic 7 playtest D) have a `choice`.
 func test_campaign_script_layout() -> void:
-	assert_eq(CAMPAIGN_SCRIPT.size(), 18, "18 campaign sequences")
+	assert_eq(CAMPAIGN_SCRIPT.size(), 19, "19 campaign sequences")
 	for file: String in CAMPAIGN_DIALOGUE_FILES:
 		var expected: Array = []
 		for row: Array in CAMPAIGN_SCRIPT:
@@ -1515,29 +1548,27 @@ func test_is_letter_self_check() -> void:
 		assert_false(_is_letter(c), "'%s' is not a letter" % c)
 
 
-## Tarek's cut-off: Tarek, combat, the full `after`, and the cut lands mid-word.
-func test_tarek_cutoff_is_final() -> void:
-	var seq: Dictionary = Config.sequence(&"l2_w5_tarek_cutoff")
-	assert_eq(seq.get("mode"), "combat", "combat mode")
-	var lines: Array = seq.get("lines", []) as Array
-	assert_eq(lines.size(), 1, "one line")
-	if lines.size() != 1:
-		return
-	var line: Dictionary = lines[0] as Dictionary
-	assert_eq(str(line.get("speaker")), "tarek", "Tarek speaks")
-	assert_eq(line.get("after"), {"silence": "until_wave_clear", "shake": "cutoff", "sfx": "comms_static", "music": "stop"}, "the full after")
-	var text: String = str(line.get("text"))
-	var at: int = int(line.get("cut_off_at", 0))
-	assert_between(at, 1, text.length() - 1, "cut_off_at inside the text")
-	if at < 1 or at > text.length() - 1:
-		return
-	assert_true(_is_letter(text[at - 1]), "the last shown char '%s' is a letter" % text[at - 1])
-	assert_true(_is_letter(text[at]), "the next char '%s' is a letter (mid-word)" % text[at])
+## Tarek's fall's two story beats (Epic 7 playtest J): the warning is one
+## Tarek line; the down beat is Vale calling out, then the nameless static line
+## "..." with the comms static, and it silences comms until the wave clears.
+func test_tarek_fall_beats_are_final() -> void:
+	var warning: Dictionary = Config.sequence(TarekFallScene.WARNING_SEQUENCE)
+	assert_eq(warning.get("mode"), "story", "the warning pauses")
+	assert_eq(warning.get("lines"), [{"speaker": "tarek", "text": "Watch out, General! Get behind me, I've got you covered!"}], "Tarek's warning")
+	assert_false(warning.has("silence_after"), "no silence after the warning")
+	var down: Dictionary = Config.sequence(TarekFallScene.DOWN_SEQUENCE)
+	assert_eq(down.get("mode"), "story", "the down beat pauses")
+	assert_eq(down.get("silence_after"), "until_wave_clear", "comms go silent until the wave clears")
+	assert_eq(down.get("lines"), [
+		{"speaker": "vale", "text": "Admiral? Admiral Tarek?! ADMIRAL!"},
+		{"speaker": "static", "text": "...", "sfx": "comms_static"},
+	], "Vale calls out, then only static")
 
 
 ## GDD decision #43: the cut-off tuning (16 chars/s, a "..." suffix, an
-## 18 px / 0.9 s shake, a 2.5 s hold equal to the comms_static clip) and both
-## Tarek cut-offs use the dedicated `cutoff` shake.
+## 18 px / 0.9 s shake, a 2.5 s hold equal to the comms_static clip) and the
+## dev Tarek cut-off uses the dedicated `cutoff` shake (Level 2's fall is story
+## beats since Epic 7 playtest J).
 func test_cut_off_tuning_and_shake() -> void:
 	var comms: Dictionary = Config.section("comms")
 	assert_true(comms.get("cutoff_suffix") is String, "cutoff_suffix is a String")
@@ -1548,7 +1579,7 @@ func test_cut_off_tuning_and_shake() -> void:
 	assert_eq(comms.get("cutoff_hide_s"), 2.5, "cutoff_hide_s")
 	var clip: AudioStream = Audio.SFX[&"comms_static"]
 	assert_almost_eq(clip.get_length(), Config.num("comms.cutoff_hide_s"), 0.01, "the hold equals the static clip")
-	for id: StringName in [&"dev_tarek_cutoff", &"l2_w5_tarek_cutoff"]:
+	for id: StringName in [&"dev_tarek_cutoff"]:
 		var lines: Array = Config.sequence(id).get("lines", []) as Array
 		assert_eq(lines.size(), 1, "%s: one line" % id)
 		if lines.size() == 1:
@@ -1833,7 +1864,8 @@ func test_dev_tarek_fall_level_shape() -> void:
 	assert_eq(t.get("at"), 0.5)
 	assert_eq(t.get("flag"), "tarek_fall", "gated by tarek_fall")
 	assert_eq(t.get("actions"), [{"story_event": "tarek_fall"}], "only the story event")
-	assert_true(Config.has_sequence(TarekFallScene.CUT_OFF_SEQUENCE), "the line the scene requests exists")
+	assert_true(Config.has_sequence(TarekFallScene.WARNING_SEQUENCE), "the warning beat the scene requests exists")
+	assert_true(Config.has_sequence(TarekFallScene.DOWN_SEQUENCE), "the down beat the scene requests exists")
 
 
 ## Playtest 2026-10-14: render.starfield has three layers (far, mid, near) with
@@ -1894,51 +1926,40 @@ func test_level_2_wave_5_tarek_fall_trigger() -> void:
 				if (action as Dictionary).get("story_event") == "tarek_fall":
 					assert_eq(w, 4, "the fall is in wave 5")
 					found.append(trigger as Dictionary)
-				assert_ne((action as Dictionary).get("comms"), "l2_w5_tarek_cutoff", "no level trigger requests the cut-off line")
+				assert_false([String(TarekFallScene.WARNING_SEQUENCE), String(TarekFallScene.DOWN_SEQUENCE)].has(str((action as Dictionary).get("comms"))), "no level trigger requests a fall beat")
 	assert_eq(found.size(), 1, "one tarek_fall trigger")
 	if found.size() != 1:
 		return
 	assert_eq(found[0], {"when": "progress", "at": 0.75, "flag": "tarek_fall", "actions": [{"story_event": "tarek_fall"}]})
 
 
-## The cut-off line: short, cut at 41 ("...covered" cut after "co").
-func test_tarek_cutoff_line_text_and_cut() -> void:
-	var lines: Array = Config.sequence(TarekFallScene.CUT_OFF_SEQUENCE).get("lines", []) as Array
-	assert_eq(lines.size(), 1)
-	if lines.size() != 1:
-		return
-	var line: Dictionary = lines[0] as Dictionary
-	var text: String = str(line.get("text"))
-	assert_eq(text, "Watch out! Get behind me, I've got you covered!")
-	assert_lte(text.length(), 50, "at most 50 characters")
-	assert_lte(text.length(), Config.int_("comms.combat_line_max_chars"), "within the combat limit")
-	assert_eq(line.get("cut_off_at"), 41.0, "cut_off_at 41")
-	assert_eq(text.substr(0, 41), "Watch out! Get behind me, I've got you co", "cut mid-word in 'covered'")
-
-
-## story.tarek_fall: every key present and sane. The Ram's flight fits before
-## the impact, the line's typing fits before the impact (so its cut lands on
-## it), the slow motion starts during the Ram's dive and has ended (in game
-## time) before the controls come back, and the Ram starts above the screen.
+## story.tarek_fall: every key present and sane (Epic 7 playtest J). The
+## warning comes after the lock-on registers; from the dash Tarek reaches his
+## point before the Ram arrives, and the Ram's flight fits before the impact;
+## the slow motion starts during the Ram's dive and has ended (in game time)
+## before the down beat and the controls come back; the Ram starts above the
+## screen.
 func test_story_tarek_fall_tuning_ranges() -> void:
 	var section: Dictionary = Config.section("story").get("tarek_fall", {}) as Dictionary
 	var keys: Array = section.keys()
 	keys.sort()
-	assert_eq(keys, ["impact_s", "intercept_offset_px", "line_pulse_hz", "ram_scale", "ram_start_y", "ram_travel_s", "release_after_s", "slowmo"], "story.tarek_fall keys")
+	assert_eq(keys, ["aftermath_after_s", "burn_volume_db", "impact_s", "intercept_offset_px", "line_pulse_hz", "ram_scale", "ram_start_y", "ram_travel_s", "release_after_s", "slowmo", "warn_after_s"], "story.tarek_fall keys")
+	assert_between(Config.num("story.tarek_fall.warn_after_s"), 0.3, 3.0, "the warning follows the lock-on")
+	assert_true(section.get("burn_volume_db") is float, "burn_volume_db is a number")
 	var impact_s: float = Config.num("story.tarek_fall.impact_s")
 	var travel_s: float = Config.num("story.tarek_fall.ram_travel_s")
 	assert_gt(travel_s, 0.0, "ram_travel_s > 0")
 	assert_gt(impact_s, travel_s, "impact_s > ram_travel_s")
-	var typing_s: float = TarekFallScene.cut_off_typing_s(Config.sequence(TarekFallScene.CUT_OFF_SEQUENCE), Config.num("comms.cutoff_chars_per_s"))
-	assert_gt(typing_s, 0.0, "the line has a typing time")
-	assert_gte(impact_s, typing_s, "impact_s >= the cut-off typing time (the cut lands on the impact)")
-	assert_between(impact_s, 2.0, 10.0, "a readable beat, not a wait")
+	assert_gt(impact_s - travel_s, Config.num("allies.fall.approach_s"), "Tarek holds at his point before the Ram dives")
+	assert_between(impact_s, 1.0, 5.0, "a readable dash, not a wait")
 	assert_gt(Config.num("story.tarek_fall.ram_scale"), 1.0, "the Ram is bigger than a Maul")
 	assert_lt(Config.num("story.tarek_fall.ram_start_y"), 0.0, "the Ram starts above the screen")
 	assert_gt(Config.num("story.tarek_fall.intercept_offset_px"), 0.0, "Tarek stops above Vale")
 	assert_gt(Config.num("story.tarek_fall.line_pulse_hz"), 0.0, "line_pulse_hz > 0")
 	var release_s: float = Config.num("story.tarek_fall.release_after_s")
 	assert_gt(release_s, 0.0, "release_after_s > 0")
+	var aftermath_s: float = Config.num("story.tarek_fall.aftermath_after_s")
+	assert_gt(aftermath_s, 0.0, "aftermath_after_s > 0 (he is seen spinning away first)")
 	var slowmo: Dictionary = section.get("slowmo", {}) as Dictionary
 	var slow_keys: Array = slowmo.keys()
 	slow_keys.sort()
@@ -1958,7 +1979,7 @@ func test_story_tarek_fall_tuning_ranges() -> void:
 	# to 1), measured from its start at impact - lead_s; the hit-stop only
 	# shortens it.
 	var slow_game_s: float = hold_s * scale + ramp_s * (scale + 1.0) / 2.0
-	assert_gte(release_s, slow_game_s - lead_s, "the controls come back after the slow motion ends")
+	assert_gte(aftermath_s, slow_game_s - lead_s, "the down beat comes after the slow motion ends")
 
 
 ## Isolde's Level 1 surrender offer: two Isolde lines, then SURRENDER (fail

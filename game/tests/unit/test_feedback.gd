@@ -890,7 +890,7 @@ func test_convoy_death_plays_a_full_impact_then_queues_the_rest() -> void:
 		assert_eq(e.extras, [&"debris", &"shockwave"] as Array[StringName], "the Large extras")
 		assert_almost_eq(e.speed, Config.num("feedback.boss_death_chain_anim_speed"), 0.0001, "the slow chain speed")
 	assert_almost_eq(_camera.current_amplitude(), Config.num("feedback.tiers.large.shake_px"), 0.0001, "a full impact shakes")
-	assert_eq(Audio.newest_player().stream, Audio.SFX[&"explosion_big"], "the big explosion")
+	assert_eq(Audio.newest_player().stream, Audio.SFX[&"explosion_mid"], "the medium explosion")
 	assert_eq(Feedback.chain_pending(), 2)
 	Feedback.reset()
 

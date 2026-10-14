@@ -2,7 +2,7 @@
 	"id": 3,
 	"name": "Siege of the Throne World",
 	"background": "throne_world",
-	"music": "combat",
+	"music": "level_3",
 	"convoy": false,
 	"ally": "ryn",
 	"intro_sequence": "l3_briefing",
@@ -16,7 +16,7 @@
 			],
 			"asteroids": [],
 			"triggers": [
-				{ "when": "wave_start", "actions": [ { "music": "combat" } ] }
+				{ "when": "wave_start", "actions": [ { "music": "level_3" } ] }
 			]
 		},
 		{
