@@ -7,6 +7,19 @@ A neon 2D space shooter where every enemy fleet belongs to the woman you used to
 
 **Status:** v1.0. Download the Windows build from the [Releases](../../releases) page.
 
+## Screenshots
+
+<p align="center">
+  <img src="screenshots/02_level1_convoy.png" width="49%" alt="Level 1: escorting the convoy against Wasp and Lancer formations">
+  <img src="screenshots/07_barrage.png" width="49%" alt="A Barrage volley of homing micro-missiles under the throne world">
+</p>
+<p align="center">
+  <img src="screenshots/05_flagship_boss.png" width="49%" alt="The Flagship boss fight">
+  <img src="screenshots/06_story_panel_portrait.png" width="49%" alt="A story briefing from Admiral Tarek Holt">
+</p>
+
+More in the [screenshots](screenshots/) folder.
+
 ## The game
 
 - **Fixed-screen arcade shooting:** your ship sits right on the mouse cursor in the bottom 60% of the screen. Hold LMB for the laser, and press RMB for a missile that fires straight up.
