@@ -130,7 +130,7 @@ func after_each() -> void:
 	PauseArbiter.clear()
 	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	Audio.stop_music(0.0)
-	Audio.music_streams.erase(TEST_MUSIC)
+	Audio.music_streams = Audio.MUSIC.duplicate()
 	Audio._warned_music.erase(TEST_MUSIC)
 	_camera = null
 	Engine.time_scale = 1.0

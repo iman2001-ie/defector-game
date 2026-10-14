@@ -32,7 +32,9 @@ extends GutTest
 ## id, and only level 3 shows the throne world. Story 7.8: ending.json joins
 ## the campaign files with ending_council, flags.council_epilogue is a bool and
 ## ships on, and the epilogue has no choice, at most one line that refers to
-## the Final Choice and every line within the story length limit.
+## the Final Choice and every line within the story length limit. Story 8.1:
+## every audio file under res://assets/audio/ has a CREDITS.md row, and every
+## feedback tier sfx and every non-stop music action is registered in Audio.
 
 const LEVELS_DIR: String = "res://data/levels/"
 
@@ -1131,6 +1133,77 @@ func test_after_sfx_collector_self_check() -> void:
 
 func test_music_fade_out_tuning() -> void:
 	assert_almost_eq(Config.num("audio.music_fade_out_s"), 0.5, 0.0001, "audio.music_fade_out_s")
+
+
+## Story 8.1: the base music volume sits below the SFX (decision #65).
+func test_music_volume_tuning() -> void:
+	assert_almost_eq(Config.num("audio.music_volume_db"), -10.0, 0.0001, "audio.music_volume_db")
+
+
+const AUDIO_DIR: String = "res://assets/audio/"
+const CREDITS_PATH: String = "res://assets/CREDITS.md"
+
+
+## Every file under `dir` (recursive) except the .import / .uid sidecars, as
+## res:// paths, sorted.
+func _audio_files(dir: String) -> Array[String]:
+	var out: Array[String] = []
+	for file: String in DirAccess.get_files_at(dir):
+		if not file.get_extension() in ["import", "uid"]:
+			out.append(dir.path_join(file))
+	for sub: String in DirAccess.get_directories_at(dir):
+		out.append_array(_audio_files(dir.path_join(sub)))
+	out.sort()
+	return out
+
+
+## True when `credits` has a table row whose first cell is `rel` in backticks
+## and that names a licence (`CC0 1.0` or `Project-owned`).
+func _credited(credits: String, rel: String) -> bool:
+	for line: String in credits.split("\n"):
+		var row: String = line.strip_edges()
+		if row.begins_with("| `%s` |" % rel) and (row.contains("| CC0 1.0 |") or row.contains("| Project-owned |")):
+			return true
+	return false
+
+
+## Story 8.1: every audio file has its CREDITS.md row (source and licence).
+func test_every_audio_file_is_credited() -> void:
+	var credits: String = FileAccess.get_file_as_string(CREDITS_PATH)
+	assert_ne(credits, "", "CREDITS.md readable")
+	var files: Array[String] = _audio_files(AUDIO_DIR)
+	assert_eq(files.size(), Audio.SFX.size() + Audio.MUSIC.size(), "one file per sfx and music id")
+	for path: String in files:
+		var rel: String = path.trim_prefix("res://assets/")
+		assert_true(_credited(credits, rel), "%s has a CREDITS.md row" % rel)
+
+
+func test_credits_row_matcher_self_check() -> void:
+	var credits: String = "| File | Source |\n|---|---|\n| `audio/sfx/sfx_a.wav` | x | CC0 1.0 | y |\nsee `audio/sfx/sfx_b.wav` here\n" \
+		+ "| `audio/sfx/sfx_d.wav` | x | Project-owned |\n| `audio/sfx/sfx_e.wav` | x | no licence |\n"
+	assert_true(_credited(credits, "audio/sfx/sfx_a.wav"), "a CC0 row counts")
+	assert_true(_credited(credits, "audio/sfx/sfx_d.wav"), "a Project-owned row counts")
+	assert_false(_credited(credits, "audio/sfx/sfx_e.wav"), "a row without a licence does not")
+	assert_false(_credited(credits, "audio/sfx/sfx_b.wav"), "a mention outside a row does not")
+	assert_false(_credited(credits, "audio/sfx/sfx_c.wav"), "a missing file does not")
+	assert_true(_audio_files(AUDIO_DIR).has("res://assets/audio/music/music_boss.ogg"), "the collector finds music")
+	assert_true(_audio_files(AUDIO_DIR).has("res://assets/audio/sfx/sfx_shield_on.wav"), "the collector finds sfx")
+	for path: String in _audio_files(AUDIO_DIR):
+		assert_false(path.get_extension() in ["import", "uid"], "%s: sidecars are skipped" % path)
+
+
+## Story 8.1: every feedback tier's sfx and every non-stop music action has a
+## registered stream.
+func test_every_tier_sfx_and_music_action_is_registered() -> void:
+	var tiers: Dictionary = Config.section("feedback.tiers")
+	assert_eq(tiers.size(), ImpactTier.NAMES.size(), "one row per tier")
+	for tier_name: String in tiers:
+		var sfx: String = str((tiers[tier_name] as Dictionary).get("sfx", ""))
+		assert_true(Audio.SFX.has(StringName(sfx)), "tier %s: sfx '%s' is in Audio.SFX" % [tier_name, sfx])
+	for action: String in LevelValidator.MUSIC_ACTIONS:
+		if action == "stop":
+			continue
+		assert_true(Audio.MUSIC.get(StringName(action)) is AudioStream, "music '%s' is in Audio.MUSIC" % action)
 
 
 func test_combat_comms_tuning_is_positive() -> void:

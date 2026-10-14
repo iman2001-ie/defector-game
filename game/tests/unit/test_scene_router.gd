@@ -22,6 +22,9 @@ extends GutTest
 ## goto_story(ENDING_SEQUENCE, STORY_NEXT_END); finish_story() with that target
 ## goes to the end screen. With the flag off it goes to the end screen at once.
 ## Every last-level row sets the flag explicitly; after_each restores it.
+## Story 8.1 (DW-100): complete_level of the last level stops the music (a fade
+## over audio.music_fade_out_s) before either branch, so the boss track never
+## reaches the epilogue or the end screen; earlier clears leave it alone.
 
 const TEST_SAVE: String = "user://test_scene_router_save.cfg"
 
@@ -67,6 +70,7 @@ func after_each() -> void:
 	Feedback.reset()
 	PauseArbiter.clear()
 	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	Audio.stop_music(0.0)
 	if _saved_epilogue == null:
 		Config.flags.erase("council_epilogue")
 	else:
@@ -922,3 +926,78 @@ func test_level_clear_carries_the_energy_and_records_it_as_the_start() -> void:
 	GameState.energy = 90
 	SceneRouter.restart_level()
 	assert_eq(GameState.energy, 65, "a restart of level 3 gives back the carried energy")
+
+
+# --- Story 8.1: the music stops on the last clear (DW-100) ---------------------------
+
+## Asserts the music was playing `id`, is now cleared at once and is fading out
+## over audio.music_fade_out_s (one stopping line); after_each ends the fade.
+func _assert_music_fading_out(id: StringName) -> void:
+	assert_eq(Audio.current_music(), &"", "current_music() cleared at once")
+	assert_true(Audio.music_player().playing, "the track is still audible while it fades")
+	assert_true(Audio._is_fading(), "fading out")
+	var fade: float = Config.num("audio.music_fade_out_s")
+	assert_eq(_count_starting("[INFO][audio] Music '%s' stopping (%.2f s fade)" % [id, fade]), 1, "one fade over audio.music_fade_out_s")
+
+
+func test_last_clear_with_the_epilogue_stops_the_music() -> void:
+	Config.flags["council_epilogue"] = true
+	Audio.play_music(&"boss")
+	assert_eq(Audio.current_music(), &"boss", "the shipped boss track plays")
+	SceneRouter.complete_level(3)
+	_assert_music_fading_out(&"boss")
+	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH] as Array[String], "then the epilogue")
+
+
+func test_last_clear_without_the_epilogue_stops_the_music() -> void:
+	Config.flags["council_epilogue"] = false
+	Audio.play_music(&"combat")
+	SceneRouter.complete_level(3)
+	_assert_music_fading_out(&"combat")
+	assert_eq(_calls, [SceneRouter.END_SCENE_PATH] as Array[String], "then the end screen")
+
+
+func test_last_clear_with_a_config_error_stops_the_music() -> void:
+	Config.flags["council_epilogue"] = true
+	Audio.play_music(&"boss")
+	var saved_error: String = Config.load_error
+	Config.load_error = "res://data/tuning.json parse error at line 1: test"
+	SceneRouter.complete_level(3)
+	Config.load_error = saved_error
+	_assert_music_fading_out(&"boss")
+	assert_eq(_calls, [SceneRouter.END_SCENE_PATH] as Array[String], "then the end screen")
+
+
+## The stop comes before the scene change: the change already sees silence.
+func test_last_clear_stops_the_music_before_the_scene_change() -> void:
+	Config.flags["council_epilogue"] = false
+	Audio.play_music(&"boss")
+	SceneRouter.change_scene = _record_with_music
+	SceneRouter.complete_level(3)
+	assert_eq(_calls, ["%s music=''" % SceneRouter.END_SCENE_PATH] as Array[String], "silent at the change")
+
+
+func _record_with_music(path: String) -> Error:
+	_calls.append("%s music='%s'" % [path, Audio.current_music()])
+	return OK
+
+
+func test_earlier_clear_leaves_the_music_alone() -> void:
+	Audio.play_music(&"combat")
+	SceneRouter.complete_level(1)
+	assert_eq(Audio.current_music(), &"combat", "the combat track keeps playing")
+	assert_false(Audio._is_fading(), "no fade")
+	assert_eq(_count_starting("[INFO][audio] Music 'combat' stopping"), 0, "no stopping line")
+	assert_eq(_calls, [SceneRouter.LEVEL_SCENE_PATH] as Array[String], "level 2 starts")
+
+
+func test_last_clear_in_silence_is_quiet() -> void:
+	Config.flags["council_epilogue"] = true
+	Audio.stop_music(0.0)
+	SceneRouter.complete_level(3)
+	assert_eq(Audio.current_music(), &"", "still silent")
+	assert_false(Audio.music_player().playing, "nothing plays")
+	assert_eq(_count_starting("[INFO][audio] Music"), 0, "no music line")
+	assert_eq(_count_starting("[ERROR]"), 0, "no error")
+	assert_eq(_count_starting("[WARN]"), 0, "no warning")
+	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH] as Array[String], "the epilogue still plays")

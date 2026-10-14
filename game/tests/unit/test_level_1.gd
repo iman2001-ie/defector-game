@@ -97,7 +97,7 @@ func before_each() -> void:
 	Events.hint_requested.connect(_on_hint_requested)
 	Log.sink = _capture
 	# A silent test track under the level's music id, so the music action is
-	# observable (no combat track ships until Story 8.1).
+	# observable without decoding a real track; the shipped one is restored after.
 	_saved_music = Audio.music_streams.get(MUSIC_ID) as AudioStream
 	var wav: AudioStreamWAV = AudioStreamWAV.new()
 	wav.format = AudioStreamWAV.FORMAT_16_BITS

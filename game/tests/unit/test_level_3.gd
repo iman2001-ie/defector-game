@@ -136,7 +136,7 @@ func before_each() -> void:
 	Events.comms_sequence_requested.connect(_on_comms_requested)
 	Log.sink = _capture
 	# Silent test tracks under the combat and boss ids, so both music actions
-	# are observable (no track ships until Story 8.1).
+	# are observable without decoding real tracks; the shipped ones are restored after.
 	_saved_music.clear()
 	for id: StringName in MUSIC_IDS:
 		_saved_music[id] = Audio.music_streams.get(id) as AudioStream

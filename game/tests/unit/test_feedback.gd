@@ -120,8 +120,19 @@ func test_tier_rows_from_tuning() -> void:
 	assert_eq(Feedback.tier_row(ImpactTier.MEDIUM).get("extras"), [&"debris"] as Array[StringName])
 	assert_eq(Feedback.tier_row(ImpactTier.LARGE).get("extras"), [&"debris", &"shockwave"] as Array[StringName])
 	assert_almost_eq(Feedback.tier_row(ImpactTier.LARGE).get("sfx_pitch", -1.0) as float, 0.8, 0.0001)
+	assert_almost_eq(Feedback.tier_row(ImpactTier.MEDIUM).get("sfx_pitch", -1.0) as float, 1.0, 0.0001)
+	assert_almost_eq(Feedback.tier_row(ImpactTier.SMALL).get("sfx_pitch", -1.0) as float, 1.2, 0.0001, "Story 8.1")
 	assert_eq(Feedback.tier_row(ImpactTier.LARGE).get("sfx"), &"explosion_large")
 	assert_eq(Feedback.tier_row(99), {}, "out of range")
+
+
+## Story 8.1: the pitch falls with the size tier (small 1.2 > medium 1.0 > large 0.8).
+func test_explosion_pitch_falls_with_size() -> void:
+	var small: float = Feedback.tier_row(ImpactTier.SMALL).get("sfx_pitch", -1.0) as float
+	var medium: float = Feedback.tier_row(ImpactTier.MEDIUM).get("sfx_pitch", -1.0) as float
+	var large: float = Feedback.tier_row(ImpactTier.LARGE).get("sfx_pitch", -1.0) as float
+	assert_gt(small, medium, "small above medium")
+	assert_gt(medium, large, "medium above large")
 
 
 func test_tier_volumes() -> void:
@@ -177,6 +188,7 @@ func test_small_impact() -> void:
 	if player != null:
 		assert_eq(player.stream, Audio.SFX[&"explosion_small"])
 		assert_almost_eq(player.volume_db, -6.0, 0.0001)
+		assert_between(player.pitch_scale, 1.14, 1.26, "pitch 1.2 +-5% (Story 8.1)")
 
 
 func test_medium_impact_shakes_without_hit_stop() -> void:
@@ -194,6 +206,29 @@ func test_no_listeners_still_plays_sfx() -> void:
 	if player != null:
 		assert_eq(player.stream, Audio.SFX[&"explosion_medium"])
 		assert_almost_eq(player.volume_db, -3.0, 0.0001)
+
+
+## Story 8.1: every tier's sound, pitch and volume are its tuning.feedback row
+## (data only): the registered stream named by `sfx`, `sfx_volume_db`, and
+## `sfx_pitch` within the default jitter.
+func test_every_tier_plays_its_tuned_sfx() -> void:
+	var raw_tiers: Dictionary = Config.section("feedback.tiers")
+	for tier: int in ImpactTier.NAMES.size():
+		var label: String = ImpactTier.NAMES[tier]
+		var raw: Dictionary = raw_tiers.get(label, {}) as Dictionary
+		var id: StringName = StringName(str(raw.get("sfx", "")))
+		assert_true(Audio.SFX.has(id), "%s: sfx '%s' registered" % [label, id])
+		Feedback.impact(tier, Vector2(300, 300))
+		Feedback.reset()
+		var player: AudioStreamPlayer = Audio.newest_player()
+		assert_not_null(player, label)
+		if player == null or not Audio.SFX.has(id):
+			continue
+		assert_eq(player.stream, Audio.SFX[id], "%s plays %s" % [label, id])
+		assert_almost_eq(player.volume_db, float(raw.get("sfx_volume_db", 99.0)), 0.0001, "%s volume from tuning" % label)
+		var pitch: float = float(raw.get("sfx_pitch", -1.0))
+		var jitter: float = Audio.DEFAULT_PITCH_JITTER
+		assert_between(player.pitch_scale, pitch * (1.0 - jitter) - 0.0001, pitch * (1.0 + jitter) + 0.0001, "%s pitch from tuning" % label)
 
 
 func test_bad_tier_logs_and_does_nothing() -> void:

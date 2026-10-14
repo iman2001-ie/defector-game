@@ -3,6 +3,9 @@ extends GutTest
 ## unknown ids, pitch jitter and per-call volume and pitch. Story 5.3: the
 ## Music player, play / switch / fade-stop and the missing-stream warning.
 ## DW-80: the reserved comms pool (comms_* ids only; combat SFX never steal it).
+## Story 8.1: 20 registered SFX, each its own file (no aliases); the MUSIC
+## registry (combat, boss), looping, copied into music_streams at start and
+## played at audio.music_volume_db.
 
 const UnscaledClock := preload("res://tests/fixtures/unscaled_clock.gd")
 
@@ -38,7 +41,7 @@ func after_each() -> void:
 	_free_all_players()
 	Log.sink = Callable()
 	Audio.stop_music(0.0)
-	Audio.music_streams.clear()
+	Audio.music_streams = Audio.MUSIC.duplicate()
 	Audio._warned_music.clear()
 
 
@@ -68,6 +71,11 @@ func _stream() -> AudioStreamWAV:
 	return wav
 
 
+## The base music volume (audio.music_volume_db).
+func _base_db() -> float:
+	return Config.num("audio.music_volume_db")
+
+
 func _register_music() -> Dictionary:
 	var streams: Dictionary = {&"combat": _stream(), &"boss": _stream()}
 	for id: StringName in streams:
@@ -95,26 +103,47 @@ func test_process_mode_always() -> void:
 	assert_eq(Audio.process_mode, Node.PROCESS_MODE_ALWAYS)
 
 
+const SFX_IDS: Array[StringName] = [
+	&"laser_zap", &"missile_launch", &"barrage_whoosh",
+	&"explosion_small", &"explosion_medium", &"explosion_large", &"explosion_boss_part", &"explosion_boss_death",
+	&"player_hit", &"player_death", &"shield_on", &"energy_pickup", &"needle_lock", &"ability_denied",
+	&"comms_open", &"comms_open_nobeep", &"comms_static", &"comms_click", &"comms_handover", &"maul_alarm",
+]
+
+
+## Story 8.1: exactly the 20 ids, each its own sfx_<id>.wav (no aliases).
 func test_registry_streams() -> void:
-	for id: StringName in [&"laser_zap", &"missile_launch", &"explosion_small", &"explosion_medium", &"explosion_large", &"player_hit", &"player_death", &"energy_pickup", &"ability_denied", &"barrage_whoosh", &"comms_open", &"comms_open_nobeep", &"comms_static", &"comms_click", &"comms_handover", &"maul_alarm"]:
-		assert_true(Audio.SFX.get(id) is AudioStream, "sfx %s" % id)
+	assert_eq(Audio.SFX.size(), 20, "20 sfx ids")
+	var paths: Dictionary[String, StringName] = {}
+	for id: StringName in SFX_IDS:
+		var stream: AudioStream = Audio.SFX.get(id) as AudioStream
+		assert_true(stream is AudioStreamWAV, "sfx %s is a WAV" % id)
+		if stream == null:
+			continue
+		assert_eq(stream.resource_path, "res://assets/audio/sfx/sfx_%s.wav" % id, "%s has its own file" % id)
+		assert_false(paths.has(stream.resource_path), "%s shares no stream" % id)
+		paths[stream.resource_path] = id
 
 
-## Story 7.3: the boss_part tier's sfx id is registered, as a placeholder alias
-## of the large explosion until Epic 8.
-func test_boss_part_sfx_is_registered() -> void:
+## Story 8.1: the boss tiers have their own sounds, no longer the large one.
+func test_boss_tier_sfx_are_their_own_streams() -> void:
 	assert_eq(str(Config.section("feedback.tiers.boss_part").get("sfx")), "explosion_boss_part", "the tier names it")
-	assert_true(Audio.SFX.get(&"explosion_boss_part") is AudioStream, "registered")
-	assert_eq(Audio.SFX[&"explosion_boss_part"], Audio.SFX[&"explosion_large"], "placeholder alias of explosion_large")
-
-
-## Story 7.5: the boss_death tier's sfx id is registered, as a placeholder alias
-## of the large explosion (Epic 8 replaces it).
-func test_boss_death_sfx_is_registered() -> void:
 	assert_eq(str(Config.section("feedback.tiers.boss_death").get("sfx")), "explosion_boss_death", "the tier names it")
-	assert_true(Audio.SFX.get(&"explosion_boss_death") is AudioStream, "registered")
-	assert_eq(Audio.SFX[&"explosion_boss_death"], Audio.SFX[&"explosion_large"], "placeholder alias of explosion_large")
-	assert_false(Audio.COMMS_SFX.has(&"explosion_boss_death"), "plays on the combat pool")
+	for id: StringName in [&"explosion_boss_part", &"explosion_boss_death"]:
+		assert_true(Audio.SFX.get(id) is AudioStream, "%s registered" % id)
+		assert_ne(Audio.SFX[id], Audio.SFX[&"explosion_large"], "%s is not the large explosion" % id)
+		assert_false(Audio.COMMS_SFX.has(id), "%s plays on the combat pool" % id)
+	assert_ne(Audio.SFX[&"explosion_boss_part"], Audio.SFX[&"explosion_boss_death"], "the two boss tiers differ")
+
+
+## Story 8.1: the new cues are registered and play on the combat pool.
+func test_shield_on_and_needle_lock_are_registered() -> void:
+	for id: StringName in [&"shield_on", &"needle_lock"]:
+		assert_true(Audio.SFX.get(id) is AudioStream, "%s registered" % id)
+		assert_false(Audio.COMMS_SFX.has(id), "%s plays on the combat pool" % id)
+		_free_all_players()
+		var player: AudioStreamPlayer = Audio.play_sfx(id)
+		assert_true(_pool().has(player), "%s plays on a combat player" % id)
 
 
 func test_steal_oldest_when_full() -> void:
@@ -259,8 +288,61 @@ func test_music_player_on_the_music_bus() -> void:
 	assert_eq(player.name, &"Music")
 	assert_eq(player.bus, &"Music")
 	assert_eq(player.get_parent(), Audio)
-	assert_eq(Audio.music_streams.size(), 0, "no tracks until Story 8.1")
 	assert_eq(Audio.current_music(), &"", "silent at start")
+
+
+## Story 8.1: two shipped tracks, preloaded, imported looping; music_streams
+## starts as a copy of the registry (tests may swap entries).
+func test_music_registry_ships_looping_tracks() -> void:
+	assert_eq(Audio.MUSIC.size(), 2, "two tracks")
+	assert_true(Audio.MUSIC.has(&"combat") and Audio.MUSIC.has(&"boss"), "combat and boss")
+	for id: StringName in Audio.MUSIC:
+		var stream: AudioStreamOggVorbis = Audio.MUSIC[id] as AudioStreamOggVorbis
+		assert_not_null(stream, "%s is an Ogg Vorbis stream" % id)
+		if stream == null:
+			continue
+		assert_eq(stream.resource_path, "res://assets/audio/music/music_%s.ogg" % id, "%s file" % id)
+		assert_true(stream.loop, "%s loops" % id)
+		assert_gt(stream.get_length(), 30.0, "%s is a full track" % id)
+		assert_eq(Audio.music_streams.get(id), stream, "%s registered in music_streams" % id)
+	assert_ne(Audio.MUSIC[&"combat"], Audio.MUSIC[&"boss"], "two different tracks")
+	assert_eq(Audio.music_streams.size(), Audio.MUSIC.size(), "music_streams is a copy of MUSIC")
+
+
+## Story 8.1: a shipped track plays on the Music bus at audio.music_volume_db.
+func test_shipped_track_plays_at_the_tuned_volume() -> void:
+	assert_almost_eq(Config.num("audio.music_volume_db"), -10.0, 0.0001, "tuned -10 dB")
+	var player: AudioStreamPlayer = Audio.music_player()
+	Audio.apply_music_action(&"combat")
+	assert_eq(Audio.current_music(), &"combat")
+	assert_eq(player.stream, Audio.MUSIC[&"combat"], "the shipped combat track")
+	assert_true(player.playing, "playing")
+	assert_eq(player.bus, &"Music")
+	assert_almost_eq(player.volume_db, _base_db(), 0.0001, "at audio.music_volume_db")
+	Audio.apply_music_action(&"boss")
+	assert_eq(player.stream, Audio.MUSIC[&"boss"], "the shipped boss track")
+	assert_almost_eq(player.volume_db, _base_db(), 0.0001, "at audio.music_volume_db")
+	Audio.stop_music(0.0)
+	assert_false(player.playing)
+	assert_almost_eq(player.volume_db, _base_db(), 0.0001, "base volume restored after a stop")
+
+
+## Story 8.1: a retuned audio.music_volume_db (as after an F5 reload) takes
+## effect on the next play.
+func test_retuned_music_volume_applies_on_the_next_play() -> void:
+	_register_music()
+	var audio_tuning: Dictionary = Config.tuning["audio"] as Dictionary
+	var original: Variant = audio_tuning["music_volume_db"]
+	audio_tuning["music_volume_db"] = -20.0
+	Audio.play_music(&"combat")
+	var got: float = Audio.music_player().volume_db
+	Audio.stop_music(0.0)
+	var restored: float = Audio.music_player().volume_db
+	audio_tuning["music_volume_db"] = original
+	assert_almost_eq(got, -20.0, 0.0001, "the retuned volume")
+	assert_almost_eq(restored, -20.0, 0.0001, "a stop restores the retuned base")
+	Audio.play_music(&"boss")
+	assert_almost_eq(Audio.music_player().volume_db, float(original), 0.0001, "the shipped value again")
 
 
 func test_play_switch_and_same_id() -> void:
@@ -270,7 +352,7 @@ func test_play_switch_and_same_id() -> void:
 	Audio.apply_music_action(&"combat")
 	assert_eq(Audio.current_music(), &"combat")
 	assert_eq(player.stream, streams[&"combat"])
-	assert_almost_eq(player.volume_db, 0.0, 0.0001, "base volume")
+	assert_almost_eq(player.volume_db, _base_db(), 0.0001, "base volume")
 	Audio.play_music(&"combat")
 	assert_eq(_lines_containing("[INFO][audio] Music 'combat' playing").size(), 1, "the same id does nothing")
 	Audio.apply_music_action(&"boss")
@@ -293,7 +375,7 @@ func test_stop_fades_over_the_tuning_time_then_stops() -> void:
 	assert_eq(player.stream, Audio.music_streams[&"combat"], "still the faded track")
 	await wait_seconds(0.4)
 	assert_false(player.playing, "stopped after the fade")
-	assert_almost_eq(player.volume_db, 0.0, 0.0001, "base volume restored")
+	assert_almost_eq(player.volume_db, _base_db(), 0.0001, "base volume restored")
 	assert_eq(Audio.current_music(), &"")
 
 
@@ -307,9 +389,9 @@ func test_play_during_a_fade_restores_the_volume() -> void:
 	assert_lt(player.volume_db, -1.0, "fading")
 	Audio.play_music(&"combat")
 	assert_eq(Audio.current_music(), &"combat", "plays again during the fade")
-	assert_almost_eq(player.volume_db, 0.0, 0.0001, "fade killed, base volume")
+	assert_almost_eq(player.volume_db, _base_db(), 0.0001, "fade killed, base volume")
 	await wait_seconds(0.5)
-	assert_almost_eq(player.volume_db, 0.0, 0.0001, "the old fade never ends it")
+	assert_almost_eq(player.volume_db, _base_db(), 0.0001, "the old fade never ends it")
 	assert_eq(Audio.current_music(), &"combat")
 
 
@@ -323,7 +405,7 @@ func test_zero_fade_stop_during_a_fade_stops_at_once() -> void:
 	assert_lt(player.volume_db, -1.0, "fading")
 	Audio.stop_music(0.0)
 	assert_false(player.playing, "stopped at once")
-	assert_almost_eq(player.volume_db, 0.0, 0.0001, "base volume")
+	assert_almost_eq(player.volume_db, _base_db(), 0.0001, "base volume")
 	assert_eq(Audio.current_music(), &"")
 
 
@@ -333,22 +415,23 @@ func test_stop_with_zero_fade_or_nothing_playing() -> void:
 	Audio.play_music(&"combat")
 	Audio.stop_music(0.0)
 	assert_false(player.playing, "stopped at once")
-	assert_almost_eq(player.volume_db, 0.0, 0.0001)
+	assert_almost_eq(player.volume_db, _base_db(), 0.0001)
 	assert_eq(Audio.current_music(), &"")
 	Audio.stop_music()
 	assert_eq(Audio.current_music(), &"", "nothing playing: only clears the id")
-	assert_almost_eq(player.volume_db, 0.0, 0.0001)
+	assert_almost_eq(player.volume_db, _base_db(), 0.0001)
 
 
 func test_missing_stream_warns_once_and_stays_silent() -> void:
 	Log.sink = _capture
 	Audio.music_streams[&"combat"] = _stream()
+	Audio.music_streams.erase(&"boss")
 	var player: AudioStreamPlayer = Audio.music_player()
 	Audio.apply_music_action(&"combat")
 	Audio.apply_music_action(&"boss")
 	assert_eq(Audio.current_music(), &"", "stays silent")
 	assert_false(player.playing, "the combat track stopped at once")
-	assert_almost_eq(player.volume_db, 0.0, 0.0001)
+	assert_almost_eq(player.volume_db, _base_db(), 0.0001)
 	assert_eq(_lines_containing("[WARN][audio]").size(), 1, "one warning")
 	Audio.apply_music_action(&"boss")
 	assert_eq(_lines_containing("[WARN][audio]").size(), 1, "no new warning for the same id")

@@ -7,8 +7,9 @@ extends Enemy
 ## a level that moves its formation rows sets, x from its formation slot) and then
 ## runs its attack cycle, one start every fire_interval_s:
 ##   TRACKING  track_s: the targeting line follows the player (enemy colour).
-##   LOCKED    lock_s: the line freezes and turns red (the >= 0.3 s telegraph),
-##             then one needle_bolt fires along it at bolt_speed_px_s.
+##   LOCKED    lock_s: the line freezes and turns red (the >= 0.3 s telegraph)
+##             with the needle_lock cue (Story 8.1), then one needle_bolt fires
+##             along it at bolt_speed_px_s.
 ##   COOLDOWN  fire_interval_s - track_s - lock_s, line hidden.
 ## After reposition_interval_s anchored it moves, only from COOLDOWN, to a new
 ## anchor x at least reposition_min_distance_px away along the top edge.
@@ -167,6 +168,9 @@ func _enter_state(new_state: State) -> void:
 		else:
 			_line.default_color = track_color
 			_line.width = TRACK_WIDTH_PX
+	if new_state == State.LOCKED:
+		# The lock moment: one cue per lock (Story 8.1).
+		Audio.play_sfx(&"needle_lock")
 	if new_state == State.TRACKING:
 		# Aim at once so the line never shows a stale direction.
 		_aim_line()

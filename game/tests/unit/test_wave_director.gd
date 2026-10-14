@@ -61,7 +61,7 @@ func after_each() -> void:
 	PauseArbiter.clear()
 	GameState.is_retry = false
 	Audio.stop_music(0.0)
-	Audio.music_streams.clear()
+	Audio.music_streams = Audio.MUSIC.duplicate()
 	Audio._warned_music.clear()
 	_director = null
 
@@ -1244,11 +1244,33 @@ func test_music_actions_play_switch_and_fade_stop() -> void:
 	assert_gt(player.volume_db, -80.0)
 	await wait_seconds(0.4)
 	assert_false(player.playing, "stopped")
-	assert_almost_eq(player.volume_db, 0.0, 0.0001, "base volume restored")
+	assert_almost_eq(player.volume_db, Config.num("audio.music_volume_db"), 0.0001, "base volume restored")
+
+
+## Story 8.1: with no test override, the music actions play the shipped
+## looping tracks on the Music bus at audio.music_volume_db.
+func test_music_actions_play_the_shipped_tracks() -> void:
+	_start([{
+		"spawns": [_wasps(2)],
+		"triggers": [
+			{"when": "wave_start", "actions": [{"music": "combat"}]},
+			{"when": "progress", "at": 0.5, "actions": [{"music": "boss"}]},
+		],
+	}])
+	var player: AudioStreamPlayer = Audio.music_player()
+	assert_eq(player.stream, Audio.MUSIC[&"combat"], "the shipped combat track")
+	assert_eq(player.bus, &"Music")
+	assert_almost_eq(player.volume_db, Config.num("audio.music_volume_db"), 0.0001, "at audio.music_volume_db")
+	_kill(1)
+	assert_eq(Audio.current_music(), &"boss")
+	assert_eq(player.stream, Audio.MUSIC[&"boss"], "the shipped boss track")
+	assert_true(player.playing, "playing")
+	assert_eq(_lines_containing("[WARN][audio]"), [] as Array[String], "no missing stream")
 
 
 func test_missing_music_stream_warns_once_and_stays_silent() -> void:
 	Audio.music_streams[&"combat"] = _silent_wav()
+	Audio.music_streams.erase(&"boss")
 	_start_chain([{"music": "combat"}, {"music": "boss"}, {"music": "boss"}])
 	assert_eq(Audio.current_music(), &"", "silent")
 	assert_false(Audio.music_player().playing, "combat stopped")

@@ -259,8 +259,11 @@ func goto_level_select() -> void:
 
 ## Level `n` was cleared. A campaign level (1..progression.level_count) raises
 ## highest_unlocked_level to max(current, min(n + 1, level_count)), saves, then
-## starts level n + 1 with the current energy. After the last level it plays the
-## council epilogue (goto_story(ENDING_SEQUENCE, STORY_NEXT_END), Story 7.8)
+## starts level n + 1 with the current energy. After the last level it first
+## fades the music out (Audio.stop_music(), over audio.music_fade_out_s; Story
+## 8.1, DW-100), so the boss track never carries on into the epilogue or the end
+## screen, then plays the council epilogue (goto_story(ENDING_SEQUENCE,
+## STORY_NEXT_END), Story 7.8)
 ## when Config.load_error is empty and the council_epilogue flag is on;
 ## otherwise it goes to the end screen at once (goto_end(), Story 7.7), so a
 ## broken config (where goto_story refuses) never strands the player on the
@@ -275,7 +278,9 @@ func complete_level(n: int) -> void:
 	SaveManager.save()
 	if n < level_count:
 		start_level(str(n + 1))
-	elif Config.load_error.is_empty() and Config.flag("council_epilogue"):
+		return
+	Audio.stop_music()
+	if Config.load_error.is_empty() and Config.flag("council_epilogue"):
 		goto_story(ENDING_SEQUENCE, STORY_NEXT_END)
 	else:
 		goto_end()

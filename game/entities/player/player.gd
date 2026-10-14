@@ -388,13 +388,16 @@ func shield_remaining() -> float:
 
 
 ## Raises the shield if the ship is alive, unshielded and can pay
-## abilities.shield.cost; returns true when it went up. An active shield is left
-## untouched (no spend, no denial). Too little energy is denied (see _deny).
+## abilities.shield.cost; returns true when it went up, with the shield_on cue
+## (Story 8.1; the Shield component never touches Audio). An active shield is
+## left untouched (no spend, no denial, no cue). Too little energy is denied
+## (see _deny).
 func try_shield() -> bool:
 	var line: String = "Shield up: -%d energy, %.1f s" % [_shield.cost, _shield.duration_s]
 	if not _spend(&"shield", _shield.is_active(), _shield.cost, line):
 		return false
 	_shield.raise()
+	Audio.play_sfx(&"shield_on")
 	Events.player_action.emit(&"shield")
 	return true
 

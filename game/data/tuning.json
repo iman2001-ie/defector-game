@@ -287,7 +287,7 @@
 		"tiers": {
 			"small": {
 				"explosion_scale": 0.5, "shake_px": 0, "shake_s": 0, "hit_stop_ms": 0,
-				"extras": ["sparks"], "sfx": "explosion_small", "sfx_pitch": 1.0, "sfx_volume_db": -6
+				"extras": ["sparks"], "sfx": "explosion_small", "sfx_pitch": 1.2, "sfx_volume_db": -6
 			},
 			"medium": {
 				"explosion_scale": 1.0, "shake_px": 4, "shake_s": 0.15, "hit_stop_ms": 0,
@@ -350,7 +350,8 @@
 		"end_screen": { "logo_y": 320, "logo_px": 120, "line_y": 480, "line_px": 30, "thanks_y": 560, "thanks_px": 28, "button_w": 400, "button_h": 72, "button_top_y": 700 }
 	},
 	"audio": {
-		"music_fade_out_s": 0.5
+		"music_fade_out_s": 0.5,
+		"music_volume_db": -10.0
 	},
 	"render": {
 		"glow": { "intensity": 1.0, "bloom": 0.08, "hdr_threshold": 0.55 }

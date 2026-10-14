@@ -962,7 +962,8 @@ location: game/autoloads/scene_router.gd (goto_end) / game/scenes/end/end_screen
 source_spec: `spec-7-7-end-the-war-isoldes-final-line-and-the-end-screen.md`
 severity: medium
 reason: Audio is an autoload and music is stopped only by a `music: stop` action (Audio.apply_music_action); SceneRouter._change_to and EndScreen._ready never touch music. This is the same carry-over every scene change already has (e.g. a level to the title). No music track ships until Story 8.1, so nothing is audible today; Epic 8's audio pass should decide the end screen's music (stop, fade, or an ending theme). The Story 7.7 as-built entry now states the carry-over.
-status: open
+status: done 2026-10-13
+resolution: resolved by Story 8.1: SceneRouter.complete_level of the last campaign level calls Audio.stop_music() (a fade over audio.music_fade_out_s) before going to the council epilogue or the end screen, so the boss track never reaches either; no end-screen track (GDD decision #65)
 
 ### DW-101: After the Flagship's core is destroyed the player can still die during the 2 s death chain, to leftover boss Wasps and bullets already in flight, which fails the level after the boss is beaten.
 origin: operator playtest 2026-10-13 (Story 7.5 operator action 5)
@@ -980,4 +981,27 @@ origin: spec-deferred 67f066f7b204
 location: game/entities/boss/flagship.gd (_end_the_fight)
 source_spec: `spec-dw-101-boss-death-ends-the-fight.md`
 reason: Flagship._end_the_fight calls Feedback.impact for every enemy and EnemyBullet at DYING entry; in DESPERATE dozens of bullets can be in flight. Not measured: settle it by profiling dev_boss (F6, kill the core mid-barrage) and checking the frame time of the DYING frame against the 16.67 ms budget; if it spikes, cap the effects per sweep (fizzle the rest silently).
+status: open
+
+### DW-103: Music still carries over when the player quits to the title, opens Level Select or goes from the retry prompt to the title, so the combat or boss track now plays on the menus.
+origin: spec-deferred 947d1ca7e222
+location: game/autoloads/scene_router.gd (goto_title, goto_level_select)
+source_spec: `spec-8-1-make-the-game-sound-right.md`
+severity: medium
+reason: No scene change stops music (SceneRouter._change_to never touches Audio; only a `music: stop` action, the cut-off and, since Story 8.1, the last level clear do). Before Story 8.1 no track shipped, so this was silent; now Audio.MUSIC plays real tracks. DW-100 named this carry-over as the general case ("e.g. a level to the title"); Story 8.1's AC fixed only the Level 3 to end-screen route. Whether the title and menus should be silent is a design call (the GDD ships 0-2 tracks: combat and boss).
+status: open
+
+### DW-104: The non-tier sound effects (laser_zap, missile_launch, barrage_whoosh, energy_pickup, shield_on, needle_lock, ability_denied, maul_alarm) play at a code-default 0 dB, so their loudness can only be
+origin: spec-deferred 6ca22c15f5e3
+location: game/entities/player/player_weapons.gd / game/entities/player/player.gd / game/entities/pickups/energy_orb.gd / game/entities/enemies/needle/needle.gd
+source_spec: `spec-8-1-make-the-game-sound-right.md`
+severity: medium
+reason: Only feedback.tiers rows carry sfx_volume_db and sfx_pitch; every other call is Audio.play_sfx(id) with the default volume (player_weapons.gd, player.gd, energy_orb.gd, maul.gd, needle.gd). The pattern predates Story 8.1, which follows it for the two new cues; the operator listening pass may want per-cue levels.
+status: open
+
+### DW-105: Nothing limits the summed SFX level, so many peak-normalised (-1 dBFS) sounds at once, such as the boss-death sweep, may clip.
+origin: spec-deferred c150870aa236
+location: game/default_bus_layout.tres
+source_spec: `spec-8-1-make-the-game-sound-right.md`
+reason: Unverified. Every new WAV peaks at -1 dBFS and the large, boss and player tiers play at 0 dB; default_bus_layout.tres has no effects on Master, SFX or Music. Settle it by listening to the Flagship's death chain with many Wasps on screen, or by capturing the Master bus peak in play.
 status: open

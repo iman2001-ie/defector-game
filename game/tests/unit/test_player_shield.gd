@@ -5,7 +5,9 @@ extends "res://tests/fixtures/player_test_base.gd"
 ## + SFX, nothing spent); step_shield counts physics delta down, drives the
 ## ShieldBubble and re-applies an overlapping hazard on expiry; death clears it.
 ## Driven through try_shield / step_shield with physics off, plus one test that
-## goes through the real `ability_shield` input action.
+## goes through the real `ability_shield` input action. Story 8.1: a raise plays
+## shield_on once; a denied raise plays only ability_denied; a raise while the
+## shield is up plays nothing.
 
 const LANCER_SCENE: PackedScene = preload("res://entities/enemies/lancer/lancer.tscn")
 const ENEMY_BULLET_SCENE: PackedScene = preload("res://entities/projectiles/enemy_bullet.tscn")
@@ -272,3 +274,29 @@ func test_denied_shield_emits_no_player_action() -> void:
 	assert_false(_player.try_shield())
 	assert_signal_emit_count(Events, "ability_denied", 1)
 	assert_signal_not_emitted(Events, "player_action")
+
+
+# --- Story 8.1: shield_on cue ----------------------------------------------------
+
+func test_raise_plays_shield_on_once() -> void:
+	GameState.energy = 100
+	var before: int = Audio._next_serial
+	assert_true(_player.try_shield())
+	assert_eq(Audio._next_serial - before, 1, "one SFX")
+	assert_eq(Audio.newest_player().stream, Audio.SFX[&"shield_on"], "shield_on played")
+	assert_eq(_logged("[WARN][audio]"), [] as Array[String], "shield_on is registered")
+
+
+func test_denied_raise_plays_only_ability_denied() -> void:
+	GameState.energy = 10
+	var before: int = Audio._next_serial
+	assert_false(_player.try_shield())
+	assert_eq(Audio._next_serial - before, 1, "one SFX")
+	assert_eq(Audio.newest_player().stream, Audio.SFX[&"ability_denied"], "only ability_denied")
+
+
+func test_raise_while_active_plays_nothing() -> void:
+	_raise()
+	var before: int = Audio._next_serial
+	assert_false(_player.try_shield(), "already up")
+	assert_eq(Audio._next_serial - before, 0, "no SFX")
