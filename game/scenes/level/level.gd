@@ -166,7 +166,8 @@ func _ready() -> void:
 		Log.info("scene", "Feedback pre-warm skipped (--no-prewarm)")
 	var comms_ids: Array[StringName] = debug_comms_ids(OS.is_debug_build(), args)
 	var hold: float = 0.0
-	if intro_card and bench == null and Config.load_error.is_empty() and is_campaign_level(id, Config.int_("progression.level_count")):
+	# The opening story already showed this level's card (playtest pt7-m): consumed once.
+	if intro_card and bench == null and Config.load_error.is_empty() and is_campaign_level(id, Config.int_("progression.level_count")) and not SceneRouter.consume_intro_shown(id):
 		hold = intro_hold_s(GameState.is_retry, Config.num("ui.level_intro.hold_s"), Config.num("ui.level_intro.retry_hold_s"))
 	if hold <= 0.0:
 		_begin(data, comms_ids)

@@ -42,6 +42,7 @@ func before_each() -> void:
 
 func after_each() -> void:
 	Audio.stop_music(0.0)
+	SceneRouter._intro_shown_level = 0
 	Log.sink = Callable()
 	_story = null
 	var motion: InputEventMouseMotion = InputEventMouseMotion.new()
@@ -88,8 +89,14 @@ func _count_starting(prefix: String) -> int:
 
 
 ## Instances story.tscn with whatever the router has pending.
+## The scene without its title card (pt7-m), so the sequence starts at once.
 func _make() -> StoryScene:
+	return _make_card(false)
+
+
+func _make_card(card: bool) -> StoryScene:
 	_story = STORY_SCENE.instantiate() as StoryScene
+	_story.intro_card = card
 	add_child_autofree(_story)
 	return _story
 
@@ -372,13 +379,46 @@ func test_level_select_card_1_opens_with_the_story_then_level_1() -> void:
 	assert_false(GameState.is_retry)
 
 
-func test_retry_and_restart_after_the_opening_never_replay_it() -> void:
+## A death's RETRY after the opening reloads the level; the pause menu's
+## Restart replays the opening (playtest pt7-m).
+func test_retry_after_the_opening_never_replays_it_but_restart_does() -> void:
 	_make_with(&"opening_main", 1)
 	_click_through()
 	SceneRouter.retry_level()
-	SceneRouter.restart_level()
-	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH, SceneRouter.LEVEL_SCENE_PATH, SceneRouter.LEVEL_SCENE_PATH, SceneRouter.LEVEL_SCENE_PATH] as Array[String])
+	assert_eq(_calls, [SceneRouter.STORY_SCENE_PATH, SceneRouter.LEVEL_SCENE_PATH, SceneRouter.LEVEL_SCENE_PATH] as Array[String])
 	assert_true(GameState.is_retry)
+	SceneRouter.restart_level()
+	assert_eq(_calls.back(), SceneRouter.STORY_SCENE_PATH, "Restart goes back to the opening story")
+	assert_eq(SceneRouter.story_sequence(), SceneRouter.OPENING_SEQUENCE)
+
+
+# --- Playtest pt7-m: the LEVEL 1 card opens the opening story ---------------------
+
+func _card() -> LevelIntroCard:
+	return _story.get_node("LevelIntroCard") as LevelIntroCard
+
+
+func test_opening_shows_the_level_1_card_before_its_dialogue() -> void:
+	Audio.stop_music(0.0)
+	SceneRouter.goto_story(SceneRouter.OPENING_SEQUENCE, 1)
+	_make_card(true)
+	assert_true(_card().is_showing(), "the card shows first")
+	assert_eq(_card().number_label().text, "LEVEL 1")
+	assert_eq(_card().name_label().text, str(Config.level("1").get("name", "")).to_upper())
+	assert_false(_channel().is_showing(), "no dialogue during the card")
+	assert_eq(SceneRouter.intro_shown_level(), 1, "the router knows the card was shown")
+	var total: float = LevelIntroCard.total_s(Config.num("ui.level_intro.fade_in_s"), Config.num("ui.level_intro.hold_s"), Config.num("ui.level_intro.fade_out_s"))
+	await get_tree().create_timer(total + 0.3, true, false, true).timeout
+	assert_true(_channel().is_showing(), "the dialogue starts after the card")
+	assert_eq(_count_starting("[INFO][scene] Level 1 title card before story 'opening_main'"), 1)
+
+
+func test_epilogue_shows_no_card() -> void:
+	SceneRouter.goto_story(SceneRouter.ENDING_SEQUENCE, SceneRouter.STORY_NEXT_END)
+	_make_card(true)
+	assert_false(_card().is_showing(), "no card before the epilogue")
+	assert_true(_channel().is_showing(), "the epilogue starts at once")
+	assert_eq(SceneRouter.intro_shown_level(), 0)
 
 
 # --- Story 7.8: the council epilogue ----------------------------------------------

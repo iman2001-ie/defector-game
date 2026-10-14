@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scenes/story/story.gd" id="1_story"]
 [ext_resource type="Theme" path="res://ui/theme/defector_theme.tres" id="2_theme"]
@@ -6,6 +6,7 @@
 [ext_resource type="PackedScene" path="res://systems/comms/comms_box.tscn" id="4_comms_box"]
 [ext_resource type="PackedScene" path="res://systems/comms/comms_panel.tscn" id="5_comms_panel"]
 [ext_resource type="Script" path="res://scenes/level/level_background.gd" id="9_background"]
+[ext_resource type="Script" path="res://ui/hud/level_intro_card.gd" id="10_level_intro"]
 
 [node name="Story" type="Control"]
 layout_mode = 3
@@ -20,6 +21,16 @@ script = ExtResource("1_story")
 
 [node name="Background" type="Node2D" parent="."]
 script = ExtResource("9_background")
+
+[node name="LevelIntroCard" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("10_level_intro")
 
 [node name="Comms" type="CanvasLayer" parent="."]
 layer = 20

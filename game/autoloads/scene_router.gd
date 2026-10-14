@@ -41,6 +41,11 @@ extends Node
 ##   again from wave 1. A death's Retry wipes the energy to 0; the pause menu's
 ##   Restart Level puts back the energy the attempt started with
 ##   (GameState.level_start_energy, playtest 2026-10-13). No counter, no limit.
+##   Exception (playtest pt7-m): Restart on level OPENING_LEVEL_ID replays the
+##   opening story (its true beginning), then the level as a fresh attempt.
+## - mark_intro_shown(n) / consume_intro_shown(n) (playtest pt7-m): the story
+##   before level n showed its title card, so level.gd skips it once. A retry,
+##   a new story and the menus clear the mark.
 ## - complete_level(n): a cleared campaign level (1..progression.level_count)
 ##   raises the unlock, saves (the only save in the game) and starts level n+1
 ##   with the carried energy. After the last level it plays the council epilogue
@@ -91,6 +96,9 @@ var set_window_mode: Callable
 ## screen).
 var _story_id: StringName = &""
 var _story_next_level: int = 0
+## The level whose title card the opening story already showed (playtest
+## pt7-m); level.gd consumes it once. 0 for none.
+var _intro_shown_level: int = 0
 
 
 func _ready() -> void:
@@ -154,9 +162,37 @@ func retry_level() -> void:
 ## Pause menu Restart Level: reloads level.tscn with the same
 ## GameState.current_level_id and is_retry set, with the energy the attempt
 ## started with (GameState.level_start_energy), so a restart neither wipes nor
-## banks energy.
+## banks energy. Level OPENING_LEVEL_ID instead restarts from its true
+## beginning, the opening story (playtest pt7-m): the music fades, the energy
+## goes back to the attempt's start and goto_story plays the story, its title
+## card and then the level as a fresh attempt (is_retry cleared).
 func restart_level() -> void:
+	if GameState.current_level_id == OPENING_LEVEL_ID and Config.load_error.is_empty():
+		GameState.energy = GameState.level_start_energy
+		Audio.stop_music()
+		goto_story(OPENING_SEQUENCE, int(OPENING_LEVEL_ID))
+		return
 	_reload_level(GameState.level_start_energy, "Restart")
+
+
+## The opening story showed level `level`'s title card (playtest pt7-m), so
+## level.gd skips it once when that level loads next (consume_intro_shown).
+func mark_intro_shown(level: int) -> void:
+	_intro_shown_level = level
+
+
+## True (once) when the story before level `level` already showed its title
+## card; clears the mark. False for any other level or with no mark.
+func consume_intro_shown(level: int) -> bool:
+	if level <= 0 or _intro_shown_level != level:
+		return false
+	_intro_shown_level = 0
+	return true
+
+
+## The level whose card the story already showed (tests); 0 for none.
+func intro_shown_level() -> int:
+	return _intro_shown_level
 
 
 ## A new run from a menu (title PLAY, a Level Select card): 0 energy, then
@@ -196,6 +232,7 @@ func goto_story(id: StringName, next_level: int) -> void:
 		return
 	_story_id = id
 	_story_next_level = next_level
+	_intro_shown_level = 0
 	GameState.is_retry = false
 	var target: String = "the end screen" if next_level == STORY_NEXT_END else "level %d" % next_level
 	_change_to(STORY_SCENE_PATH, "Story '%s' before %s" % [id, target])
@@ -244,6 +281,7 @@ func goto_title() -> void:
 		Audio.stop_music()
 	restore_saved_progress()
 	GameState.current_level_id = ""
+	_intro_shown_level = 0
 	_change_to(TITLE_SCENE_PATH, "Going to the title screen")
 
 
@@ -265,6 +303,7 @@ func restore_saved_progress() -> void:
 ## The Level Select screen. Touches no GameState field (a card starts its level
 ## through start_new, at 0 energy) and writes no save.
 func goto_level_select() -> void:
+	_intro_shown_level = 0
 	_change_to(LEVEL_SELECT_SCENE_PATH, "Going to level select")
 
 
@@ -308,6 +347,7 @@ func complete_level(n: int) -> void:
 func goto_end() -> void:
 	GameState.current_level_id = ""
 	GameState.is_retry = false
+	_intro_shown_level = 0
 	_change_to(END_SCENE_PATH, "Going to the end screen")
 
 
@@ -326,6 +366,7 @@ func _reload_level(energy: int, label: String) -> void:
 	GameState.energy = energy
 	GameState.level_start_energy = energy
 	GameState.is_retry = true
+	_intro_shown_level = 0
 	# Restart from the pause menu fades whatever plays (the boss track too); the
 	# level's own wave-1 trigger brings its track back (playtest pt7-k review).
 	Audio.stop_music()

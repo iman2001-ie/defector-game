@@ -29,6 +29,7 @@ func before_each() -> void:
 
 func after_each() -> void:
 	_level = null
+	SceneRouter._intro_shown_level = 0
 	Config.assert_on_missing = true
 	Config.load_data()
 	_reset_game_state()
@@ -188,3 +189,23 @@ func test_a_pause_freezes_the_wait() -> void:
 	PauseArbiter.pop(TEST_PAUSE)
 	await wait_seconds(_total(HOLD_S) + 0.3)
 	assert_signal_emitted(Events, "wave_started", "starts once unpaused")
+
+
+## Playtest pt7-m: after the opening story showed level 1's card, level 1 skips
+## it once (the router's mark is consumed), so wave 1 starts at once.
+func test_level_skips_the_card_the_opening_story_already_showed() -> void:
+	SceneRouter.mark_intro_shown(1)
+	_make_level("1")
+	assert_signal_not_emitted(Events, "level_intro_started", "no second card")
+	assert_false(_card().visible)
+	assert_eq(SceneRouter.intro_shown_level(), 0, "the mark is consumed")
+	await wait_seconds(0.2)
+	assert_signal_emitted(Events, "wave_started", "wave 1 at once")
+
+
+## A mark for another level changes nothing.
+func test_a_mark_for_another_level_keeps_the_card() -> void:
+	SceneRouter.mark_intro_shown(2)
+	_make_level("1")
+	assert_signal_emitted(Events, "level_intro_started", "level 1 still shows its card")
+	assert_eq(SceneRouter.intro_shown_level(), 2, "not consumed by another level")

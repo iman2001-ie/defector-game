@@ -27,8 +27,19 @@ extends Control
 ## audio.epilogue_music_delay_s after the scene loads (so the boss track's
 ## fade-out finishes first), fading in over audio.music_fade_in_s. The end
 ## screen keeps it playing.
+##
+## Playtest pt7-m: a story that leads into a campaign level (the opening before
+## Level 1) is that level's true beginning, so its "LEVEL N" title card
+## (Events.level_intro_started, drawn by the LevelIntroCard child) shows first,
+## for the full ui.level_intro time, and the sequence is requested only after
+## it (or after a fading menu track, whichever ends later). The router remembers
+## the card (SceneRouter.mark_intro_shown), so the level doesn't show it again.
+## The epilogue shows no card.
 
 const EPILOGUE_MUSIC: StringName = &"epilogue"
+
+## False skips the title card (test seam; set before the scene enters the tree).
+var intro_card: bool = true
 
 var _sequence: StringName = &""
 var _finished: bool = false
@@ -48,15 +59,38 @@ func _ready() -> void:
 	if _sequence == SceneRouter.ENDING_SEQUENCE:
 		_start_epilogue_music()
 	Events.comms_sequence_finished.connect(_on_events_comms_sequence_finished)
-	if _sequence != SceneRouter.ENDING_SEQUENCE and Audio.is_fading_out() and Config.load_error.is_empty():
-		# The menu track is still fading (PLAY from the title): the opening
+	var wait_s: float = 0.0
+	if _sequence != SceneRouter.ENDING_SEQUENCE and Config.load_error.is_empty():
+		if intro_card:
+			wait_s = _show_level_card(SceneRouter.story_next_level())
+		# The menu track may still be fading (PLAY from the title): the opening
 		# briefing starts once it is silent (playtest pt7-k review). The
 		# epilogue keeps its own timing (the boss fade runs under its first
-		# line, as before). Real time, so the story pause can't hold it; the
-		# connection dies with the scene.
-		get_tree().create_timer(Config.num("audio.music_fade_out_s"), true, false, true).timeout.connect(_request_sequence)
+		# line, as before).
+		if Audio.is_fading_out():
+			wait_s = maxf(wait_s, Config.num("audio.music_fade_out_s"))
+	if wait_s > 0.0:
+		# Nothing pauses the story scene before its sequence starts; the
+		# connection dies with the scene, so a scene freed first requests nothing.
+		get_tree().create_timer(wait_s, true, false, true).timeout.connect(_request_sequence)
 		return
 	_request_sequence()
+
+
+## Shows level `level`'s title card when it is a campaign level (1..level_count)
+## and ui.level_intro.hold_s is above 0, and marks it shown for the router.
+## Returns the card's whole time on screen (0 when none shows).
+func _show_level_card(level: int) -> float:
+	if level < 1 or level > Config.int_("progression.level_count"):
+		return 0.0
+	var hold: float = Config.num("ui.level_intro.hold_s")
+	if hold <= 0.0:
+		return 0.0
+	var wait_s: float = LevelIntroCard.total_s(Config.num("ui.level_intro.fade_in_s"), hold, Config.num("ui.level_intro.fade_out_s"))
+	Log.info("scene", "Level %d title card before story '%s' (%.2f s)" % [level, _sequence, wait_s])
+	Events.level_intro_started.emit(level, str(Config.level(str(level)).get("name", "")), hold)
+	SceneRouter.mark_intro_shown(level)
+	return wait_s
 
 
 func _request_sequence() -> void:
