@@ -5,3 +5,5 @@
 *.wav binary
 *.ttf binary
 *.otf binary
+# Player-facing text in the release zip: CRLF so every Notepad shows its lines
+release/*.txt text eol=crlf

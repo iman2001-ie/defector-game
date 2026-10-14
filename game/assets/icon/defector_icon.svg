@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <!-- DEFECTOR app icon: a bold coalition-cyan delta ship on the background tile. Project-owned (DEFECTOR, Story 8.5). No filters, so it reads at 16 px. -->
+  <rect x="8" y="8" width="240" height="240" rx="48" ry="48" fill="#05070F"/>
+  <rect x="8" y="8" width="240" height="240" rx="48" ry="48" fill="none" stroke="#22E6FF" stroke-opacity="0.35" stroke-width="8"/>
+  <path d="M128 34 L218 214 L128 170 L38 214 Z" fill="#22E6FF"/>
+  <path d="M128 92 L148 146 L128 136 L108 146 Z" fill="#05070F"/>
+</svg>

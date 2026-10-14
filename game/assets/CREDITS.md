@@ -56,7 +56,7 @@ These were made for this project and are not third-party assets. They were tuned
 
 ## Project-owned art
 
-Drawn for this project as SVG (Kenney has no portraits and no hull this size); Godot imports them as textures.
+Drawn for this project as SVG (Kenney has no portraits, no hull this size and no app icon); Godot imports them as textures. The icon is the exe and window icon.
 
 | File | Source | Licence |
 |---|---|---|
@@ -64,6 +64,7 @@ Drawn for this project as SVG (Kenney has no portraits and no hull this size); G
 | `portraits/portrait_tarek.svg` | Hand-authored SVG, DEFECTOR (Story 8.2) | Project-owned |
 | `portraits/portrait_ryn.svg` | Hand-authored SVG, DEFECTOR (Story 8.2) | Project-owned |
 | `sprites/boss/flagship_hull.svg` | Hand-authored SVG, DEFECTOR (Story 8.2) | Project-owned |
+| `icon/defector_icon.svg` | Hand-authored SVG, DEFECTOR (Story 8.5) | Project-owned |
 
 ## Drawn in code by design
 
