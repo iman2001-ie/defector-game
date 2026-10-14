@@ -2,7 +2,7 @@
 title: 'Story 8.1: Make the Game Sound Right'
 type: 'feature'
 created: '2026-10-13'
-status: 'awaiting-operator'
+status: done
 operator_actions:
   - 'Play Level 1 in a debug build ("<GODOT_DIR>/Godot_v4.7.2-stable_win64.exe" --path game) and listen to every new combat sound: laser, missile launch, Barrage, the small, medium and large explosions, player hit and death, energy pickup, ability denied (E or Q with too little energy) and the new Shield-on cue (E). Say whether each one fits and whether the explosions sound bigger as they get bigger (pitch 1.2 / 1.0 / 0.8).'
   - 'Listen to the combat track (MintoDog "Space Adventure") in Level 1 at the -10 dB music volume: judge its balance against the sound effects and the comms lines, and whether its loop point is seamless after about 2 minutes 10 seconds.'
@@ -251,3 +251,16 @@ Status: awaiting-operator
 - `git status`: no zips, no pack folders, no `__pycache__`.
 
 **Residual risks.** Nobody has listened to any pick. Loudness, mix balance, loop seams, possible clipping in dense moments and whether each cue fits are owed to the operator (see `operator_actions`). The music tracks add about 7.5 MB to the repo and the build.
+
+## Operator Confirmation
+
+Confirmed 2026-10-14: the external actions this story owed were carried out.
+
+- Play Level 1 in a debug build ("<GODOT_DIR>/Godot_v4.7.2-stable_win64.exe" --path game) and listen to every new combat sound: laser, missile launch, Barrage, the small, medium and large explosions, player hit and death, energy pickup, ability denied (E or Q with too little energy) and the new Shield-on cue (E). Say whether each one fits and whether the explosions sound bigger as they get bigger (pitch 1.2 / 1.0 / 0.8).
+- Listen to the combat track (MintoDog "Space Adventure") in Level 1 at the -10 dB music volume: judge its balance against the sound effects and the comms lines, and whether its loop point is seamless after about 2 minutes 10 seconds.
+- Play Level 3 from Level Select through the Needles (judge the new Needle lock cue against the red lock line) and the Flagship: confirm the boss track (MintoDog "Space Boss Battle") replaces the combat track when the boss wave starts, loops cleanly, and that the boss-part and boss-death explosions sound right with no harsh clipping in the death chain.
+- After the Flagship dies and Isolde's final line is clicked through, confirm the music fades out and the council epilogue and the end screen play in silence (DW-100).
+- Play Level 2 to Tarek's fall and confirm the combat music drops out at the cut-off and stays silent through his silence beat.
+- Approve or replace any pick, and the -10 dB music volume and the small-explosion pitch 1.2 (GDD decision #65, provisional); record any change in the decision log, with retunes in tuning.json.
+
+_Appended by the bmad-loop orchestrator (`bmad-loop confirm`, #335): a human confirmed these external actions out of band, and the story was advanced from `awaiting-operator` to `done`._

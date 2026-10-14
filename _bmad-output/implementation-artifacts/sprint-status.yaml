@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: "2026-10-07 09:00"
-last_updated: 2026-10-13
+last_updated: 2026-10-14
 project: defector-game
 project_key: NOKEY
 tracking_system: file-system
@@ -107,7 +107,7 @@ development_status:
   7-8-hear-the-council-epilogue: done
   epic-7-retrospective: optional
   epic-8: backlog
-  8-1-make-the-game-sound-right: awaiting-operator
+  8-1-make-the-game-sound-right: done
   8-2-make-the-game-look-neon: awaiting-operator
   8-3-hit-the-performance-targets: awaiting-operator
   8-4-prove-the-game-is-finishable: awaiting-operator
