@@ -2,7 +2,6 @@
 
 ![DEFECTOR](docs/defector_logo.png)
 
-> "Chicken Invaders meets a CoD campaign."
 
 A neon 2D space shooter where every enemy fleet belongs to the woman you used to serve. You play **General Arden Vale**, who defected from Sovereign Isolde Varn's Sovereignty to the Free Worlds Coalition. Over three short levels you escort a convoy, lose a mentor, and bring down Isolde's Flagship. All of it is told through in-game comms, with no cutscenes.
 
@@ -134,4 +133,4 @@ _bmad/ .agents/ .claude/   BMAD method tooling and agent skills
 AGENTS.md        rules for AI agents
 ```
 
-Non-commercial hobby project.
+Non-commercial personal project.

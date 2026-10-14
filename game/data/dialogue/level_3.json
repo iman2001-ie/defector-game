@@ -3,9 +3,9 @@
 		"l3_briefing": {
 			"mode": "story",
 			"lines": [
-				{ "speaker": "ryn", "text": "Commander Holt to all ships. I've taken my father's fleet, General, and we end this today." },
-				{ "speaker": "ryn", "text": "Isolde's home fleet is dug in around the throne world. We break through it, then we bring down her Flagship." },
-				{ "speaker": "ryn", "text": "My father believed in you. Show me he was right." }
+				{ "speaker": "ryn", "text": "Commander Holt to all ships. I've taken command of my father's fleet. General, we end this today." },
+				{ "speaker": "ryn", "text": "Isolde's home fleet is dug in around the throne world. We break through, then we bring down her Flagship." },
+				{ "speaker": "ryn", "text": "My father believed in you. Now show me he was right." }
 			]
 		},
 		"l3_w3_isolde_taunt": {

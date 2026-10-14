@@ -97,17 +97,17 @@
 			"bullet_speed_px_s": 650,
 			"telegraph_s": 0.3,
 			"muzzle_glow_energy": 2.5,
-			"convoy_aim_chance": 0.34
+			"convoy_aim_chance": 0.4
 		},
 		"needle": {
 			"tier": "medium",
-			"hp": 6,
+			"hp": 7,
 			"hitbox_ratio": 0.8,
-			"reposition_interval_s": 8.0,
-			"fire_interval_s": 3.5,
+			"reposition_interval_s": 7.0,
+			"fire_interval_s": 3.0,
 			"bolt_speed_px_s": 3000,
-			"track_s": 1.2,
-			"lock_s": 0.2,
+			"track_s": 1.0,
+			"lock_s": 0.15,
 			"anchor_y_px": 160,
 			"reposition_speed_px_s": 400,
 			"reposition_min_distance_px": 320,
@@ -115,15 +115,15 @@
 		},
 		"bastion": {
 			"tier": "large",
-			"hp": 40,
+			"hp": 45,
 			"hitbox_ratio": 0.8,
 			"drift_speed_px_s": 60,
 			"band_y": { "min": 80, "max": 400 },
 			"turrets": 2,
-			"spread_bullets": 5,
-			"spread_deg": 15,
-			"fire_interval_s": 2.0,
-			"bullet_speed_px_s": 400,
+			"spread_bullets": 6,
+			"spread_deg": 20,
+			"fire_interval_s": 1.6,
+			"bullet_speed_px_s": 450,
 			"telegraph_s": 0.5,
 			"turret_glow_energy": 2.5
 		},
@@ -137,8 +137,8 @@
 			"tier": "small",
 			"hp": 3,
 			"hitbox_ratio": 0.8,
-			"chase_speed_px_s": 300,
-			"turn_rate_deg_s": 90
+			"chase_speed_px_s": 500,
+			"turn_rate_deg_s": 360
 		}
 	},
 	"boss": {
@@ -152,15 +152,15 @@
 		},
 		"turrets": {
 			"count": 4,
-			"hp": 25,
+			"hp": 30,
 			"spread_bullets": 9,
-			"bullet_speed_px_s": 450,
+			"bullet_speed_px_s": 500,
 			"fire_interval_s": 2.1,
 			"telegraph_s": 0.4,
 			"tier": "boss_part",
 			"sprite_px": 56,
 			"hitbox_ratio": 0.8,
-			"spread_deg": 15,
+			"spread_deg": 20,
 			"stagger_s": 0.75,
 			"glow_energy": 2.5
 		},
@@ -169,7 +169,7 @@
 			"sprite_px": 96,
 			"hitbox_ratio": 0.8,
 			"hp": 200,
-			"radial_bullets": 27,
+			"radial_bullets": 30,
 			"radial_speed_px_s": 600,
 			"radial_interval_s": 3.0,
 			"charge_s": 0.6,
@@ -182,15 +182,15 @@
 		"final_choice_hp": 50,
 		"desperate": {
 			"radial_bursts": 3,
-			"radial_speed_px_s": 400,
+			"radial_speed_px_s": 500,
 			"radial_interval_s": 1.5,
 			"radial_charge_s": 0.4,
-			"aimed_bullets": 5,
-			"aimed_speed_px_s": 600,
+			"aimed_bullets": 8,
+			"aimed_speed_px_s": 650,
 			"aimed_interval_s": 2.0,
 			"aimed_telegraph_s": 0.3,
-			"radial_bullets": 16,
-			"aimed_spread_deg": 15,
+			"radial_bullets": 20,
+			"aimed_spread_deg": 20,
 			"pulse_hz": 2.0
 		},
 		"phase1_medium_asteroids": 2
@@ -348,9 +348,9 @@
 		"contact_medium_hearts": 1,
 		"contact_large_hearts": 2,
 		"maul_contact_hearts": 1,
-		"convoy_aimed": 5,
+		"convoy_aimed": 7,
 		"convoy_stray": 2,
-		"convoy_maul": 10
+		"convoy_maul": 13
 	},
 	"hud": {
 		"wave_bar": { "x": 680, "y": 40, "width": 560, "height": 20, "fill_tween_s": 0.2 },
