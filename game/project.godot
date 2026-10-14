@@ -16,7 +16,7 @@ run/main_scene="res://scenes/boot/boot.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/use_custom_user_dir=true
 config/custom_user_dir_name="DEFECTOR"
-config/icon="res://assets/icon/defector_icon.svg"
+config/icon="res://assets/icon/defector_icon_ship.png"
 
 [autoload]
 

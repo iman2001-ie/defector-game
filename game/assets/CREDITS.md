@@ -71,7 +71,8 @@ Made for this project (Kenney has no portraits, no hull this size and no app ico
 | `portraits/portrait_ryn.png` | AI-generated for DEFECTOR with ChatGPT image generation (OpenAI), playtest 2026-10-14; the 1024 x 1024 export downscaled to 512 x 512 (Lanczos); OpenAI's Services Agreement assigns output rights to the user | Project-owned |
 | `logo/defector_logo.png` | AI-generated for DEFECTOR with ChatGPT image generation (OpenAI), playtest 2026-10-14: the DEFECTOR wordmark, its 2048 x 640 export cropped to the glyphs and glow and downscaled to 1536 x 284 (Lanczos); shown on the title and end screens; OpenAI's Services Agreement assigns output rights to the user | Project-owned |
 | `sprites/boss/flagship_hull.svg` | Hand-authored SVG, DEFECTOR (Story 8.2) | Project-owned |
-| `icon/defector_icon.svg` | Hand-authored SVG, DEFECTOR (Story 8.5) | Project-owned |
+| `icon/defector_icon_ship.png` | AI-generated for DEFECTOR with ChatGPT image generation (OpenAI), playtest 2026-10-14; the 1254 x 1254 export with its rounded corners made transparent, downscaled to 256 x 256 (Lanczos), metadata stripped; replaces the Story 8.5 SVG | Project-owned |
+| `icon/defector_icon_lasers.png` | The same, with two laser bolts above the ship (the alternative app icon) | Project-owned |
 
 ## Drawn in code by design
 

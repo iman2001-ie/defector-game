@@ -2,8 +2,13 @@ extends GutTest
 ## Pins the committed Windows Desktop export preset (relative paths only).
 
 const PRESETS_PATH: String = "res://export_presets.cfg"
-## Story 8.5: the project-owned app icon (exe icon and window icon).
-const ICON_PATH: String = "res://assets/icon/defector_icon.svg"
+## The app icon (exe icon and window icon): one of the two operator-made PNGs
+## (playtest 2026-10-14; Story 8.5's SVG retired). The operator switches by
+## pointing both project.godot and export_presets.cfg at the other file.
+const ICON_CHOICES: Array[String] = [
+	"res://assets/icon/defector_icon_ship.png",
+	"res://assets/icon/defector_icon_lasers.png",
+]
 const ICON_PX: int = 256
 
 var _cfg: ConfigFile
@@ -29,7 +34,7 @@ func test_preset_options() -> void:
 	assert_eq(_cfg.get_value("preset.0.options", "binary_format/architecture", ""), "x86_64")
 	assert_eq(_cfg.get_value("preset.0.options", "application/product_name", ""), "DEFECTOR")
 	assert_eq(_cfg.get_value("preset.0.options", "codesign/enable", true), false)
-	assert_eq(_cfg.get_value("preset.0.options", "application/icon", ""), ICON_PATH, "the exe carries the DEFECTOR icon")
+	assert_has(ICON_CHOICES, str(_cfg.get_value("preset.0.options", "application/icon", "")), "the exe carries a DEFECTOR icon")
 	# The version lives once, in project.godot: empty (or absent) here, so Godot
 	# fills the exe's file and product version from application/config/version.
 	assert_eq(_cfg.get_value("preset.0.options", "application/file_version", ""), "", "file_version stays empty")
@@ -39,8 +44,14 @@ func test_preset_options() -> void:
 ## Story 8.5: the icon loads as a 256 x 256 texture, and the project uses the
 ## same file as its window icon.
 func test_icon_is_a_256_px_texture() -> void:
-	var icon: Texture2D = load(ICON_PATH) as Texture2D
-	assert_not_null(icon, "%s loads as a Texture2D" % ICON_PATH)
+	for path: String in ICON_CHOICES:
+		var choice: Texture2D = load(path) as Texture2D
+		assert_not_null(choice, "%s loads as a Texture2D" % path)
+		if choice != null:
+			assert_eq(choice.get_size(), Vector2(ICON_PX, ICON_PX), "%s is %d px square" % [path, ICON_PX])
+	var icon_path: String = str(_cfg.get_value("preset.0.options", "application/icon", ""))
+	var icon: Texture2D = load(icon_path) as Texture2D
+	assert_not_null(icon, "%s loads as a Texture2D" % icon_path)
 	if icon == null:
 		return
 	assert_eq(icon.get_width(), ICON_PX, "icon width")
@@ -48,7 +59,7 @@ func test_icon_is_a_256_px_texture() -> void:
 
 
 func test_project_icon_and_version() -> void:
-	assert_eq(str(ProjectSettings.get_setting("application/config/icon", "")), ICON_PATH, "window icon is the exe icon")
+	assert_eq(str(ProjectSettings.get_setting("application/config/icon", "")), str(_cfg.get_value("preset.0.options", "application/icon", "")), "window icon is the exe icon")
 	assert_eq(str(ProjectSettings.get_setting("application/config/version", "")), "1.0", "the single version source")
 
 

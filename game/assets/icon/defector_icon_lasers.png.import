@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://du8ytrgnd0ls4"
-path="res://.godot/imported/defector_icon.svg-c5e35e51e393b6e60618bd0a0d3b228b.ctex"
+uid="uid://m1yatf3qlk6e"
+path="res://.godot/imported/defector_icon_lasers.png-5e33c7e48a68803fcaa4d273333f5fa4.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/icon/defector_icon.svg"
-dest_files=["res://.godot/imported/defector_icon.svg-c5e35e51e393b6e60618bd0a0d3b228b.ctex"]
+source_file="res://assets/icon/defector_icon_lasers.png"
+dest_files=["res://.godot/imported/defector_icon_lasers.png-5e33c7e48a68803fcaa4d273333f5fa4.ctex"]
 
 [params]
 
@@ -38,6 +38,3 @@ process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
 detect_3d/compress_to=1
-svg/scale=1.0
-editor/scale_with_editor_scale=false
-editor/convert_colors_with_editor_theme=false
