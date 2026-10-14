@@ -1,6 +1,7 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://entities/boss/flagship_core.gd" id="1_core"]
+[ext_resource type="Texture2D" path="res://assets/sprites/boss/flagship_core.png" id="9_sprite"]
 
 [sub_resource type="Gradient" id="Gradient_glow"]
 offsets = PackedFloat32Array(0, 0.35, 1)
@@ -25,9 +26,8 @@ script = ExtResource("1_core")
 
 [node name="Hitbox" type="CollisionShape2D" parent="."]
 
-[node name="Shell" type="Polygon2D" parent="."]
-color = Color(0.45, 0.07, 0.38, 1)
-polygon = PackedVector2Array(-20, -48, 20, -48, 48, -20, 48, 20, 20, 48, -20, 48, -48, 20, -48, -20)
+[node name="Shell" type="Sprite2D" parent="."]
+texture = ExtResource("9_sprite")
 
 [node name="Eye" type="Polygon2D" parent="."]
 color = Color(1, 0.168627, 0.839216, 1)

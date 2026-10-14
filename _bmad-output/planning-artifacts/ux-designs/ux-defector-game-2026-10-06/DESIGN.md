@@ -81,6 +81,7 @@ Contrast was checked against the panel colour composited on the background (`#09
 - **Font:** Kenney Future (CC0, ships with the Kenney packs). Credit it in `CREDITS.md`.
 - **Sizes at 1080p:** HUD labels 20px · body/hints 28px · comms text 28px (interruption box 28px) · speaker name 30px (interruption box 30px) · menu headings 48px · title logo 120px. Nothing below 20px. [ASSUMPTION: sizes; tune once the font is in-engine]
 - Labels, buttons and speaker names are UPPERCASE. Dialogue uses sentence case.
+- Per GDD decision #66 (provisional, pending the operator), dialogue text (story panel, interruption box, pause-menu recent comms) and the `▸` cue keep the engine font because Kenney Future Narrow could not be obtained; everything else uses Kenney Future.
 
 ## Layout & Spacing
 

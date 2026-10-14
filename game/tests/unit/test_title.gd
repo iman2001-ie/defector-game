@@ -219,6 +219,26 @@ func test_texts_and_font_sizes() -> void:
 	assert_false(_play(title).has_focus(), "nothing focused")
 
 
+## Story 8.2: the title has the space_1 backdrop as its first child, so it
+## draws behind the logo and the buttons (also on a config error).
+func test_space_backdrop_is_the_first_child() -> void:
+	var title: TitleScreen = _make()
+	var bg: LevelBackground = title.get_node_or_null("Background") as LevelBackground
+	assert_not_null(bg, "a LevelBackground")
+	if bg == null:
+		return
+	assert_eq(bg.get_index(), 0, "the first child")
+	assert_eq(bg.background_id(), LevelBackground.MENU_BACKGROUND, "space_1")
+	assert_eq(bg.tile_texture().resource_path, "res://assets/backgrounds/space_1.png")
+	assert_false(bg.shows_throne_world())
+
+
+func test_space_backdrop_shows_on_a_config_error() -> void:
+	var title: TitleScreen = _make_bad()
+	var bg: LevelBackground = title.get_node("Background") as LevelBackground
+	assert_eq(bg.background_id(), "space_1", "the backdrop needs no Config")
+
+
 func test_mouse_mode_visible_and_ready_line() -> void:
 	_make()
 	assert_eq(PauseArbiter.current_mouse_mode(), Input.MOUSE_MODE_VISIBLE)

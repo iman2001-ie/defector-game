@@ -1,7 +1,7 @@
 class_name CommsPanel
 extends Control
 ## The story comms panel (Story 5.1, UX "Story panel"): a dim over the
-## playfield and a centred conversation panel with a placeholder portrait, the
+## playfield and a centred conversation panel with the speaker's portrait, the
 ## speaker's uppercase name in its accent colour, typewriter text and the
 ## lowercase `click to continue ▸` cue. It has no buttons.
 ##
@@ -13,8 +13,13 @@ extends Control
 ## CommsChannel._unhandled_input. Runs while paused (PROCESS_MODE_ALWAYS), and
 ## the typewriter tween keeps running under the story pause.
 ##
-## Colours, font sizes and the panel style come from the shared Theme (type
-## `CommsPanel`); the portrait frame is the only per-node style override (the
+## Portrait (Story 8.2): a speaker with comms.speakers.<id>.portrait true shows
+## its CommsPortraits texture in `Portrait/Image` (inset by the frame border);
+## without a texture it shows the placeholder initial instead.
+##
+## Colours, font sizes, the panel style and the text and cue fonts come from the
+## shared Theme (type `CommsPanel`; the dialogue and the `▸` cue keep the engine
+## font through base-less FontVariations, Story 8.2); the portrait frame is the only per-node style override (the
 ## panel box with its border in the speaker accent). Layout numbers come from
 ## `ui.comms_panel`, speaker names and the portrait flag from `comms.speakers`,
 ## the typing speed from `comms.chars_per_s`. All are cached in _ready.
@@ -27,6 +32,11 @@ const STYLE_PANEL: StringName = &"panel"
 const FONT_SIZE_TEXT: StringName = &"text"
 const FONT_SIZE_NAME: StringName = &"name"
 const FONT_SIZE_CUE: StringName = &"cue"
+## The dialogue and cue fonts (Story 8.2): base-less FontVariations, so the
+## text keeps the engine font (Kenney Future is too wide for the 4-line panel
+## and has no ▸ glyph) while names and labels use the Theme's default font.
+const FONT_TEXT: StringName = &"text"
+const FONT_CUE: StringName = &"cue"
 ## Text line spacing: 0 so four 30 px lines fit the 168 px text block.
 const CONSTANT_LINE_SPACING: StringName = &"line_spacing"
 const TEXT_CUE: String = "click to continue ▸"
@@ -57,11 +67,15 @@ var _text_color: Color = Color.WHITE
 var _frame_style: StyleBox = null
 var _tween: Tween = null
 var _speaker: StringName = &""
+## Speaker id -> portrait texture (a copy of CommsPortraits.TEXTURES; tests
+## may change it). A portrait speaker missing here shows the initial.
+var portraits: Dictionary[StringName, Texture2D] = CommsPortraits.TEXTURES.duplicate()
 
 @onready var _dim: ColorRect = $Dim
 @onready var _panel: Panel = $Panel
 @onready var _portrait: Panel = $Panel/Portrait
 @onready var _initial: Label = $Panel/Portrait/Initial
+@onready var _image: TextureRect = $Panel/Portrait/Image
 @onready var _name: Label = $Panel/Name
 @onready var _text: Label = $Panel/Text
 @onready var _cue: Label = $Panel/Cue
@@ -86,7 +100,7 @@ func _ready() -> void:
 	_name_gap = maxf(Config.num("ui.comms_panel.name_gap_px"), 0.0)
 	_cue_h = maxf(Config.num("ui.comms_panel.cue_h_px"), 0.0)
 	_speakers = Config.section("comms.speakers")
-	for child: Control in [_dim, _panel, _portrait, _initial, _name, _text, _cue]:
+	for child: Control in [_dim, _panel, _portrait, _initial, _image, _name, _text, _cue]:
 		child.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_text.clip_text = true
@@ -96,6 +110,8 @@ func _ready() -> void:
 	_cue.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	_initial.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_initial.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_apply_theme()
 	_apply_layout(true)
 	visible = false
@@ -140,6 +156,10 @@ func show_line(speaker: StringName, text: String) -> void:
 	_name.add_theme_color_override(&"font_color", accent)
 	_portrait.visible = with_portrait
 	if with_portrait:
+		var picture: Texture2D = portraits.get(speaker) as Texture2D
+		_image.texture = picture
+		_image.visible = picture != null
+		_initial.visible = picture == null
 		_initial.text = display_name.left(1)
 		_initial.add_theme_color_override(&"font_color", accent)
 		_apply_frame(accent)
@@ -226,6 +246,7 @@ func _apply_layout(with_portrait: bool) -> void:
 	_set_rect(_panel, rects[RECT_PANEL] as Rect2)
 	_set_rect(_portrait, rects[RECT_PORTRAIT] as Rect2)
 	_set_rect(_initial, Rect2(Vector2.ZERO, (rects[RECT_PORTRAIT] as Rect2).size))
+	_set_rect(_image, CommsPortraits.image_rect((rects[RECT_PORTRAIT] as Rect2).size, _frame_style))
 	_set_rect(_name, rects[RECT_NAME] as Rect2)
 	_set_rect(_text, rects[RECT_TEXT] as Rect2)
 	_set_rect(_cue, rects[RECT_CUE] as Rect2)
@@ -258,6 +279,10 @@ func _apply_theme() -> void:
 	if has_theme_constant(CONSTANT_LINE_SPACING, THEME_TYPE):
 		_text.add_theme_constant_override(&"line_spacing", get_theme_constant(CONSTANT_LINE_SPACING, THEME_TYPE))
 	_cue.add_theme_color_override(&"font_color", get_theme_color(COLOR_MUTED, THEME_TYPE))
+	if has_theme_font(FONT_TEXT, THEME_TYPE):
+		_text.add_theme_font_override(&"font", get_theme_font(FONT_TEXT, THEME_TYPE))
+	if has_theme_font(FONT_CUE, THEME_TYPE):
+		_cue.add_theme_font_override(&"font", get_theme_font(FONT_CUE, THEME_TYPE))
 	var sizes: Dictionary = {_text: FONT_SIZE_TEXT, _name: FONT_SIZE_NAME, _initial: FONT_SIZE_NAME, _cue: FONT_SIZE_CUE}
 	for label: Label in sizes:
 		var font_px: int = get_theme_font_size(sizes[label] as StringName, THEME_TYPE)

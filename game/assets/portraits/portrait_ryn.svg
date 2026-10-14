@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+  <!-- Ryn: short hair and a flight-suit collar. Project-owned (DEFECTOR, Story 8.2). -->
+  <rect width="200" height="200" fill="#0A1222"/>
+  <g fill="none" stroke="#7CFFB2" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M18 200 C24 168 50 152 76 146 L100 154 L124 146 C150 152 176 168 182 200 Z" fill="#7CFFB2" fill-opacity="0.16"/>
+    <path d="M90 118 L90 138"/>
+    <path d="M110 118 L110 138"/>
+    <path d="M72 148 L80 134 L120 134 L128 148 L100 156 Z" fill="#7CFFB2" fill-opacity="0.34"/>
+    <path d="M100 156 L100 200"/>
+    <rect x="124" y="170" width="24" height="12" fill="#7CFFB2" fill-opacity="0.34"/>
+    <ellipse cx="100" cy="86" rx="29" ry="36" fill="#7CFFB2" fill-opacity="0.12"/>
+    <path d="M70 84 C67 60 81 46 100 46 C119 46 133 60 130 84 C124 70 112 62 100 64 C88 62 77 70 70 84 Z" fill="#7CFFB2" fill-opacity="0.45"/>
+    <path d="M85 88 L95 88"/>
+    <path d="M105 88 L115 88"/>
+    <path d="M100 94 L98 102 L102 102"/>
+    <path d="M94 109 L106 109"/>
+  </g>
+</svg>

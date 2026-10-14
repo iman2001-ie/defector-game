@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://entities/enemies/hunter_wasp/hunter_wasp.gd" id="1_hunter_wasp"]
+[ext_resource type="Texture2D" path="res://assets/sprites/enemies/enemy_hunter_wasp.png" id="9_sprite"]
 
 [node name="HunterWasp" type="Area2D"]
 collision_layer = 4
@@ -11,6 +12,5 @@ sprite_px = 64.0
 
 [node name="Hitbox" type="CollisionShape2D" parent="."]
 
-[node name="Hull" type="Polygon2D" parent="."]
-color = Color(1, 0.541176, 0.121569, 1)
-polygon = PackedVector2Array(0, 32, -8, 6, -30, -28, -10, -16, 0, -26, 10, -16, 30, -28, 8, 6)
+[node name="Hull" type="Sprite2D" parent="."]
+texture = ExtResource("9_sprite")

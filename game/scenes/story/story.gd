@@ -13,6 +13,9 @@ extends Control
 ## once, which loads the pending level or the end screen (the council epilogue,
 ## Story 7.8). Run directly with nothing pending it warns and calls
 ## finish_story(), which goes to the title.
+##
+## Story 8.2: the `Background` child (first, so it draws behind the comms) is
+## a LevelBackground showing LevelBackground.MENU_BACKGROUND.
 
 var _sequence: StringName = &""
 var _finished: bool = false
@@ -20,6 +23,9 @@ var _finished: bool = false
 
 func _ready() -> void:
 	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	var background: LevelBackground = get_node_or_null(^"Background") as LevelBackground
+	if background != null:
+		background.apply(LevelBackground.MENU_BACKGROUND)
 	_sequence = SceneRouter.story_sequence()
 	if _sequence == &"":
 		Log.warn("scene", "Story scene has no pending sequence; finishing at once")

@@ -219,6 +219,52 @@ func test_card_count_follows_progression_level_count() -> void:
 	assert_eq(_lines_starting("[INFO][scene] Level select ready (2 levels, 1 unlocked)").size(), 1)
 
 
+## Story 8.2: each Thumbnail clips a LevelBackground showing the level's
+## `background` id (space_1, space_2, throne_world), scaled uniformly so the
+## playfield covers the thumbnail, centred horizontally and top-aligned.
+func test_thumbnails_show_each_levels_backdrop() -> void:
+	var screen: LevelSelectScreen = _make()
+	await wait_process_frames(1)
+	var expected: Array[String] = ["space_1", "space_2", "throne_world"]
+	for n: int in range(1, 4):
+		var thumb: ColorRect = _card(screen, n).get_node("Thumbnail") as ColorRect
+		assert_true(thumb.clip_contents, "Card%d thumbnail clips" % n)
+		var bg: LevelBackground = thumb.get_node_or_null("Background") as LevelBackground
+		assert_not_null(bg, "Card%d backdrop" % n)
+		if bg == null:
+			continue
+		assert_eq(bg.background_id(), expected[n - 1], "Card%d shows level %d's background" % [n, n])
+		assert_eq(bg.background_id(), str(Config.level(str(n)).get("background")), "from the level data")
+		assert_almost_eq(bg.scale.x, bg.scale.y, 0.0001, "uniform scale")
+		var covered: Rect2 = Rect2(bg.position, Playfield.SIZE * bg.scale)
+		assert_true(covered.encloses(Rect2(Vector2.ZERO, thumb.size)), "Card%d: the playfield covers the thumbnail" % n)
+		assert_almost_eq(bg.position.y, 0.0, 0.0001, "top-aligned")
+		assert_true(absf(covered.size.x - thumb.size.x) < 0.01 or absf(covered.size.y - thumb.size.y) < 0.01, "fits one side exactly")
+	assert_eq(_lines_starting("[WARN]"), [] as Array[String], "no warning")
+
+
+func test_thumbnail_transform() -> void:
+	var wide: Transform2D = LevelSelectScreen.thumbnail_transform(Vector2(448, 120))
+	assert_almost_eq(wide.get_scale().x, 448.0 / 1920.0, 0.0001, "width-limited")
+	assert_eq(wide.origin, Vector2.ZERO)
+	var tall: Transform2D = LevelSelectScreen.thumbnail_transform(Vector2(100, 108))
+	assert_almost_eq(tall.get_scale().x, 0.1, 0.0001, "height-limited")
+	assert_almost_eq(tall.origin.x, (100.0 - 192.0) / 2.0, 0.0001, "centred horizontally")
+	assert_eq(tall.origin.y, 0.0, "top-aligned")
+
+
+func test_null_background_keeps_the_theme_colour() -> void:
+	assert_eq(LevelSelectScreen.thumbnail_background_id({"background": null}), "", "null")
+	assert_eq(LevelSelectScreen.thumbnail_background_id({}), "", "absent")
+	assert_eq(LevelSelectScreen.thumbnail_background_id({"background": 3.0}), "", "not a String")
+	assert_eq(LevelSelectScreen.thumbnail_background_id({"background": "space_2"}), "space_2")
+	var bg: LevelBackground = LevelBackground.new()
+	add_child_autofree(bg)
+	bg.apply(LevelSelectScreen.thumbnail_background_id({"background": null}))
+	assert_null(bg.tile_texture(), "a null id draws nothing, so the thumbnail colour shows")
+	assert_false(bg.shows_throne_world())
+
+
 func test_texts_and_font_sizes() -> void:
 	var screen: LevelSelectScreen = _make()
 	for n: int in range(1, 4):
@@ -226,8 +272,8 @@ func test_texts_and_font_sizes() -> void:
 		assert_eq(_label(card, "Number").text, "LEVEL %d" % n)
 		assert_eq(_label(card, "Name").text, LEVEL_NAMES[n - 1])
 		assert_eq(_label(card, "Locked").text, "LOCKED")
-		assert_true(card.get_node("Thumbnail") is ColorRect, "Card%d thumbnail placeholder" % n)
-		_assert_color((card.get_node("Thumbnail") as ColorRect).color, Color("#2B3348"), "thumbnail")
+		assert_true(card.get_node("Thumbnail") is ColorRect, "Card%d thumbnail" % n)
+		_assert_color((card.get_node("Thumbnail") as ColorRect).color, Color("#2B3348"), "thumbnail colour under the backdrop")
 		assert_eq(card.focus_mode, Control.FOCUS_NONE, "Card%d takes no focus" % n)
 		_assert_button_styles(card)
 		assert_eq(_label(card, "Number").get_theme_font_size(&"font_size"), 20, "number font")

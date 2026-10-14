@@ -12,13 +12,4 @@ script = ExtResource("1_asteroid")
 
 [node name="Visual" type="Node2D" parent="."]
 
-[node name="Body" type="Polygon2D" parent="Visual"]
-color = Color(0.478431, 0.431373, 0.384314, 1)
-polygon = PackedVector2Array(1, 0, 0.671, 0.538, 0.478, 0.844, -0.223, 0.768, -0.565, 0.752, -0.973, 0.231, -0.829, -0.137, -0.54, -0.745, -0.151, -0.765, 0.498, -0.844, 0.723, -0.501)
-
-[node name="Rim" type="Line2D" parent="Visual"]
-points = PackedVector2Array(1, 0, 0.671, 0.538, 0.478, 0.844, -0.223, 0.768, -0.565, 0.752, -0.973, 0.231, -0.829, -0.137, -0.54, -0.745, -0.151, -0.765, 0.498, -0.844, 0.723, -0.501)
-closed = true
-width = 0.03
-default_color = Color(0.788235, 0.847059, 0.909804, 1)
-joint_mode = 1
+[node name="Sprite" type="Sprite2D" parent="Visual"]

@@ -18,7 +18,9 @@ extends Area2D
 ## _max_hp() (the hp set in _ready; default the section's hp), _hitbox_shape()
 ## (default a circle of sprite_px / 2 * hitbox_ratio) and is_targetable()
 ## (whether homing shots and allies may pick it; default true). Story 7.5 adds
-## _death_feedback() (the impact a kill plays; default the tier's).
+## _death_feedback() (the impact a kill plays; default the tier's). Story 8.2
+## adds _body_sprite_path() (the Sprite2D fitted in _ready so its texture's
+## longer side is sprite_px, through SpriteFit; default `Hull`).
 
 signal resolved
 
@@ -73,6 +75,9 @@ func _ready() -> void:
 		hitbox.shape = _hitbox_shape()
 	else:
 		Log.error("combat", "enemy '%s' has no Hitbox" % type_id)
+	var body: Sprite2D = get_node_or_null(_body_sprite_path()) as Sprite2D
+	if body != null:
+		SpriteFit.fit_longest(body, sprite_px, String(type_id))
 	add_to_group(Groups.ENEMIES)
 
 
@@ -209,6 +214,13 @@ func _tuning_key(field: String) -> String:
 ## The hp set in _ready: the section's `hp`.
 func _max_hp() -> int:
 	return Config.int_(_tuning_key("hp"))
+
+
+## The body Sprite2D that _ready fits to sprite_px (Story 8.2): `Hull` by
+## default; the Flagship's turret uses `Body` and its core `Shell`. A missing
+## node (a bare Enemy in a test) is skipped.
+func _body_sprite_path() -> NodePath:
+	return ^"Hull"
 
 
 ## The Hitbox shape built in _ready: a circle of sprite_px / 2 * hitbox_ratio.

@@ -6,10 +6,18 @@ extends Area2D
 ##
 ## Created only by Spawner: setup(params) stores values before add_child, and
 ## _ready() applies them.
+##
+## Story 8.2: `Visual/Sprite` shows the size's recoloured Kenney meteor
+## (TEXTURES: `hazard` grey-brown with a baked `hazardRim` rim light on its
+## upper-left edge), fitted so its longer side is asteroids.<size>.diameter_px.
 
 const SIZES: Array[StringName] = [&"small", &"medium", &"large"]
-## On-screen rim stroke width, kept constant across sizes (art constant, not tuning).
-const RIM_WIDTH_PX: float = 3.0
+## One preloaded meteor texture per size.
+const TEXTURES: Dictionary[StringName, Texture2D] = {
+	&"small": preload("res://assets/sprites/asteroids/asteroid_small.png"),
+	&"medium": preload("res://assets/sprites/asteroids/asteroid_medium.png"),
+	&"large": preload("res://assets/sprites/asteroids/asteroid_large.png"),
+}
 
 var size: StringName = &"small"
 ## Set by Spawner before add_child; the death drop (energy orbs) is requested
@@ -52,13 +60,10 @@ func _ready() -> void:
 		var circle: CircleShape2D = CircleShape2D.new()
 		circle.radius = radius
 		hitbox.shape = circle
-	var visual: Node2D = get_node_or_null(^"Visual") as Node2D
-	if visual != null and radius > 0.0:
-		# The placeholder art is unit-radius, so scaling by the radius spans the diameter.
-		visual.scale = Vector2(radius, radius)
-		var rim: Line2D = visual.get_node_or_null(^"Rim") as Line2D
-		if rim != null:
-			rim.width = RIM_WIDTH_PX / radius
+	var sprite: Sprite2D = get_node_or_null(^"Visual/Sprite") as Sprite2D
+	if sprite != null:
+		sprite.texture = TEXTURES.get(size) as Texture2D
+		SpriteFit.fit_longest(sprite, radius * 2.0, "asteroid %s" % size)
 	add_to_group(Groups.ASTEROIDS)
 
 

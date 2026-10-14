@@ -1,6 +1,7 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://entities/enemies/bastion/bastion.gd" id="1_bastion"]
+[ext_resource type="Texture2D" path="res://assets/sprites/enemies/enemy_bastion.png" id="9_sprite"]
 
 [sub_resource type="Gradient" id="Gradient_glow"]
 offsets = PackedFloat32Array(0, 0.35, 1)
@@ -26,17 +27,8 @@ sprite_px = 160.0
 
 [node name="Hitbox" type="CollisionShape2D" parent="."]
 
-[node name="Hull" type="Polygon2D" parent="."]
-color = Color(1, 0.168627, 0.839216, 1)
-polygon = PackedVector2Array(-24, -55, 24, -55, 64, -44, 80, -20, 80, 20, 66, 34, 56, 52, 32, 52, 20, 36, -20, 36, -32, 52, -56, 52, -66, 34, -80, 20, -80, -20, -64, -44)
-
-[node name="Plating" type="Polygon2D" parent="."]
-color = Color(0.45, 0.07, 0.38, 1)
-polygon = PackedVector2Array(-52, -32, 52, -32, 62, -12, 52, 14, -52, 14, -62, -12)
-
-[node name="Bridge" type="Polygon2D" parent="."]
-color = Color(1, 0.168627, 0.839216, 1)
-polygon = PackedVector2Array(-14, -26, 14, -26, 20, -10, 14, 6, -14, 6, -20, -10)
+[node name="Hull" type="Sprite2D" parent="."]
+texture = ExtResource("9_sprite")
 
 [node name="Turrets" type="Node2D" parent="."]
 

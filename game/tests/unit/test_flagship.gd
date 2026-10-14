@@ -20,6 +20,7 @@ extends GutTest
 ## an enemy added during the chain is swept before boss_defeated, and a
 ## Flagship without a spawner still sweeps.
 
+const SpriteProbe: GDScript = preload("res://tests/fixtures/sprite_probe.gd")
 const FLAGSHIP_SCENE: PackedScene = preload("res://entities/boss/flagship.tscn")
 const WASP_SCENE: PackedScene = preload("res://entities/enemies/wasp/wasp.tscn")
 const ENEMY_BULLET_SCENE: PackedScene = preload("res://entities/projectiles/enemy_bullet.tscn")
@@ -611,6 +612,50 @@ func test_fourth_turret_death_enters_core() -> void:
 
 
 # --- Geometry, contact and targeting --------------------------------------------
+
+## Story 8.2: the hull is the project-owned SVG fitted to the hull width (inside
+## the hitbox rect); each turret's Body and the core's Shell are recoloured
+## Kenney sprites fitted to their boss.*.sprite_px, and the animated nodes
+## (turret Barrel and Glow, the core's Eye and Glow) are unchanged.
+func test_hull_turret_and_core_art() -> void:
+	var boss: Flagship = _spawn_at_station()
+	var hull: Sprite2D = boss.get_node_or_null("Hull") as Sprite2D
+	assert_not_null(hull, "Hull sprite")
+	if hull != null:
+		assert_eq(hull.texture.resource_path, "res://assets/sprites/boss/flagship_hull.svg")
+		var drawn: Vector2 = SpriteFit.drawn_size(hull)
+		assert_almost_eq(drawn.x, Config.num("boss.hull.width_px"), 1.0, "as wide as the hull")
+		assert_lte(drawn.y, Config.num("boss.hull.height_px") + 1.0, "inside the hull outline")
+		assert_eq(hull.position, Vector2.ZERO, "centred")
+		assert_eq(hull.self_modulate, Color.WHITE)
+	assert_null(boss.get_node_or_null("Plating"), "the placeholder plating is gone")
+	assert_null(boss.get_node_or_null("Bridge"), "the placeholder bridge is gone")
+	for turret: FlagshipTurret in boss.turrets():
+		var body: Sprite2D = turret.get_node_or_null("Body") as Sprite2D
+		assert_not_null(body, "%s Body sprite" % turret.name)
+		if body != null:
+			assert_eq(body.texture.resource_path, "res://assets/sprites/boss/flagship_turret.png")
+			assert_almost_eq(SpriteProbe.longest_side(body), Config.num("boss.turrets.sprite_px"), 1.0, "turret fitted")
+			assert_lt(SpriteProbe.hue_distance_deg(SpriteProbe.dominant_hue(body.texture), Color("#FF2BD6").h), 8.0, "enemy hue")
+		assert_null(turret.get_node_or_null("Plating"), "the turret plating is gone")
+		assert_true(turret.get_node_or_null("Barrel") is Polygon2D, "the Barrel stays")
+		assert_true(turret.get_node_or_null("Glow") is Sprite2D, "the Glow stays")
+		var barrel: Node = turret.get_node_or_null("Barrel")
+		if body != null and barrel != null:
+			assert_lt(body.get_index(), barrel.get_index(), "the barrel draws over the body")
+	var core: FlagshipCore = boss.core()
+	var shell: Sprite2D = core.get_node_or_null("Shell") as Sprite2D
+	assert_not_null(shell, "Shell sprite")
+	if shell != null:
+		assert_eq(shell.texture.resource_path, "res://assets/sprites/boss/flagship_core.png")
+		assert_almost_eq(SpriteProbe.longest_side(shell), Config.num("boss.core.sprite_px"), 1.0, "core fitted")
+		assert_lt(SpriteProbe.hue_distance_deg(SpriteProbe.dominant_hue(shell.texture), Color("#FF2BD6").h), 8.0, "enemy hue")
+		var eye: Node = core.get_node_or_null("Eye")
+		assert_true(eye is Polygon2D, "the Eye stays")
+		if eye != null:
+			assert_lt(shell.get_index(), eye.get_index(), "the Eye draws over the shell")
+	assert_eq(_logged("[WARN]"), [] as Array[String], "no warning")
+
 
 func test_no_part_hitbox_overlaps_the_hull() -> void:
 	var boss: Flagship = _spawn_at_station()

@@ -5,6 +5,7 @@ extends GutTest
 ## (first outcome wins), the cached solid hull polygon and the code-drawn
 ## nose-up hull. Driven through step() with physics off.
 
+const SpriteProbe: GDScript = preload("res://tests/fixtures/sprite_probe.gd")
 const CONVOY_SCENE: PackedScene = preload("res://entities/allies/convoy.tscn")
 const SHIP_SCENE: PackedScene = preload("res://entities/allies/convoy_ship.tscn")
 const DT: float = 1.0 / 60.0
@@ -413,13 +414,28 @@ func test_hull_outline_points_nose_up() -> void:
 	assert_true(outline.has(Vector2(-80, -20)) and outline.has(Vector2(80, -20)), "taper over the top quarter")
 
 
-func test_hull_colours_are_coalition_and_dim() -> void:
-	assert_eq(ConvoyShip.OUTLINE_COLOR, Color("#22E6FF"), "bright coalition outline")
-	var body: Color = ConvoyShip.BODY_COLOR
-	assert_almost_eq(body.r, ConvoyShip.OUTLINE_COLOR.r, 0.002)
-	assert_almost_eq(body.g, ConvoyShip.OUTLINE_COLOR.g, 0.002)
-	assert_almost_eq(body.b, ConvoyShip.OUTLINE_COLOR.b, 0.002)
-	assert_lt(body.a, 0.5, "dim body")
+## Story 8.2: the hull is a Kenney cargo sprite turned nose-up, recoloured a
+## dimmed coalition (dimmer than the ally fighter, so it reads as civilian),
+## fitted uniformly inside ship_width_px x ship_height_px.
+func test_hull_sprite_is_dim_coalition_cargo_fitted_inside_the_hull() -> void:
+	var ship: ConvoyShip = SHIP_SCENE.instantiate() as ConvoyShip
+	add_child_autofree(ship)
+	var sprite: Sprite2D = ship.hull_sprite()
+	assert_not_null(sprite, "the Sprite child")
+	if sprite == null:
+		return
+	assert_eq(sprite.texture.resource_path, "res://assets/sprites/allies/convoy_cargo.png")
+	var box: Vector2 = Vector2(Config.num("convoy.ship_width_px"), Config.num("convoy.ship_height_px"))
+	var drawn: Vector2 = SpriteFit.drawn_size(sprite)
+	assert_lte(drawn.x, box.x + 0.001, "inside the hull width")
+	assert_lte(drawn.y, box.y + 0.001, "inside the hull height")
+	assert_true(absf(drawn.x - box.x) < 1.0 or absf(drawn.y - box.y) < 1.0, "touches the box on one side (%s in %s)" % [drawn, box])
+	assert_almost_eq(sprite.scale.x, sprite.scale.y, 0.0001, "uniform")
+	assert_eq(sprite.rotation, 0.0, "the texture is already nose-up")
+	assert_eq(sprite.self_modulate, Color.WHITE)
+	assert_lt(SpriteProbe.hue_distance_deg(SpriteProbe.dominant_hue(sprite.texture), Color("#22E6FF").h), 8.0, "coalition hue")
+	var fighter: Texture2D = load("res://assets/sprites/allies/ally_coalition.png") as Texture2D
+	assert_lt(SpriteProbe.max_channel(sprite.texture), SpriteProbe.max_channel(fighter), "dimmer than the ally fighter")
 
 
 func test_ship_without_convoy_ignores_damage() -> void:

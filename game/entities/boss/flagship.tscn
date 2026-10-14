@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://entities/boss/flagship.gd" id="1_flagship"]
 [ext_resource type="PackedScene" path="res://entities/boss/flagship_turret.tscn" id="2_turret"]
 [ext_resource type="PackedScene" path="res://entities/boss/flagship_core.tscn" id="3_core"]
+[ext_resource type="Texture2D" path="res://assets/sprites/boss/flagship_hull.svg" id="9_sprite"]
 
 [node name="Flagship" type="Area2D"]
 collision_layer = 4
@@ -13,17 +14,8 @@ sprite_px = 720.0
 
 [node name="Hitbox" type="CollisionShape2D" parent="."]
 
-[node name="Hull" type="Polygon2D" parent="."]
-color = Color(1, 0.168627, 0.839216, 1)
-polygon = PackedVector2Array(-300, -70, 300, -70, 360, -26, 360, 35, 320, 70, -320, 70, -360, 35, -360, -26)
-
-[node name="Plating" type="Polygon2D" parent="."]
-color = Color(0.45, 0.07, 0.38, 1)
-polygon = PackedVector2Array(-280, -51, 280, -51, 330, -17, 330, 26, 300, 52, -300, 52, -330, 26, -330, -17)
-
-[node name="Bridge" type="Polygon2D" parent="."]
-color = Color(1, 0.168627, 0.839216, 1)
-polygon = PackedVector2Array(-60, -40, 60, -40, 84, -14, 60, 12, -60, 12, -84, -14)
+[node name="Hull" type="Sprite2D" parent="."]
+texture = ExtResource("9_sprite")
 
 [node name="Turrets" type="Node2D" parent="."]
 

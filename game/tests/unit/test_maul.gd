@@ -5,6 +5,7 @@ extends GutTest
 ## the no-convoy resolve, kills by shots, and the pause freeze.
 ## Driven through step(delta) with physics processing off, plus real overlaps.
 
+const SpriteProbe: GDScript = preload("res://tests/fixtures/sprite_probe.gd")
 const MAUL_SCENE: PackedScene = preload("res://entities/enemies/maul/maul.tscn")
 const CONVOY_SCENE: PackedScene = preload("res://entities/allies/convoy.tscn")
 const DT: float = 1.0 / 60.0
@@ -143,11 +144,13 @@ func test_stats_layers_hull_and_trail() -> void:
 	assert_eq(maul.collision_layer, CollisionLayers.ENEMIES, "enemies layer")
 	assert_eq(maul.collision_mask, CollisionLayers.CONVOY, "only the Maul masks the convoy")
 	assert_true(maul.monitoring, "detects convoy ships")
-	var hull: Polygon2D = maul.get_node_or_null("Hull") as Polygon2D
-	assert_not_null(hull)
+	var hull: Sprite2D = maul.get_node_or_null("Hull") as Sprite2D
+	assert_not_null(hull, "Hull sprite")
 	if hull != null:
-		assert_true(hull.color.is_equal_approx(ENEMY_COLOR), "enemy #FF2BD6 hull")
-		assert_gte(hull.polygon.size(), 3)
+		assert_eq(hull.texture.resource_path, "res://assets/sprites/enemies/enemy_maul.png", "the Maul hull")
+		assert_almost_eq(SpriteProbe.longest_side(hull), maul.sprite_px, 1.0, "longer side = sprite_px")
+		assert_lt(SpriteProbe.hue_distance_deg(SpriteProbe.dominant_hue(hull.texture), ENEMY_COLOR.h), 8.0, "in the enemy hue")
+		assert_eq(hull.self_modulate, Color.WHITE, "modulate stays white")
 	var trail: Polygon2D = maul.get_node_or_null("Trail") as Polygon2D
 	assert_not_null(trail)
 	if trail != null:

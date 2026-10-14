@@ -4,6 +4,7 @@ extends GutTest
 ## immunity, tuning reads, pause. Driven through step(delta) with physics
 ## processing off, so every move is deterministic.
 
+const SpriteProbe: GDScript = preload("res://tests/fixtures/sprite_probe.gd")
 const BASTION_SCENE: PackedScene = preload("res://entities/enemies/bastion/bastion.tscn")
 const WASP_SCENE: PackedScene = preload("res://entities/enemies/wasp/wasp.tscn")
 const BASTION_SCRIPT_PATH: String = "res://entities/enemies/bastion/bastion.gd"
@@ -157,10 +158,15 @@ func test_hp_tier_and_scene() -> void:
 	assert_eq(bastion.collision_layer, CollisionLayers.ENEMIES)
 	assert_eq(bastion.collision_mask, 0)
 	assert_false(bastion.monitoring)
-	var hull: Polygon2D = bastion.get_node_or_null("Hull") as Polygon2D
-	assert_not_null(hull, "Hull silhouette")
+	var hull: Sprite2D = bastion.get_node_or_null("Hull") as Sprite2D
+	assert_not_null(hull, "Hull sprite")
 	if hull != null:
-		assert_eq(hull.color.to_html(false), "ff2bd6", "enemy colour")
+		assert_eq(hull.texture.resource_path, "res://assets/sprites/enemies/enemy_bastion.png", "the Bastion hull")
+		assert_almost_eq(SpriteProbe.longest_side(hull), bastion.sprite_px, 1.0, "longer side = sprite_px")
+		assert_lt(SpriteProbe.hue_distance_deg(SpriteProbe.dominant_hue(hull.texture), Color("#FF2BD6").h), 8.0, "in the enemy hue")
+		assert_eq(hull.self_modulate, Color.WHITE, "modulate stays white")
+	assert_null(bastion.get_node_or_null("Plating"), "the placeholder plating is gone")
+	assert_null(bastion.get_node_or_null("Bridge"), "the placeholder bridge is gone")
 	assert_eq(bastion.turret_count(), Config.int_("enemies.bastion.turrets"), "scene turrets match tuning")
 	var t0: Marker2D = bastion.get_node_or_null("Turrets/Turret0") as Marker2D
 	var t1: Marker2D = bastion.get_node_or_null("Turrets/Turret1") as Marker2D

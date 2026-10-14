@@ -200,7 +200,12 @@ func test_portrait_speaker_line() -> void:
 	assert_not_null(frame, "portrait frame override")
 	if frame != null:
 		_assert_color(frame.border_color, Color("#3DF2FF"), "frame in the accent")
-	assert_eq(_label(box, "Box/Portrait/Initial").text, "T", "placeholder initial")
+	var image: TextureRect = box.get_node("Box/Portrait/Image") as TextureRect
+	assert_true(image.visible, "the portrait image shows")
+	assert_eq(image.texture.resource_path, "res://assets/portraits/portrait_tarek.svg", "Tarek's portrait")
+	assert_false(_label(box, "Box/Portrait/Initial").visible, "the initial is hidden")
+	assert_eq(Rect2(image.position, image.size), Rect2(1, 1, 86, 86), "inside the 1 px accent frame")
+	assert_eq(image.mouse_filter, Control.MOUSE_FILTER_IGNORE)
 	assert_eq(_label(box, "Box/Text").get_rect(), Rect2(124, 50, 758, 66), "758 px text block")
 	assert_eq(_label(box, "Box/Text").text, "Ambush on the left.")
 	assert_eq(box.current_speaker(), &"tarek")
@@ -217,6 +222,37 @@ func test_no_portrait_speaker_line() -> void:
 	box.show_line(&"ryn", "Back to a portrait.")
 	assert_true(_node(box, "Box/Portrait").visible)
 	assert_eq(_label(box, "Box/Text").get_rect().size.x, 758.0, "re-laid out for the portrait")
+
+
+## Story 8.2: every portrait speaker has its own portrait (Isolde, Tarek, Ryn);
+## Vale and the system keep the no-portrait variant.
+func test_each_portrait_speaker_shows_their_portrait() -> void:
+	var box: CommsBox = _make()
+	for speaker: StringName in [&"isolde", &"tarek", &"ryn"]:
+		box.show_line(speaker, "Portrait check.")
+		var image: TextureRect = box.get_node("Box/Portrait/Image") as TextureRect
+		assert_true(image.visible, "%s image" % speaker)
+		assert_eq(image.texture, CommsPortraits.TEXTURES[speaker], "%s portrait" % speaker)
+		assert_eq(image.texture.resource_path, "res://assets/portraits/portrait_%s.svg" % speaker)
+		assert_false(_label(box, "Box/Portrait/Initial").visible, "%s: no initial" % speaker)
+	for speaker: StringName in [&"vale", &"system"]:
+		box.show_line(speaker, "No portrait.")
+		assert_false((box.get_node("Box/Portrait") as Control).visible, "%s: no-portrait variant" % speaker)
+
+
+## A portrait speaker with no texture keeps the placeholder initial.
+func test_portrait_speaker_without_a_texture_shows_the_initial() -> void:
+	var box: CommsBox = _make()
+	box.portraits.erase(&"tarek")
+	box.show_line(&"tarek", "No picture yet.")
+	assert_true((box.get_node("Box/Portrait") as Control).visible, "the frame shows")
+	assert_false((box.get_node("Box/Portrait/Image") as Control).visible, "no image")
+	var initial: Label = _label(box, "Box/Portrait/Initial")
+	assert_true(initial.visible, "the initial shows")
+	assert_eq(initial.text, "T", "placeholder initial")
+	box.show_line(&"ryn", "Back to a picture.")
+	assert_true((box.get_node("Box/Portrait/Image") as Control).visible, "Ryn's image")
+	assert_false(_label(box, "Box/Portrait/Initial").visible, "no initial")
 
 
 ## Epic 7 playtest C: the box rises rise_px into place and fades in over

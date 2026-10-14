@@ -1,14 +1,18 @@
 extends GutTest
 ## Story 7.6: LevelBackground on level.tscn's Background node. apply(id) with
 ## the throne world, a space id, "" (dev levels) and an unknown id; only the
-## unknown id warns, and only the throne world is shown (a code-drawn
-## placeholder planet arc until Epic 8). The placeholder colours stay dark
+## unknown id warns, and only the throne world shows the code-drawn planet arc.
+## Story 8.2: space_1 / space_2 tile their recoloured Kenney texture over the
+## playfield plus EDGE_MARGIN_PX (texture_repeat on), the throne world tiles
+## space_2 under its arc, "" and an unknown id tile nothing, and every
+## background pixel stays <= 127 so it never blooms. The arc colours stay dark
 ## (below render.glow.hdr_threshold, so they don't bloom) and violet, never the
 ## enemy magenta or danger red. On the real level.tscn, levels 1 and 2 never
 ## show the throne world and level 3 does, with the Background drawn before
 ## World. level.gd's static background_id(data) reads the data's key like
 ## ally_id. How the reveal reads is an operator playtest and is not claimed here.
 
+const SpriteProbe: GDScript = preload("res://tests/fixtures/sprite_probe.gd")
 const LEVEL_SCENE: PackedScene = preload("res://scenes/level/level.tscn")
 const TEST_SAVE: String = "user://test_level_background_save.cfg"
 ## The UX `enemy` magenta and `danger` red the placeholder must not read as.
@@ -127,6 +131,58 @@ func test_unknown_id_warns_once_and_is_treated_as_none() -> void:
 	assert_eq(_lines_containing("[WARN]").size(), 1, "one warning")
 	assert_eq(_lines_containing("[WARN][scene]").size(), 1, "a scene warning")
 	assert_eq(_lines_containing("'nope'").size(), 1, "naming the id")
+
+
+# --- the tiled space art (Story 8.2) -----------------------------------------------
+
+const SPACE_TEXTURES: Dictionary = {
+	"space_1": "res://assets/backgrounds/space_1.png",
+	"space_2": "res://assets/backgrounds/space_2.png",
+	"throne_world": "res://assets/backgrounds/space_2.png",
+}
+
+
+func test_space_ids_tile_their_texture_over_the_playfield_and_margin() -> void:
+	var bg: LevelBackground = _background()
+	assert_eq(bg.texture_repeat, CanvasItem.TEXTURE_REPEAT_ENABLED, "repeat on, so the tiles wrap")
+	assert_eq(LevelBackground.tile_rect(), Rect2(-LevelBackground.EDGE_MARGIN_PX, -LevelBackground.EDGE_MARGIN_PX,
+		Playfield.SIZE.x + 2.0 * LevelBackground.EDGE_MARGIN_PX, Playfield.SIZE.y + 2.0 * LevelBackground.EDGE_MARGIN_PX),
+		"the playfield plus the edge margin on every side")
+	for id: String in SPACE_TEXTURES:
+		bg.apply(id)
+		assert_not_null(bg.tile_texture(), "%s tiles a texture" % id)
+		if bg.tile_texture() != null:
+			assert_eq(bg.tile_texture().resource_path, SPACE_TEXTURES[id], "%s texture" % id)
+	assert_eq(_lines_containing("[WARN]"), [] as Array[String], "no warning")
+
+
+func test_throne_world_tiles_space_2_under_the_arc() -> void:
+	var bg: LevelBackground = _background()
+	bg.apply("throne_world")
+	assert_true(bg.shows_throne_world(), "the arc shows")
+	assert_eq(bg.tile_texture(), LevelBackground.TEXTURES["space_2"], "over the space_2 tiles")
+
+
+func test_empty_and_unknown_ids_tile_nothing() -> void:
+	var bg: LevelBackground = _background()
+	assert_null(bg.tile_texture(), "nothing before apply")
+	bg.apply("space_1")
+	bg.apply("")
+	assert_null(bg.tile_texture(), "\"\" tiles nothing")
+	bg.apply("nope")
+	assert_null(bg.tile_texture(), "an unknown id tiles nothing")
+	assert_eq(_lines_containing("[WARN][scene]").size(), 1, "the unknown id still warns once")
+
+
+func test_every_background_pixel_stays_below_the_glow_threshold() -> void:
+	var threshold: float = Config.num("render.glow.hdr_threshold")
+	for id: String in ["space_1", "space_2"]:
+		var tex: Texture2D = LevelBackground.TEXTURES[id]
+		var top: float = SpriteProbe.max_channel(tex)
+		assert_lte(top, 127.0 / 255.0 + 0.0001, "%s: every channel <= 127" % id)
+		assert_lt(top, threshold, "%s: below render.glow.hdr_threshold, never blooms" % id)
+		assert_gt(top, 0.0, "%s is not black" % id)
+	assert_ne(LevelBackground.TEXTURES["space_1"], LevelBackground.TEXTURES["space_2"], "two distinct backgrounds")
 
 
 # --- the placeholder art ------------------------------------------------------------

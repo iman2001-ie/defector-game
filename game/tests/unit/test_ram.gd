@@ -61,8 +61,41 @@ func test_scene_is_visual_only() -> void:
 	assert_false((ram as Node) is CollisionObject2D, "no collision body")
 	assert_eq(ram.find_children("*", "CollisionObject2D", true, false).size(), 0, "no collision child")
 	assert_eq(ram.find_children("*", "CollisionShape2D", true, false).size(), 0, "no collision shape")
-	assert_true(ram.get_node_or_null("Hull") is Polygon2D, "a hull polygon")
+	assert_true(ram.get_node_or_null("Hull") is Sprite2D, "a hull sprite")
 	ram.free()
+
+
+## Story 8.2: the Ram's Hull is the Maul's magenta Kenney sprite fitted to its
+## sprite_px (120, before the root scale), nose toward local +y.
+func test_hull_is_the_maul_sprite_fitted_to_sprite_px() -> void:
+	var ram: Ram = _make({"from": FROM, "to": TO, "travel_s": 0.5, "scale": 1.5})
+	assert_eq(ram.sprite_px, 120.0)
+	var hull: Sprite2D = ram.get_node("Hull") as Sprite2D
+	assert_eq(hull.texture.resource_path, "res://assets/sprites/enemies/enemy_maul.png", "the Maul's hull")
+	var drawn: Vector2 = SpriteFit.drawn_size(hull)
+	assert_almost_eq(maxf(drawn.x, drawn.y), 120.0, 1.0, "longer side = sprite_px")
+	assert_eq(hull.rotation, 0.0, "the texture already faces +y")
+	assert_eq(hull.self_modulate, Color.WHITE)
+	var trail: Node = ram.get_node_or_null("Trail")
+	assert_true(trail is Polygon2D, "the trail stays")
+	if trail != null:
+		assert_lt(trail.get_index(), hull.get_index(), "the hull draws over the trail")
+
+
+func test_bad_sprite_px_warns_and_keeps_scale_one() -> void:
+	var lines: Array[String] = []
+	Log.sink = func(level: String, category: String, msg: String) -> void: lines.append(Log.format(level, category, msg))
+	var ram: Ram = RAM_SCENE.instantiate() as Ram
+	ram.sprite_px = 0.0
+	ram.setup({"from": FROM, "to": TO, "travel_s": 0.5})
+	add_child_autofree(ram)
+	Log.sink = Callable()
+	assert_eq((ram.get_node("Hull") as Sprite2D).scale, Vector2.ONE, "scale left at 1")
+	var warns: Array[String] = []
+	for line: String in lines:
+		if line.begins_with("[WARN][data]") and line.contains("ram"):
+			warns.append(line)
+	assert_eq(warns.size(), 1, "one data warning")
 
 
 func test_starts_at_from_scaled() -> void:

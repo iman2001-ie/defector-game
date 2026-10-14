@@ -123,6 +123,9 @@ func _init() -> void:
 
 func _ready() -> void:
 	_collect_parts()
+	# The Hull sprite (Story 8.2) is fitted by Enemy._ready so its longer side is
+	# the hull width, the same boss.hull.width_px as the hitbox rect.
+	sprite_px = Config.num(_tuning_key("width_px"))
 	super()
 	add_to_group(Groups.BOSS)
 	_max_total = hp

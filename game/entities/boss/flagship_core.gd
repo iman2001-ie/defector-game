@@ -119,6 +119,11 @@ func _tuning_section() -> String:
 	return SECTION
 
 
+## The core's shell sprite (Story 8.2), fitted to boss.*.sprite_px.
+func _body_sprite_path() -> NodePath:
+	return ^"Shell"
+
+
 ## The clamp: a hit that would take a vulnerable, living core to the armed
 ## floor or below sets hp to exactly the floor, makes it invulnerable, disarms
 ## the floor and emits hp_changed (never a kill). Every other hit goes through

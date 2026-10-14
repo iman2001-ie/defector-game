@@ -36,6 +36,10 @@ const STYLE_BUTTON_FOCUS: StringName = &"button_focus"
 const FONT_SIZE_HEADING: StringName = &"heading"
 const FONT_SIZE_BUTTON: StringName = &"button"
 const FONT_SIZE_COMMS: StringName = &"comms"
+## The recent-comms rows' font (Story 8.2): a base-less FontVariation, so the
+## dialogue keeps the engine font like the comms UIs; the heading keeps the
+## Theme default (Kenney Future).
+const FONT_COMMS: StringName = &"comms"
 ## Speaker accents and the muted heading colour, shared with the comms views.
 const COMMS_COLOR_THEME_TYPE: StringName = &"CommsPanel"
 const COLOR_MUTED: StringName = &"muted"
@@ -311,6 +315,9 @@ func _apply_theme() -> void:
 	for label: Label in [_comms_heading] + _comms_labels:
 		if comms_px > 0:
 			label.add_theme_font_size_override(&"font_size", comms_px)
+	if has_theme_font(FONT_COMMS, THEME_TYPE):
+		for label: Label in _comms_labels:
+			label.add_theme_font_override(&"font", get_theme_font(FONT_COMMS, THEME_TYPE))
 	_heading.add_theme_color_override(&"font_color", text_color)
 	var heading_font_px: int = get_theme_font_size(FONT_SIZE_HEADING, THEME_TYPE)
 	if heading_font_px > 0:

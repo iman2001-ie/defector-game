@@ -58,6 +58,11 @@ func _tuning_section() -> String:
 	return SECTION
 
 
+## The turret's body sprite (Story 8.2), fitted to boss.*.sprite_px.
+func _body_sprite_path() -> NodePath:
+	return ^"Body"
+
+
 ## Starts the fire cycle: the first period begins `delay_s` from now, so the
 ## first shot is at delay_s + fire_interval_s.
 func start_firing(delay_s: float) -> void:

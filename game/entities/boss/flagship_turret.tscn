@@ -1,6 +1,7 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://entities/boss/flagship_turret.gd" id="1_turret"]
+[ext_resource type="Texture2D" path="res://assets/sprites/boss/flagship_turret.png" id="9_sprite"]
 
 [sub_resource type="Gradient" id="Gradient_glow"]
 offsets = PackedFloat32Array(0, 0.35, 1)
@@ -25,13 +26,8 @@ script = ExtResource("1_turret")
 
 [node name="Hitbox" type="CollisionShape2D" parent="."]
 
-[node name="Body" type="Polygon2D" parent="."]
-color = Color(1, 0.168627, 0.839216, 1)
-polygon = PackedVector2Array(-12, -28, 12, -28, 28, -12, 28, 12, 12, 28, -12, 28, -28, 12, -28, -12)
-
-[node name="Plating" type="Polygon2D" parent="."]
-color = Color(0.45, 0.07, 0.38, 1)
-polygon = PackedVector2Array(-8, -18, 8, -18, 18, -8, 18, 8, 8, 18, -8, 18, -18, 8, -18, -8)
+[node name="Body" type="Sprite2D" parent="."]
+texture = ExtResource("9_sprite")
 
 [node name="Barrel" type="Polygon2D" parent="."]
 color = Color(1, 0.168627, 0.839216, 1)

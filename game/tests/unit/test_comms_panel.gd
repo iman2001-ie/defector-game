@@ -209,9 +209,12 @@ func test_portrait_speaker_line() -> void:
 	assert_not_null(frame, "portrait frame override")
 	if frame != null:
 		_assert_color(frame.border_color, Color("#3DF2FF"), "frame in the accent")
-	var initial: Label = _label(panel, "Panel/Portrait/Initial")
-	assert_eq(initial.text, "T", "placeholder initial")
-	_assert_color(initial.get_theme_color(&"font_color"), Color("#3DF2FF"), "initial in the accent")
+	var image: TextureRect = panel.get_node("Panel/Portrait/Image") as TextureRect
+	assert_true(image.visible, "the portrait image shows")
+	assert_eq(image.texture.resource_path, "res://assets/portraits/portrait_tarek.svg", "Tarek's portrait")
+	assert_false(_label(panel, "Panel/Portrait/Initial").visible, "the initial is hidden")
+	assert_eq(Rect2(image.position, image.size), Rect2(1, 1, 198, 198), "inside the 1 px accent frame")
+	assert_eq(image.mouse_filter, Control.MOUSE_FILTER_IGNORE)
 	assert_eq(_label(panel, "Panel/Text").get_rect(), Rect2(256, 76, 812, 168), "812 px text block")
 	assert_eq(_label(panel, "Panel/Text").text, "Comms check, General.")
 	assert_eq(panel.current_speaker(), &"tarek")
@@ -230,6 +233,39 @@ func test_no_portrait_speaker_line() -> void:
 	panel.show_line(&"ryn", "Back to a portrait.")
 	assert_true((panel.get_node("Panel/Portrait") as Control).visible)
 	assert_eq(_label(panel, "Panel/Text").get_rect().size.x, 812.0, "re-laid out for the portrait")
+
+
+## Story 8.2: every portrait speaker has its own portrait (Isolde, Tarek, Ryn);
+## Vale and the system keep the no-portrait variant.
+func test_each_portrait_speaker_shows_their_portrait() -> void:
+	var panel: CommsPanel = _make()
+	panel.open()
+	for speaker: StringName in [&"isolde", &"tarek", &"ryn"]:
+		panel.show_line(speaker, "Portrait check.")
+		var image: TextureRect = panel.get_node("Panel/Portrait/Image") as TextureRect
+		assert_true(image.visible, "%s image" % speaker)
+		assert_eq(image.texture, CommsPortraits.TEXTURES[speaker], "%s portrait" % speaker)
+		assert_eq(image.texture.resource_path, "res://assets/portraits/portrait_%s.svg" % speaker)
+		assert_false(_label(panel, "Panel/Portrait/Initial").visible, "%s: no initial" % speaker)
+	for speaker: StringName in [&"vale", &"system"]:
+		panel.show_line(speaker, "No portrait.")
+		assert_false((panel.get_node("Panel/Portrait") as Control).visible, "%s: no-portrait variant" % speaker)
+
+
+## A portrait speaker with no texture keeps the placeholder initial.
+func test_portrait_speaker_without_a_texture_shows_the_initial() -> void:
+	var panel: CommsPanel = _make()
+	panel.open()
+	panel.portraits.erase(&"tarek")
+	panel.show_line(&"tarek", "No picture yet.")
+	assert_true((panel.get_node("Panel/Portrait") as Control).visible, "the frame shows")
+	assert_false((panel.get_node("Panel/Portrait/Image") as Control).visible, "no image")
+	var initial: Label = _label(panel, "Panel/Portrait/Initial")
+	assert_true(initial.visible, "the initial shows")
+	assert_eq(initial.text, "T", "placeholder initial")
+	panel.show_line(&"ryn", "Back to a picture.")
+	assert_true((panel.get_node("Panel/Portrait/Image") as Control).visible, "Ryn's image")
+	assert_false(_label(panel, "Panel/Portrait/Initial").visible, "no initial")
 
 
 func test_typewriter_speed() -> void:

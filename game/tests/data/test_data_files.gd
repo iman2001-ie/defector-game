@@ -1140,19 +1140,24 @@ func test_music_volume_tuning() -> void:
 	assert_almost_eq(Config.num("audio.music_volume_db"), -10.0, 0.0001, "audio.music_volume_db")
 
 
+const ASSETS_DIR: String = "res://assets/"
 const AUDIO_DIR: String = "res://assets/audio/"
 const CREDITS_PATH: String = "res://assets/CREDITS.md"
+## Files under assets/ that are not assets: the import / uid sidecars, the
+## folder keeper and the credits file itself.
+const UNCREDITED_EXTENSIONS: Array[String] = ["import", "uid"]
+const UNCREDITED_FILES: Array[String] = [".gitkeep", "CREDITS.md"]
 
 
-## Every file under `dir` (recursive) except the .import / .uid sidecars, as
-## res:// paths, sorted.
-func _audio_files(dir: String) -> Array[String]:
+## Every file under `dir` (recursive) except the .import / .uid sidecars,
+## .gitkeep and CREDITS.md, as res:// paths, sorted.
+func _asset_files(dir: String) -> Array[String]:
 	var out: Array[String] = []
 	for file: String in DirAccess.get_files_at(dir):
-		if not file.get_extension() in ["import", "uid"]:
+		if not file.get_extension() in UNCREDITED_EXTENSIONS and not file in UNCREDITED_FILES:
 			out.append(dir.path_join(file))
 	for sub: String in DirAccess.get_directories_at(dir):
-		out.append_array(_audio_files(dir.path_join(sub)))
+		out.append_array(_asset_files(dir.path_join(sub)))
 	out.sort()
 	return out
 
@@ -1167,14 +1172,20 @@ func _credited(credits: String, rel: String) -> bool:
 	return false
 
 
-## Story 8.1: every audio file has its CREDITS.md row (source and licence).
-func test_every_audio_file_is_credited() -> void:
+## Story 8.1: one audio file per sfx and music id.
+func test_one_audio_file_per_id() -> void:
+	assert_eq(_asset_files(AUDIO_DIR).size(), Audio.SFX.size() + Audio.MUSIC.size(), "one file per sfx and music id")
+
+
+## Story 8.2 (generalising Story 8.1's audio check): every file under assets/
+## has its CREDITS.md row (source and licence).
+func test_every_asset_file_is_credited() -> void:
 	var credits: String = FileAccess.get_file_as_string(CREDITS_PATH)
 	assert_ne(credits, "", "CREDITS.md readable")
-	var files: Array[String] = _audio_files(AUDIO_DIR)
-	assert_eq(files.size(), Audio.SFX.size() + Audio.MUSIC.size(), "one file per sfx and music id")
+	var files: Array[String] = _asset_files(ASSETS_DIR)
+	assert_gt(files.size(), Audio.SFX.size() + Audio.MUSIC.size(), "audio and art found")
 	for path: String in files:
-		var rel: String = path.trim_prefix("res://assets/")
+		var rel: String = path.trim_prefix(ASSETS_DIR)
 		assert_true(_credited(credits, rel), "%s has a CREDITS.md row" % rel)
 
 
@@ -1186,10 +1197,16 @@ func test_credits_row_matcher_self_check() -> void:
 	assert_false(_credited(credits, "audio/sfx/sfx_e.wav"), "a row without a licence does not")
 	assert_false(_credited(credits, "audio/sfx/sfx_b.wav"), "a mention outside a row does not")
 	assert_false(_credited(credits, "audio/sfx/sfx_c.wav"), "a missing file does not")
-	assert_true(_audio_files(AUDIO_DIR).has("res://assets/audio/music/music_boss.ogg"), "the collector finds music")
-	assert_true(_audio_files(AUDIO_DIR).has("res://assets/audio/sfx/sfx_shield_on.wav"), "the collector finds sfx")
-	for path: String in _audio_files(AUDIO_DIR):
-		assert_false(path.get_extension() in ["import", "uid"], "%s: sidecars are skipped" % path)
+	var all: Array[String] = _asset_files(ASSETS_DIR)
+	assert_true(all.has("res://assets/audio/music/music_boss.ogg"), "the collector finds music")
+	assert_true(all.has("res://assets/audio/sfx/sfx_shield_on.wav"), "the collector finds sfx")
+	assert_true(all.has("res://assets/sprites/enemies/enemy_wasp.png"), "the collector finds sprites")
+	assert_true(all.has("res://assets/portraits/portrait_tarek.svg"), "the collector finds portraits")
+	assert_true(all.has("res://assets/fonts/kenvector_future.ttf"), "the collector finds the font")
+	assert_false(all.has("res://assets/CREDITS.md"), "CREDITS.md itself is skipped")
+	assert_false(all.has("res://assets/.gitkeep"), ".gitkeep is skipped")
+	for path: String in all:
+		assert_false(path.get_extension() in ["import", "uid"], "%s: no sidecars" % path)
 
 
 ## Story 8.1: every feedback tier's sfx and every non-stop music action has a

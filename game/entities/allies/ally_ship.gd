@@ -38,26 +38,26 @@ extends Area2D
 ##
 ## Behaviour is enum State + match with _enter_state(); movement and firing run
 ## in step(delta), called from _physics_process. Firing runs only in PATROL.
-## The hull is drawn in code (no image asset until Epic 8): a fighter
-## silhouette ship_px tall, nose up, a dim coalition body with a bright outline;
-## the damaged variant has the right wing tip broken off, a dark body and a
-## danger outline.
+## The hull (Story 8.2) is the `Sprite` child: a recoloured Kenney fighter in
+## `coalition`, nose up, fitted so its longer side is allies.ship_px; from
+## FALLING on (is_damaged()) it swaps to the dimmed, battle-damaged texture.
+## The Sprite draws behind the node's own _draw, which keeps only the shield
+## ring. outline() / damaged_outline() stay as the hull's shape data (a
+## fighter silhouette ship_px tall, nose up; the damaged one has the right wing
+## tip broken off).
 
 enum State { PATROL, APPROACH, SHIELD, FALLING, GONE }
 
-## `coalition` (#22E6FF): the allies' in-world colour (UX DESIGN).
+## `coalition` (#22E6FF): the allies' in-world colour (UX DESIGN); the shield ring.
 const OUTLINE_COLOR: Color = Color("#22E6FF")
-## The body is the coalition colour, dimmed.
-const BODY_COLOR: Color = Color(0.133333, 0.901961, 1.0, 0.3)
-const OUTLINE_PX: float = 2.0
+## The hull textures (Story 8.2): patrol and damaged (FALLING / GONE).
+const TEXTURE_HULL: Texture2D = preload("res://assets/sprites/allies/ally_coalition.png")
+const TEXTURE_DAMAGED: Texture2D = preload("res://assets/sprites/allies/ally_damaged.png")
 ## The projectile type id its shots use.
 const BOLT_TYPE: StringName = &"ally_bolt"
 ## The story event that starts Tarek's fall, and the only ally it applies to.
 const FALL_EVENT: StringName = &"tarek_fall"
 const FALL_ALLY_ID: String = "tarek"
-## The damaged hull: `surfaceSolid` (#0A1222) at alpha 0.8 with a `danger` outline.
-const DAMAGED_BODY_COLOR: Color = Color(0.039216, 0.070588, 0.133333, 0.8)
-const DAMAGED_OUTLINE_COLOR: Color = Color("#FF1F4B")
 ## The shield ring's stroke (a coalition ring, 3 px).
 const SHIELD_STROKE_PX: float = 3.0
 const SHIELD_SEGMENTS: int = 48
@@ -100,6 +100,7 @@ var _approach_from: Vector2 = Vector2.ZERO
 var _intercept_point: Vector2 = Vector2.ZERO
 var _fall_velocity: Vector2 = Vector2.ZERO
 var _trail: GPUParticles2D = null
+var _sprite: Sprite2D = null
 
 
 ## Stores params before add_child. Keys: ally ("tarek" | "ryn").
@@ -125,6 +126,8 @@ func _ready() -> void:
 	exit_speed_px_s = maxf(Config.num("allies.fall.exit_speed_px_s"), 0.0)
 	exit_drop = Config.num("allies.fall.exit_drop")
 	spin_deg_s = Config.num("allies.fall.spin_deg_s")
+	_sprite = get_node_or_null(^"Sprite") as Sprite2D
+	_apply_hull_texture()
 	_trail = get_node_or_null("FireTrail") as GPUParticles2D
 	if _trail != null:
 		_trail.emitting = false
@@ -178,6 +181,7 @@ func _enter_state(next: State) -> void:
 			_fall_velocity = Vector2(side, exit_drop).normalized() * exit_speed_px_s
 			if _trail != null:
 				_trail.emitting = true
+			_apply_hull_texture()
 			Log.info("scene", "Tarek's fall: hit, leaving the fight")
 			queue_redraw()
 		State.GONE:
@@ -388,24 +392,26 @@ func _on_events_level_failed(_reason: StringName) -> void:
 
 # --- Drawing ----------------------------------------------------------------------
 
+## The hull Sprite (null if the scene lacks it).
+func hull_sprite() -> Sprite2D:
+	return _sprite
+
+
+## Sets the Sprite's texture for the state (damaged from FALLING on) and fits
+## it so its longer side is ship_px.
+func _apply_hull_texture() -> void:
+	if _sprite == null:
+		return
+	_sprite.texture = TEXTURE_DAMAGED if is_damaged() else TEXTURE_HULL
+	SpriteFit.fit_longest(_sprite, ship_px, "ally %s" % ally_id)
+
+
+## Only the shield ring: the hull is the Sprite child, drawn behind this.
 func _draw() -> void:
-	if is_damaged():
-		_draw_hull(_damaged_outline, DAMAGED_BODY_COLOR, DAMAGED_OUTLINE_COLOR)
-	else:
-		_draw_hull(_outline, BODY_COLOR, OUTLINE_COLOR)
 	if _state == State.SHIELD and shield_radius_px > 0.0:
 		var ring: Color = OUTLINE_COLOR
 		ring.a = shield_alpha(_phase_t, shield_flash_hz)
 		draw_arc(Vector2.ZERO, shield_radius_px, 0.0, TAU, SHIELD_SEGMENTS, ring, SHIELD_STROKE_PX, true)
-
-
-## A filled hull with a closed outline (no per-draw array allocation).
-func _draw_hull(points: PackedVector2Array, body: Color, edge: Color) -> void:
-	if points.size() < 3:
-		return
-	draw_colored_polygon(points, body)
-	draw_polyline(points, edge, OUTLINE_PX, true)
-	draw_line(points[points.size() - 1], points[0], edge, OUTLINE_PX, true)
 
 
 ## A small fighter, ship_px tall and wide, nose up: a pointed nose, swept wings

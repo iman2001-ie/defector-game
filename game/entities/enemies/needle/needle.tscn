@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://entities/enemies/needle/needle.gd" id="1_needle"]
+[ext_resource type="Texture2D" path="res://assets/sprites/enemies/enemy_needle.png" id="9_sprite"]
 
 [node name="Needle" type="Area2D"]
 collision_layer = 4
@@ -19,9 +20,8 @@ default_color = Color(1, 0.168627, 0.839216, 0.5)
 begin_cap_mode = 2
 end_cap_mode = 2
 
-[node name="Hull" type="Polygon2D" parent="."]
-color = Color(1, 0.168627, 0.839216, 1)
-polygon = PackedVector2Array(0, 40, -3, 12, -7, 0, -20, -16, -22, -30, -9, -24, -6, -40, 6, -40, 9, -24, 22, -30, 20, -16, 7, 0, 3, 12)
+[node name="Hull" type="Sprite2D" parent="."]
+texture = ExtResource("9_sprite")
 
 [node name="Muzzle" type="Marker2D" parent="."]
 position = Vector2(0, 40)

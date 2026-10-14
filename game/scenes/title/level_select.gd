@@ -3,8 +3,12 @@ extends Control
 ## The Level Select screen (Story 4.3, FR56; UX "Level Select"): one card per
 ## campaign level (1..progression.level_count) in a centred row, each with its
 ## `LEVEL <n>` number, the uppercased level name from data/levels/level_<n>.json
-## and a thumbnail placeholder (every level's background is null until Epic 7,
-## which can fill the Thumbnail node without layout changes), plus BACK.
+## and a thumbnail of the level's backdrop, plus BACK. The Thumbnail (Story 8.2)
+## is a clipped ColorRect in the theme's `thumbnail` colour holding a
+## `Background` LevelBackground set to the level's `background` id, scaled
+## uniformly so the playfield covers the thumbnail, centred horizontally and
+## top-aligned (the throne world hangs from the top); a null or absent id
+## draws nothing, so the theme colour shows.
 ##
 ## A level is unlocked when GameState.is_level_unlocked(n) (the debug F7 flag
 ## counts). A locked card is disabled, drawn at ui.level_select.locked_alpha and
@@ -75,6 +79,22 @@ static func cards_rect(canvas_w: float, card: Vector2, gap: float, top_y: float,
 	return Rect2(Vector2((canvas_w - width) / 2.0, top_y), Vector2(width, card.y))
 
 
+## The background id a card's thumbnail shows: the level data's `background`
+## when it is a String, else "" (null or absent: the theme colour shows).
+static func thumbnail_background_id(level_data: Dictionary) -> String:
+	var id: Variant = level_data.get("background")
+	return id as String if id is String else ""
+
+
+## Where a playfield-sized LevelBackground goes inside a `size` thumbnail:
+## a uniform scale so it covers the thumbnail, centred horizontally and
+## top-aligned.
+static func thumbnail_transform(size: Vector2) -> Transform2D:
+	var k: float = maxf(size.x / Playfield.SIZE.x, size.y / Playfield.SIZE.y)
+	var origin: Vector2 = Vector2((size.x - Playfield.SIZE.x * k) / 2.0, 0.0)
+	return Transform2D(0.0, Vector2(k, k), 0.0, origin)
+
+
 func _on_card_pressed(n: int) -> void:
 	if _leaving or _config_failed or not GameState.is_level_unlocked(n):
 		return
@@ -106,13 +126,18 @@ func _build_cards() -> void:
 		var card: Button = Button.new()
 		card.name = CARD_NAME_FORMAT % n
 		_style_button(card)
+		var level_data: Dictionary = Config.level(str(n))
 		var thumbnail: ColorRect = ColorRect.new()
 		thumbnail.name = "Thumbnail"
 		thumbnail.color = thumb_color
+		thumbnail.clip_contents = true
 		thumbnail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var background: LevelBackground = LevelBackground.new()
+		background.name = "Background"
+		background.apply(thumbnail_background_id(level_data))
+		thumbnail.add_child(background)
 		card.add_child(thumbnail)
 		card.add_child(_make_label("Number", TEXT_NUMBER_FORMAT % n, text_color, number_px))
-		var level_data: Dictionary = Config.level(str(n))
 		var name_label: Label = _make_label("Name", str(level_data.get("name", "")).to_upper(), text_color, name_px)
 		name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		name_label.clip_text = true
@@ -167,6 +192,10 @@ func _layout_card(button: Button, card: Vector2) -> void:
 	var thumb_h: float = maxf(card.y - CARD_PAD_PX * 3.0 - NUMBER_ROW_PX - NAME_ROW_PX, 0.0)
 	var thumb: Rect2 = Rect2(Vector2(CARD_PAD_PX, CARD_PAD_PX), Vector2(inner_w, thumb_h))
 	_place(button.get_node("Thumbnail") as Control, thumb)
+	var background: LevelBackground = button.get_node("Thumbnail/Background") as LevelBackground
+	var fit: Transform2D = thumbnail_transform(thumb.size)
+	background.position = fit.origin
+	background.scale = fit.get_scale()
 	_place(button.get_node("Locked") as Control, thumb)
 	var number_y: float = thumb.end.y + CARD_PAD_PX
 	_place(button.get_node("Number") as Control, Rect2(CARD_PAD_PX, number_y, inner_w, NUMBER_ROW_PX))

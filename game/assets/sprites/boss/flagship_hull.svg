@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="140" viewBox="0 0 720 140">
+  <!-- The Flagship hull: dark plating, enemy-magenta trim, mounts over the four turrets (x 90 / 250 / 470 / 630) and the core (x 360). Project-owned (DEFECTOR, Story 8.2). -->
+  <path d="M62 2 L658 2 L717 45 L717 104 L679 137 L41 137 L3 104 L3 45 Z" fill="#24102C" stroke="#FF2BD6" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M84 20 L636 20 L686 54 L686 96 L660 118 L60 118 L34 96 L34 54 Z" fill="#3A1846" stroke="#7F1A6B" stroke-width="2" stroke-linejoin="round"/>
+  <g stroke="#7F1A6B" stroke-width="2">
+    <path d="M170 20 L170 118"/>
+    <path d="M300 20 L300 118"/>
+    <path d="M420 20 L420 118"/>
+    <path d="M550 20 L550 118"/>
+    <path d="M34 75 L300 75"/>
+    <path d="M420 75 L686 75"/>
+  </g>
+  <path d="M300 8 L420 8 L444 34 L420 60 L300 60 L276 34 Z" fill="#4A1C5A" stroke="#FF2BD6" stroke-width="3" stroke-linejoin="round"/>
+  <g fill="#FF2BD6">
+    <rect x="318" y="28" width="16" height="8"/>
+    <rect x="352" y="28" width="16" height="8"/>
+    <rect x="386" y="28" width="16" height="8"/>
+    <rect x="110" y="44" width="40" height="5"/>
+    <rect x="570" y="44" width="40" height="5"/>
+    <rect x="200" y="44" width="70" height="5"/>
+    <rect x="450" y="44" width="70" height="5"/>
+  </g>
+  <g fill="#2E1238" stroke="#FF2BD6" stroke-width="3" stroke-linejoin="round">
+    <path d="M70 137 L72 112 L108 112 L110 137 Z"/>
+    <path d="M230 137 L232 112 L268 112 L270 137 Z"/>
+    <path d="M450 137 L452 112 L488 112 L490 137 Z"/>
+    <path d="M610 137 L612 112 L648 112 L650 137 Z"/>
+    <path d="M318 137 C318 108 402 108 402 137 Z"/>
+  </g>
+</svg>

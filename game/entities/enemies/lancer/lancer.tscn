@@ -1,6 +1,7 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://entities/enemies/lancer/lancer.gd" id="1_lancer"]
+[ext_resource type="Texture2D" path="res://assets/sprites/enemies/enemy_lancer.png" id="9_sprite"]
 
 [sub_resource type="Gradient" id="Gradient_glow"]
 offsets = PackedFloat32Array(0, 0.35, 1)
@@ -26,9 +27,8 @@ sprite_px = 96.0
 
 [node name="Hitbox" type="CollisionShape2D" parent="."]
 
-[node name="Hull" type="Polygon2D" parent="."]
-color = Color(1, 0.168627, 0.839216, 1)
-polygon = PackedVector2Array(0, 48, -5, 18, -20, 10, -46, -2, -48, -18, -28, -14, -16, -30, 16, -30, 28, -14, 48, -18, 46, -2, 20, 10, 5, 18)
+[node name="Hull" type="Sprite2D" parent="."]
+texture = ExtResource("9_sprite")
 
 [node name="Muzzle" type="Marker2D" parent="."]
 position = Vector2(0, 44)

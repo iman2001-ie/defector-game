@@ -5,6 +5,7 @@ extends GutTest
 ## processing off, so every move is deterministic. Story 8.1: entering LOCKED
 ## plays the needle_lock cue once per lock.
 
+const SpriteProbe: GDScript = preload("res://tests/fixtures/sprite_probe.gd")
 const NEEDLE_SCENE: PackedScene = preload("res://entities/enemies/needle/needle.tscn")
 const NEEDLE_SCRIPT_PATH: String = "res://entities/enemies/needle/needle.gd"
 const DT: float = 1.0 / 60.0
@@ -146,14 +147,15 @@ func test_hp_tier_and_scene() -> void:
 	assert_eq(needle.collision_layer, CollisionLayers.ENEMIES)
 	assert_eq(needle.collision_mask, 0)
 	assert_false(needle.monitoring)
-	var hull: Polygon2D = needle.get_node_or_null("Hull") as Polygon2D
-	assert_not_null(hull, "Hull silhouette")
+	var hull: Sprite2D = needle.get_node_or_null("Hull") as Sprite2D
+	assert_not_null(hull, "Hull sprite")
 	if hull != null:
-		_assert_color_near(hull.color, ENEMY_COLOR, "hull in the enemy colour")
-		var rect: Rect2 = Rect2(hull.polygon[0], Vector2.ZERO)
-		for p: Vector2 in hull.polygon:
-			rect = rect.expand(p)
-		assert_gt(rect.size.y, rect.size.x, "long and thin")
+		assert_eq(hull.texture.resource_path, "res://assets/sprites/enemies/enemy_needle.png", "the Needle hull")
+		assert_almost_eq(SpriteProbe.longest_side(hull), needle.sprite_px, 1.0, "longer side = sprite_px")
+		assert_lt(SpriteProbe.hue_distance_deg(SpriteProbe.dominant_hue(hull.texture), ENEMY_COLOR.h), 8.0, "in the enemy hue")
+		assert_eq(hull.self_modulate, Color.WHITE, "modulate stays white")
+		var drawn: Vector2 = SpriteFit.drawn_size(hull)
+		assert_gt(drawn.y, drawn.x, "long and thin")
 	var muzzle: Marker2D = needle.get_node_or_null("Muzzle") as Marker2D
 	assert_not_null(muzzle, "Muzzle marker")
 	if muzzle != null:

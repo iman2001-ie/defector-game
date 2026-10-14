@@ -13,8 +13,14 @@ extends Node2D
 ## nose (local +y, like the Maul's) along the line. On arrival it emits
 ## `arrived` once and frees itself; the director plays the impact.
 ## step(delta) is the test seam (_physics_process calls it).
+##
+## Story 8.2: the `Hull` is the Maul's recoloured Kenney sprite, fitted in
+## _ready so its longer side is sprite_px (before the root's size_scale).
 
 signal arrived
+
+## The Hull sprite's longer side in px, before the root scale (`scale` param).
+@export var sprite_px: float = 120.0
 
 var from: Vector2 = Vector2.ZERO
 var to: Vector2 = Vector2.ZERO
@@ -37,6 +43,9 @@ func setup(params: Dictionary) -> void:
 
 
 func _ready() -> void:
+	var hull: Sprite2D = get_node_or_null(^"Hull") as Sprite2D
+	if hull != null:
+		SpriteFit.fit_longest(hull, sprite_px, "ram")
 	global_position = from
 	scale = Vector2.ONE * size_scale
 	if to != from:

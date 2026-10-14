@@ -17,7 +17,9 @@ extends Control
 ## (GameState untouched); QUIT -> quit_game (logged).
 ## A second press does nothing. Colours, sizes and button styles come from the
 ## shared Theme (type `Title`), copied onto the children in code. Mouse-only:
-## no button takes focus.
+## no button takes focus. The `Background` child (first, so it draws behind
+## everything) is a LevelBackground showing LevelBackground.MENU_BACKGROUND
+## (Story 8.2).
 
 const THEME_TYPE: StringName = &"Title"
 const COLOR_LOGO: StringName = &"logo"
@@ -45,6 +47,7 @@ var quit_game: Callable
 var _leaving: bool = false
 var _config_failed: bool = false
 
+@onready var _background: LevelBackground = $Background
 @onready var _logo: Label = $Logo
 @onready var _buttons: VBoxContainer = $Buttons
 @onready var _play: Button = $Buttons/Play
@@ -55,6 +58,7 @@ var _config_failed: bool = false
 
 func _ready() -> void:
 	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	_background.apply(LevelBackground.MENU_BACKGROUND)
 	if not quit_game.is_valid():
 		quit_game = get_tree().quit
 	_config_failed = not Config.load_error.is_empty()

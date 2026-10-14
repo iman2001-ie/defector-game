@@ -160,6 +160,21 @@ func test_scene_shape() -> void:
 	assert_eq(channel.box, box, "box wired")
 
 
+## Story 8.2: the story scene has the space_1 backdrop as its first child, so
+## it draws behind the comms.
+func test_space_backdrop_is_the_first_child() -> void:
+	var story: StoryScene = _make_with(&"opening_main", 1)
+	var bg: LevelBackground = story.get_node_or_null("Background") as LevelBackground
+	assert_not_null(bg, "a LevelBackground")
+	if bg == null:
+		return
+	assert_eq(bg.get_index(), 0, "the first child")
+	assert_eq(bg.background_id(), "space_1")
+	assert_eq(bg.background_id(), LevelBackground.MENU_BACKGROUND)
+	assert_not_null(bg.tile_texture(), "tiles the space texture")
+	assert_false(bg.shows_throne_world())
+
+
 # --- I/O rows ----------------------------------------------------------------------
 
 func test_scene_plays_the_pending_story() -> void:

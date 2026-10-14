@@ -3,6 +3,7 @@ extends GutTest
 ## caching and fallback, entries, death and contact, tuning reads, pause.
 ## Driven through step(delta) with physics processing off.
 
+const SpriteProbe: GDScript = preload("res://tests/fixtures/sprite_probe.gd")
 const HUNTER_SCENE: PackedScene = preload("res://entities/enemies/hunter_wasp/hunter_wasp.tscn")
 const DT: float = 1.0 / 60.0
 const ORANGE: Color = Color("#FF8A1F")
@@ -72,10 +73,13 @@ func test_stats_tier_hitbox_and_orange_hull() -> void:
 		assert_not_null(circle)
 		if circle != null:
 			assert_almost_eq(circle.radius, 32.0 * Config.num("enemies.hunter_wasp.hitbox_ratio"), 0.0001)
-	var hull: Polygon2D = hunter.get_node_or_null("Hull") as Polygon2D
-	assert_not_null(hull)
+	var hull: Sprite2D = hunter.get_node_or_null("Hull") as Sprite2D
+	assert_not_null(hull, "Hull sprite")
 	if hull != null:
-		assert_true(hull.color.is_equal_approx(ORANGE), "orange tint #FF8A1F")
+		assert_eq(hull.texture.resource_path, "res://assets/sprites/enemies/enemy_hunter_wasp.png", "the Wasp hull in orange #FF8A1F")
+		assert_almost_eq(SpriteProbe.longest_side(hull), hunter.sprite_px, 1.0, "longer side = sprite_px")
+		assert_lt(SpriteProbe.hue_distance_deg(SpriteProbe.dominant_hue(hull.texture), ORANGE.h), 8.0, "in the Hunter orange hue")
+		assert_eq(hull.self_modulate, Color.WHITE, "modulate stays white")
 	assert_eq(hunter.collision_layer, 4, "enemies layer")
 	assert_eq(hunter.collision_mask, 0)
 	assert_false(hunter.monitoring)

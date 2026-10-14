@@ -2,6 +2,7 @@ extends GutTest
 ## Asteroid: per-size tuning, drift and spin, bottom exit, destruction, scene
 ## layers; death drops through Loot (Story 3.3).
 
+const SpriteProbe: GDScript = preload("res://tests/fixtures/sprite_probe.gd")
 const ASTEROID_SCENE: PackedScene = preload("res://entities/asteroids/asteroid.tscn")
 const DT: float = 1.0 / 60.0
 const EXPECTED: Dictionary = {
@@ -46,23 +47,41 @@ func test_sizes_match_tuning() -> void:
 		assert_eq(rock.hp, row.hp as int, "%s hp" % size)
 		assert_eq(rock.drift_speed, row.drift as float, "%s drift" % size)
 		assert_between(absf(rock.spin_deg_s), 10.0, 40.0, "%s spin" % size)
-		var visual: Node2D = rock.get_node("Visual") as Node2D
-		assert_eq(visual.scale, Vector2.ONE * (row.diameter as float) / 2.0, "%s visual spans the diameter" % size)
-		var rim: Line2D = visual.get_node("Rim") as Line2D
-		assert_almost_eq(rim.width * rock.radius, Asteroid.RIM_WIDTH_PX, 0.0001, "%s rim width on screen" % size)
+		var sprite: Sprite2D = rock.get_node("Visual/Sprite") as Sprite2D
+		assert_eq(sprite.texture.resource_path, "res://assets/sprites/asteroids/asteroid_%s.png" % size, "%s meteor" % size)
+		assert_almost_eq(SpriteProbe.longest_side(sprite), row.diameter as float, 1.0, "%s sprite spans the diameter" % size)
+		assert_eq((rock.get_node("Visual") as Node2D).scale, Vector2.ONE, "%s visual unscaled" % size)
 
 
-func test_placeholder_is_jagged() -> void:
+## Story 8.2: the meteors are recoloured to `hazard` grey-brown with a
+## `hazardRim` rim light baked on the upper-left edge (jagged Kenney meteors,
+## never round), and the placeholder polygons are gone.
+func test_meteor_art_is_hazard_with_a_rim_light() -> void:
 	var rock: Asteroid = _make(&"medium")
-	var body: Polygon2D = rock.get_node("Visual/Body") as Polygon2D
-	var rim: Line2D = rock.get_node("Visual/Rim") as Line2D
-	assert_gte(body.polygon.size(), 9, "at least 9 points")
-	assert_true(rim.closed, "rim closed")
-	var radii: Array[float] = []
-	for p: Vector2 in body.polygon:
-		radii.append(p.length())
-	assert_almost_eq(radii.max() as float, 1.0, 0.001, "unit radius")
-	assert_lt(radii.min() as float, 0.9, "irregular, not round")
+	assert_null(rock.get_node_or_null("Visual/Body"), "no placeholder body")
+	assert_null(rock.get_node_or_null("Visual/Rim"), "no placeholder rim")
+	for size: StringName in Asteroid.SIZES:
+		var tex: Texture2D = Asteroid.TEXTURES[size]
+		assert_not_null(tex, "%s texture" % size)
+		var image: Image = tex.get_image()
+		var hazard: Color = Color("#7A6E62")
+		var rim: Color = Color("#C9D8E8")
+		var hazard_like: int = 0
+		var rim_like: int = 0
+		var opaque: int = 0
+		for y: int in image.get_height():
+			for x: int in image.get_width():
+				var c: Color = image.get_pixel(x, y)
+				if c.a < 0.999:
+					continue
+				opaque += 1
+				if absf(c.h - hazard.h) < 0.06 and c.s < 0.4:
+					hazard_like += 1
+				if c.b > c.r and c.v > hazard.v:
+					rim_like += 1
+		assert_gt(float(hazard_like), float(opaque) / 3.0, "%s body is hazard grey-brown" % size)
+		assert_gt(rim_like, 0, "%s has a cool rim light (%s)" % [size, rim])
+		assert_lt(opaque, image.get_width() * image.get_height(), "%s is not a filled square" % size)
 
 
 func test_spin_has_both_signs() -> void:

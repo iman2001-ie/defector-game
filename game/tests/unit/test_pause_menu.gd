@@ -460,6 +460,15 @@ func test_recent_comms_lines_use_the_speaker_accent_at_a_readable_size() -> void
 	for label: Label in labels:
 		assert_gte(label.get_theme_font_size(&"font_size"), 22, "at least 22 px")
 		assert_eq(label.mouse_filter, Control.MOUSE_FILTER_IGNORE)
+	# Story 8.2: dialogue keeps the engine font (a base-less FontVariation);
+	# the heading keeps the Theme default (Kenney Future).
+	var theme: Theme = load(THEME_PATH) as Theme
+	var row_font: FontVariation = labels[0].get_theme_font(&"font") as FontVariation
+	assert_not_null(row_font, "the row font is a FontVariation")
+	if row_font != null:
+		assert_eq(row_font, theme.get_font(&"comms", &"PauseMenu"), "PauseMenu/fonts/comms")
+		assert_null(row_font.base_font, "no base: the engine font")
+	assert_eq((menu.get_node("RecentComms/Margin/List/Heading") as Label).get_theme_font(&"font"), theme.default_font, "the heading in Kenney Future")
 
 
 func test_recent_comms_block_sits_below_the_panel() -> void:

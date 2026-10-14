@@ -2,7 +2,7 @@ class_name CommsBox
 extends Control
 ## The combat comms box (Story 5.2, UX "Interruption box"; moved by Epic 7
 ## playtest C): a bottom-centre box with a speaker-accent left edge, a
-## placeholder portrait, the speaker's uppercase name and one short typed line.
+## portrait, the speaker's uppercase name and one short typed line.
 ## No dim, no cue, never pauses. It rises into place (from `ui.comms_box.rise_px`
 ## lower, fading in) over comms.box_rise_in_s.
 ##
@@ -25,6 +25,10 @@ extends Control
 ## created on the box with the default pause mode, so the rise, the typewriter
 ## and the fade freeze while the tree is paused and resume where they were.
 ##
+## Portrait (Story 8.2): a speaker with comms.speakers.<id>.portrait true shows
+## its CommsPortraits texture in `Portrait/Image` (inset by the frame border);
+## without a texture it shows the placeholder initial instead.
+##
 ## The text font, font sizes, the line spacing and the box style come from the shared Theme
 ## (type `CommsBox`); the text colour and the speaker accents are the
 ## `CommsPanel` colours, shared with the story panel. The portrait frame is the
@@ -43,7 +47,8 @@ const STYLE_PANEL: StringName = &"panel"
 const FONT_SIZE_TEXT: StringName = &"text"
 const FONT_SIZE_NAME: StringName = &"name"
 const CONSTANT_LINE_SPACING: StringName = &"line_spacing"
-## The text font: a FontVariation of the default font whose spacing_top /
+## The text font: a base-less FontVariation (the engine font, not the Theme's
+## Kenney Future default; Story 8.2) whose spacing_top /
 ## spacing_bottom trim the 28 px line box (39 px) to a 33 px line height
 ## (`ui.comms_box.text_line_h_px`), so two lines fill the 66 px text rect exactly.
 const FONT_TEXT: StringName = &"text"
@@ -90,11 +95,15 @@ var _type_tween: Tween = null
 var _rise_tween: Tween = null
 var _fade_tween: Tween = null
 var _speaker: StringName = &""
+## Speaker id -> portrait texture (a copy of CommsPortraits.TEXTURES; tests
+## may change it). A portrait speaker missing here shows the initial.
+var portraits: Dictionary[StringName, Texture2D] = CommsPortraits.TEXTURES.duplicate()
 
 @onready var _box: Panel = $Box
 @onready var _edge_rect: ColorRect = $Box/Edge
 @onready var _portrait: Panel = $Box/Portrait
 @onready var _initial: Label = $Box/Portrait/Initial
+@onready var _image: TextureRect = $Box/Portrait/Image
 @onready var _name: Label = $Box/Name
 @onready var _text: Label = $Box/Text
 
@@ -123,13 +132,15 @@ func _ready() -> void:
 	_line_h = maxf(Config.num("ui.comms_box.text_line_h_px"), 0.0)
 	_lines = maxi(Config.int_("ui.comms_box.text_lines"), 0)
 	_speakers = Config.section("comms.speakers")
-	for child: Control in [_box, _edge_rect, _portrait, _initial, _name, _text]:
+	for child: Control in [_box, _edge_rect, _portrait, _initial, _image, _name, _text]:
 		child.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_text.clip_text = true
 	_text.visible_characters_behavior = TextServer.VC_CHARS_AFTER_SHAPING
 	_initial.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_initial.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_apply_theme()
 	_apply_layout(true)
 	visible = false
@@ -178,6 +189,10 @@ func show_line(speaker: StringName, text: String, cut_off_at: int = -1) -> void:
 	_edge_rect.color = accent
 	_portrait.visible = with_portrait
 	if with_portrait:
+		var picture: Texture2D = portraits.get(speaker) as Texture2D
+		_image.texture = picture
+		_image.visible = picture != null
+		_initial.visible = picture == null
 		_initial.text = display_name.left(1)
 		_initial.add_theme_color_override(&"font_color", accent)
 		_apply_frame(accent)
@@ -408,6 +423,7 @@ func _apply_layout(with_portrait: bool) -> void:
 	_set_rect(_edge_rect, rects[RECT_EDGE] as Rect2)
 	_set_rect(_portrait, rects[RECT_PORTRAIT] as Rect2)
 	_set_rect(_initial, Rect2(Vector2.ZERO, (rects[RECT_PORTRAIT] as Rect2).size))
+	_set_rect(_image, CommsPortraits.image_rect((rects[RECT_PORTRAIT] as Rect2).size, _frame_style))
 	_set_rect(_name, rects[RECT_NAME] as Rect2)
 	_set_rect(_text, rects[RECT_TEXT] as Rect2)
 

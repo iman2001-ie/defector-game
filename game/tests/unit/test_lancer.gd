@@ -4,6 +4,7 @@ extends GutTest
 ## aim roll and ship pick (Story 6.3). Driven through step(delta) with physics
 ## processing off, so every move is deterministic.
 
+const SpriteProbe: GDScript = preload("res://tests/fixtures/sprite_probe.gd")
 const LANCER_SCENE: PackedScene = preload("res://entities/enemies/lancer/lancer.tscn")
 const LANCER_SCRIPT_PATH: String = "res://entities/enemies/lancer/lancer.gd"
 const CONVOY_SCENE: PackedScene = preload("res://entities/allies/convoy.tscn")
@@ -118,7 +119,13 @@ func test_hp_and_tier() -> void:
 	assert_eq(lancer.tier, ImpactTier.MEDIUM)
 	assert_eq(lancer.sprite_px, 96.0)
 	assert_eq(lancer.collision_layer, CollisionLayers.ENEMIES)
-	assert_not_null(lancer.get_node_or_null("Hull") as Polygon2D, "Hull silhouette")
+	var hull: Sprite2D = lancer.get_node_or_null("Hull") as Sprite2D
+	assert_not_null(hull, "Hull sprite")
+	if hull != null:
+		assert_eq(hull.texture.resource_path, "res://assets/sprites/enemies/enemy_lancer.png", "the Lancer hull")
+		assert_almost_eq(SpriteProbe.longest_side(hull), lancer.sprite_px, 1.0, "longer side = sprite_px")
+		assert_lt(SpriteProbe.hue_distance_deg(SpriteProbe.dominant_hue(hull.texture), Color("#FF2BD6").h), 8.0, "in the enemy hue")
+		assert_eq(hull.self_modulate, Color.WHITE, "modulate stays white")
 	var muzzle: Marker2D = lancer.get_node_or_null("Muzzle") as Marker2D
 	assert_not_null(muzzle, "Muzzle marker")
 	if muzzle != null:

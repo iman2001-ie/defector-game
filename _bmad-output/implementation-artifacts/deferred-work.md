@@ -1005,3 +1005,27 @@ location: game/default_bus_layout.tres
 source_spec: `spec-8-1-make-the-game-sound-right.md`
 reason: Unverified. Every new WAV peaks at -1 dBFS and the large, boss and player tiers play at 0 dB; default_bus_layout.tres has no effects on Master, SFX or Music. Settle it by listening to the Flagship's death chain with many Wasps on screen, or by capturing the Master bus peak in play.
 status: open
+
+### DW-106: The architecture's Story 7.6 LevelBackground bullet still describes the old arc: it rises 200 px from the bottom edge with a 40 px margin. The code now hangs it 180 px down from the top edge with a 64
+origin: spec-deferred 103382478ee7
+location: _bmad-output/game-architecture.md:1964
+source_spec: `spec-8-2-make-the-game-look-neon.md`
+severity: low
+reason: game/scenes/level/level_background.gd:48,54 (ARC_HEIGHT_PX 180, EDGE_MARGIN_PX 64, arc hanging from the top since the 2026-10-13 playtest) versus game-architecture.md:1964, which still says (960, 1080 + 1600 - 200), the bottom edge, and EDGE_MARGIN_PX 40. The staleness predates Story 8.2, which only appended a tiling note to that bullet.
+status: open
+
+### DW-107: test_level.gd test_dev_ally_level_spawns_tarek_who_fires_and_scores, a real-time test of ally kills, failed once and then passed in the full run and on its own.
+origin: spec-deferred 4503b289a4be
+location: game/tests/unit/test_level.gd (test_dev_ally_level_spawns_tarek_who_fires_and_scores)
+source_spec: `spec-8-2-make-the-game-look-neon.md`
+severity: low
+reason: Seen once by the Story 8.2 implementer, in an early run. Two later full runs passed (2032/2032). The test (Story 6.4) depends on real-time ally kills, so it may be flaky. To settle it, run the test in a loop (for example 20 runs) and look for a timing assumption in its kill wait.
+status: open
+
+### DW-108: No test observes LevelBackground._draw tiling the space texture. The tests check only tile_texture(), tile_rect() and texture_repeat, so a broken draw call would pass.
+origin: spec-deferred 08dfbf448aae
+location: game/scenes/level/level_background.gd (_draw)
+source_spec: `spec-8-2-make-the-game-look-neon.md`
+severity: low
+reason: Headless GUT runs on the dummy renderer and can't sample pixels. _draw calls draw_texture_rect(tiles, tile_rect(), true) before the throne-world early return, and nothing records that call. Closing the gap needs a seam that records draw calls, or a screenshot check. Until then the operator's look-check covers it.
+status: open

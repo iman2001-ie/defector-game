@@ -8,6 +8,9 @@ extends GutTest
 ## Player passing through it. Driven through step() with physics off unless a
 ## real overlap is needed.
 
+const SpriteProbe: GDScript = preload("res://tests/fixtures/sprite_probe.gd")
+const HULL_TEXTURE: String = "res://assets/sprites/allies/ally_coalition.png"
+const DAMAGED_TEXTURE: String = "res://assets/sprites/allies/ally_damaged.png"
 const ALLY_SCENE: PackedScene = preload("res://entities/allies/ally_ship.tscn")
 const WASP_SCENE: PackedScene = preload("res://entities/enemies/wasp/wasp.tscn")
 const PLAYER_SCENE: PackedScene = preload("res://entities/player/player.tscn")
@@ -403,6 +406,24 @@ func test_fighter_outline_is_ship_px_nose_up_in_coalition() -> void:
 	assert_eq(AllyShip.OUTLINE_COLOR, Color("#22E6FF"))
 
 
+## Story 8.2: the hull is the coalition Kenney fighter fitted to ship_px, nose
+## up, drawn behind the node's own _draw (which keeps only the shield ring).
+func test_hull_sprite_is_the_coalition_fighter_fitted_to_ship_px() -> void:
+	var ally: AllyShip = _make()
+	var sprite: Sprite2D = ally.hull_sprite()
+	assert_not_null(sprite, "the Sprite child")
+	if sprite == null:
+		return
+	assert_eq(sprite, ally.get_node("Sprite"))
+	assert_eq(sprite.texture.resource_path, HULL_TEXTURE)
+	assert_almost_eq(SpriteProbe.longest_side(sprite), Config.num("allies.ship_px"), 1.0, "longer side = allies.ship_px")
+	assert_lt(SpriteProbe.hue_distance_deg(SpriteProbe.dominant_hue(sprite.texture), Color("#22E6FF").h), 8.0, "coalition hue")
+	assert_true(sprite.show_behind_parent, "the shield ring draws over it")
+	assert_eq(sprite.rotation, 0.0, "nose up")
+	assert_eq(sprite.self_modulate, Color.WHITE)
+	assert_eq(sprite.position, Vector2.ZERO)
+
+
 # --- Tarek's fall (Story 6.5, FR35; reworked in Epic 7 playtest D) ------------------
 ## TarekFallScene drives the fall now: intercept(point) -> APPROACH -> SHIELD
 ## (held until take_hit) -> FALLING (spinning) -> GONE.
@@ -657,11 +678,23 @@ func test_damaged_outline_has_the_right_wing_tip_broken_off() -> void:
 	assert_almost_eq(lo_x, -32.0, 0.001, "the left wing is whole")
 	assert_lt(hi_x, 32.0 * 0.8, "the right wing tip is gone")
 	assert_eq(pts[0], Vector2(0, -32), "nose up")
-	assert_eq(AllyShip.DAMAGED_OUTLINE_COLOR, Color("#FF1F4B"), "danger outline")
-	assert_almost_eq(AllyShip.DAMAGED_BODY_COLOR.r, Color("#0A1222").r, 0.001)
-	assert_almost_eq(AllyShip.DAMAGED_BODY_COLOR.g, Color("#0A1222").g, 0.001)
-	assert_almost_eq(AllyShip.DAMAGED_BODY_COLOR.b, Color("#0A1222").b, 0.001)
-	assert_almost_eq(AllyShip.DAMAGED_BODY_COLOR.a, 0.8, 0.001)
+
+
+## Story 8.2: the hit swaps the hull to the dimmed, battle-damaged texture (same
+## fitted size); the FireTrail runs as before.
+func test_falling_swaps_to_the_damaged_texture() -> void:
+	var ally: AllyShip = _make()
+	var sprite: Sprite2D = ally.hull_sprite()
+	assert_eq(sprite.texture.resource_path, HULL_TEXTURE, "patrol hull")
+	_to_shield(ally)
+	assert_eq(sprite.texture.resource_path, HULL_TEXTURE, "still whole while shielding")
+	ally.take_hit()
+	assert_true(ally.is_damaged())
+	assert_eq(sprite.texture.resource_path, DAMAGED_TEXTURE, "the damaged hull")
+	assert_almost_eq(SpriteProbe.longest_side(sprite), Config.num("allies.ship_px"), 1.0, "same fitted size")
+	assert_true(ally.fire_trail().emitting, "the trail runs")
+	var whole: float = SpriteProbe.max_channel(load(HULL_TEXTURE) as Texture2D)
+	assert_lt(SpriteProbe.max_channel(sprite.texture), whole, "dimmer than the whole hull")
 
 
 func test_gone_once_off_screen_and_freed() -> void:

@@ -5,19 +5,15 @@ extends Area2D
 ## Player find it.
 ##
 ## The Hitbox RectangleShape2D is convoy.ship_width_px x ship_height_px scaled by
-## convoy.hitbox_ratio, set in _ready. The hull is drawn in code (no image asset):
-## a dim `coalition` body with a bright `coalition` outline, ship_width_px x
-## ship_height_px, nose-up: a flat bottom and the top quarter of the height
-## tapered to a point at (0, -h/2). apply_damage forwards to the Convoy, which
-## owns the shared HP pool. The ship never rotates, so hull_rect() is an
-## axis-aligned global rect; the Convoy builds its solid hull polygon from the
-## three.
-
-## `coalition` (#22E6FF): the convoy's in-world colour (UX DESIGN).
-const OUTLINE_COLOR: Color = Color("#22E6FF")
-## The body is the coalition colour dimmed, so the hulls read as civilian cargo.
-const BODY_COLOR: Color = Color(0.133333, 0.901961, 1.0, 0.22)
-const OUTLINE_PX: float = 2.0
+## convoy.hitbox_ratio, set in _ready. The hull (Story 8.2) is the `Sprite`
+## child: a Kenney cargo hull turned nose-up and recoloured a dimmed `coalition`
+## (so it reads as civilian cargo, not a fighter), fitted uniformly inside
+## ship_width_px x ship_height_px. outline() stays as the hull's shape data:
+## ship_width_px x ship_height_px, nose-up, a flat bottom and the top quarter of
+## the height tapered to a point at (0, -h/2). apply_damage forwards to the
+## Convoy, which owns the shared HP pool. The ship never rotates, so
+## hull_rect() is an axis-aligned global rect; the Convoy builds its solid hull
+## polygon from the three.
 
 ## The Convoy this hull belongs to (set by the Convoy in its _ready).
 var convoy: Convoy = null
@@ -27,6 +23,7 @@ var _hitbox_size: Vector2 = Vector2.ZERO
 var _outline: PackedVector2Array = PackedVector2Array()
 
 @onready var _hitbox: CollisionShape2D = $Hitbox
+@onready var _sprite: Sprite2D = get_node_or_null(^"Sprite") as Sprite2D
 
 
 func _ready() -> void:
@@ -36,7 +33,8 @@ func _ready() -> void:
 	if rect != null:
 		rect.size = _hitbox_size
 	_build_outline()
-	queue_redraw()
+	if _sprite != null:
+		SpriteFit.fit_inside(_sprite, _size, "convoy ship")
 
 
 ## The drawn hull size (ship_width_px x ship_height_px).
@@ -65,13 +63,9 @@ func apply_damage(amount: int, source: Node) -> void:
 		convoy.apply_damage(amount, source)
 
 
-func _draw() -> void:
-	if _outline.size() < 3:
-		return
-	draw_colored_polygon(_outline, BODY_COLOR)
-	var closed: PackedVector2Array = _outline.duplicate()
-	closed.append(_outline[0])
-	draw_polyline(closed, OUTLINE_COLOR, OUTLINE_PX, true)
+## The hull Sprite (null if the scene lacks it).
+func hull_sprite() -> Sprite2D:
+	return _sprite
 
 
 ## A blunt nose-up cargo hull: a flat bottom, straight sides, and the top

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+  <!-- Isolde Varn, Sovereign: crown and high collar. Project-owned (DEFECTOR, Story 8.2). -->
+  <rect width="200" height="200" fill="#0A1222"/>
+  <g fill="none" stroke="#FF6AE3" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M16 200 C22 168 48 152 74 146 L100 162 L126 146 C152 152 178 168 184 200 Z" fill="#FF6AE3" fill-opacity="0.16"/>
+    <path d="M66 86 C60 116 66 134 78 142"/>
+    <path d="M134 86 C140 116 134 134 122 142"/>
+    <path d="M90 118 L90 140 L100 150 L110 140 L110 118"/>
+    <path d="M66 152 L56 100 L84 130 Z" fill="#FF6AE3" fill-opacity="0.34"/>
+    <path d="M134 152 L144 100 L116 130 Z" fill="#FF6AE3" fill-opacity="0.34"/>
+    <ellipse cx="100" cy="88" rx="30" ry="38" fill="#FF6AE3" fill-opacity="0.12"/>
+    <path d="M70 60 L72 30 L86 46 L100 20 L114 46 L128 30 L130 60 Z" fill="#FF6AE3" fill-opacity="0.45"/>
+    <path d="M72 60 L128 60"/>
+    <path d="M83 86 L94 83"/>
+    <path d="M106 83 L117 86"/>
+    <path d="M100 92 L97 102 L102 103"/>
+    <path d="M92 111 L108 111"/>
+    <circle cx="100" cy="164" r="5" fill="#FF6AE3"/>
+  </g>
+</svg>
