@@ -23,7 +23,7 @@ Local commits are fine when the user asks for them.
 
 ## 3. Project facts
 
-- **Game:** DEFECTOR, a 2D neon fixed-screen space shooter with a light comms-driven story. Windows only, mouse and keyboard.
+- **Game:** DEFECTOR, a 2D neon fixed-screen space shooter with a light comms-driven story. Windows first, plus a best-effort macOS export that is untested on a real Mac; mouse and keyboard.
 - **Engine:** Godot **4.7.2-stable**, statically typed GDScript, Forward+ renderer. The project lives in `game/` (created by Story 1.1). Use the console build at `<GODOT_DIR>` (see `LOCAL.md`) for headless runs.
 - **Tests:** GUT 9.7.1 (`godot_4_7` branch), headless:
   `"<GODOT_DIR>/Godot_v4.7.2-stable_win64_console.exe" --headless --path game --import`
