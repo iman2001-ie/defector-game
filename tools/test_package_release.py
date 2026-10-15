@@ -400,7 +400,8 @@ class ReleaseDocsTest(unittest.TestCase):
         self.assertIn(b"\r\n", raw)
         self.assertNotIn(b"\n", raw.replace(b"\r\n", b""), "CRLF line endings only")
         for phrase in (self.version_tag, "DEFECTOR.exe", "More info", "Run anyway", "Level Select", "Level 1",
-                       "CREDITS.txt", "LICENSE.txt", "MIT", "Godot", "10-15 minutes", "resets your progress"):
+                       "CREDITS.txt", "LICENSE.txt", "PolyForm Noncommercial", "CC BY-NC 4.0", "not sell", "Godot",
+                       "10-15 minutes", "resets your progress"):
             self.assertIn(phrase.lower(), text.lower(), phrase)
 
     def test_macos_readme_is_honest_about_the_untested_build(self) -> None:
@@ -409,15 +410,21 @@ class ReleaseDocsTest(unittest.TestCase):
         self.assertNotIn("%APPDATA%", text)
         for phrase in (self.version_tag, "DEFECTOR.app", "untested", "Privacy & Security", "Open Anyway",
                        "right-click", "xattr -dr com.apple.quarantine DEFECTOR.app", "two buttons", "Fn+F11",
-                       "Level Select", "CREDITS.txt", "LICENSE.txt", "MIT", "Godot", "10-15 minutes",
+                       "Level Select", "CREDITS.txt", "LICENSE.txt", "PolyForm Noncommercial", "CC BY-NC 4.0",
+                       "not sell", "Godot", "10-15 minutes",
                        "resets your progress"):
             self.assertIn(phrase.lower(), text.lower(), phrase)
 
-    def test_the_real_licence_is_mit_for_the_public_identity(self) -> None:
+    def test_the_real_licence_is_non_commercial_for_the_public_identity(self) -> None:
         text = tool.LICENSE.read_text(encoding="utf-8")
-        self.assertTrue(text.startswith("MIT License"))
+        self.assertTrue(text.startswith("DEFECTOR licence"))
         self.assertIn("Copyright (c) 2026 iman2001-ie", text)
-        self.assertIn("Permission is hereby granted, free of charge", text)
+        self.assertIn("Required Notice: Copyright (c) 2026 iman2001-ie", text)
+        self.assertIn("# PolyForm Noncommercial License 1.0.0", text, "the full PolyForm text")
+        self.assertIn("Any noncommercial purpose is a permitted purpose.", text)
+        self.assertIn("Attribution-NonCommercial 4.0 International Public License", text, "the full CC text")
+        self.assertNotIn("Permission is hereby granted, free of charge", text.split("Third-party content")[0],
+                         "not MIT any more")
         for phrase in ("game/assets/CREDITS.md", "CC0", "game/addons/gut/LICENSE.md", "_bmad/", ".agents/",
                        ".claude/skills/"):
             self.assertIn(phrase, text, phrase)
@@ -429,6 +436,7 @@ class ReleaseDocsTest(unittest.TestCase):
         for section in ("the game", "controls", "download and run", "credits"):
             self.assertIn(section, headings)
         for phrase in (self.version_tag, "releases", "game/assets/CREDITS.md", "Kenney", "CC0", "MIT", "LICENSE",
+                       "PolyForm Noncommercial", "CC BY-NC 4.0", "not to sell",
                        "package_release.py", "repo_hygiene.py", "godot_copyright.gd", "DEFECTOR-v1.0-windows.zip",
                        "DEFECTOR-v1.0-macos.zip", '--export-release "macOS"', MACOS_SAVE_DIR, "Open Anyway"):
             self.assertIn(phrase.lower(), text.lower(), phrase)

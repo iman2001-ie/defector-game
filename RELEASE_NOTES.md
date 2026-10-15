@@ -67,4 +67,4 @@ DEFECTOR is made with the Godot Engine (MIT licence). `CREDITS.txt` also carries
 
 ## Licence
 
-DEFECTOR is a personal project, released under the MIT licence (`LICENSE.txt` in each zip, `LICENSE` in the repo). The third-party assets keep their own CC0 licence.
+DEFECTOR is a personal project: free to play, share and change, but not to sell or use commercially. The code is under the PolyForm Noncommercial License 1.0.0 and the project-owned art and sounds under CC BY-NC 4.0 (`LICENSE.txt` in each zip, `LICENSE` in the repo). The third-party assets keep their own CC0 licence.

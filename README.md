@@ -112,7 +112,12 @@ DEFECTOR is made with the [Godot Engine](https://godotengine.org), which is unde
 
 ## Licence
 
-DEFECTOR is a personal project, released under the [MIT licence](LICENSE): the code, the data and the project-owned content. Third-party content keeps its own licence: the assets are CC0 (listed in `game/assets/CREDITS.md`), `game/addons/gut/` is GUT under its own MIT licence, and the BMAD tooling in `_bmad/`, `.agents/` and `.claude/skills/` stays under the licences of the BMAD Method and its modules. [`LICENSE`](LICENSE) has the details.
+DEFECTOR is a personal project, and it's **free to play, share, study and change, but not to sell**. The source is public so you can read it and learn from it, but it isn't open source in the strict sense, because the licence forbids commercial use:
+
+- **Code, data and documentation:** [PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0).
+- **Project-owned art and sounds** (the portraits, the logo, the app icons, the Flagship hull, the comms cues, the Maul alarm and the screenshots): [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/), credited to iman2001-ie.
+
+Third-party content keeps its own licence: the assets are CC0 (listed in `game/assets/CREDITS.md`), `game/addons/gut/` is GUT under its own MIT licence, and the BMAD tooling in `_bmad/`, `.agents/` and `.claude/skills/` stays under the licences of the BMAD Method and its modules. [`LICENSE`](LICENSE) has the details and the full licence texts.
 
 ## From source
 
@@ -178,5 +183,5 @@ screenshots/     the screenshots above
 _bmad-output/    planning documents (GDD, architecture, UX, epics, story specs)
 _bmad/ .agents/ .claude/   BMAD method tooling and agent skills
 AGENTS.md        rules for AI agents
-LICENSE          MIT licence, and what it covers
+LICENSE          the non-commercial licences (PolyForm Noncommercial, CC BY-NC 4.0), and what they cover
 ```

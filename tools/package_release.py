@@ -23,7 +23,8 @@ The Windows zip (deflate, flat, no folders) holds exactly four entries:
                 redistributed game to carry; regenerate it with
                 tools/godot_copyright.gd), under a name Windows opens in
                 Notepad;
-- LICENSE.txt   the repo's LICENSE (MIT, and what it covers).
+- LICENSE.txt   the repo's LICENSE (the non-commercial licences, and what
+                they cover).
 
 Its text entries are written with CRLF line endings.
 

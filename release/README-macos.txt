@@ -101,5 +101,7 @@ Made with the Godot Engine 4.7.2 (godotengine.org), under the MIT licence.
 The engine's licence and the notices of the third-party code built into it
 are at the end of CREDITS.txt.
 
-DEFECTOR is a personal project by iman2001-ie, released under the MIT
-licence: see LICENSE.txt.
+DEFECTOR is a personal project by iman2001-ie. You may play, share and
+change it for free, but not sell it or use it commercially: its code is
+under the PolyForm Noncommercial License 1.0.0 and its own art and sounds
+under CC BY-NC 4.0. See LICENSE.txt.
