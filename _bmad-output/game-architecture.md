@@ -2277,3 +2277,9 @@ Level 1's title card and its Restart (GDD decision log #81). The operator report
   - A death's `retry_level()` is unchanged on every level: a quick reload, the short card, no dialogue.
 - **level.gd:** the card gate also requires `not SceneRouter.consume_intro_shown(id)`, so Level 1 after the opening starts wave 1 at once.
 
+## As-built 2026-10-14 (title card follow-up)
+
+GDD decision log #82.
+- `LevelIntroCard` emits `finished` when it hides.
+- The level (`HUD/LevelIntroCard`) and the story scene (its own `LevelIntroCard`) start their dialogue from that signal plus `ui.level_intro.after_s` (0.5 s), instead of a parallel timer. That timer drifted from the card on slow first loads.
+- `level.gd` keeps a backstop timer (the card's total time + `after_s` + `INTRO_BACKSTOP_S` 2.0) that calls `_begin_once`.

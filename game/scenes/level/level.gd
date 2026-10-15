@@ -79,6 +79,12 @@ const SANDBOX_SCENE_PATH: String = "res://scenes/sandbox/sandbox.tscn"
 ## GameState.current_level_id is empty; replaced by the resolved id in _ready.
 @export var level_id: String = "dev"
 
+## Extra seconds the title-card backstop waits past the card's own end, in case
+## the card never reports finished (it always should).
+const INTRO_BACKSTOP_S: float = 2.0
+
+## True once the WaveDirector has started (the title card waits for this once).
+var _begun: bool = false
 ## The user args _ready parses (`--stress`, `--bench=<s>`, `--no-prewarm`,
 ## `--comms=<id>[,<id>...]`, `--level=<id>`, `--level-bench=<scenario>`).
 ## Tests override this before add_child.
@@ -173,16 +179,37 @@ func _ready() -> void:
 		_begin(data, comms_ids)
 		return
 	var wait_s: float = LevelIntroCard.total_s(Config.num("ui.level_intro.fade_in_s"), hold, Config.num("ui.level_intro.fade_out_s"))
-	Log.info("scene", "Level %d title card (%.2f s)" % [id, wait_s])
+	var after_s: float = maxf(Config.num("ui.level_intro.after_s"), 0.0)
+	Log.info("scene", "Level %d title card (%.2f s + %.2f s)" % [id, wait_s, after_s])
+	var card: LevelIntroCard = get_node_or_null(^"HUD/LevelIntroCard") as LevelIntroCard
+	if card != null:
+		# Start from the card's own end (plus after_s), so the briefing never
+		# appears while it is still fading, however slow the first frames are.
+		card.finished.connect(_on_intro_card_finished.bind(after_s, data, comms_ids), CONNECT_ONE_SHOT)
 	Events.level_intro_started.emit(id, str(data.get("name", "")), hold)
-	# Game time, pausable: the card and the wait freeze together under a pause.
-	# The connection dies with the level, so a level freed first starts nothing.
-	get_tree().create_timer(wait_s, false).timeout.connect(_begin.bind(data, comms_ids))
+	# Backstop (game time, pausable): starts the level if the card never reports.
+	get_tree().create_timer(wait_s + after_s + INTRO_BACKSTOP_S, false).timeout.connect(_begin_once.bind(data, comms_ids))
+
+
+func _on_intro_card_finished(after_s: float, data: Dictionary, comms_ids: Array[StringName]) -> void:
+	if after_s <= 0.0:
+		_begin_once(data, comms_ids)
+		return
+	# Game time, pausable; the connection dies with the level.
+	get_tree().create_timer(after_s, false).timeout.connect(_begin_once.bind(data, comms_ids))
+
+
+## Starts the level once, whichever of the card's end or the backstop comes first.
+func _begin_once(data: Dictionary, comms_ids: Array[StringName]) -> void:
+	if _begun:
+		return
+	_begin(data, comms_ids)
 
 
 ## Starts the WaveDirector (the briefing or wave 1), then the debug `--comms`
 ## requests (deferred).
 func _begin(data: Dictionary, comms_ids: Array[StringName]) -> void:
+	_begun = true
 	_director.start_level(data, Config.LEVEL_PATH_FORMAT % level_id)
 	for comms_id: StringName in comms_ids:
 		Log.info("debug", "--comms: requesting comms sequence '%s'" % comms_id)

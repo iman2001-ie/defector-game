@@ -1395,7 +1395,7 @@ func test_dev_isolde_level_shape() -> void:
 
 ## Epic 7 playtest L: the "LEVEL N" title card's layout and timing.
 func test_level_intro_tuning() -> void:
-	var keys: Array[String] = ["center_y", "number_px", "name_px", "gap_px", "fade_in_s", "hold_s", "retry_hold_s", "fade_out_s"]
+	var keys: Array[String] = ["center_y", "number_px", "name_px", "gap_px", "fade_in_s", "hold_s", "retry_hold_s", "fade_out_s", "after_s"]
 	var section: Dictionary = Config.section("ui.level_intro")
 	assert_eq(section.size(), keys.size(), "exactly the title card keys")
 	for key: String in keys:

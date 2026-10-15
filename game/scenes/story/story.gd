@@ -41,6 +41,8 @@ const EPILOGUE_MUSIC: StringName = &"epilogue"
 ## False skips the title card (test seam; set before the scene enters the tree).
 var intro_card: bool = true
 
+## Waits still holding the opening sequence back (the title card, a music fade).
+var _waits: int = 0
 var _sequence: StringName = &""
 var _finished: bool = false
 
@@ -59,38 +61,61 @@ func _ready() -> void:
 	if _sequence == SceneRouter.ENDING_SEQUENCE:
 		_start_epilogue_music()
 	Events.comms_sequence_finished.connect(_on_events_comms_sequence_finished)
-	var wait_s: float = 0.0
+	# The opening waits for two things: its title card (its own `finished`, plus
+	# ui.level_intro.after_s) and a menu track still fading out (PLAY from the
+	# title, playtest pt7-k review). The epilogue keeps its own timing (the boss
+	# fade runs under its first line, as before).
 	if _sequence != SceneRouter.ENDING_SEQUENCE and Config.load_error.is_empty():
-		if intro_card:
-			wait_s = _show_level_card(SceneRouter.story_next_level())
-		# The menu track may still be fading (PLAY from the title): the opening
-		# briefing starts once it is silent (playtest pt7-k review). The
-		# epilogue keeps its own timing (the boss fade runs under its first
-		# line, as before).
+		if intro_card and _show_level_card(SceneRouter.story_next_level()):
+			_waits += 1
+			var card: LevelIntroCard = get_node_or_null(^"LevelIntroCard") as LevelIntroCard
+			var after_s: float = maxf(Config.num("ui.level_intro.after_s"), 0.0)
+			if card != null:
+				card.finished.connect(_wait_then_release.bind(after_s), CONNECT_ONE_SHOT)
+			else:
+				_wait_then_release(_card_total_s() + after_s)
 		if Audio.is_fading_out():
-			wait_s = maxf(wait_s, Config.num("audio.music_fade_out_s"))
-	if wait_s > 0.0:
-		# Nothing pauses the story scene before its sequence starts; the
-		# connection dies with the scene, so a scene freed first requests nothing.
-		get_tree().create_timer(wait_s, true, false, true).timeout.connect(_request_sequence)
-		return
-	_request_sequence()
+			_waits += 1
+			_wait_then_release(Config.num("audio.music_fade_out_s"))
+	if _waits == 0:
+		_request_sequence()
 
 
 ## Shows level `level`'s title card when it is a campaign level (1..level_count)
 ## and ui.level_intro.hold_s is above 0, and marks it shown for the router.
-## Returns the card's whole time on screen (0 when none shows).
-func _show_level_card(level: int) -> float:
+## Returns true when a card shows.
+func _show_level_card(level: int) -> bool:
 	if level < 1 or level > Config.int_("progression.level_count"):
-		return 0.0
+		return false
 	var hold: float = Config.num("ui.level_intro.hold_s")
 	if hold <= 0.0:
-		return 0.0
-	var wait_s: float = LevelIntroCard.total_s(Config.num("ui.level_intro.fade_in_s"), hold, Config.num("ui.level_intro.fade_out_s"))
-	Log.info("scene", "Level %d title card before story '%s' (%.2f s)" % [level, _sequence, wait_s])
+		return false
+	Log.info("scene", "Level %d title card before story '%s' (%.2f s + %.2f s)" % [level, _sequence, _card_total_s(), maxf(Config.num("ui.level_intro.after_s"), 0.0)])
 	Events.level_intro_started.emit(level, str(Config.level(str(level)).get("name", "")), hold)
 	SceneRouter.mark_intro_shown(level)
-	return wait_s
+	return true
+
+
+## The title card's whole time on screen at the full hold.
+func _card_total_s() -> float:
+	return LevelIntroCard.total_s(Config.num("ui.level_intro.fade_in_s"), Config.num("ui.level_intro.hold_s"), Config.num("ui.level_intro.fade_out_s"))
+
+
+## Releases one wait after `seconds` of real time (at once for 0). Nothing pauses
+## the story scene before its sequence starts; the connection dies with the scene,
+## so a scene freed first requests nothing.
+func _wait_then_release(seconds: float) -> void:
+	if seconds <= 0.0:
+		_release_wait()
+		return
+	get_tree().create_timer(seconds, true, false, true).timeout.connect(_release_wait)
+
+
+## One of the opening's waits is over; the sequence starts when none is left.
+func _release_wait() -> void:
+	_waits -= 1
+	if _waits == 0:
+		_request_sequence()
 
 
 func _request_sequence() -> void:

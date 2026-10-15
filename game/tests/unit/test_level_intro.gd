@@ -63,8 +63,10 @@ func _card() -> LevelIntroCard:
 	return _level.get_node("HUD/LevelIntroCard") as LevelIntroCard
 
 
+## The card's time on screen plus the ui.level_intro.after_s buffer before the
+## level starts.
 func _total(hold: float) -> float:
-	return LevelIntroCard.total_s(FADE_IN_S, hold, FADE_OUT_S)
+	return LevelIntroCard.total_s(FADE_IN_S, hold, FADE_OUT_S) + Config.num("ui.level_intro.after_s")
 
 
 # --- the maths -------------------------------------------------------------------------
@@ -209,3 +211,39 @@ func test_a_mark_for_another_level_keeps_the_card() -> void:
 	_make_level("1")
 	assert_signal_emitted(Events, "level_intro_started", "level 1 still shows its card")
 	assert_eq(SceneRouter.intro_shown_level(), 2, "not consumed by another level")
+
+
+## Operator bug 2026-10-14: on a slow first load the briefing appeared while the
+## card was still fading. The level now starts from the card's own `finished`
+## plus after_s, so the card is always gone first.
+func test_the_level_starts_only_after_the_card_has_gone() -> void:
+	var seen: Array[bool] = []
+	var record: Callable = func(_index: int, _count: int) -> void: seen.append(_card().visible)
+	Events.wave_started.connect(record)
+	_make_level("1")
+	await wait_seconds(_total(HOLD_S) + 0.3)
+	Events.wave_started.disconnect(record)
+	assert_eq(seen.size(), 1, "wave 1 started")
+	assert_eq(seen, [false] as Array[bool], "the card was hidden when the level started")
+
+
+## The level waits the after_s buffer past the card's end.
+func test_the_level_waits_the_buffer_after_the_card() -> void:
+	_make_level("1")
+	await _card().finished
+	assert_signal_not_emitted(Events, "wave_started", "not on the card's last frame")
+	await wait_seconds(Config.num("ui.level_intro.after_s") + 0.2)
+	assert_signal_emitted(Events, "wave_started", "after the buffer")
+
+
+## A card that lags behind (a slow first frame) still holds the level: the
+## level waits for the card, not for a parallel timer.
+func test_a_lagging_card_still_holds_the_level() -> void:
+	_make_level("1")
+	_card().set_process(false)  # The card stalls, as on a hitchy first load.
+	await wait_seconds(_total(HOLD_S) + 0.3)
+	assert_signal_not_emitted(Events, "wave_started", "still waiting for the card")
+	_card().set_process(true)
+	await _card().finished
+	await wait_seconds(Config.num("ui.level_intro.after_s") + 0.2)
+	assert_signal_emitted(Events, "wave_started")

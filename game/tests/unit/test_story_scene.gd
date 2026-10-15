@@ -407,10 +407,27 @@ func test_opening_shows_the_level_1_card_before_its_dialogue() -> void:
 	assert_eq(_card().name_label().text, str(Config.level("1").get("name", "")).to_upper())
 	assert_false(_channel().is_showing(), "no dialogue during the card")
 	assert_eq(SceneRouter.intro_shown_level(), 1, "the router knows the card was shown")
-	var total: float = LevelIntroCard.total_s(Config.num("ui.level_intro.fade_in_s"), Config.num("ui.level_intro.hold_s"), Config.num("ui.level_intro.fade_out_s"))
+	var total: float = LevelIntroCard.total_s(Config.num("ui.level_intro.fade_in_s"), Config.num("ui.level_intro.hold_s"), Config.num("ui.level_intro.fade_out_s")) + Config.num("ui.level_intro.after_s")
 	await get_tree().create_timer(total + 0.3, true, false, true).timeout
 	assert_true(_channel().is_showing(), "the dialogue starts after the card")
+	assert_false(_card().visible, "the card is gone before the dialogue")
 	assert_eq(_count_starting("[INFO][scene] Level 1 title card before story 'opening_main'"), 1)
+
+
+## Operator bug 2026-10-14: the dialogue waits for the card itself, so a card
+## lagging behind (a slow first load) can never be left over the dialogue.
+func test_opening_waits_for_a_lagging_card() -> void:
+	Audio.stop_music(0.0)
+	SceneRouter.goto_story(SceneRouter.OPENING_SEQUENCE, 1)
+	_make_card(true)
+	_card().set_process(false)  # The card stalls, as on a hitchy first load.
+	var total: float = LevelIntroCard.total_s(Config.num("ui.level_intro.fade_in_s"), Config.num("ui.level_intro.hold_s"), Config.num("ui.level_intro.fade_out_s")) + Config.num("ui.level_intro.after_s")
+	await get_tree().create_timer(total + 0.3, true, false, true).timeout
+	assert_false(_channel().is_showing(), "still waiting for the card")
+	_card().set_process(true)
+	await _card().finished
+	await get_tree().create_timer(Config.num("ui.level_intro.after_s") + 0.2, true, false, true).timeout
+	assert_true(_channel().is_showing(), "the dialogue starts once the card is gone")
 
 
 func test_epilogue_shows_no_card() -> void:

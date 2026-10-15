@@ -28,6 +28,12 @@ const TEXT_FORMAT: String = "LEVEL %d"
 ## it (as TitleScreen.LOGO_BOX_SCALE did for the old text logo).
 const TEXT_BOX_SCALE: float = 2.0
 
+## Emitted once the card has fully faded out and hidden. The level and the
+## story scene start their dialogue from this (plus ui.level_intro.after_s), not
+## from a parallel timer, so a slow first load can never let the dialogue start
+## while the card is still fading (operator bug, 2026-10-14).
+signal finished
+
 var _number: Label
 var _name: Label
 var _fade_in_s: float = 0.0
@@ -89,6 +95,7 @@ func _process(delta: float) -> void:
 	if _t >= total_s(_fade_in_s, _hold_s, _fade_out_s):
 		_active = false
 		visible = false
+		finished.emit()
 
 
 func _on_events_level_intro_started(level_number: int, level_name: String, hold_s: float) -> void:
