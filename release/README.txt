@@ -4,9 +4,11 @@ DEFECTOR v1.0
 A neon 2D space shooter with a short story told over comms.
 
 You are General Arden Vale, who defected from Sovereign Isolde Varn to the
-Free Worlds Coalition. Over three short levels you escort a convoy, lose a
-mentor and bring down Isolde's Flagship. A full playthrough takes about
-10-15 minutes.
+Free Worlds Coalition. Over three short levels you escort a convoy, break a
+blockade at a heavy cost and bring down Isolde's Flagship. A full
+playthrough takes about 10-15 minutes.
+
+This is the Windows build. A macOS build is on the same releases page.
 
 
 REQUIREMENTS
@@ -67,12 +69,9 @@ Paste that into the File Explorer address bar to open it. The log is
 %APPDATA%\DEFECTOR\logs\godot.log.
 Deleting the DEFECTOR folder resets your progress.
 
-To report a bug, open an issue on the Issues tab of the GitHub repository
-you downloaded the game from, and please attach godot.log.
 
-
-CREDITS
--------
+CREDITS AND LICENCE
+-------------------
 
 DEFECTOR uses free CC0 art, sounds, music and a font by Kenney and by
 OpenGameArt authors. Every asset, its source and its licence are listed in
@@ -82,4 +81,5 @@ Made with the Godot Engine 4.7.2 (godotengine.org), under the MIT licence.
 The engine's licence and the notices of the third-party code built into it
 are at the end of CREDITS.txt.
 
-Non-commercial hobby project.
+DEFECTOR is a personal project by iman2001-ie, released under the MIT
+licence: see LICENSE.txt.
