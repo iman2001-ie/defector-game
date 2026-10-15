@@ -1106,7 +1106,8 @@ location: _bmad-output/game-architecture.md:2119-2120
 source_spec: `spec-dw-87-dw-106-agents-and-architecture-doc-wording.md`
 severity: low
 reason: game-architecture.md (As-built 2026-10-13 (Story 8.2)) says "`_draw` tiles the texture, then draws the throne world's arc"; the arc is now the `Planet` ColorRect running throne_world.gdshader (level_background.gd planet_rect, PLANET_SHADER). Pre-existing; the playtest-F section's "supersedes the earlier as-built notes on the planet arc" covers it only implicitly.
-status: open
+status: done 2026-10-14
+resolution: fixed by hand: added italic Epic 7 playtest F pointers to the Story 8.2 as-built LevelBackground and Level Select bullets (the arc is now the `Planet` ColorRect running `throne_world.gdshader`).
 
 ### DW-114: The architecture's current-design trees still describe the old arc: the scene tree's Background comment and the asset tree's "the throne-world arc is drawn in code over space_2", and neither lists
 origin: spec-deferred 675bebfda9db
@@ -1114,7 +1115,8 @@ location: _bmad-output/game-architecture.md:274, 678
 source_spec: `spec-dw-87-dw-106-agents-and-architecture-doc-wording.md`
 severity: low
 reason: game-architecture.md:274 "tiled space texture (+ throne-world arc)"; :678 "(the throne-world arc is drawn in code over space_2)". The playtest-F visual pass added `Stars` (starfield.gdshader) and `Planet` (throne_world.gdshader) ColorRect children. Pre-existing, not caused by this bundle.
-status: open
+status: done 2026-10-14
+resolution: fixed by hand: the scene tree's Background comment and the asset tree's backgrounds line now describe the tiled texture plus the `Stars` (starfield.gdshader) and `Planet` (throne_world.gdshader) ColorRect children.
 
 ### DW-115: AGENTS.md section 5 now covers first-pass hand-written retros, but its only example is a revision (`Epic 1 retro: revision 2`), so the first-pass message shape must be guessed.
 origin: spec-deferred 26240b99d25d
@@ -1122,7 +1124,8 @@ location: AGENTS.md:63
 source_spec: `spec-dw-87-dw-106-agents-and-architecture-doc-wording.md`
 severity: low
 reason: AGENTS.md:63 "hand-written retros (first pass or revision) ... (e.g. `Epic 1 retro: revision 2`)". Adding a first-pass example such as `Epic 4 retro` would settle it. The fix edits AGENTS.md (agent-context file).
-status: open
+status: done 2026-10-14
+resolution: fixed by hand: AGENTS.md section 5 now gives `Epic 4 retro` as the first-pass example beside `Epic 1 retro: revision 2`.
 
 ### DW-116: AGENTS.md section 5 does not say which commit form applies to a retro an agent writes interactively at a person's request (neither bmad-loop/orchestration nor strictly hand-written).
 origin: spec-deferred 1ffd58ecab46
@@ -1130,7 +1133,8 @@ location: AGENTS.md:62-63
 source_spec: `spec-dw-87-dw-106-agents-and-architecture-doc-wording.md`
 severity: low
 reason: AGENTS.md:62 covers "retro commits made by bmad-loop or orchestration" (`chore(retro): ...`); AGENTS.md:63 covers "hand-written retros (first pass or revision)" (plain summary). An interactive bmad-retrospective / gds-retrospective run fits neither label cleanly. The fix edits AGENTS.md (agent-context file).
-status: open
+status: done 2026-10-14
+resolution: closed by human decision: not needed for release; the epics are done, and a retro an agent writes in an interactive session can use either form.
 
 ### DW-117: "change them all together" still groups the short-form export comment with the full copy, so it is not explicit that a trigger-list edit only needs the full copy changed.
 origin: spec-deferred fb9799eff90e
@@ -1138,7 +1142,8 @@ location: AGENTS.md:30; _bmad-output/game-architecture.md:1469-1471
 source_spec: `spec-dw-87-dw-106-agents-and-architecture-doc-wording.md`
 severity: low
 reason: AGENTS.md:30 and the headless CLI block now call the export block's import comment a short form that points back, but both keep "change them all together"; the short form holds no trigger list. Wording such as "change the full copy with every edit, and the short form when its first clause or the source location changes" would make it explicit. The fix edits AGENTS.md (agent-context file).
-status: open
+status: done 2026-10-14
+resolution: closed by human decision: the current wording is clear enough; not needed for release.
 
 ### DW-118: The `EDGE_MARGIN_PX` doc comment in level_background.gd says only that the planet's shader rect starts this far above the top edge, though `planet_rect()` also extends it past both sides and
 origin: spec-deferred 48267f603263
@@ -1146,7 +1151,8 @@ location: game/scenes/level/level_background.gd:75-76
 source_spec: `spec-dw-87-dw-106-agents-and-architecture-doc-wording.md`
 severity: low
 reason: game/scenes/level/level_background.gd:75-80 ("The planet's shader rect starts this far above the top edge, so the cap's cut top never shows") versus planet_rect() (:308) and tile_rect() (:295); the architecture's playtest-F bullet now says "past the top and side edges". Pre-existing code comment; this bundle is docs-only and may not change code.
-status: open
+status: done 2026-10-14
+resolution: fixed by hand: the `EDGE_MARGIN_PX` doc comment now says `planet_rect()` reaches the margin above the top and past both sides, and `tile_rect()` grows the playfield by it on every side (comment only).
 
 ### DW-119: The `--import` trigger clause now says "a script that keeps its `class_name`" twice in a row, which a merged clause would avoid.
 origin: spec-deferred 0bf66232f52c
@@ -1154,4 +1160,5 @@ location: AGENTS.md:30; _bmad-output/game-architecture.md:1472-1474
 source_spec: `spec-dw-87-dw-106-agents-and-architecture-doc-wording.md`
 severity: low
 reason: AGENTS.md:30 and the headless CLI block in game-architecture.md read "changing the `extends` line or `@icon` of a script that keeps its `class_name`, or adding or removing `@abstract` or `@tool` on a script that keeps its `class_name`". A merged form such as "changing the `extends` line, `@icon`, `@abstract` or `@tool` of a script that keeps its `class_name`" reads shorter; both copies must change together. The fix edits AGENTS.md (agent-context file).
-status: open
+status: done 2026-10-14
+resolution: fixed by hand: merged the `--import` trigger clause to "changing the `extends` line, `@icon`, `@abstract` or `@tool` of a script that keeps its `class_name`" in AGENTS.md section 3 and the architecture's headless CLI block.

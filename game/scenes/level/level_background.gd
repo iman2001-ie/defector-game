@@ -72,11 +72,13 @@ const PLANET_RADIUS_PX: float = 1100.0
 ## 3's first formation row (top_y 200) is drawn in front of the cap's lower
 ## edge and its atmosphere, as the Flagship is.
 const ARC_HEIGHT_PX: float = 180.0
-## The planet's shader rect starts this far above the top edge, so the cap's
-## cut top never shows. It must exceed the
-## largest tuned screen shake (the feedback tiers' shake_px and
-## comms.cutoff_shake_px; ShakeCamera offsets the view by up to that much),
-## which test_edge_margin_exceeds_every_tuned_shake checks.
+## The planet's shader rect (planet_rect()) reaches this far above the top edge
+## and past both side edges, so the cap's cut edges never show, and tile_rect()
+## grows the playfield by it on every side for the tiles and the stars, so their
+## edges never show either. It must exceed the largest tuned screen shake (the
+## feedback tiers' shake_px and comms.cutoff_shake_px; ShakeCamera offsets the
+## view by up to that much), which test_edge_margin_exceeds_every_tuned_shake
+## checks.
 const EDGE_MARGIN_PX: float = 64.0
 const ARC_SEGMENTS: int = 160
 ## A dark, desaturated violet surface (#1A1426), its lighter bands (#2E2445)

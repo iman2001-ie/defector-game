@@ -271,7 +271,7 @@ Title ──Play/Level Select──► Story (opening, only when starting Level 
 
 ```
 Level (Node2D, level.gd)                 # reads data/levels/level_<id>.json
-├── Background (Node2D)                  # LevelBackground: tiled space texture (+ throne-world arc), chosen by level data
+├── Background (Node2D)                  # LevelBackground: tiled space texture + Stars (starfield.gdshader) and, for the throne world, Planet (throne_world.gdshader) ColorRect children, chosen by level data
 ├── World (Node2D)                       # everything pausable
 │   ├── Asteroids (Node2D)
 │   ├── Enemies (Node2D)
@@ -675,7 +675,7 @@ This is the target tree. As of Story 6.1 the built parts are: `project.godot`, `
     ├── assets/
     │   ├── sprites/           player/, enemies/, boss/, allies/, asteroids/   (projectiles, fx and HUD are drawn in code)
     │   ├── portraits/         portrait_isolde.svg, portrait_tarek.svg, portrait_ryn.svg (project-owned; Vale has none)
-    │   ├── backgrounds/       space_1.png, space_2.png   (the throne-world arc is drawn in code over space_2)
+    │   ├── backgrounds/       space_1.png, space_2.png   (tiled; LevelBackground's Stars (starfield.gdshader) and, over space_2 for the throne world, Planet (throne_world.gdshader) ColorRects draw on top)
     │   ├── fonts/             kenvector_future.ttf   (the Theme default font)
     │   ├── icon/              defector_icon.svg   (project-owned app icon: the exe, window and taskbar icon, Story 8.5)
     │   ├── audio/
@@ -1470,13 +1470,13 @@ AI agents use the **headless CLI loop** instead, which covers editing, error che
 # export block's import step (Deployment Architecture) is a short form that points back to that note; change
 # them all together.
 # Run on a fresh clone with no game/.godot/. Re-run after adding, changing or removing a class_name declaration
-# (including adding, renaming, moving or deleting a script that has one, changing the extends line or @icon of
-# a script that keeps its class_name, or adding or removing @abstract or @tool on a script that keeps its
-# class_name), after adding, changing, renaming, moving or deleting an imported asset, after any pull or branch
-# switch, or when game/.godot/ is stale: headless -s runs don't rescan the class cache, and an asset has no
-# up-to-date imported copy in the gitignored game/.godot/imported/ until --import runs (the assets and their
-# .import sidecars are tracked; the imported copies are not). Typical symptoms: a parse error naming a
-# class_name that exists, or a preload or resource-load failure for an asset that exists.
+# (including adding, renaming, moving or deleting a script that has one, or changing the extends line, @icon,
+# @abstract or @tool of a script that keeps its class_name), after adding, changing, renaming, moving or
+# deleting an imported asset, after any pull or branch switch, or when game/.godot/ is stale: headless -s runs
+# don't rescan the class cache, and an asset has no up-to-date imported copy in the gitignored
+# game/.godot/imported/ until --import runs (the assets and their .import sidecars are tracked; the imported
+# copies are not). Typical symptoms: a parse error naming a class_name that exists, or a preload or
+# resource-load failure for an asset that exists.
 "<GODOT_DIR>/Godot_v4.7.2-stable_win64_console.exe" --headless --path game --import
 
 # Run all GUT tests headless
@@ -2116,8 +2116,8 @@ The art pass (GDD decision #66, provisional pending the operator). Gameplay is u
 - **Enemies:** `Enemy._ready` fits the `_body_sprite_path()` Sprite2D (default `Hull`; `FlagshipTurret` uses `Body`, `FlagshipCore` `Shell`) to `sprite_px`. Every enemy scene's `Hull` is a `Sprite2D` (rotation 0 = nose +y, modulate white); the Bastion and the Flagship lose `Plating` / `Bridge`, the turret loses `Plating`. The Wasp's flash still drives `Hull.self_modulate`. The Flagship sets `sprite_px = boss.hull.width_px` before `super()`, so the hull SVG spans the hitbox width. The Ram has `@export var sprite_px: float = 120.0` and fits its `Hull` (the Maul texture) before its root `scale`.
 - **Allies:** `AllyShip` has a `Sprite` child (`show_behind_parent`, so its `_draw`, now only the shield ring, draws over it) fitted to `allies.ship_px`; `_apply_hull_texture()` swaps it to `ally_damaged.png` on FALLING (`is_damaged()`). `hull_sprite()` is new; `BODY_COLOR`, `OUTLINE_PX` and the `DAMAGED_*` colours are gone. `ConvoyShip` has a `Sprite` fitted inside `ship_width_px` x `ship_height_px` and no `_draw`; `hull_sprite()` is new; `OUTLINE_COLOR`, `BODY_COLOR` and `OUTLINE_PX` are gone.
 - **Asteroids:** `Visual/Sprite` (no `Body` / `Rim`; `Visual` is no longer scaled) takes `Asteroid.TEXTURES[size]` and is fitted to `diameter_px`; `RIM_WIDTH_PX` is gone.
-- **LevelBackground:** `TEXTURES` (`space_1`, `space_2`, and `throne_world` -> the `space_2` texture), `texture_repeat` enabled in `_init`, `tile_texture()`, static `tile_rect()` (`Playfield.RECT` grown by `EDGE_MARGIN_PX`), `MENU_BACKGROUND` (`space_1`). `_draw` tiles the texture, then draws the throne world's arc. `title.tscn` and `story.tscn` have a `Background` (`space_1`) as their first child; the end screen still shows `throne_world`.
-- **Level Select:** each `Thumbnail` ColorRect clips (`clip_contents`) a `Background` LevelBackground set to `thumbnail_background_id(level_data)` (the String `background`, else ""), placed by static `thumbnail_transform(size)` (a uniform cover scale, centred horizontally, top-aligned so the throne world's arc shows). A null id draws nothing, so the theme colour shows.
+- **LevelBackground:** `TEXTURES` (`space_1`, `space_2`, and `throne_world` -> the `space_2` texture), `texture_repeat` enabled in `_init`, `tile_texture()`, static `tile_rect()` (`Playfield.RECT` grown by `EDGE_MARGIN_PX`), `MENU_BACKGROUND` (`space_1`). `_draw` tiles the texture, then draws the throne world's arc. `title.tscn` and `story.tscn` have a `Background` (`space_1`) as their first child; the end screen still shows `throne_world`. *(Epic 7 playtest F: `_draw` now only tiles the texture; the arc is the `Planet` ColorRect running `throne_world.gdshader`; see As-built 2026-10-14 (Epic 7 playtest F).)*
+- **Level Select:** each `Thumbnail` ColorRect clips (`clip_contents`) a `Background` LevelBackground set to `thumbnail_background_id(level_data)` (the String `background`, else ""), placed by static `thumbnail_transform(size)` (a uniform cover scale, centred horizontally, top-aligned so the throne world's arc shows). A null id draws nothing, so the theme colour shows. *(Epic 7 playtest F: the arc is now the `Planet` ColorRect running `throne_world.gdshader`, held still in the thumbnails by `animate = false`; see As-built 2026-10-14 (Epic 7 playtest F).)*
 - **Comms portraits:** `systems/comms/comms_portraits.gd` (`class_name CommsPortraits`): `TEXTURES` (`isolde`, `tarek`, `ryn`), `texture_for(speaker)`, static `image_rect(size, frame)` (the frame rect inset by its border). `CommsPanel` and `CommsBox` have a `Portrait/Image` TextureRect and a `portraits` map (a copy of `TEXTURES`); a portrait speaker shows its image and hides `Initial`, or shows `Initial` when it has no texture.
 - **Theme:** `default_font` = Kenney Future; `CommsPanel/fonts/text` and `fonts/cue` are base-less `FontVariation`s applied by `CommsPanel._apply_theme` (the dialogue and the `▸` cue keep the engine font; `CommsBox/fonts/text` already was one); `PauseMenu/fonts/comms`, another base-less one, is applied to the recent-comms rows (the `RECENT COMMS` heading stays on the default font). New type variation `LevelClearBanner` (base `Label`, `font_color` coalition, `font_size` 120); `level.tscn`'s banner uses it instead of overrides. No font size changed: every fit test passes under Kenney Future.
 - **Bench:** `--bench=20` after the change: avg 4.53 ms, p99 9.75 ms, max 14.32 ms over 4415 frames (40 enemies, 201 projectiles, vsync off, 1920 x 1080) -> PASS.
