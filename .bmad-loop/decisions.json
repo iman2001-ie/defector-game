@@ -1,1 +1,56 @@
-{}
+{
+  "DW-110": {
+    "answered_at": "2026-10-14",
+    "bundle_name": "",
+    "effect": "build",
+    "intent": "Stop Tarek's burning-fall sound (tarek_burn) when the scene changes, so a quit or retry from the pause menu during the down beat doesn't carry it into the next scene: stop it in the Tarek's fall director's _exit_tree (or stop the combat pool in SceneRouter._change_to if that is cleaner and doesn't cut other wanted sounds). Add a test that the burn stops after leaving the scene.",
+    "key": "custom",
+    "label": "Stop Tarek's burn on scene change",
+    "resolution": ""
+  },
+  "DW-107": {
+    "answered_at": "2026-10-14",
+    "bundle_name": "",
+    "effect": "build",
+    "intent": "Make test_level.gd test_dev_ally_level_spawns_tarek_who_fires_and_scores reliable: find the timing assumption in its real-time kill wait (run it in a loop, e.g. 20 times) and fix the test, not the game, unless a real game bug is found.",
+    "key": "custom",
+    "label": "Fix the flaky ally-kill test",
+    "resolution": ""
+  },
+  "DW-106": {
+    "answered_at": "2026-10-14",
+    "bundle_name": "",
+    "effect": "build",
+    "intent": "Update the Story 7.6 LevelBackground bullet in game-architecture.md to the as-built arc: it hangs from the top edge, ARC_HEIGHT_PX 180 and EDGE_MARGIN_PX 64 (level_background.gd), replacing the old bottom-edge, 200 px rise, 40 px margin description. Docs only.",
+    "key": "custom",
+    "label": "Update the architecture's arc bullet",
+    "resolution": ""
+  },
+  "DW-87": {
+    "answered_at": "2026-10-14",
+    "bundle_name": "",
+    "effect": "build",
+    "intent": "In AGENTS.md section 3's --import note and its copy in game-architecture.md's headless CLI block, add adding or removing @abstract or @tool on a script that keeps its class_name to the re-run triggers (next to the extends and @icon edits). Docs only; keep all copies in step.",
+    "key": "custom",
+    "label": "Add @abstract/@tool to the import triggers",
+    "resolution": ""
+  },
+  "DW-88": {
+    "answered_at": "2026-10-14",
+    "bundle_name": "",
+    "effect": "build",
+    "intent": "In AGENTS.md section 3 and game-architecture.md (the CLI export block's import comment and the line calling it another copy), describe the export block's import comment as a short form/pointer of the AGENTS.md note rather than a copy, so the 'change all copies together' rule is unambiguous. Docs only.",
+    "key": "custom",
+    "label": "Call the export import comment a short form",
+    "resolution": ""
+  },
+  "DW-89": {
+    "answered_at": "2026-10-14",
+    "bundle_name": "",
+    "effect": "build",
+    "intent": "In AGENTS.md section 5, change 'hand-written retro revisions' so it covers hand-written retrospectives, first pass or revision (e.g. 'hand-written retros (first pass or revision)'). Docs only.",
+    "key": "custom",
+    "label": "Cover first hand-written retros",
+    "resolution": ""
+  }
+}

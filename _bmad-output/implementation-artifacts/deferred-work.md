@@ -33,14 +33,16 @@ origin: spec-deferred 3daa68d1eac9
 location: game/autoloads/feedback.gd prewarm(); game/entities/effects/explosion.tscn visibility_rect
 source_spec: `spec-1-6-feel-every-impact-scale-with-size.md`
 reason: Feedback.prewarm() spawns explosions at (-1000, 540); every GPUParticles2D has visibility_rect Rect2(-200,-200,400,400), scaled at most 4x, so each explosion lies wholly outside the viewport. If culled canvas items are never drawn, no pipeline compiles and the first real impact can still hitch. Headless tests only count nodes and positions, so they cannot settle it. Would settle: a Story 1.7 frame-time check of the first large explosion on the dev laptop (with and without pre-warm). The x = -1000 position is mandated by the architecture and the story's acceptance criteria.
-status: open
+status: done 2026-10-14
+resolution: closed by human decision: settled by the operator's full-game playtest: no first-explosion hitch was noticed.
 
 ### DW-5: Nothing caps live explosions; each one builds three GPUParticles2D nodes plus a ring, and double feedback and missile splash multiply them.
 origin: spec-deferred ffc60527d303
 location: game/autoloads/feedback.gd impact(); game/entities/effects/explosion.tscn
 source_spec: `spec-1-6-feel-every-impact-scale-with-size.md`
 reason: Every Feedback.impact spawns a full Explosion (Burst, Sparks, Debris, Shockwave) that lives until LIFETIME_S, with no pooling (ruled out by the spec) and no budget. A kill makes two impacts (projectile + death), and splash chains add more. Headless tests cannot measure GPU cost. Would settle: the Story 1.7 stress test, frame time with many simultaneous kills on the dev laptop.
-status: open
+status: done 2026-10-14
+resolution: closed by human decision: settled by the operator's full-game playtest: frame rate held in heavy fights.
 
 ### DW-6: A fresh clone cannot run the GUT suite until the project has been imported once with --import.
 origin: spec-deferred e212d1529e2f
@@ -849,7 +851,8 @@ location: game/entities/allies/convoy.gd (_draw)
 source_spec: `_bmad-output/planning-artifacts/ux-designs/ux-defector-game-2026-10-06/mockups` (convoy in the HUD mock)
 severity: low
 reason: Art only, for the Story 8.2 art pass: match the mock's freighter look (DESIGN.md: ~160x80 cargo hulls recoloured `coalition` with a dimmer body). The formation and collision shape are settled separately by DW-83 (nose-up, middle ship raised, one solid triangle); this entry is only the ship drawing.
-status: open
+status: done 2026-10-14
+resolution: closed by human decision: already resolved: the convoy now uses ship sprites (convoy_ship.tscn Sprite, Epic 7 playtest visual pass).
 
 ### DW-87: The class_name trigger list covers `extends` and `@icon` edits but not adding or removing `@abstract` or `@tool` on a script that keeps its `class_name`, though the global class cache records those
 origin: spec-deferred caa1a8ec97eb
@@ -858,6 +861,7 @@ source_spec: `spec-dw-62-dw-66-agents-md-import-and-commit-wording.md`
 severity: low
 reason: `game/.godot/global_script_class_cache.cfg` entries carry `base`, `class`, `icon`, `is_abstract`, `is_tool`, `language` and `path`, so toggling `@abstract`/`@tool` leaves the cache stale for headless `-s` runs. No game script uses either today, so it is rare. The fix edits AGENTS.md:30 (agent-context file) and its architecture copy.
 status: open
+decision: 2026-10-14 Add @abstract/@tool to the import triggers — In AGENTS.md section 3's --import note and its copy in game-architecture.md's headless CLI block, add adding or removing @abstract or @tool on a script that keeps its class_name to the re-run triggers (next to the extends and @icon edits). Docs only; keep all copies in step.
 
 ### DW-88: The CLI export block's import comment is called a "copy" of the AGENTS.md note (and AGENTS.md says to change all copies together), but it repeats only the first clause and points elsewhere for re-run
 origin: spec-deferred 7d969e5a29e8
@@ -866,6 +870,7 @@ source_spec: `spec-dw-62-dw-66-agents-md-import-and-commit-wording.md`
 severity: low
 reason: game-architecture.md:1293-1295 says "Copy of the note in AGENTS.md ... see it or the headless CLI block ... for when to re-run"; game-architecture.md:1391-1392 calls it "another copy"; AGENTS.md:30 names it among "the copies". Calling it a short form/pointer in all three places removes the ambiguity. The fix edits AGENTS.md (agent-context file).
 status: open
+decision: 2026-10-14 Call the export import comment a short form — In AGENTS.md section 3 and game-architecture.md (the CLI export block's import comment and the line calling it another copy), describe the export block's import comment as a short form/pointer of the AGENTS.md note rather than a copy, so the 'change all copies together' rule is unambiguous. Docs only.
 
 ### DW-89: AGENTS.md section 5 now gives a form for bmad-loop/orchestration retro commits and for hand-written retro revisions, but not for a first retrospective a person writes by hand (previously covered by
 origin: spec-deferred e327f358a1f5
@@ -874,6 +879,7 @@ source_spec: `spec-dw-62-dw-66-agents-md-import-and-commit-wording.md`
 severity: low
 reason: AGENTS.md:62 covers "retro commits made by bmad-loop or orchestration"; AGENTS.md:63 now says "hand-written retro revisions" where it used to say "retros". Wording such as "hand-written retros (first pass or revision)" closes the gap. The fix edits AGENTS.md (agent-context file).
 status: open
+decision: 2026-10-14 Cover first hand-written retros — In AGENTS.md section 5, change 'hand-written retro revisions' so it covers hand-written retrospectives, first pass or revision (e.g. 'hand-written retros (first pass or revision)'). Docs only.
 
 ### DW-90: Epic 7 boss ACs and the GDD/FR49-FR51 boss cadence lines still use the "every N s after a G s glow" wording that DW-70 rewrote for Stories 2.5 and 2.7.
 origin: spec-deferred 739a3e585011
@@ -902,7 +908,8 @@ location: game/systems/waves/level_validator.gd:_check_anchored_list
 source_spec: `spec-dw-67-dw-68-level-validator-group-rules.md`
 severity: low
 reason: Formation.slots wraps or stacks the entry over several rows and WaveDirector advances _next_row by Formation.rows_used, but needle.gd anchors every Needle at enemies.needle.anchor_y_px whatever its slot y. DW-68's rule only checks the entries before a Needle, not how many rows the Needle entry itself takes. No shipped wave does this (both Needle entries are grid_2x1).
-status: open
+status: done 2026-10-14
+resolution: closed by human decision: no shipped level puts a Needle entry over more than one row; not needed for release.
 
 ### DW-93: Nothing enforces enemies.needle.anchor_y_px == waves.formation.top_y, which the "Needle is the first row-taker" rule (DW-68) takes for granted.
 origin: spec-deferred 6d893b736db5
@@ -910,7 +917,8 @@ location: game/tests/data/test_data_files.gd:test_needle_tuning_ranges
 source_spec: `spec-dw-67-dw-68-level-validator-group-rules.md`
 severity: low
 reason: test_needle_tuning_ranges only checks that anchor_y_px is inside the enemy zone. If either tuning value changes, even a first-in-wave Needle stops lining up with row 0. Pre-existing tuning coupling; not introduced by this change.
-status: open
+status: done 2026-10-14
+resolution: closed by human decision: tuning coupling with no player impact; not needed for release.
 
 ### DW-94: The Player's 64 px hull circle can visibly overlap drawn cargo hulls (up to 16 px at the sides, about 8 px at the lead's top, more at the nose tips) because solidity uses the 80% hitboxes, not the
 origin: spec-deferred 433360990799
@@ -918,7 +926,8 @@ location: game/entities/allies/convoy.gd _place_ships
 source_spec: `spec-dw-83-convoy-solid-triangle-formation.md`
 severity: low
 reason: hull_polygon() is built from ConvoyShip.hull_rect() (128x64 hitboxes) while hulls are drawn 160x80; Story 6.1 already resolved against the hitbox rects, so this predates DW-83. Settle by operator playtest of dev_convoy: if the overlap reads badly, build the polygon from the drawn extents (hull_size) instead.
-status: open
+status: done 2026-10-14
+resolution: closed by human decision: settled by the operator's full-game playtest: the convoy overlap reads fine.
 
 ### DW-95: The Flagship turrets are "staggered" (FR49, Story 7.3, GDD phase 1) but no stagger offset is defined in the docs or in `tuning.json` `boss.turrets`.
 origin: spec-deferred 838210c950e1
@@ -926,14 +935,16 @@ location: _bmad-output/planning-artifacts/epics.md (FR49, Story 7.3); game/data/
 source_spec: `spec-dw-90-boss-cadence-start-to-start-wording.md`
 severity: low
 reason: `boss.turrets` has count, hp, spread_bullets, bullet_speed_px_s, fire_interval_s 3.0 and telegraph_s 0.5, with no stagger key; the architecture doesn't define it either. Under start-to-start the stagger is the only thing that separates the four turrets' clocks, so an Epic 7 implementer must invent a value (and must put it in data, per AGENTS.md). Pre-existing; this rewording didn't cause it.
-status: open
+status: done 2026-10-14
+resolution: closed by human decision: already resolved: boss.turrets.stagger_s (0.75) exists in tuning.json and Flagship staggers the turrets by it.
 
 ### DW-96: Whether the Level 1 convoy (100 HP) survives real play against 7 Mauls and Lancer fire is unverified; the integration test raises its HP to 100000.
 origin: spec-deferred b0f61076fa31
 location: game/data/levels/level_1.json
 source_spec: `spec-7-1-play-level-1-cargo-ambush.md`
 reason: Maybe-false: 3 + 4 Mauls at 10 damage each is 70, and Lancers aim at the convoy 50 % of the time for 5 per hit, so a slow player could lose the convoy. Settled by the operator playtest in operator_actions (watch convoy HP per GDD decision #23); a retune belongs in tuning.json.
-status: open
+status: done 2026-10-14
+resolution: closed by human decision: settled by the operator's full-game playtest: the Level 1 convoy survives real play.
 
 ### DW-97: The level-root "music" key is still unread, so Level 1 states "combat" twice (the root key and a W1 music action) and nothing owns wiring the root key.
 origin: spec-deferred dcdfdd460b89
@@ -941,7 +952,8 @@ location: game/systems/waves/wave_director.gd
 source_spec: `spec-7-1-play-level-1-cargo-ambush.md`
 severity: low
 reason: Pre-existing since Story 5.3 (architecture As-built 5.3: "Story 8.1 or Epic 7 can wire it"). Stories 7.2 and 7.6 will copy the duplicated pattern, and a later edit to one copy can silently disagree with the other. Wiring it is a WaveDirector change, which is outside this data-only story.
-status: open
+status: done 2026-10-14
+resolution: closed by human decision: harmless duplicate with no player effect; each level sets its track through the W1 music action. Not needed for release.
 
 ### DW-98: Level 2 wave 5 puts the 160 px Bastions (row y 250) in the same columns as the Needles (y 160), so each Needle can start shielded from below; Bastions in waves 2 and 4 also overlap the next Wasp row
 origin: spec-deferred f397e13c8a49
@@ -956,7 +968,8 @@ origin: spec-deferred db8006c82555
 location: game/scenes/level/level_background.gd
 source_spec: `spec-7-6-play-level-3-siege-of-the-throne-world.md`
 reason: Maybe-false (intent-alignment layer): headless GUT runs on the dummy renderer, so pixels can't be checked there. The draw path is a single draw_colored_polygon plus draw_polyline over a convex circular segment, called after apply(). Settled by the operator playtest in operator_actions (the arc must be visible in Level 3 and absent in Levels 1 and 2).
-status: open
+status: done 2026-10-14
+resolution: closed by human decision: settled by the operator's full-game playtest: the throne-world arc shows in Level 3 only.
 
 ### DW-100: Whatever music is playing when Level 3 clears (the boss track from the boss wave's music action) keeps playing on the end screen, because no scene change or end-screen code stops music.
 origin: spec-deferred bb58da098d13
@@ -983,7 +996,8 @@ origin: spec-deferred 67f066f7b204
 location: game/entities/boss/flagship.gd (_end_the_fight)
 source_spec: `spec-dw-101-boss-death-ends-the-fight.md`
 reason: Flagship._end_the_fight calls Feedback.impact for every enemy and EnemyBullet at DYING entry; in DESPERATE dozens of bullets can be in flight. Not measured: settle it by profiling dev_boss (F6, kill the core mid-barrage) and checking the frame time of the DYING frame against the 16.67 ms budget; if it spikes, cap the effects per sweep (fizzle the rest silently).
-status: open
+status: done 2026-10-14
+resolution: closed by human decision: settled by the operator's full-game playtest: no frame spike noticed on the boss's death.
 
 ### DW-103: Music still carries over when the player quits to the title, opens Level Select or goes from the retry prompt to the title, so the combat or boss track now plays on the menus.
 origin: spec-deferred 947d1ca7e222
@@ -991,7 +1005,8 @@ location: game/autoloads/scene_router.gd (goto_title, goto_level_select)
 source_spec: `spec-8-1-make-the-game-sound-right.md`
 severity: medium
 reason: No scene change stops music (SceneRouter._change_to never touches Audio; only a `music: stop` action, the cut-off and, since Story 8.1, the last level clear do). Before Story 8.1 no track shipped, so this was silent; now Audio.MUSIC plays real tracks. DW-100 named this carry-over as the general case ("e.g. a level to the title"); Story 8.1's AC fixed only the Level 3 to end-screen route. Whether the title and menus should be silent is a design call (the GDD ships 0-2 tracks: combat and boss).
-status: open
+status: done 2026-10-14
+resolution: closed by human decision: already resolved: the title and Level Select play their own menu track (Audio.MENU_MUSIC).
 
 ### DW-104: The non-tier sound effects (laser_zap, missile_launch, barrage_whoosh, energy_pickup, shield_on, needle_lock, ability_denied, maul_alarm) play at a code-default 0 dB, so their loudness can only be
 origin: spec-deferred 6ca22c15f5e3
@@ -999,7 +1014,8 @@ location: game/entities/player/player_weapons.gd / game/entities/player/player.g
 source_spec: `spec-8-1-make-the-game-sound-right.md`
 severity: medium
 reason: Only feedback.tiers rows carry sfx_volume_db and sfx_pitch; every other call is Audio.play_sfx(id) with the default volume (player_weapons.gd, player.gd, energy_orb.gd, maul.gd, needle.gd). The pattern predates Story 8.1, which follows it for the two new cues; the operator listening pass may want per-cue levels.
-status: open
+status: done 2026-10-14
+resolution: closed by human decision: the operator is happy with the sound mix after the full-game playtest; no per-cue levels.
 
 ### DW-105: Nothing limits the summed SFX level, so many peak-normalised (-1 dBFS) sounds at once, such as the boss-death sweep, may clip.
 origin: spec-deferred c150870aa236
@@ -1016,6 +1032,7 @@ source_spec: `spec-8-2-make-the-game-look-neon.md`
 severity: low
 reason: game/scenes/level/level_background.gd:48,54 (ARC_HEIGHT_PX 180, EDGE_MARGIN_PX 64, arc hanging from the top since the 2026-10-13 playtest) versus game-architecture.md:1964, which still says (960, 1080 + 1600 - 200), the bottom edge, and EDGE_MARGIN_PX 40. The staleness predates Story 8.2, which only appended a tiling note to that bullet.
 status: open
+decision: 2026-10-14 Update the architecture's arc bullet — Update the Story 7.6 LevelBackground bullet in game-architecture.md to the as-built arc: it hangs from the top edge, ARC_HEIGHT_PX 180 and EDGE_MARGIN_PX 64 (level_background.gd), replacing the old bottom-edge, 200 px rise, 40 px margin description. Docs only.
 
 ### DW-107: test_level.gd test_dev_ally_level_spawns_tarek_who_fires_and_scores, a real-time test of ally kills, failed once and then passed in the full run and on its own.
 origin: spec-deferred 4503b289a4be
@@ -1024,6 +1041,7 @@ source_spec: `spec-8-2-make-the-game-look-neon.md`
 severity: low
 reason: Seen once by the Story 8.2 implementer, in an early run. Two later full runs passed (2032/2032). The test (Story 6.4) depends on real-time ally kills, so it may be flaky. To settle it, run the test in a loop (for example 20 runs) and look for a timing assumption in its kill wait.
 status: open
+decision: 2026-10-14 Fix the flaky ally-kill test — Make test_level.gd test_dev_ally_level_spawns_tarek_who_fires_and_scores reliable: find the timing assumption in its real-time kill wait (run it in a loop, e.g. 20 times) and fix the test, not the game, unless a real game bug is found.
 
 ### DW-108: No test observes LevelBackground._draw tiling the space texture. The tests check only tile_texture(), tile_rect() and texture_repeat, so a broken draw call would pass.
 origin: spec-deferred 08dfbf448aae
@@ -1031,7 +1049,8 @@ location: game/scenes/level/level_background.gd (_draw)
 source_spec: `spec-8-2-make-the-game-look-neon.md`
 severity: low
 reason: Headless GUT runs on the dummy renderer and can't sample pixels. _draw calls draw_texture_rect(tiles, tile_rect(), true) before the throne-world early return, and nothing records that call. Closing the gap needs a seam that records draw calls, or a screenshot check. Until then the operator's look-check covers it.
-status: open
+status: done 2026-10-14
+resolution: closed by human decision: test gap only; the operator's look-check covers the tiled background. Not needed for release.
 
 ### DW-109: A `silence_after` story sequence turns comms silence on even when its wave cleared before the sequence was requested, so the silence can carry into the next wave.
 origin: review pt7-j
@@ -1039,7 +1058,8 @@ location: game/systems/comms/comms_channel.gd (_finish, silence_after)
 source_spec: `spec-pt7-j-tarek-fall-story-beats.md`
 severity: low
 reason: Tarek's down beat is requested 1.4 s after impact. If the wave clears in that gap, the silence lasts until the following wave clears. The cut-off path guards this with `_cut_wave_cleared`. Level 2 wave 5 is the last wave, so only `level_dev_tarek_fall` can hit it. Fix: track whether a wave is active and skip the silence when none is.
-status: open
+status: done 2026-10-14
+resolution: closed by human decision: only the dev level can hit it (Level 2 wave 5 is the last wave); not needed for release.
 
 ### DW-110: Tarek's burn sound (4.6 s, combat pool, process-always) keeps playing into the next scene after a quit or retry from the pause menu during the down beat.
 origin: review pt7-j
@@ -1048,6 +1068,7 @@ source_spec: `spec-pt7-j-tarek-fall-story-beats.md`
 severity: low
 reason: Nothing stops a combat-pool sfx on a scene change. Fix: stop the burn player in the director's `_exit_tree`, or stop the combat pool on SceneRouter._change_to.
 status: open
+decision: 2026-10-14 Stop Tarek's burn on scene change — Stop Tarek's burning-fall sound (tarek_burn) when the scene changes, so a quit or retry from the pause menu during the down beat doesn't carry it into the next scene: stop it in the Tarek's fall director's _exit_tree (or stop the combat pool in SceneRouter._change_to if that is cleaner and doesn't cut other wanted sounds). Add a test that the burn stops after leaving the scene.
 
 ### DW-111: CommsBox.show_line doesn't hide an empty speaker name, so a combat line using the nameless `static` speaker would show an empty name row. Only the story panel hides it.
 origin: review pt7-j
@@ -1055,7 +1076,8 @@ location: game/systems/comms/comms_box.gd (show_line)
 source_spec: `spec-pt7-j-tarek-fall-story-beats.md`
 severity: low
 reason: Latent. `static` is only used in a story sequence today. Fix: mirror CommsPanel's empty-name handling, or have the validator reject `static` in combat sequences.
-status: open
+status: done 2026-10-14
+resolution: closed by human decision: latent; no combat sequence uses the static speaker. Not needed for release.
 
 ### DW-112: `tools/import_cc0_audio.py` checks sha256 only for music. The SFX sources' hashes appear only in its docstring.
 origin: review pt7-i
@@ -1063,4 +1085,5 @@ location: tools/import_cc0_audio.py
 source_spec: `spec-pt7-i-level-music-and-explosions.md`
 severity: low
 reason: Pre-existing design (Story 8.1). A changed upstream file would be imported silently. Fix: give SfxSource and Layer an optional sha256 and verify it as the music sources already do.
-status: open
+status: done 2026-10-14
+resolution: closed by human decision: tooling only, outside the shipped game; not needed for release.
