@@ -106,12 +106,12 @@ development_status:
   7-7-end-the-war-isoldes-final-line-and-the-end-screen: done
   7-8-hear-the-council-epilogue: done
   epic-7-retrospective: optional
-  epic-8: backlog
+  epic-8: done
   8-1-make-the-game-sound-right: done
   8-2-make-the-game-look-neon: done
   8-3-hit-the-performance-targets: done
   8-4-prove-the-game-is-finishable: done
-  8-5-ship-defector-on-github: backlog
+  8-5-ship-defector-on-github: done
   epic-8-retrospective: optional
 action_items:
   - id: "epic-1-retro-item-1-complete-story-1-7-operator-actions-fun"

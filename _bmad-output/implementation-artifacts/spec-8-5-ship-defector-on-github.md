@@ -2,19 +2,20 @@
 title: 'Story 8.5: Ship DEFECTOR on GitHub'
 type: 'feature'
 created: '2026-10-14'
-status: 'awaiting-operator'
+status: done
 baseline_revision: '7e77b60beca9fe854bb33920fdadb58c7c4f7e73'
 review_loop_iteration: 1
 followup_review_recommended: false
 operator_actions:
-  - "Purge the four tracked run archives (.bmad-loop/archive/20261007-092930-9035.tar.gz, 20261007-102223-b4f6.tar.gz, 20261007-124327-8aef.tar.gz, 20261007-155431-5f04.tar.gz) from the whole git history (for example git filter-repo --path .bmad-loop/archive --invert-paths), force-push main after confirming, and ask GitHub Support to purge cached views if needed: they are already on origin/main and hold machine-specific run logs that must not be published."
-  - "After the purge, empty KNOWN_LEAKS in tools/test_repo_hygiene.py and confirm uv run python tools/repo_hygiene.py --untracked reports 0 findings."
-  - "Run uv run python tools/repo_hygiene.py --untracked --deny <your name> --deny <your hostname> --deny <your work email domain> --deny <your Windows domain> and decide about the pre-existing author display name in tracked BMAD config and planning frontmatter."
-  - "Sign off the provisional operator checks of Stories 8.1-8.4 (sound, look, hands-on performance, the three release playthroughs and the playtest); if any retune follows, re-export and re-run tools/package_release.py."
-  - "Smoke-test the zip: move %APPDATA%\\DEFECTOR aside, unzip DEFECTOR-v1.0-windows.zip into an empty folder, launch DEFECTOR.exe, play through Level 1 and confirm a fresh save.cfg appears in %APPDATA%\\DEFECTOR\\; then restore your old folder if you want it."
-  - "Check the DEFECTOR icon in Explorer and the taskbar, and read README.md, release/README.txt and RELEASE_NOTES.md."
-  - "Choose a licence for the repository (no LICENSE file exists; deferred in this spec)."
-  - "Push main to origin after explicit confirmation, then run gh release create v1.0 DEFECTOR-v1.0-windows.zip --title \"DEFECTOR v1.0\" --notes-file RELEASE_NOTES.md from the repo root, and download the published zip once to confirm it runs."
+  - "Done (e803edc): the four tracked .bmad-loop/archive run archives were purged from the whole history with git filter-repo, KNOWN_LEAKS was emptied, and repo_hygiene.py --untracked reports 0 findings."
+  - "Done (2026-10-15): the operator signed off the provisional checks of Stories 8.1-8.4 after a full-game playtest on HEAD and a Windows release build; Story 8.3's hands-on performance checks were waived (smooth in play, personal project). GDD decision #89."
+  - "Done (2026-10-15): the hygiene scan with the operator's identifiers passed at run time (0 findings), and a full-history scan (every commit's diff, message, author and committer) found no secrets, no machine paths and no work identity."
+  - "Done (2026-10-15): licence chosen, MIT (Copyright (c) 2026 iman2001-ie), in LICENSE; third-party content keeps its own licence; both zips carry LICENSE.txt. GDD decision #90."
+  - "Done (2026-10-15): a best-effort macOS build was added (universal, ad-hoc signed, not notarized, untested on a real Mac), with release/README-macos.txt and DEFECTOR-v1.0-macos.zip from tools/package_release.py. GDD decision #90."
+  - "Done (2026-10-15): README.md, release/README.txt and RELEASE_NOTES.md were rewritten for v1.0 (story wording, How it was made, eight screenshots, both platforms, no bug-report invitations, credits matching CREDITS.md)."
+  - "Done (2026-10-15): both builds re-exported; the Windows zip unzipped into an empty folder passed perf_check launch --runs 3; GUT and the Python tool tests passed."
+  - "Done (2026-10-15): main pushed to origin with the operator's authorisation for that session."
+  - "Pending the operator's go-ahead: gh release create v1.0 DEFECTOR-v1.0-windows.zip DEFECTOR-v1.0-macos.zip --title \"DEFECTOR v1.0\" --notes-file RELEASE_NOTES.md, after one more smoke test of the new Windows zip."
 context:
   - '{project-root}/_bmad-output/game-architecture.md'
   - '{project-root}/.claude/skills/gds-agent-game-dev/gametest/knowledge/godot-testing.md'
@@ -314,3 +315,7 @@ Status: awaiting-operator
 - The exe is unsigned, so players see a SmartScreen prompt; the docs explain it.
 - Save creation and Level 1 play from the zip are not verified by an agent: release builds have no autoplay.
 - The launch timings are warm-cache runs.
+
+## Operator sign-off
+
+2026-10-15: Story 8.5 is closed. The operator signed off Stories 8.1-8.4 (decision #89), chose the MIT licence and asked for a best-effort macOS build (decision #90). Both release zips were rebuilt and the Windows zip passed the launch smoke test. The repo passed the hygiene and full-history scans and main was pushed. Publishing the GitHub release (and any change to the repo's Issues setting) waits for the operator's explicit go-ahead.
