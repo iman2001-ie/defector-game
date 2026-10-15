@@ -311,7 +311,7 @@ location: game/core/projectile.gd:49
 source_spec: `spec-dw-2-dw-10-laser-mask-player-shots.md`
 severity: medium
 reason: game/core/projectile.gd:49-54 has no convoy check. FR7, GDD #23 and game-architecture.md:310 require player shots to be blocked by the convoy without damage. No convoy exists until Epic 6, so nothing breaks today. The Epic 6 convoy story must add the no-damage path, plus a test that a convoy-layer area stops a bolt without apply_damage.
-status: resolved
+status: done 2026-10-10
 resolution: resolved by Story 6.1: Projectile._can_damage refuses convoy-layer areas (Projectile.is_convoy), so player and ally shots are blocked with no damage and a SMALL effect; tests in test_projectile.gd.
 
 ### DW-33: Missile._on_impact always runs apply_splash, so a missile stopped by a convoy ship (missile mask already includes CONVOY) would still splash enemies and asteroids near the convoy; whether a blocked
@@ -319,7 +319,7 @@ origin: spec-deferred 27d4e4bd97cb
 location: game/entities/projectiles/missile.gd:27
 source_spec: `spec-dw-2-dw-10-laser-mask-player-shots.md`
 reason: game/entities/projectiles/missile.gd:27-29 calls apply_splash before super._on_impact for every hit. missile.tscn has masked CONVOY (84) since Story 1.5, so this predates DW-2/DW-10. epics.md:1409-1411 (Epic 6 convoy story) says missiles reaching a convoy ship are "stopped and free itself, the convoy takes no damage", but says nothing about splash on nearby enemies. Settle by a design ruling in the Epic 6 convoy story (detonate with splash vs. fizzle) and a test for it.
-status: resolved
+status: done 2026-10-10
 resolution: resolved by Story 6.1: Missile._on_impact skips apply_splash on a convoy area (fizzle, GDD #46) and the base plays SMALL, not MEDIUM; tests in test_missile.gd and test_micro_missile.gd.
 decision: 2026-10-10 Fizzle — A player missile (or Barrage micro-missile) stopped by a convoy ship fizzles: no explosion, no splash, no convoy damage, same blocked-shot effect as a laser bolt (GDD decision #46). Story 6.1 implements it and adds a test.
 
@@ -744,7 +744,7 @@ location: game/ui/menus/retry_prompt.gd:125
 source_spec: `spec-dw-54-level-ends-exactly-once.md`
 severity: low
 reason: ui/menus/retry_prompt.gd opens on the first Events.level_failed with no level_cleared check; events.gd documents a &"convoy" reason with no emitter yet. Today Player is the only emitter and is gated by _safe, so nothing is reachable now.
-status: resolved
+status: done 2026-10-10
 resolution: resolved by Story 6.1: RetryPrompt ignores level_failed after Events.level_cleared, and the Convoy ignores damage once any outcome is decided; tests in test_retry_prompt.gd and test_convoy.gd.
 
 ### DW-76: No Config test covers a missing comms.combat_line_max_chars (or comms.story_line_max_chars) tuning key: the single Log.error and the -1 fallback are untested.
@@ -860,7 +860,9 @@ location: AGENTS.md:30; _bmad-output/game-architecture.md:1393-1395
 source_spec: `spec-dw-62-dw-66-agents-md-import-and-commit-wording.md`
 severity: low
 reason: `game/.godot/global_script_class_cache.cfg` entries carry `base`, `class`, `icon`, `is_abstract`, `is_tool`, `language` and `path`, so toggling `@abstract`/`@tool` leaves the cache stale for headless `-s` runs. No game script uses either today, so it is rare. The fix edits AGENTS.md:30 (agent-context file) and its architecture copy.
-status: open
+status: done 2026-10-14
+resolution: resolved by sweep bundle dw-dw-agents-and-architecture-doc-wording
+resolution-undo: f9f7d7546cd9ea0a9123de613942a83efd4285d6010625cc7305424029462f83 2026-10-14 7374617475733a206f70656e
 decision: 2026-10-14 Add @abstract/@tool to the import triggers — In AGENTS.md section 3's --import note and its copy in game-architecture.md's headless CLI block, add adding or removing @abstract or @tool on a script that keeps its class_name to the re-run triggers (next to the extends and @icon edits). Docs only; keep all copies in step.
 
 ### DW-88: The CLI export block's import comment is called a "copy" of the AGENTS.md note (and AGENTS.md says to change all copies together), but it repeats only the first clause and points elsewhere for re-run
@@ -869,7 +871,9 @@ location: AGENTS.md:30; _bmad-output/game-architecture.md:1293-1295, 1391-1392
 source_spec: `spec-dw-62-dw-66-agents-md-import-and-commit-wording.md`
 severity: low
 reason: game-architecture.md:1293-1295 says "Copy of the note in AGENTS.md ... see it or the headless CLI block ... for when to re-run"; game-architecture.md:1391-1392 calls it "another copy"; AGENTS.md:30 names it among "the copies". Calling it a short form/pointer in all three places removes the ambiguity. The fix edits AGENTS.md (agent-context file).
-status: open
+status: done 2026-10-14
+resolution: resolved by sweep bundle dw-dw-agents-and-architecture-doc-wording
+resolution-undo: f9f7d7546cd9ea0a9123de613942a83efd4285d6010625cc7305424029462f83 2026-10-14 7374617475733a206f70656e
 decision: 2026-10-14 Call the export import comment a short form — In AGENTS.md section 3 and game-architecture.md (the CLI export block's import comment and the line calling it another copy), describe the export block's import comment as a short form/pointer of the AGENTS.md note rather than a copy, so the 'change all copies together' rule is unambiguous. Docs only.
 
 ### DW-89: AGENTS.md section 5 now gives a form for bmad-loop/orchestration retro commits and for hand-written retro revisions, but not for a first retrospective a person writes by hand (previously covered by
@@ -878,7 +882,9 @@ location: AGENTS.md:62-63
 source_spec: `spec-dw-62-dw-66-agents-md-import-and-commit-wording.md`
 severity: low
 reason: AGENTS.md:62 covers "retro commits made by bmad-loop or orchestration"; AGENTS.md:63 now says "hand-written retro revisions" where it used to say "retros". Wording such as "hand-written retros (first pass or revision)" closes the gap. The fix edits AGENTS.md (agent-context file).
-status: open
+status: done 2026-10-14
+resolution: resolved by sweep bundle dw-dw-agents-and-architecture-doc-wording
+resolution-undo: f9f7d7546cd9ea0a9123de613942a83efd4285d6010625cc7305424029462f83 2026-10-14 7374617475733a206f70656e
 decision: 2026-10-14 Cover first hand-written retros — In AGENTS.md section 5, change 'hand-written retro revisions' so it covers hand-written retrospectives, first pass or revision (e.g. 'hand-written retros (first pass or revision)'). Docs only.
 
 ### DW-90: Epic 7 boss ACs and the GDD/FR49-FR51 boss cadence lines still use the "every N s after a G s glow" wording that DW-70 rewrote for Stories 2.5 and 2.7.
@@ -1031,7 +1037,9 @@ location: _bmad-output/game-architecture.md:1964
 source_spec: `spec-8-2-make-the-game-look-neon.md`
 severity: low
 reason: game/scenes/level/level_background.gd:48,54 (ARC_HEIGHT_PX 180, EDGE_MARGIN_PX 64, arc hanging from the top since the 2026-10-13 playtest) versus game-architecture.md:1964, which still says (960, 1080 + 1600 - 200), the bottom edge, and EDGE_MARGIN_PX 40. The staleness predates Story 8.2, which only appended a tiling note to that bullet.
-status: open
+status: done 2026-10-14
+resolution: resolved by sweep bundle dw-dw-agents-and-architecture-doc-wording
+resolution-undo: f9f7d7546cd9ea0a9123de613942a83efd4285d6010625cc7305424029462f83 2026-10-14 7374617475733a206f70656e
 decision: 2026-10-14 Point the 7.6 arc notes at the current as-built — Docs only, game-architecture.md. The Story 7.6 LevelBackground bullet and its Tests bullet still describe the old arc (rising 200 px from the bottom edge, EDGE_MARGIN_PX 40); the later visual-pass section (decision log #71, 'It supersedes the earlier as-built notes on the planet arc') already has the current arc. Don't rewrite the history: add a short italic pointer at the end of both 7.6 bullets, in the style of the existing '(Story 8.2: ...)' note, saying the arc now hangs from the top edge and pointing to that section; and add EDGE_MARGIN_PX 64 (level_background.gd) to that section's LevelBackground bullet, which doesn't state the margin.
 
 ### DW-107: test_level.gd test_dev_ally_level_spawns_tarek_who_fires_and_scores, a real-time test of ally kills, failed once and then passed in the full run and on its own.
@@ -1087,3 +1095,59 @@ severity: low
 reason: Pre-existing design (Story 8.1). A changed upstream file would be imported silently. Fix: give SfxSource and Layer an optional sha256 and verify it as the music sources already do.
 status: done 2026-10-14
 resolution: closed by human decision: tooling only, outside the shipped game; not needed for release.
+
+### DW-113: The Story 8.2 as-built LevelBackground and Level Select bullets still describe the planet arc as drawn by `_draw` after the tiles, with no pointer to the playtest-F section.
+origin: spec-deferred b8a00a1e875a
+location: _bmad-output/game-architecture.md:2119-2120
+source_spec: `spec-dw-87-dw-106-agents-and-architecture-doc-wording.md`
+severity: low
+reason: game-architecture.md (As-built 2026-10-13 (Story 8.2)) says "`_draw` tiles the texture, then draws the throne world's arc"; the arc is now the `Planet` ColorRect running throne_world.gdshader (level_background.gd planet_rect, PLANET_SHADER). Pre-existing; the playtest-F section's "supersedes the earlier as-built notes on the planet arc" covers it only implicitly.
+status: open
+
+### DW-114: The architecture's current-design trees still describe the old arc: the scene tree's Background comment and the asset tree's "the throne-world arc is drawn in code over space_2", and neither lists
+origin: spec-deferred 675bebfda9db
+location: _bmad-output/game-architecture.md:274, 678
+source_spec: `spec-dw-87-dw-106-agents-and-architecture-doc-wording.md`
+severity: low
+reason: game-architecture.md:274 "tiled space texture (+ throne-world arc)"; :678 "(the throne-world arc is drawn in code over space_2)". The playtest-F visual pass added `Stars` (starfield.gdshader) and `Planet` (throne_world.gdshader) ColorRect children. Pre-existing, not caused by this bundle.
+status: open
+
+### DW-115: AGENTS.md section 5 now covers first-pass hand-written retros, but its only example is a revision (`Epic 1 retro: revision 2`), so the first-pass message shape must be guessed.
+origin: spec-deferred 26240b99d25d
+location: AGENTS.md:63
+source_spec: `spec-dw-87-dw-106-agents-and-architecture-doc-wording.md`
+severity: low
+reason: AGENTS.md:63 "hand-written retros (first pass or revision) ... (e.g. `Epic 1 retro: revision 2`)". Adding a first-pass example such as `Epic 4 retro` would settle it. The fix edits AGENTS.md (agent-context file).
+status: open
+
+### DW-116: AGENTS.md section 5 does not say which commit form applies to a retro an agent writes interactively at a person's request (neither bmad-loop/orchestration nor strictly hand-written).
+origin: spec-deferred 1ffd58ecab46
+location: AGENTS.md:62-63
+source_spec: `spec-dw-87-dw-106-agents-and-architecture-doc-wording.md`
+severity: low
+reason: AGENTS.md:62 covers "retro commits made by bmad-loop or orchestration" (`chore(retro): ...`); AGENTS.md:63 covers "hand-written retros (first pass or revision)" (plain summary). An interactive bmad-retrospective / gds-retrospective run fits neither label cleanly. The fix edits AGENTS.md (agent-context file).
+status: open
+
+### DW-117: "change them all together" still groups the short-form export comment with the full copy, so it is not explicit that a trigger-list edit only needs the full copy changed.
+origin: spec-deferred fb9799eff90e
+location: AGENTS.md:30; _bmad-output/game-architecture.md:1469-1471
+source_spec: `spec-dw-87-dw-106-agents-and-architecture-doc-wording.md`
+severity: low
+reason: AGENTS.md:30 and the headless CLI block now call the export block's import comment a short form that points back, but both keep "change them all together"; the short form holds no trigger list. Wording such as "change the full copy with every edit, and the short form when its first clause or the source location changes" would make it explicit. The fix edits AGENTS.md (agent-context file).
+status: open
+
+### DW-118: The `EDGE_MARGIN_PX` doc comment in level_background.gd says only that the planet's shader rect starts this far above the top edge, though `planet_rect()` also extends it past both sides and
+origin: spec-deferred 48267f603263
+location: game/scenes/level/level_background.gd:75-76
+source_spec: `spec-dw-87-dw-106-agents-and-architecture-doc-wording.md`
+severity: low
+reason: game/scenes/level/level_background.gd:75-80 ("The planet's shader rect starts this far above the top edge, so the cap's cut top never shows") versus planet_rect() (:308) and tile_rect() (:295); the architecture's playtest-F bullet now says "past the top and side edges". Pre-existing code comment; this bundle is docs-only and may not change code.
+status: open
+
+### DW-119: The `--import` trigger clause now says "a script that keeps its `class_name`" twice in a row, which a merged clause would avoid.
+origin: spec-deferred 0bf66232f52c
+location: AGENTS.md:30; _bmad-output/game-architecture.md:1472-1474
+source_spec: `spec-dw-87-dw-106-agents-and-architecture-doc-wording.md`
+severity: low
+reason: AGENTS.md:30 and the headless CLI block in game-architecture.md read "changing the `extends` line or `@icon` of a script that keeps its `class_name`, or adding or removing `@abstract` or `@tool` on a script that keeps its `class_name`". A merged form such as "changing the `extends` line, `@icon`, `@abstract` or `@tool` of a script that keeps its `class_name`" reads shorter; both copies must change together. The fix edits AGENTS.md (agent-context file).
+status: open
