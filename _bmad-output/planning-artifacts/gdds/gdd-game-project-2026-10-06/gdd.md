@@ -138,7 +138,7 @@ All values below are **initial tuning**, chosen to be easy to change. They are e
 | Missile | RMB | 8 to the target it hits; 3 splash to every other target within 120 px | 1.5 s cooldown | 900 px/s | Straight up from the ship's nose | Unguided. Unlimited. A radial cooldown ring is drawn on top of the ship while it reloads. |
 
 - **Missile direction:** the missile fires straight up from the ship's nose, like the lasers (decision #29). The player aims it by positioning the ship, for example by sliding out from behind cover.
-- **Asteroids block projectiles from both sides.** Asteroids stop every laser bolt and missile, from the player and from enemies. Player projectiles damage the asteroid they hit.
+- **Asteroids block projectiles from both sides.** Asteroids stop every laser bolt and missile, from the player and from enemies. Player projectiles damage the asteroid they hit. Asteroids don't stop enemy ships: Wasps and the other enemies fly straight through them (decision #83).
 - **Enemy hitboxes:** each enemy's hitbox covers about 80% of its sprite.
 - **Friendly fire:** the player's projectiles (lasers, missile splash, Barrage, ally shots) never damage allies or the convoy. Convoy ships are solid: they **block** player and ally shots, like asteroids but without taking damage (decision #23).
 

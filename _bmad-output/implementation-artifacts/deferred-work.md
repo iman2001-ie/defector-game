@@ -840,7 +840,8 @@ location: game/entities/enemies/wasp/wasp.gd / game/entities/hazards (asteroid) 
 source_spec: n/a (operator request)
 severity: medium
 reason: The user wants asteroids to shield the player from Wasps as well as from projectiles (GDD pillar "cover gives the player an answer to every attack"; gdd.md:141 and :300 cover projectiles only and say nothing about enemy ships, so this is a design change and needs a decision-log entry). Open points for the decision: which enemies it covers (Wasp only, or also Hunter Wasp and Maul); whether the asteroid takes damage or breaks; whether a Wasp destroyed by an asteroid counts toward the wave clear, drops energy and counts as a player kill; the impact feedback tier.
-status: open
+status: done 2026-10-14
+resolution: closed by human decision: Wasps (and every other enemy ship) keep flying through asteroids by design; asteroids are cover against projectiles only. After a full-game playtest the operator prefers it this way (decision-log #83; gdd.md Asteroids rule now says so).
 
 ### DW-86: Convoy ships are plain code-drawn pentagons; the UX mock shows detailed nose-up freighters (central hull, side cargo pods, engine glow).
 origin: operator playtest 2026-10-10 (raised while deciding DW-83)
