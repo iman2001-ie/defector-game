@@ -264,3 +264,7 @@ Confirmed 2026-10-14: the external actions this story owed were carried out.
 - Approve or replace any pick, and the -10 dB music volume and the small-explosion pitch 1.2 (GDD decision #65, provisional); record any change in the decision log, with retunes in tuning.json.
 
 _Appended by the bmad-loop orchestrator (`bmad-loop confirm`, #335): a human confirmed these external actions out of band, and the story was advanced from `awaiting-operator` to `done`._
+
+## Operator sign-off
+
+2026-10-15: the operator played the whole game end to end on the current build (including the boss retune, Tarek's "..." line, the comms sound fade and the new Level 3 wave), then exported a Windows release build and played it. They approve the result as it is and sign off this story's operator checks. Recorded in GDD decision #89.

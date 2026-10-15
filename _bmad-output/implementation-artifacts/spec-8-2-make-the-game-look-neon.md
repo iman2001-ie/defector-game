@@ -313,3 +313,7 @@ Confirmed 2026-10-14: the external actions this story owed were carried out.
 - Approve or replace any pick in tools/import_cc0_art.py ROWS or the SVGs, then record the outcome in decision #66 of the decision log (it is marked provisional).
 
 _Appended by the bmad-loop orchestrator (`bmad-loop confirm`, #335): a human confirmed these external actions out of band, and the story was advanced from `awaiting-operator` to `done`._
+
+## Operator sign-off
+
+2026-10-15: the operator played the whole game end to end on the current build (including the boss retune, Tarek's "..." line, the comms sound fade and the new Level 3 wave), then exported a Windows release build and played it. They approve the result as it is and sign off this story's operator checks. Recorded in GDD decision #89.
