@@ -322,7 +322,7 @@ func test_desperate_drives_the_flagship_through_the_final_choice_without_fire() 
 	assert_not_null(boss, "the Flagship")
 	if boss == null:
 		return
-	assert_eq(_director().wave_number(), 4, "the boss wave")
+	assert_eq(_director().wave_number(), _director().wave_count(), "the boss wave (the last)")
 	assert_eq(boss.phase(), Flagship.Phase.DESPERATE, "DESPERATE")
 	assert_eq(boss.live_turret_count(), 0, "the turrets were killed")
 	assert_eq(boss.core().hp, Config.int_("boss.final_choice_hp"), "the core at its floor")

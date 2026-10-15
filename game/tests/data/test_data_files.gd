@@ -319,8 +319,10 @@ func _wave_counted(wave: Dictionary, gated_on: bool) -> int:
 ## the intro, Isolde's l3_isolde_final story as the outro since Story 7.7), each wave's
 ## exact spawn order and formations (W1 Lancers then Wasps; W2 Needles first,
 ## then Bastions, then the rowless Hunter Wasps; W3 Bastion, Lancers, then the
-## Wasps as grid_10x2, decision #53), the counted totals by type with the
-## hunter_wasp flag off (as shipped) and on, the exact asteroids, no groups and
+## Wasps as grid_10x2, decision #53; W4 Needles first, Lancers, Wasps and a
+## staggered swarm of six one-Hunter groups, decision #88), the counted totals
+## by type with the hunter_wasp flag off and on, the exact asteroids and groups
+## (W4's only) and
 ## every wave's exact trigger list: W1 starts the combat music (the level-root
 ## `music` key is not read); the taunt plays in the calm after W2 clears
 ## (wave_clear, gated by isolde_interruptions; Epic 7 playtest C); the last wave is the Flagship with exactly the boss music trigger.
@@ -344,16 +346,17 @@ func test_level_3_siege_shape() -> void:
 	assert_true(Config.dialogue_is_story(&"l3_isolde_final"), "the outro is a story sequence")
 	assert_true(Config.flag("hunter_wasp"), "shipped: hunter_wasp on (operator 2026-10-14)")
 	var waves: Array = data.get("waves", []) as Array
-	assert_eq(waves.size(), 4, "3 defence waves and the boss wave")
-	if waves.size() != 4:
+	assert_eq(waves.size(), 5, "4 defence waves and the boss wave")
+	if waves.size() != 5:
 		return
 	var expected_totals: Array[Dictionary] = [
 		{"lancer": 4, "wasp": 12},
 		{"needle": 2, "bastion": 2, "hunter_wasp": 4},
 		{"bastion": 1, "lancer": 3, "wasp": 20},
+		{"needle": 2, "lancer": 4, "wasp": 12, "hunter_wasp": 6},
 	]
-	var expected_counted_off: Array[int] = [16, 4, 24]
-	var expected_counted_on: Array[int] = [16, 8, 24]
+	var expected_counted_off: Array[int] = [16, 4, 24, 18]
+	var expected_counted_on: Array[int] = [16, 8, 24, 24]
 	var expected_spawns: Array = [
 		[
 			{"type": "lancer", "count": 4.0, "formation": "grid_4x1", "entry": "sides"},
@@ -369,18 +372,35 @@ func test_level_3_siege_shape() -> void:
 			{"type": "lancer", "count": 3.0, "formation": "grid_3x1", "entry": "sides"},
 			{"type": "wasp", "count": 20.0, "formation": "grid_10x2", "entry": "top"},
 		],
+		[
+			{"type": "needle", "count": 2.0, "formation": "grid_2x1", "entry": "top"},
+			{"type": "lancer", "count": 4.0, "formation": "grid_4x1", "entry": "sides"},
+			{"type": "wasp", "count": 12.0, "formation": "grid_6x2", "entry": "top"},
+		],
 	]
 	var expected_asteroids: Array = [
 		[],
 		[{"size": "medium", "count": 3.0}],
 		[],
+		[{"size": "medium", "count": 2.0}],
 	]
+	# W4's staggered Hunter Wasp swarm (operator playtest 2026-10-15): six
+	# one-ship groups, the first 2.0 s in, then one every 1.5 s.
+	var hunter_groups: Dictionary = {}
+	var hunter_actions: Array = []
+	for i: int in range(1, 7):
+		var group: String = "hunters_%d" % i
+		hunter_groups[group] = [{"type": "hunter_wasp", "count": 1.0, "formation": "grid_1x1", "entry": "top"}]
+		hunter_actions.append({"wait": 2.0 if i == 1 else 1.5})
+		hunter_actions.append({"spawn_group": group})
+	var expected_groups: Array = [null, null, null, hunter_groups]
 	var expected_triggers: Array = [
 		[{"when": "wave_start", "actions": [{"music": "level_3"}]}],
 		[{"when": "wave_clear", "flag": "isolde_interruptions", "actions": [{"comms": "l3_w3_isolde_taunt"}]}],
 		[],
+		[{"when": "wave_start", "actions": hunter_actions}],
 	]
-	for w: int in 3:
+	for w: int in 4:
 		var wave: Dictionary = waves[w] as Dictionary
 		assert_false(wave.has("boss"), "wave %d is not a boss wave" % (w + 1))
 		assert_eq(_wave_type_totals(wave), expected_totals[w], "wave %d enemies by type" % (w + 1))
@@ -388,10 +408,10 @@ func test_level_3_siege_shape() -> void:
 		assert_eq(_wave_counted(wave, true), expected_counted_on[w], "wave %d counts %d with hunter_wasp on" % [w + 1, expected_counted_on[w]])
 		assert_eq(wave.get("spawns"), expected_spawns[w], "wave %d spawn order and formations" % (w + 1))
 		assert_eq(wave.get("asteroids"), expected_asteroids[w], "wave %d asteroids" % (w + 1))
-		assert_false(wave.has("groups"), "wave %d has no groups" % (w + 1))
+		assert_eq(wave.get("groups"), expected_groups[w], "wave %d groups" % (w + 1))
 		assert_eq(wave.get("triggers"), expected_triggers[w], "wave %d triggers" % (w + 1))
-	assert_eq(waves[3], {"boss": "flagship", "triggers": [{"when": "wave_start", "actions": [{"music": "boss"}]}]},
-		"wave 4: the Flagship with the boss music")
+	assert_eq(waves[4], {"boss": "flagship", "triggers": [{"when": "wave_start", "actions": [{"music": "boss"}]}]},
+		"wave 5: the Flagship with the boss music")
 	assert_true(Config.dialogue_is_story(&"l3_final_choice"), "the Flagship's Final Choice is a story sequence")
 
 

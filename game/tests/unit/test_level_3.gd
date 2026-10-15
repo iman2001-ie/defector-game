@@ -1,10 +1,11 @@
 extends GutTest
 ## Story 7.6: Level 3 (Siege of the Throne World) played on the real level.tscn
 ## with level_id "3": Ryn flying and no convoy, the throne world in the
-## Background, Ryn's paused briefing holding wave 1, the three defence waves
-## (the W2 Hunter Wasps skipped and not counted while `hunter_wasp` is off, as
-## shipped), Isolde's taunt in the calm after wave 2 clears (Epic 7 playtest C)
-## with no pause, then the Flagship
+## Background, Ryn's paused briefing holding wave 1, the four defence waves
+## (the Hunter Wasps skipped and not counted while `hunter_wasp` is off),
+## Isolde's taunt in the calm after wave 2 clears (Epic 7 playtest C) with no
+## pause, wave 4's staggered Hunter Wasp swarm (operator playtest 2026-10-15:
+## one Hunter at a time, about 1.5 s apart), then the Flagship
 ## boss wave with the boss music and its cover asteroids, driven through the
 ## turrets, the 50 HP clamp, the Final Choice (OFFER SURRENDER), the response
 ## and the core's death to exactly one boss_defeated; then (Story 7.7) Isolde's
@@ -40,6 +41,9 @@ const STORY_SCENE: PackedScene = preload("res://scenes/story/story.tscn")
 const COMBAT_MUSIC: StringName = &"level_3"
 const BOSS_MUSIC: StringName = &"boss"
 const MUSIC_IDS: Array[StringName] = [&"level_3", &"boss"]
+## The least real time between two wave 4 Hunter Wasps entering (the data
+## waits 1.5 s; a frame or two of timer slack).
+const HUNTER_MIN_GAP_S: float = 1.2
 const HUNTER_SKIP_LINE: String = "waves[1].spawns[2]: 4 x hunter_wasp skipped (flag 'hunter_wasp' off); not counted"
 ## A click below the story panel and clear of the Final Choice buttons.
 const CLICK_AT: Vector2 = Vector2(960, 1000)
@@ -55,6 +59,8 @@ var _lines: Array[String] = []
 var _scene_calls: Array[String] = []
 ## Wave number (int) -> {type id (StringName) -> how many entered World/Enemies}.
 var _spawned: Dictionary = {}
+## Wave -> the real-time msec each Hunter Wasp entered World/Enemies.
+var _hunter_ms: Dictionary = {}
 ## Wave number (int) -> {size (StringName) -> how many entered World/Asteroids}.
 var _rocks: Dictionary = {}
 ## Music id -> the stream it had before the test (null when none).
@@ -102,6 +108,10 @@ func _on_enemy_entered(node: Node) -> void:
 		_spawned[wave] = {}
 	var tally: Dictionary = _spawned[wave]
 	tally[enemy.type_id] = int(tally.get(enemy.type_id, 0)) + 1
+	if enemy.type_id == &"hunter_wasp":
+		if not _hunter_ms.has(wave):
+			_hunter_ms[wave] = []
+		(_hunter_ms[wave] as Array).append(Time.get_ticks_msec())
 
 
 func _on_asteroid_entered(node: Node) -> void:
@@ -124,6 +134,7 @@ func before_each() -> void:
 	_lines.clear()
 	_scene_calls.clear()
 	_spawned.clear()
+	_hunter_ms.clear()
 	_rocks.clear()
 	_level = null
 	SaveManager.save_path = TEST_SAVE
@@ -287,9 +298,10 @@ func _wait(seconds: float) -> void:
 	await get_tree().create_timer(seconds, true).timeout
 
 
-## Kills counted enemies until the director leaves wave `wave`.
-func _kill_through_wave(wave: int) -> void:
-	var end_ms: int = Time.get_ticks_msec() + 10000
+## Kills counted enemies until the director leaves wave `wave`, within
+## `timeout_s` of real time.
+func _kill_through_wave(wave: int, timeout_s: float = 10.0) -> void:
+	var end_ms: int = Time.get_ticks_msec() + int(timeout_s * 1000.0)
 	while _director().wave_number() == wave and not _director().is_level_cleared() and Time.get_ticks_msec() < end_ms:
 		_kill_one_counted()
 		await _wait(0.05)
@@ -378,7 +390,7 @@ func _start_through_briefing() -> void:
 	if bg != null:
 		assert_true(bg.shows_throne_world(), "the throne world is in the background")
 	assert_eq(director.level_id(), 3, "level 3")
-	assert_eq(director.wave_count(), 4, "3 defence waves and the boss wave")
+	assert_eq(director.wave_count(), 5, "4 defence waves and the boss wave")
 	assert_eq(_requested, [BRIEFING] as Array[StringName], "the briefing is requested at the start")
 	assert_eq(_channel().current_sequence(), BRIEFING, "the briefing shows")
 	assert_true(get_tree().paused, "the briefing is a paused story")
@@ -417,10 +429,14 @@ func _check_wave_2(hunter_on: bool) -> void:
 
 
 ## Wave 3: when `taunt_on`, Isolde's taunt was requested on wave 2's clear
-## (the calm gap before wave 3) with no pause; the counted mix; then the boss
-## wave starts with the boss music, total 1, one Flagship and its 2 medium
-## cover asteroids.
-func _play_wave_3_into_the_boss(taunt_on: bool) -> void:
+## (the calm gap before wave 3) with no pause; the counted mix. Wave 4 (the
+## last stand, operator playtest 2026-10-15) with `hunter_on` as the
+## hunter_wasp flag: its counted mix and 2 medium asteroids, and with the flag
+## on the six Hunter Wasps entering one at a time, each at least
+## HUNTER_MIN_GAP_S of real time after the last (the trigger's 1.5 s waits;
+## slow motion only stretches them). Then the boss wave starts with the boss
+## music, total 1, one Flagship and its 2 medium cover asteroids.
+func _play_wave_3_into_the_boss(taunt_on: bool, hunter_on: bool) -> void:
 	var director: WaveDirector = _director()
 	var taunt: Dictionary = _info(TAUNT)
 	if taunt_on:
@@ -440,13 +456,28 @@ func _play_wave_3_into_the_boss(taunt_on: bool) -> void:
 	assert_false(PauseArbiter.has_reason(&"story"), "no story pause in wave 3")
 	if not taunt_on:
 		assert_false(_requested.has(TAUNT), "the taunt was never requested")
+	# Wave 4: the last stand before the Flagship. Its swarm takes 9.5 s of
+	# game time to arrive, and the wave waits for the whole chain.
+	assert_eq(director.wave_number(), 4, "on wave 4")
+	assert_eq(director.total_count(), 24 if hunter_on else 18, "wave 4: %d counted" % (24 if hunter_on else 18))
+	await _kill_through_wave(4, 25.0)
+	if hunter_on:
+		assert_eq(_tally(4), {&"needle": 2, &"lancer": 4, &"wasp": 12, &"hunter_wasp": 6}, "wave 4: 2 Needles, 4 Lancers, 12 Wasps, 6 Hunter Wasps")
+		var entered: Array = _hunter_ms.get(4, []) as Array
+		assert_eq(entered.size(), 6, "six Hunter Wasps entered")
+		for i: int in range(1, entered.size()):
+			assert_gte((int(entered[i]) - int(entered[i - 1])) / 1000.0, HUNTER_MIN_GAP_S, "Hunter %d entered on its own" % (i + 1))
+	else:
+		assert_eq(_tally(4), {&"needle": 2, &"lancer": 4, &"wasp": 12}, "wave 4: 2 Needles, 4 Lancers, 12 Wasps, no Hunter Wasp")
+	assert_eq(_rocks_in(4), {&"medium": 2}, "wave 4: 2 medium asteroids")
+	assert_false(get_tree().paused, "wave 4 ends unpaused")
 	# The boss wave.
-	assert_eq(director.wave_number(), 4, "on the boss wave")
+	assert_eq(director.wave_number(), 5, "on the boss wave")
 	assert_eq(director.total_count(), 1, "the boss wave counts 1")
 	assert_eq(Audio.current_music(), BOSS_MUSIC, "the boss music")
 	assert_eq(_flagships().size(), 1, "one Flagship")
-	assert_eq(_tally(4), {&"flagship": 1}, "the boss wave spawns only the Flagship")
-	assert_eq(_rocks_in(4), {&"medium": 2}, "its 2 medium cover asteroids")
+	assert_eq(_tally(5), {&"flagship": 1}, "the boss wave spawns only the Flagship")
+	assert_eq(_rocks_in(5), {&"medium": 2}, "its 2 medium cover asteroids")
 	assert_false(director.is_level_cleared(), "not cleared while the Flagship lives")
 
 
@@ -579,7 +610,7 @@ func _play_the_epilogue_to_the_end_screen(choice: StringName) -> void:
 
 # --- Acceptance 1: the shipped flags ---------------------------------------------
 
-## The whole level with the shipped flags: the briefing, the three defence waves
+## The whole level with the shipped flags: the briefing, the four defence waves
 ## (Hunter Wasps counted: the flag is on since the operator retune, 2026-10-14), the taunt, the boss wave, then the Flagship driven
 ## through the turrets, the clamp, the Final Choice (OFFER SURRENDER), the
 ## response and the core's death to one boss_defeated; Isolde's final line
@@ -594,7 +625,7 @@ func test_shipped_flags_play_level_3_through_the_final_line_to_the_end_screen() 
 	await _kill_through_wave(1)
 	_check_wave_2(true)
 	await _kill_through_wave(2)
-	await _play_wave_3_into_the_boss(true)
+	await _play_wave_3_into_the_boss(true, true)
 	await _drive_flagship_to_the_epilogue(0, &"surrender", &"l3_isolde_refuse_surrender")
 	await _play_the_epilogue_to_the_end_screen(&"surrender")
 	assert_eq(_requested, [BRIEFING, TAUNT, FINAL_CHOICE, FINAL_LINE, ENDING] as Array[StringName], "comms request order")
@@ -619,7 +650,7 @@ func test_all_flags_on_play_to_the_end_screen_with_each_beat_once() -> void:
 	await _kill_through_wave(1)
 	_check_wave_2(true)
 	await _kill_through_wave(2)
-	await _play_wave_3_into_the_boss(true)
+	await _play_wave_3_into_the_boss(true, true)
 	await _drive_flagship_to_the_epilogue(1, &"destroy", &"l3_isolde_refuse_destroy")
 	await _play_the_epilogue_to_the_end_screen(&"destroy")
 	assert_eq(_requested, [BRIEFING, TAUNT, FINAL_CHOICE, FINAL_LINE, ENDING] as Array[StringName], "comms request order")
@@ -653,7 +684,7 @@ func test_hunter_wasp_on_counts_the_hunters_and_clears_wave_2() -> void:
 
 # --- Acceptance 2: isolde_interruptions off ---------------------------------------
 
-## isolde_interruptions off: waves 2 and 3 clear into the boss wave without
+## isolde_interruptions off: waves 2 to 4 clear into the boss wave without
 ## the taunt ever being requested; the boss music starts.
 func test_isolde_interruptions_off_never_requests_the_taunt() -> void:
 	# hunter_wasp off too, so the skip path stays covered now the shipped default is on.
@@ -663,7 +694,7 @@ func test_isolde_interruptions_off_never_requests_the_taunt() -> void:
 	await _kill_through_wave(1)
 	_check_wave_2(false)
 	await _kill_through_wave(2)
-	await _play_wave_3_into_the_boss(false)
+	await _play_wave_3_into_the_boss(false, false)
 	assert_false(_requested.has(TAUNT), "the taunt was never requested")
 	assert_eq(_requested, [BRIEFING] as Array[StringName], "only the briefing was requested")
 	assert_false(get_tree().paused, "no pause")

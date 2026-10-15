@@ -42,6 +42,43 @@
 			"triggers": []
 		},
 		{
+			"spawns": [
+				{ "type": "needle", "count": 2, "formation": "grid_2x1", "entry": "top" },
+				{ "type": "lancer", "count": 4, "formation": "grid_4x1", "entry": "sides" },
+				{ "type": "wasp", "count": 12, "formation": "grid_6x2", "entry": "top" }
+			],
+			"asteroids": [
+				{ "size": "medium", "count": 2 }
+			],
+			"groups": {
+				"hunters_1": [ { "type": "hunter_wasp", "count": 1, "formation": "grid_1x1", "entry": "top" } ],
+				"hunters_2": [ { "type": "hunter_wasp", "count": 1, "formation": "grid_1x1", "entry": "top" } ],
+				"hunters_3": [ { "type": "hunter_wasp", "count": 1, "formation": "grid_1x1", "entry": "top" } ],
+				"hunters_4": [ { "type": "hunter_wasp", "count": 1, "formation": "grid_1x1", "entry": "top" } ],
+				"hunters_5": [ { "type": "hunter_wasp", "count": 1, "formation": "grid_1x1", "entry": "top" } ],
+				"hunters_6": [ { "type": "hunter_wasp", "count": 1, "formation": "grid_1x1", "entry": "top" } ]
+			},
+			"triggers": [
+				{
+					"when": "wave_start",
+					"actions": [
+						{ "wait": 2.0 },
+						{ "spawn_group": "hunters_1" },
+						{ "wait": 1.5 },
+						{ "spawn_group": "hunters_2" },
+						{ "wait": 1.5 },
+						{ "spawn_group": "hunters_3" },
+						{ "wait": 1.5 },
+						{ "spawn_group": "hunters_4" },
+						{ "wait": 1.5 },
+						{ "spawn_group": "hunters_5" },
+						{ "wait": 1.5 },
+						{ "spawn_group": "hunters_6" }
+					]
+				}
+			]
+		},
+		{
 			"boss": "flagship",
 			"triggers": [
 				{ "when": "wave_start", "actions": [ { "music": "boss" } ] }
