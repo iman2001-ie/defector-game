@@ -62,7 +62,7 @@ These were made for this project and are not third-party assets. They were tuned
 
 ## Project-owned art
 
-Made for this project (Kenney has no portraits, no hull this size and no app icon): the hull and the icon are hand-authored SVGs; the comms portraits and the title wordmark are AI-generated PNGs (playtest 2026-10-14; the portraits replace the Story 8.2 SVG busts). Godot imports them as textures. The icon is the exe and window icon.
+Made for this project (Kenney has no portraits, no hull this size and no app icon): the hull is a hand-authored SVG; the comms portraits, the title wordmark and the app icons are AI-generated PNGs (playtest 2026-10-14; the portraits replace the Story 8.2 SVG busts, and the icons replace the Story 8.5 SVG). Godot imports them as textures. `defector_icon_ship.png` is the exe, app and window icon. Like the rest of DEFECTOR's own work, these are under the repo's MIT licence (`LICENSE`).
 
 | File | Source | Licence |
 |---|---|---|
