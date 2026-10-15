@@ -7,6 +7,7 @@ extends GutTest
 ## Story 8.1: 21 registered SFX (pt7-i: explosion_mid replaces explosion_big and explosion_boss_part, a scaled Joth blast since
 ## pt7-k; pt7-j adds tarek_burn), each its own file (no aliases); the MUSIC registry (level_1..3, boss, epilogue and menu looping; game_over
 ## one-shot), copied into music_streams at start and played at audio.music_volume_db.
+## DW-110: stop_sfx stops one id's combat-pool copies and frees their slots.
 
 const UnscaledClock := preload("res://tests/fixtures/unscaled_clock.gd")
 
@@ -618,6 +619,80 @@ func test_play_sfx_solo_never_stacks_one_id() -> void:
 	assert_almost_eq(second.pitch_scale, 1.1, 0.0001)
 	assert_null(Audio.play_sfx_solo(&"no_such_id"), "unknown ids still warn and return null")
 	assert_push_warning_count(1)
+
+
+## The combat-pool players playing `id`'s stream.
+func _playing(id: StringName) -> Array[AudioStreamPlayer]:
+	var out: Array[AudioStreamPlayer] = []
+	for player: AudioStreamPlayer in _pool():
+		if player.playing and player.stream == Audio.SFX[id]:
+			out.append(player)
+	return out
+
+
+## DW-110: stop_sfx stops that id's combat-pool players and frees their slots;
+## other ids keep playing.
+func test_stop_sfx_stops_the_id_and_frees_its_slot() -> void:
+	_free_all_players()
+	var burn: AudioStreamPlayer = Audio.play_sfx(&"tarek_burn")
+	var zap: AudioStreamPlayer = Audio.play_sfx(&"laser_zap")
+	assert_not_null(burn)
+	assert_not_null(zap)
+	if burn == null or zap == null:
+		return
+	Audio.play_music(&"boss", 0.0)
+	Audio.stop_sfx(&"tarek_burn")
+	assert_eq(_playing(&"tarek_burn").size(), 0, "no combat-pool player still plays the burn")
+	assert_false(burn.playing, "the burn stopped")
+	assert_true(zap.playing, "another id keeps playing")
+	assert_eq(Audio.current_music(), &"boss", "the music is untouched")
+	assert_true(Audio.music_player().playing, "the music player still plays")
+	var next: AudioStreamPlayer = Audio.play_sfx(&"explosion_small")
+	assert_eq(next, burn, "the freed slot is reused first")
+
+
+func test_stop_sfx_stops_every_copy() -> void:
+	_free_all_players()
+	var first: AudioStreamPlayer = Audio.play_sfx(&"energy_pickup")
+	var second: AudioStreamPlayer = Audio.play_sfx(&"energy_pickup")
+	assert_ne(first, second, "fixture: two copies on two players")
+	assert_eq(_playing(&"energy_pickup").size(), 2, "fixture: both playing")
+	Audio.stop_sfx(&"energy_pickup")
+	assert_eq(_playing(&"energy_pickup").size(), 0, "both stopped")
+
+
+func test_stop_sfx_with_nothing_playing_changes_nothing() -> void:
+	_free_all_players()
+	var zap: AudioStreamPlayer = Audio.play_sfx(&"laser_zap")
+	Log.sink = _capture
+	Audio.stop_sfx(&"tarek_burn")
+	assert_true(zap.playing, "other ids untouched")
+	assert_eq(_lines.size(), 0, "no log line")
+	assert_push_warning_count(0)
+
+
+func test_stop_sfx_of_an_unknown_id_is_silent() -> void:
+	_free_all_players()
+	var zap: AudioStreamPlayer = Audio.play_sfx(&"laser_zap")
+	Log.sink = _capture
+	Audio.stop_sfx(&"no_such_id")
+	assert_true(zap.playing, "nothing stopped")
+	assert_eq(_lines.size(), 0, "no log line")
+	assert_push_warning_count(0)
+
+
+func test_stop_sfx_never_touches_the_comms_pool() -> void:
+	_free_all_players()
+	var static_player: AudioStreamPlayer = Audio.play_sfx(&"comms_static")
+	assert_not_null(static_player)
+	if static_player == null:
+		return
+	assert_true(Audio.comms_players().has(static_player), "fixture: on the comms pool")
+	Log.sink = _capture
+	Audio.stop_sfx(&"comms_static")
+	assert_true(static_player.playing, "the comms pool is never touched")
+	assert_eq(_lines.size(), 0, "no log line")
+	assert_push_warning_count(0)
 
 
 ## Review fix (pt7-g): a one-shot track ending clears the current id, so the

@@ -1077,7 +1077,9 @@ location: game/systems/story/tarek_fall_scene.gd (impact), game/autoloads/audio.
 source_spec: `spec-pt7-j-tarek-fall-story-beats.md`
 severity: low
 reason: Nothing stops a combat-pool sfx on a scene change. Fix: stop the burn player in the director's `_exit_tree`, or stop the combat pool on SceneRouter._change_to.
-status: open
+status: done 2026-10-14
+resolution: resolved by sweep bundle dw-dw-110-stop-tarek-burn-on-exit
+resolution-undo: 0e5cde78361468404ccf2419c2afc4f5ed28facd735e181433d80b44d10059d2 2026-10-14 7374617475733a206f70656e
 decision: 2026-10-14 Stop Tarek's burn when his scene leaves — Add Audio.stop_sfx(id) that stops every combat-pool player still playing that id and frees its slot (the same loop play_sfx_solo already uses), and call Audio.stop_sfx(BURN_SFX) from TarekFallScene._exit_tree, so a quit or retry from the pause menu during the down beat doesn't carry the burn into the next scene. Do not stop the whole combat pool on scene changes. Tests: the burn stops when the scene is freed; stop_sfx leaves other sounds playing; a normal (unquit) down beat still plays the burn as now.
 
 ### DW-111: CommsBox.show_line doesn't hide an empty speaker name, so a combat line using the nameless `static` speaker would show an empty name row. Only the story panel hides it.

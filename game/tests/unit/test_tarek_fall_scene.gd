@@ -14,7 +14,8 @@ extends GutTest
 ## patrolling Tarek: nothing happens. No Vale: Tarek falls at once and both
 ## beats are requested. The test plays the comms channel's part by emitting
 ## Events.comms_sequence_finished. Feedback.reset() in after_each so no slow
-## motion or hit-stop leaks into other suites.
+## motion or hit-stop leaks into other suites. DW-110: freeing the director
+## stops the burn and nothing else; after_each stops any burn a test leaves.
 
 const PLAYER_SCENE: PackedScene = preload("res://entities/player/player.tscn")
 const EVENT: StringName = &"tarek_fall"
@@ -77,6 +78,8 @@ func after_each() -> void:
 	Log.sink = Callable()
 	Feedback.reset()
 	Audio.stop_music(0.0)
+	# No 4.6 s burn may leak into other suites (DW-110).
+	Audio.stop_sfx(TarekFallScene.BURN_SFX)
 	PauseArbiter.clear()
 	PauseArbiter.set_gameplay_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	Config.load_data()
@@ -535,6 +538,71 @@ func test_a_dead_vale_counts_as_no_vale() -> void:
 	assert_eq(_tarek.state(), AllyShip.State.FALLING, "Tarek falls at once")
 	assert_false(_player.is_scripted_locked(), "a dead Vale is not locked")
 	assert_eq(_scene.phase(), TarekFallScene.Phase.DONE)
+
+
+# --- Leaving the tree (DW-110) -------------------------------------------------------------
+
+## Stops and frees every combat-pool player, so the burn's player can't be
+## stolen by the pool's oldest-first rule in these tests.
+func _free_combat_pool() -> void:
+	var skip: Array[AudioStreamPlayer] = Audio.comms_players()
+	skip.append_array(Audio.music_players())
+	for child: Node in Audio.get_children():
+		var player: AudioStreamPlayer = child as AudioStreamPlayer
+		if player != null and not skip.has(player):
+			player.stop()
+			player.finished.emit()
+
+
+## The Audio players still playing Tarek's burn.
+func _burns() -> int:
+	var n: int = 0
+	for child: Node in Audio.get_children():
+		var player: AudioStreamPlayer = child as AudioStreamPlayer
+		if player != null and player.playing and player.stream == Audio.SFX[TarekFallScene.BURN_SFX]:
+			n += 1
+	return n
+
+
+## A retry or quit frees the level, and the director with it.
+func _free_scene() -> void:
+	_scene.free()
+	_scene = null
+
+
+func test_leaving_the_tree_after_the_impact_stops_the_burn() -> void:
+	_free_combat_pool()
+	_make()
+	_to_impact()
+	assert_eq(_burns(), 1, "fixture: the burn plays after the impact")
+	var zap: AudioStreamPlayer = Audio.play_sfx(&"laser_zap")
+	assert_not_null(zap)
+	_free_scene()
+	assert_eq(_burns(), 0, "the burn stops with the scene")
+	if zap != null:
+		assert_true(zap.playing, "other combat sounds keep playing")
+
+
+func test_leaving_the_tree_after_the_no_vale_fall_stops_the_burn() -> void:
+	_free_combat_pool()
+	_make(false)
+	_start()
+	assert_eq(_burns(), 1, "fixture: the burn plays at once")
+	var zap: AudioStreamPlayer = Audio.play_sfx(&"laser_zap")
+	assert_not_null(zap)
+	_free_scene()
+	assert_eq(_burns(), 0, "the burn stops with the scene")
+	if zap != null:
+		assert_true(zap.playing, "other combat sounds keep playing")
+
+
+func test_the_burn_still_plays_through_the_down_beat() -> void:
+	_free_combat_pool()
+	_make()
+	_to_impact()
+	_run_to(aftermath_s + EPS)
+	assert_eq(_requested, [WARNING, DOWN] as Array[StringName], "the down beat is requested")
+	assert_eq(_burns(), 1, "the burn still plays while the scene is in the tree")
 
 
 func test_physics_process_steps_the_clock() -> void:

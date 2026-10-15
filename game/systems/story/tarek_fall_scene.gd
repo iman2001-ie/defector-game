@@ -36,7 +36,9 @@ extends Node2D
 ## music fades, the burn plays) and requests both beats back to back; without a
 ## patrolling Tarek it does nothing. A level outcome (level_cleared /
 ## level_failed) mid-scene releases the lock and the fire at once and requests
-## nothing more. It runs once per attempt (a retry reloads the scene).
+## nothing more. It runs once per attempt (a retry reloads the scene). Leaving
+## the tree (a retry or quit frees the level) stops the burn (Audio.stop_sfx,
+## DW-110), so it never plays on into the next scene.
 
 ## The story event that starts the scene, and the ally it applies to.
 const EVENT: StringName = AllyShip.FALL_EVENT
@@ -110,6 +112,12 @@ func _ready() -> void:
 	Events.comms_sequence_finished.connect(_on_events_comms_sequence_finished)
 	Events.level_cleared.connect(_on_events_level_cleared)
 	Events.level_failed.connect(_on_events_level_failed)
+
+
+## The burn plays on the always-processing Audio autoload, so it would outlive a
+## retry or quit from the pause menu; it ends with the scene instead (DW-110).
+func _exit_tree() -> void:
+	Audio.stop_sfx(BURN_SFX)
 
 
 func _physics_process(delta: float) -> void:

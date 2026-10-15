@@ -24,7 +24,9 @@ extends Node
 ## the new track starting on the idle player (play_music's fade_in_s of 0 is a
 ## hard cut). The title and Level Select play MENU_MUSIC.
 ## play_sfx_solo() stops any combat-pool copy of the same id before playing, so
-## a burst of one cue (the energy orb) never stacks.
+## a burst of one cue (the energy orb) never stacks. stop_sfx() (DW-110) is that
+## stop on its own: it ends every combat-pool copy of one id (Tarek's burn when
+## his scene leaves the tree) and leaves other ids, the comms pool and music.
 
 const DEFAULT_PITCH_JITTER: float = 0.05
 const POOL_SIZE: int = 12
@@ -179,14 +181,23 @@ func play_sfx(id: StringName, pitch_jitter: float = DEFAULT_PITCH_JITTER, volume
 ## stream, so rapid repeats replace each other instead of stacking (playtest
 ## pt7-e). Comms ids play as play_sfx.
 func play_sfx_solo(id: StringName, pitch_jitter: float = DEFAULT_PITCH_JITTER, volume_db: float = 0.0, pitch: float = 1.0) -> AudioStreamPlayer:
-	var stream: AudioStream = SFX.get(id) as AudioStream
-	if stream != null and not COMMS_SFX.has(id):
-		for i: int in _players.size():
-			if _in_use[i] and _players[i].stream == stream:
-				_players[i].stop()
-				# stop() never emits `finished`, so free the slot here.
-				_in_use[i] = false
+	stop_sfx(id)
 	return play_sfx(id, pitch_jitter, volume_db, pitch)
+
+
+## Stops every combat-pool player still playing this id's stream and frees its
+## slot, so the next play may reuse it (DW-110: a long cue such as tarek_burn
+## ends when its scene leaves). Other ids, the comms pool and the music are never
+## touched; an unknown id or a comms id is a silent no-op.
+func stop_sfx(id: StringName) -> void:
+	var stream: AudioStream = SFX.get(id) as AudioStream
+	if stream == null or COMMS_SFX.has(id):
+		return
+	for i: int in _players.size():
+		if _in_use[i] and _players[i].stream == stream:
+			_players[i].stop()
+			# stop() never emits `finished`, so free the slot here.
+			_in_use[i] = false
 
 
 ## The most recently started player of either pool (tests), or null before the
