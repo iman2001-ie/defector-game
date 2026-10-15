@@ -1048,7 +1048,9 @@ location: game/tests/unit/test_level.gd (test_dev_ally_level_spawns_tarek_who_fi
 source_spec: `spec-8-2-make-the-game-look-neon.md`
 severity: low
 reason: Seen once by the Story 8.2 implementer, in an early run. Two later full runs passed (2032/2032). The test (Story 6.4) depends on real-time ally kills, so it may be flaky. To settle it, run the test in a loop (for example 20 runs) and look for a timing assumption in its kill wait.
-status: open
+status: done 2026-10-14
+resolution: resolved by sweep bundle dw-dw-107-ally-kill-test-flake
+resolution-undo: 02a09e5f99f61d37c896152cfeb865486fadfeca37e45d558b89ef627b608602 2026-10-14 7374617475733a206f70656e
 decision: 2026-10-14 Fix the flaky ally-kill test — Make test_level.gd test_dev_ally_level_spawns_tarek_who_fires_and_scores reliable: find the timing assumption in its real-time kill wait (run it in a loop, e.g. 20 times) and fix the test, not the game, unless a real game bug is found.
 
 ### DW-108: No test observes LevelBackground._draw tiling the space texture. The tests check only tile_texture(), tile_rect() and texture_repeat, so a broken draw call would pass.

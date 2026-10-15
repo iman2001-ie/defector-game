@@ -1637,11 +1637,16 @@ func _ally_ships() -> Array[AllyShip]:
 ## Acceptance: dev_ally on the real level.tscn spawns exactly one coalition
 ## Tarek under World/Allies on the allies layer, patrolling at y 690 at
 ## 150 px/s, firing 1-damage from_ally player shots, and scoring a kill that
-## reports by_ally.
+## reports by_ally. The Player is parked and Wasps have 1 HP (DW-107), so
+## only the ally can resolve a Wasp and its first landed bolt is the kill.
 func test_dev_ally_level_spawns_tarek_who_fires_and_scores() -> void:
 	Log.sink = _capture
+	# DW-107: the Player's contact kills are not the ally's, and with 1 HP Wasps
+	# one landed bolt is a credited kill, so the wait no longer depends on luck.
+	((Config.tuning["enemies"] as Dictionary)["wasp"] as Dictionary)["hp"] = 1
 	_make_level("dev_ally")
 	_make_player_invincible()
+	(_level.get_node("World/Player") as Player).process_mode = Node.PROCESS_MODE_DISABLED
 	var allies: Array[AllyShip] = _ally_ships()
 	assert_eq(allies.size(), 1, "one AllyShip in World/Allies")
 	assert_eq(_level.get_node("World/Allies").get_child_count(), 1, "nothing else (no convoy)")
@@ -1663,7 +1668,8 @@ func test_dev_ally_level_spawns_tarek_who_fires_and_scores() -> void:
 	assert_almost_eq(ally.global_position.x - x0, 150.0 * 30.0 / 60.0, 2.0, "about 150 px/s to the right")
 	assert_eq(ally.global_position.y, 690.0)
 	var saw_bolt: bool = false
-	var frames_left: int = 15 * Engine.physics_ticks_per_second
+	var frame_budget: int = 15 * Engine.physics_ticks_per_second
+	var frames_left: int = frame_budget
 	while _ally_kills == 0 and frames_left > 0:
 		frames_left -= 1
 		for child: Node in _level.get_node("World/Projectiles").get_children():
@@ -1677,7 +1683,7 @@ func test_dev_ally_level_spawns_tarek_who_fires_and_scores() -> void:
 	Events.enemy_killed.disconnect(_on_kill_count_ally)
 	Log.sink = Callable()
 	assert_true(saw_bolt, "the ally fired")
-	assert_gt(_ally_kills, 0, "the ally scored a kill (by_ally)")
+	assert_gt(_ally_kills, 0, "the ally scored a kill (by_ally) within %d physics ticks" % frame_budget)
 
 
 func test_no_ally_on_a_level_without_one() -> void:
