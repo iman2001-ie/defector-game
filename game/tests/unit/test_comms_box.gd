@@ -217,7 +217,7 @@ func test_no_portrait_speaker_line() -> void:
 	box.show_line(&"isolde", "Portrait first.")
 	box.show_line(&"vale", "No portrait.")
 	assert_false(_node(box, "Box/Portrait").visible, "portrait hidden")
-	assert_eq(_label(box, "Box/Name").text, "VALE")
+	assert_eq(_label(box, "Box/Name").text, "ARDEN")
 	_assert_color((box.get_node("Box/Edge") as ColorRect).color, Color("#E8F4FF"), "vale edge")
 	assert_eq(_label(box, "Box/Text").get_rect(), Rect2(22, 50, 860, 66), "860 px text block")
 	box.show_line(&"ryn", "Back to a portrait.")

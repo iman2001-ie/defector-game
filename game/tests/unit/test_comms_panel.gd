@@ -227,7 +227,7 @@ func test_no_portrait_speaker_line() -> void:
 	panel.show_line(&"isolde", "Portrait first.")
 	panel.show_line(&"vale", "No portrait.")
 	assert_false((panel.get_node("Panel/Portrait") as Control).visible, "portrait hidden")
-	assert_eq(_label(panel, "Panel/Name").text, "VALE")
+	assert_eq(_label(panel, "Panel/Name").text, "ARDEN")
 	_assert_color(_label(panel, "Panel/Name").get_theme_color(&"font_color"), Color("#E8F4FF"), "vale accent")
 	assert_eq(_label(panel, "Panel/Text").get_rect(), Rect2(32, 76, 1036, 168), "1036 px text block")
 	assert_eq(_label(panel, "Panel/Name").get_rect().size.x, 1036.0)

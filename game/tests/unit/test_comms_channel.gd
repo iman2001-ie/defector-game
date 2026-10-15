@@ -260,7 +260,7 @@ func test_click_on_a_complete_line_advances() -> void:
 	var handled: Array[bool] = _click()
 	assert_eq(handled, [true, true] as Array[bool])
 	assert_eq(_channel.line_index(), 1, "next line")
-	assert_eq(_name(), "VALE")
+	assert_eq(_name(), "ARDEN")
 	assert_true(_panel.is_typing(), "next line typing")
 	assert_false((_panel.get_node("Panel/Portrait") as Control).visible, "no-portrait variant")
 	assert_eq(_text().get_rect().size.x, 1036.0, "full-width text block")
@@ -604,7 +604,7 @@ func test_combat_queue_drops_the_oldest() -> void:
 
 func test_vale_combat_line_has_no_portrait() -> void:
 	_request(&"combat_c")
-	assert_eq(_box_name().text, "VALE")
+	assert_eq(_box_name().text, "ARDEN")
 	assert_false((_box.get_node("Box/Portrait") as Control).visible, "no portrait")
 	assert_eq(_box_text().get_rect(), Rect2(22, 50, 860, 66), "860 px text block")
 
@@ -1184,7 +1184,7 @@ func test_pick_destroy_plays_the_destroy_response() -> void:
 	assert_true(PauseArbiter.has_reason(&"story"), "story still there")
 	assert_true(get_tree().paused, "still paused for the response")
 	assert_true(_panel.visible)
-	assert_eq(_name(), "VALE", "Vale's line first")
+	assert_eq(_name(), "ARDEN", "Vale's line first")
 	assert_eq(_text().text, "Destroy line.")
 	assert_eq(_channel.line_index(), 0)
 	assert_eq(_channel.current_sequence(), &"resp_d", "the next id plays")
@@ -1202,7 +1202,7 @@ func test_pick_surrender_plays_the_surrender_response() -> void:
 	assert_eq(_choices, [&"surrender"] as Array[StringName])
 	assert_eq(GameState.final_choice, &"surrender")
 	assert_eq(_channel.current_sequence(), &"resp_s")
-	assert_eq(_name(), "VALE")
+	assert_eq(_name(), "ARDEN")
 	assert_eq(_text().text, "Surrender line.")
 
 
@@ -1254,7 +1254,7 @@ func test_a_real_click_on_a_button_chooses() -> void:
 	assert_eq(_choices, [&"destroy"] as Array[StringName], "the button took the click")
 	assert_eq(_probe.seen, seen, "the GUI consumed it")
 	assert_eq(_channel.line_index(), 0, "the click didn't advance the response")
-	assert_eq(_name(), "VALE")
+	assert_eq(_name(), "ARDEN")
 
 
 func test_a_story_queued_behind_a_choice_plays_after_it() -> void:
@@ -1498,7 +1498,7 @@ func test_cut_off_line_emits_its_shown_text() -> void:
 ## shows (the line before it has none).
 func test_story_line_sfx_plays_on_its_line() -> void:
 	_request(&"story_down")
-	assert_eq(_name(), "VALE")
+	assert_eq(_name(), "ARDEN")
 	assert_null(_channel.line_sfx_player(), "no line sfx on Vale's line")
 	_channel.advance()
 	_channel.advance()

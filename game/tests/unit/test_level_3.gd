@@ -493,7 +493,7 @@ func _drive_flagship_to_the_epilogue(option: int, choice: StringName, response: 
 	assert_eq(_choices, [choice] as Array[StringName], "final_choice_made once")
 	assert_eq(GameState.final_choice, choice)
 	assert_eq(channel.current_sequence(), response, "the %s response" % choice)
-	assert_eq((_panel().get_node("Panel/Name") as Label).text, "VALE", "Vale's line first")
+	assert_eq((_panel().get_node("Panel/Name") as Label).text, "ARDEN", "Vale's line first")
 	for i: int in 4:
 		_click_at()
 	assert_false(_panel().visible, "the panel closed")

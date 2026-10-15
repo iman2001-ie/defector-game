@@ -235,7 +235,7 @@ func test_final_choice_desperate_and_boss_death_on_dev_boss() -> void:
 	assert_eq(GameState.final_choice, &"destroy")
 	assert_false(PauseArbiter.has_reason(&"final_choice"), "final_choice popped")
 	assert_eq(channel.current_sequence(), &"l3_isolde_refuse_destroy", "the destroy response")
-	assert_eq((panel.get_node("Panel/Name") as Label).text, "VALE", "Vale's line first")
+	assert_eq((panel.get_node("Panel/Name") as Label).text, "ARDEN", "Vale's line first")
 	assert_eq(boss.phase(), Flagship.Phase.FINAL_CHOICE, "still waiting for the response")
 	for i: int in 4:
 		_click_at()

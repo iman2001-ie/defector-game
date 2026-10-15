@@ -1951,7 +1951,7 @@ func test_dev_tarek_fall_flag_on() -> void:
 	assert_eq(Audio.current_music(), &"", "the music dropped out")
 	assert_true(player.global_position.is_equal_approx(locked_at), "Vale held in place")
 	assert_true(get_tree().paused, "the down beat pauses")
-	assert_eq(name_label.text, "VALE", "Vale calls out")
+	assert_eq(name_label.text, "ARDEN", "Vale calls out")
 	assert_eq(text_label.text, "Admiral? Admiral Tarek?! ADMIRAL!")
 	channel.advance()
 	channel.advance()
