@@ -1534,17 +1534,133 @@ func test_portrait_override_reaches_the_panel() -> void:
 		assert_eq(player.stream, Audio.SFX[&"comms_static"], "comms_static")
 
 
-## The line sfx stops when the sequence ends.
-func test_story_line_sfx_stops_at_the_end() -> void:
+## Replaces the channel with one whose comms.line_sfx_fade_out_s is `fade_s`
+## (the channel caches it in _ready); its _process is off, so the fade is
+## stepped by hand. Returns the new channel.
+func _channel_with_fade(fade_s: float) -> CommsChannel:
+	(Config.tuning["comms"] as Dictionary)["line_sfx_fade_out_s"] = fade_s
+	remove_child(_channel)
+	_channel = CommsChannel.new()
+	_channel.panel = _panel
+	_channel.box = _box
+	_channel.final_choice = _final_choice
+	add_child_autofree(_channel)
+	_channel.set_process(false)
+	return _channel
+
+
+## Shows story_down's static line and returns its sfx player.
+func _to_static_line() -> AudioStreamPlayer:
 	_request(&"story_down")
 	_channel.advance()
 	_channel.advance()
 	var player: AudioStreamPlayer = _channel.line_sfx_player()
-	assert_not_null(player)
+	assert_not_null(player, "the static plays")
+	return player
+
+
+## The line sfx fades out over comms.line_sfx_fade_out_s (1.75 s, operator
+## playtest 2026-10-15) when the sequence ends instead of cutting, then stops,
+## and the pooled player gets its volume back for the next sound.
+func test_story_line_sfx_fades_out_at_the_end() -> void:
+	var fade_s: float = Config.num("comms.line_sfx_fade_out_s")
+	assert_eq(fade_s, 1.75, "the tuned fade")
+	_channel_with_fade(fade_s)
+	var player: AudioStreamPlayer = _to_static_line()
+	if player == null:
+		return
+	var start_db: float = player.volume_db
 	_click_to_end()
-	assert_null(_channel.line_sfx_player(), "stopped with the sequence")
-	if player != null:
-		assert_false(player.playing and player.stream == Audio.SFX[&"comms_static"], "the static stopped")
+	assert_true(player.playing, "not cut at the end")
+	assert_true(_channel.is_line_sfx_fading(), "fading out")
+	_channel.step_line_sfx(fade_s / 2.0)
+	assert_true(player.playing, "still fading halfway")
+	assert_lt(player.volume_db, start_db - 3.0, "quieter halfway")
+	_channel.step_line_sfx(fade_s / 2.0 - 0.01)
+	assert_true(player.playing, "just before the fade's end")
+	_channel.step_line_sfx(0.02)
+	assert_false(player.playing, "stopped once faded")
+	assert_eq(player.volume_db, start_db, "the pooled player's volume is restored")
+	assert_null(_channel.line_sfx_player(), "no line sfx left")
+	assert_false(_channel.is_line_sfx_fading())
+	var next: AudioStreamPlayer = Audio.play_sfx(&"comms_static", 0.0)
+	assert_eq(next.volume_db, 0.0, "the next sound plays at its own volume")
+	next.stop()
+
+
+## The fade length is the tuning value: another value fades for that long.
+func test_line_sfx_fade_uses_the_tuning_value() -> void:
+	_channel_with_fade(0.5)
+	var player: AudioStreamPlayer = _to_static_line()
+	if player == null:
+		return
+	var start_db: float = player.volume_db
+	_click_to_end()
+	_channel.step_line_sfx(0.49)
+	assert_true(player.playing, "still fading at 0.49 s")
+	_channel.step_line_sfx(0.02)
+	assert_false(player.playing, "stopped at 0.5 s")
+	assert_eq(player.volume_db, start_db, "volume restored")
+
+
+## A fade of 0 stops the line sfx at once, as before.
+func test_a_line_sfx_fade_of_zero_stops_at_once() -> void:
+	_channel_with_fade(0.0)
+	var player: AudioStreamPlayer = _to_static_line()
+	if player == null:
+		return
+	var start_db: float = player.volume_db
+	_click_to_end()
+	assert_false(player.playing, "stopped with the sequence")
+	assert_eq(player.volume_db, start_db, "volume unchanged")
+	assert_null(_channel.line_sfx_player())
+
+
+## The fade runs under the story pause (a queued story keeps the tree
+## paused) and in real time from _process.
+func test_line_sfx_fade_runs_under_the_story_pause() -> void:
+	_channel_with_fade(0.3)
+	_channel.set_process(true)
+	var player: AudioStreamPlayer = _to_static_line()
+	if player == null:
+		return
+	_request(&"story_b")
+	_click_to_end_of(&"story_down")
+	assert_eq(_channel.current_sequence(), &"story_b", "the queued story shows")
+	assert_true(get_tree().paused, "still paused")
+	assert_true(player.playing, "fading, not cut")
+	await get_tree().create_timer(0.6, true).timeout
+	assert_false(player.playing, "faded out and stopped under the pause")
+	assert_eq(player.volume_db, 0.0, "volume restored")
+
+
+## A next line with its own sfx stops the previous one at once.
+func test_a_new_line_sfx_stops_the_old_one_at_once() -> void:
+	_channel_with_fade(1.75)
+	var player: AudioStreamPlayer = _to_static_line()
+	if player == null:
+		return
+	_request(&"story_tarek_static")
+	_click_to_end_of(&"story_down")
+	assert_true(_channel.is_line_sfx_fading(), "the first static fades under the next story")
+	_channel.advance()
+	_channel.advance()
+	assert_eq(_channel.line_index(), 1, "on Tarek's static line")
+	var second: AudioStreamPlayer = _channel.line_sfx_player()
+	assert_not_null(second, "the new static plays")
+	assert_false(_channel.is_line_sfx_fading(), "the new one isn't fading")
+	if second != player:
+		assert_false(player.playing and player.stream == Audio.SFX[&"comms_static"], "the old static was stopped, not left fading")
+
+
+## fade_gain: 1 before the fade, the share left during it, 0 at its end; 1 for
+## a fade of 0.
+func test_fade_gain() -> void:
+	assert_eq(CommsChannel.fade_gain(2.0, 1.75), 1.0)
+	assert_almost_eq(CommsChannel.fade_gain(0.875, 1.75), 0.5, 0.0001)
+	assert_eq(CommsChannel.fade_gain(0.0, 1.75), 0.0)
+	assert_eq(CommsChannel.fade_gain(-1.0, 1.75), 0.0)
+	assert_eq(CommsChannel.fade_gain(0.0, 0.0), 1.0)
 
 
 ## A named line after a nameless one shows its name again.

@@ -80,9 +80,15 @@ extends Node
 ##   `final_choice` view the sequence logs an error and finishes as a plain
 ##   story (no event); an unknown `next` logs an error and finishes at once.
 ## - Story line sfx (Epic 7 playtest J): a story line with `sfx` plays that id
-##   (Audio.play_sfx, no jitter) when it shows; it stops when the next line
-##   shows, the sequence finishes or the channel leaves the tree. Audio keeps
-##   playing under the story pause, so the nameless static line is heard.
+##   (Audio.play_sfx, no jitter) when it shows. Audio keeps playing under the
+##   story pause, so the static line is heard. Fade-out (operator playtest
+##   2026-10-15): when the next line shows (without its own sfx) or the
+##   sequence finishes, the sfx fades to silence over comms.line_sfx_fade_out_s
+##   and then stops, instead of cutting; playing to its natural end, its last
+##   line_sfx_fade_out_s fade too. The fade counts real time (hold_step) in
+##   _process, so it runs under the story pause; the pooled player gets its
+##   start volume back once it stops. A next line with its own sfx, or the
+##   channel leaving the tree, stops it at once; a fade of 0 stops at once.
 ## - Story silence (Epic 7 playtest J): a story sequence with
 ##   `silence_after: until_wave_clear` turns the combat silence on once it
 ##   finishes (after `finished` is emitted), as a cut-off line's
@@ -104,6 +110,8 @@ const MODE_COMBAT: StringName = &"combat"
 ## Slack for the combat line timer, so float steps that add up to the line
 ## time (4.9 + 0.1 s) end it.
 const COMBAT_EPSILON_S: float = 0.000001
+## The floor of a fading line sfx's volume offset (dB): silence.
+const SILENT_DB: float = -80.0
 ## Cut-off line keys (Story 5.4, see DialogueValidator).
 const CUT_OFF_KEY: String = DialogueValidator.CUT_OFF_KEY
 const AFTER_KEY: String = DialogueValidator.AFTER_KEY
@@ -167,6 +175,13 @@ var _cut_sfx_stream: AudioStream = null
 ## The player and stream of the showing story line's `sfx` (Epic 7 playtest J).
 var _line_sfx_player: AudioStreamPlayer = null
 var _line_sfx_stream: AudioStream = null
+## The volume the line sfx started at (restored on the pooled player when it stops).
+var _line_sfx_base_db: float = 0.0
+## `comms.line_sfx_fade_out_s`: the line sfx's fade-out time.
+var _line_sfx_fade_s: float = 0.0
+## True once the line ended and its sfx fades out; the real time left on that fade.
+var _line_sfx_fading: bool = false
+var _line_sfx_fade_left_s: float = 0.0
 
 ## Cut-off state of the playing combat line (Story 5.4); NONE for a plain line.
 var _cut_phase: CutPhase = CutPhase.NONE
@@ -198,6 +213,7 @@ func _ready() -> void:
 	_cutoff_suffix = cutoff_suffix_from(Config.section("comms"))
 	_cutoff_shake_px = Config.num("comms.cutoff_shake_px")
 	_cutoff_shake_s = Config.num("comms.cutoff_shake_s")
+	_line_sfx_fade_s = maxf(Config.num("comms.line_sfx_fade_out_s"), 0.0)
 	Events.comms_sequence_requested.connect(_on_events_comms_sequence_requested)
 	Events.wave_cleared.connect(_on_events_wave_cleared)
 	if final_choice != null:
@@ -329,19 +345,26 @@ func _start(sequence_id: StringName) -> void:
 
 
 func _show_line() -> void:
-	_stop_line_sfx()
 	if panel == null or _index >= _lines.size():
+		_fade_line_sfx()
 		return
 	var line: Dictionary = _lines[_index]
+	var sfx: Variant = line.get(DialogueValidator.LINE_SFX_KEY)
+	var has_sfx: bool = sfx is String and not (sfx as String).is_empty()
+	# The previous line's sfx fades out, unless this line brings its own.
+	if has_sfx:
+		_stop_line_sfx()
+	else:
+		_fade_line_sfx()
 	var speaker: StringName = StringName(str(line.get("speaker", "")))
 	var text: String = str(line.get("text", ""))
 	# A line's `"portrait": false` hides the speaker's portrait on that line only.
 	var portrait: Variant = line.get(DialogueValidator.LINE_PORTRAIT_KEY)
 	panel.show_line(speaker, text, not (portrait is bool and not (portrait as bool)))
-	var sfx: Variant = line.get(DialogueValidator.LINE_SFX_KEY)
-	if sfx is String and not (sfx as String).is_empty():
+	if has_sfx:
 		_line_sfx_player = Audio.play_sfx(StringName(sfx as String), 0.0)
 		_line_sfx_stream = _line_sfx_player.stream if _line_sfx_player != null else null
+		_line_sfx_base_db = _line_sfx_player.volume_db if _line_sfx_player != null else 0.0
 	Events.comms_line_shown.emit(speaker, text, MODE_STORY)
 
 
@@ -355,13 +378,74 @@ func line_sfx_player() -> AudioStreamPlayer:
 	return _line_sfx_player
 
 
-## Stops the showing story line's sfx.
+## True while the line sfx's fade-out runs (tests).
+func is_line_sfx_fading() -> bool:
+	return _line_sfx_fading and line_sfx_player() != null
+
+
+## The line sfx's player while it still holds that stream (playing or not; the
+## pool may have handed it to another sound), else null.
+func _owned_line_sfx_player() -> AudioStreamPlayer:
+	if _line_sfx_player == null or not is_instance_valid(_line_sfx_player):
+		return null
+	return _line_sfx_player if _line_sfx_player.stream == _line_sfx_stream else null
+
+
+## Stops the story line's sfx at once and gives the pooled player its start
+## volume back.
 func _stop_line_sfx() -> void:
-	var player: AudioStreamPlayer = line_sfx_player()
+	var player: AudioStreamPlayer = _owned_line_sfx_player()
 	if player != null:
 		player.stop()
+		player.volume_db = _line_sfx_base_db
 	_line_sfx_player = null
 	_line_sfx_stream = null
+	_line_sfx_fading = false
+	_line_sfx_fade_left_s = 0.0
+
+
+## Starts the line sfx's fade-out (comms.line_sfx_fade_out_s; 0 stops it at
+## once). Nothing more when it already fades; a sfx that no longer plays is
+## only cleared.
+func _fade_line_sfx() -> void:
+	if line_sfx_player() == null or _line_sfx_fade_s <= 0.0:
+		_stop_line_sfx()
+		return
+	if _line_sfx_fading:
+		return
+	_line_sfx_fading = true
+	_line_sfx_fade_left_s = _line_sfx_fade_s
+
+
+## Advances the line sfx's volume by `real_delta` s of real time: the fade-out
+## after its line ended (stopping it once done) and the fade over its last
+## line_sfx_fade_out_s; the lower of the two gains wins. A sound that ended on
+## its own gets its start volume back.
+func step_line_sfx(real_delta: float) -> void:
+	var player: AudioStreamPlayer = _owned_line_sfx_player()
+	if player == null or not player.playing:
+		_stop_line_sfx()
+		return
+	var gain: float = 1.0
+	if _line_sfx_fading:
+		_line_sfx_fade_left_s -= real_delta
+		if _line_sfx_fade_left_s <= 0.0:
+			_stop_line_sfx()
+			return
+		gain = fade_gain(_line_sfx_fade_left_s, _line_sfx_fade_s)
+	var length_s: float = player.stream.get_length() if player.stream != null else 0.0
+	if length_s > 0.0:
+		var left_s: float = (length_s - player.get_playback_position()) / maxf(player.pitch_scale, 0.01)
+		gain = minf(gain, fade_gain(left_s, _line_sfx_fade_s))
+	player.volume_db = _line_sfx_base_db + maxf(linear_to_db(gain), SILENT_DB)
+
+
+## The linear gain of a fade with `left_s` of its `fade_s` to go: 1 at or
+## before its start, 0 at its end; 1 for a fade of 0.
+static func fade_gain(left_s: float, fade_s: float) -> float:
+	if fade_s <= 0.0:
+		return 1.0
+	return clampf(left_s / fade_s, 0.0, 1.0)
 
 
 func _emit_finished(sequence_id: StringName) -> void:
@@ -418,7 +502,7 @@ func _finish() -> void:
 	var finished_id: StringName = _requested
 	var fail: StringName = _fail_reason
 	var silence_after: bool = Config.sequence(finished_id).get(DialogueValidator.SILENCE_AFTER_KEY) == DialogueValidator.SILENCE_UNTIL_WAVE_CLEAR
-	_stop_line_sfx()
+	_fade_line_sfx()
 	Log.info("comms", "Story sequence '%s' finished" % finished_id)
 	_requested = &""
 	_choice_options = []
@@ -529,6 +613,7 @@ func _on_final_choice_chosen(id: StringName) -> void:
 
 func _process(delta: float) -> void:
 	_sync_cut_sfx_pause(get_tree().paused)
+	step_line_sfx(hold_step(delta, Engine.time_scale))
 	if is_playing_combat() and not get_tree().paused:
 		step_combat(delta)
 

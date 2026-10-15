@@ -282,6 +282,7 @@
 		"box_fade_out_s": 0.6,
 		"combat_open_db": -4.0,
 		"combat_line_cue_db": -4.0,
+		"line_sfx_fade_out_s": 1.75,
 		"speakers": {
 			"vale": { "name": "ARDEN", "portrait": false },
 			"isolde": { "name": "ISOLDE", "portrait": true },
