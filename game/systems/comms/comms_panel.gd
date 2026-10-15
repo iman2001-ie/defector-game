@@ -15,7 +15,8 @@ extends Control
 ##
 ## Portrait (Story 8.2): a speaker with comms.speakers.<id>.portrait true shows
 ## its CommsPortraits texture in `Portrait/Image` (inset by the frame border);
-## without a texture it shows the placeholder initial instead.
+## without a texture it shows the placeholder initial instead. show_line's
+## `portrait` false hides it for one line (Tarek's "...", 2026-10-15).
 ##
 ## Colours, font sizes, the panel style and the text and cue fonts come from the
 ## shared Theme (type `CommsPanel`; the dialogue and the `▸` cue keep the engine
@@ -147,12 +148,14 @@ func close() -> void:
 ## Shows one line: the uppercase name from comms.speakers in the speaker's
 ## accent, the portrait only when the speaker has one (the text block re-laid
 ## out for either variant), and the text typed from the first character.
-func show_line(speaker: StringName, text: String) -> void:
+## `portrait` false (a line's `"portrait": false`) uses the no-portrait layout
+## for this line even when the speaker has one; the name and accent stay.
+func show_line(speaker: StringName, text: String, portrait: bool = true) -> void:
 	_speaker = speaker
 	var raw: Variant = _speakers.get(String(speaker))
 	var info: Dictionary = raw if raw is Dictionary else {}
 	var display_name: String = str(info.get("name", String(speaker))).to_upper()
-	var with_portrait: bool = info.get("portrait") is bool and bool(info.get("portrait"))
+	var with_portrait: bool = portrait and info.get("portrait") is bool and bool(info.get("portrait"))
 	var accent: Color = accent_color(speaker)
 	_name.text = display_name
 	# A nameless speaker (the `static` channel noise, Epic 7 playtest J) shows no name.

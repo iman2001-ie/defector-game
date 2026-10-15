@@ -1513,6 +1513,27 @@ func test_story_line_sfx_plays_on_its_line() -> void:
 		assert_true(player.playing, "playing under the story pause")
 
 
+## A line's `"portrait": false` (Tarek's "...", operator playtest 2026-10-15):
+## the panel shows TAREK in his accent with no portrait on that line only, and
+## its sfx still plays.
+func test_portrait_override_reaches_the_panel() -> void:
+	_request(&"story_tarek_static")
+	assert_eq(_name(), "TAREK")
+	assert_true((_panel.get_node("Panel/Portrait") as Control).visible, "absent override: the portrait shows")
+	_channel.advance()
+	_channel.advance()
+	assert_eq(_channel.line_index(), 1, "on the static line")
+	var name_label: Label = _panel.get_node("Panel/Name") as Label
+	assert_true(name_label.visible, "the name shows")
+	assert_eq(_name(), "TAREK", "Tarek's name")
+	_assert_color(name_label.get_theme_color(&"font_color"), _panel.accent_color(&"tarek"), "in Tarek's accent")
+	assert_false((_panel.get_node("Panel/Portrait") as Control).visible, "no portrait on this line")
+	var player: AudioStreamPlayer = _channel.line_sfx_player()
+	assert_not_null(player, "the line's sfx plays")
+	if player != null:
+		assert_eq(player.stream, Audio.SFX[&"comms_static"], "comms_static")
+
+
 ## The line sfx stops when the sequence ends.
 func test_story_line_sfx_stops_at_the_end() -> void:
 	_request(&"story_down")

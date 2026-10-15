@@ -335,7 +335,9 @@ func _show_line() -> void:
 	var line: Dictionary = _lines[_index]
 	var speaker: StringName = StringName(str(line.get("speaker", "")))
 	var text: String = str(line.get("text", ""))
-	panel.show_line(speaker, text)
+	# A line's `"portrait": false` hides the speaker's portrait on that line only.
+	var portrait: Variant = line.get(DialogueValidator.LINE_PORTRAIT_KEY)
+	panel.show_line(speaker, text, not (portrait is bool and not (portrait as bool)))
 	var sfx: Variant = line.get(DialogueValidator.LINE_SFX_KEY)
 	if sfx is String and not (sfx as String).is_empty():
 		_line_sfx_player = Audio.play_sfx(StringName(sfx as String), 0.0)

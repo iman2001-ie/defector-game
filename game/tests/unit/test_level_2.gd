@@ -422,7 +422,7 @@ func _assert_clean_log() -> void:
 ## of wave 5 and Tarek's fall on the 0.75 crossing (Epic 7 playtests D and J):
 ## Vale locked and enemy fire held, Tarek's warning as a paused story beat, his
 ## dash and the Ram's strike (the music stopped), the down beat (Vale's call and
-## the static) pausing again and silencing comms, the controls coming back,
+## Tarek's static "...") pausing again and silencing comms, the controls coming back,
 ## Tarek leaving, Ryn's report before the clear, one clear and the router
 ## loading level 3.
 func test_shipped_flags_play_level_2_to_the_clear() -> void:

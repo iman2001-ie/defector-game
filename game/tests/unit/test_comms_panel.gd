@@ -236,6 +236,27 @@ func test_no_portrait_speaker_line() -> void:
 	assert_eq(_label(panel, "Panel/Text").get_rect().size.x, 812.0, "re-laid out for the portrait")
 
 
+## A line's portrait override (operator playtest 2026-10-15, Tarek's "..."):
+## `portrait` false uses the no-portrait layout but keeps the speaker's name
+## and accent; the default (absent in the data) keeps the portrait.
+func test_portrait_override_hides_the_portrait_but_keeps_the_name() -> void:
+	var panel: CommsPanel = _make()
+	panel.open()
+	panel.show_line(&"tarek", "...", false)
+	var name_label: Label = _label(panel, "Panel/Name")
+	assert_true(name_label.visible, "the name shows")
+	assert_eq(name_label.text, "TAREK", "Tarek's name")
+	_assert_color(name_label.get_theme_color(&"font_color"), Color("#3DF2FF"), "name in Tarek's accent")
+	assert_false((panel.get_node("Panel/Portrait") as Control).visible, "no portrait")
+	assert_eq(_label(panel, "Panel/Text").get_rect(), Rect2(32, 76, 1036, 168), "the no-portrait 1036 px text block")
+	assert_eq(panel.current_speaker(), &"tarek")
+	panel.show_line(&"tarek", "Back on the channel.")
+	assert_true((panel.get_node("Panel/Portrait") as Control).visible, "the default keeps the portrait")
+	assert_eq(_label(panel, "Panel/Text").get_rect().size.x, 812.0, "re-laid out for the portrait")
+	panel.show_line(&"tarek", "Explicitly on.", true)
+	assert_true((panel.get_node("Panel/Portrait") as Control).visible, "true keeps the portrait")
+
+
 ## Story 8.2: every portrait speaker has its own portrait (Isolde, Tarek, Ryn);
 ## Vale and the system keep the no-portrait variant.
 func test_each_portrait_speaker_shows_their_portrait() -> void:

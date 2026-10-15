@@ -25,7 +25,7 @@
 			"silence_after": "until_wave_clear",
 			"lines": [
 				{ "speaker": "vale", "text": "Admiral? Admiral Tarek?! ADMIRAL!" },
-				{ "speaker": "static", "text": "...", "sfx": "comms_static" }
+				{ "speaker": "tarek", "text": "...", "sfx": "comms_static", "portrait": false }
 			]
 		},
 		"l2_ryn_report": {

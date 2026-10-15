@@ -52,6 +52,12 @@ extends RefCounted
 ## sequence; `silence_after` other than `until_wave_clear`.
 ## The `static` speaker (the open channel's noise) has an empty name and no
 ## portrait in comms.speakers.
+##
+## Story line portrait override (operator playtest 2026-10-15, Tarek's "..."):
+##   a story line's optional "portrait": false shows that line without the
+##   speaker's portrait (name and accent kept); absent keeps comms.speakers'
+##   setting. One problem each for: `portrait` on a combat line; `portrait`
+##   not a bool.
 
 const SPEAKERS: Array[StringName] = [&"vale", &"isolde", &"tarek", &"ryn", &"system", &"static"]
 const MODES: Array[StringName] = [&"story", &"combat"]
@@ -85,6 +91,8 @@ const FAIL_REASONS: Array[String] = ["surrender"]
 const CHOICE_OPTIONS: int = 2
 ## Story line key: an sfx id played while the line shows (Epic 7 playtest J).
 const LINE_SFX_KEY: String = "sfx"
+## Story line key: false hides the speaker's portrait on this line only.
+const LINE_PORTRAIT_KEY: String = "portrait"
 ## Story sequence key: silence combat comms once it finishes (Epic 7 playtest J).
 const SILENCE_AFTER_KEY: String = "silence_after"
 
@@ -152,6 +160,12 @@ static func validate_sequence(id: String, seq: Variant, path: String, story_max_
 				problems.append(_problem(path, sfx_path, "a line sfx is only allowed in story sequences"))
 			elif not (sfx is String and not (sfx as String).strip_edges().is_empty()):
 				problems.append(_problem(path, sfx_path, "must be a non-empty sfx id, not '%s'" % str(sfx)))
+		if line_dict.has(LINE_PORTRAIT_KEY):
+			var portrait_path: String = line_path + "." + LINE_PORTRAIT_KEY
+			if mode != MODE_STORY:
+				problems.append(_problem(path, portrait_path, "a portrait override is only allowed in story sequences"))
+			elif not (line_dict[LINE_PORTRAIT_KEY] is bool):
+				problems.append(_problem(path, portrait_path, "must be true or false, not '%s'" % str(line_dict[LINE_PORTRAIT_KEY])))
 		var text_raw: Variant = line_dict.get("text")
 		if not (text_raw is String):
 			problems.append(_problem(path, line_path + ".text", "missing or not a string"))

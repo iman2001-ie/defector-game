@@ -1451,7 +1451,7 @@ const CAMPAIGN_SCRIPT: Array[Array] = [
 	["level_2.json", "l2_briefing", "story", ["tarek"], 2, 3],
 	["level_2.json", "l2_w3_isolde_interrupt", "combat", ["isolde"], 1, 1],
 	["level_2.json", "l2_w5_tarek_warning", "story", ["tarek"], 1, 1],
-	["level_2.json", "l2_w5_tarek_down", "story", ["vale", "static"], 2, 2],
+	["level_2.json", "l2_w5_tarek_down", "story", ["vale", "tarek"], 2, 2],
 	["level_2.json", "l2_ryn_report", "story", ["ryn"], 1, 10],
 	["level_3.json", "l3_briefing", "story", ["ryn"], 1, 10],
 	["level_3.json", "l3_w3_isolde_taunt", "combat", ["isolde"], 1, 1],
@@ -1571,8 +1571,9 @@ func test_is_letter_self_check() -> void:
 
 
 ## Tarek's fall's two story beats (Epic 7 playtest J): the warning is one
-## Tarek line; the down beat is Vale calling out, then the nameless static line
-## "..." with the comms static, and it silences comms until the wave clears.
+## Tarek line; the down beat is Vale calling out, then Tarek's "..." with the
+## comms static and no portrait (operator playtest 2026-10-15), and it silences
+## comms until the wave clears.
 func test_tarek_fall_beats_are_final() -> void:
 	var warning: Dictionary = Config.sequence(TarekFallScene.WARNING_SEQUENCE)
 	assert_eq(warning.get("mode"), "story", "the warning pauses")
@@ -1583,8 +1584,8 @@ func test_tarek_fall_beats_are_final() -> void:
 	assert_eq(down.get("silence_after"), "until_wave_clear", "comms go silent until the wave clears")
 	assert_eq(down.get("lines"), [
 		{"speaker": "vale", "text": "Admiral? Admiral Tarek?! ADMIRAL!"},
-		{"speaker": "static", "text": "...", "sfx": "comms_static"},
-	], "Vale calls out, then only static")
+		{"speaker": "tarek", "text": "...", "sfx": "comms_static", "portrait": false},
+	], "Vale calls out, then Tarek's channel is only static")
 
 
 ## GDD decision #43: the cut-off tuning (16 chars/s, a "..." suffix, an

@@ -379,6 +379,23 @@ func test_line_sfx_must_be_a_non_empty_string() -> void:
 		_only_problem(DialogueValidator.validate_sequence("s", _seq("story", [line]), SRC, MAX, CMAX), "lines[0].sfx: must be a non-empty sfx id")
 
 
+## The per-line portrait override (operator playtest 2026-10-15): a bool on a
+## story line; anything else, or on a combat line, is a problem.
+func test_line_portrait_override() -> void:
+	assert_eq(DialogueValidator.LINE_PORTRAIT_KEY, "portrait")
+	for ok: bool in [false, true]:
+		var line: Dictionary = _line("tarek", "...")
+		line["portrait"] = ok
+		assert_eq(DialogueValidator.validate_sequence("s", _seq("story", [line]), SRC, MAX, CMAX), [] as Array[String], "portrait %s is valid" % ok)
+	for bad: Variant in ["false", 0, 1, null, {}]:
+		var line: Dictionary = _line("tarek", "...")
+		line["portrait"] = bad
+		_only_problem(DialogueValidator.validate_sequence("s", _seq("story", [line]), SRC, MAX, CMAX), "lines[0].portrait: must be true or false")
+	var combat: Dictionary = _line("isolde", "Still alive?")
+	combat["portrait"] = false
+	_only_problem(DialogueValidator.validate_sequence("c", _seq("combat", [combat]), SRC, MAX, CMAX), "lines[0].portrait: a portrait override is only allowed in story sequences")
+
+
 func test_silence_after_only_in_story_sequences() -> void:
 	var seq: Dictionary = _seq("combat", [_line("isolde", "Still alive?")])
 	seq["silence_after"] = "until_wave_clear"
