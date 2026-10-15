@@ -15,14 +15,14 @@ The first release of DEFECTOR: a neon 2D space shooter with a short story told o
 
 | File | For |
 |---|---|
-| `DEFECTOR-v1.0-windows.zip` | Windows 10 or 11, 64-bit |
-| `DEFECTOR-v1.0-macos.zip` | macOS 11 or later (Intel) or 13 or later (Apple Silicon); **untested** |
+| [`DEFECTOR-v1.0-windows.zip`](https://github.com/iman2001-ie/defector-game/releases/download/v1.0/DEFECTOR-v1.0-windows.zip) | Windows 10 or 11, 64-bit |
+| [`DEFECTOR-v1.0-macos.zip`](https://github.com/iman2001-ie/defector-game/releases/download/v1.0/DEFECTOR-v1.0-macos.zip) | macOS 11 or later (Intel) or 13 or later (Apple Silicon); **untested** |
 
 Each zip also holds a `README.txt` with the controls, `CREDITS.txt` and `LICENSE.txt`.
 
 ## How to run on Windows
 
-1. Download `DEFECTOR-v1.0-windows.zip` below.
+1. Download [`DEFECTOR-v1.0-windows.zip`](https://github.com/iman2001-ie/defector-game/releases/download/v1.0/DEFECTOR-v1.0-windows.zip).
 2. Unzip it anywhere and run `DEFECTOR.exe`. There is no installer.
 3. The exe isn't code-signed, so Windows SmartScreen may show "Windows protected your PC". Click **More info**, then **Run anyway**.
 
@@ -34,7 +34,7 @@ The game starts in borderless fullscreen; press F11 to switch to a window.
 
 The macOS build is exported from the same project but has **not been tested on a real Mac**, so it may not work.
 
-1. Download `DEFECTOR-v1.0-macos.zip` below, unzip it and open `DEFECTOR.app`.
+1. Download [`DEFECTOR-v1.0-macos.zip`](https://github.com/iman2001-ie/defector-game/releases/download/v1.0/DEFECTOR-v1.0-macos.zip), unzip it and open `DEFECTOR.app`.
 2. The app isn't notarized, so macOS blocks the first launch. Open **System Settings > Privacy & Security** and click **Open Anyway**. On older macOS versions, right-click the app, choose **Open**, then click **Open**.
 3. If macOS says the app is "damaged", run `xattr -dr com.apple.quarantine DEFECTOR.app` in Terminal and open it again.
 

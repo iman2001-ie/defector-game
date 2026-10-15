@@ -65,7 +65,7 @@ Every artifact is in the repo:
 
 ### Windows
 
-1. Download `DEFECTOR-v1.0-windows.zip` from [Releases](../../releases).
+1. Download [`DEFECTOR-v1.0-windows.zip`](https://github.com/iman2001-ie/defector-game/releases/download/v1.0/DEFECTOR-v1.0-windows.zip) (or pick it from [Releases](../../releases)).
 2. Unzip it anywhere and run `DEFECTOR.exe`. Nothing needs installing.
 3. The exe isn't code-signed, so Windows SmartScreen may warn you: click **More info**, then **Run anyway**.
 
@@ -77,7 +77,7 @@ The save and the logs are in `%APPDATA%\DEFECTOR\`; the log is `%APPDATA%\DEFECT
 
 The macOS build is exported from the same project, but **it has not been tested on a real Mac**.
 
-1. Download `DEFECTOR-v1.0-macos.zip` from [Releases](../../releases) and unzip it.
+1. Download [`DEFECTOR-v1.0-macos.zip`](https://github.com/iman2001-ie/defector-game/releases/download/v1.0/DEFECTOR-v1.0-macos.zip) (or pick it from [Releases](../../releases)) and unzip it.
 2. Open `DEFECTOR.app`. It isn't notarized by Apple, so the first launch is blocked: go to **System Settings > Privacy & Security** and click **Open Anyway**. On older macOS versions you can instead right-click the app, choose **Open**, then click **Open**.
 3. If macOS says the app is "damaged", run `xattr -dr com.apple.quarantine DEFECTOR.app` in Terminal, then open it again.
 
