@@ -806,7 +806,7 @@ func test_radial_velocities_helper() -> void:
 	assert_eq(FlagshipCore.radial_velocities(0, 100.0).size(), 0)
 
 
-func test_first_launch_sends_five_wasps_from_the_core_to_slots_0_to_4() -> void:
+func test_first_launch_sends_six_wasps_from_the_core_to_slots_0_to_5() -> void:
 	var boss: Flagship = _spawn_in_core()
 	var interval: float = Config.num("boss.core.wasp_launch_interval_s")
 	assert_gt(interval, 0.0, "a positive launch interval")
@@ -815,9 +815,9 @@ func test_first_launch_sends_five_wasps_from_the_core_to_slots_0_to_4() -> void:
 	assert_eq(_launched().size(), 0, "nothing before one launch interval")
 	_step_for(boss, 3.0 * DT)
 	var wasps: Array[Wasp] = _launched()
-	assert_eq(wasps.size(), 5, "5 Wasps at 10 s")
+	assert_eq(wasps.size(), 6, "6 Wasps after one launch interval")
 	var slots: Array[Vector2] = _expected_slots()
-	assert_eq(slots.size(), 10, "10 boss slots")
+	assert_eq(slots.size(), 12, "12 boss slots (6 columns x 2 rows)")
 	for i: int in wasps.size():
 		var wasp: Wasp = wasps[i]
 		assert_eq(wasp.type_id, &"wasp")
@@ -842,7 +842,7 @@ func test_dive_clock_picks_a_launched_wasp_holding_its_slot() -> void:
 	var boss: Flagship = _spawn_in_core()
 	_step_for(boss, Config.num("boss.core.wasp_launch_interval_s") + DT)
 	var wasps: Array[Wasp] = _launched()
-	assert_eq(wasps.size(), 5)
+	assert_eq(wasps.size(), 6)
 	var wasp: Wasp = wasps[0]
 	var t: float = 0.0
 	while wasp.state() != Wasp.State.HOLD and t < 3.0:
@@ -860,7 +860,7 @@ func test_dive_clock_picks_a_launched_wasp_holding_its_slot() -> void:
 
 func test_launches_never_exceed_the_cap_and_refill_freed_slots() -> void:
 	var boss: Flagship = _spawn_in_core()
-	assert_eq(Config.int_("boss.core.wasp_launch_count"), 5)
+	assert_eq(Config.int_("boss.core.wasp_launch_count"), 6)
 	assert_eq(Config.int_("boss.core.wasp_max_alive"), 10)
 	var slots: Array[Vector2] = _expected_slots()
 	var interval: float = Config.num("boss.core.wasp_launch_interval_s")
@@ -886,14 +886,15 @@ func test_launches_never_exceed_the_cap_and_refill_freed_slots() -> void:
 			assert_eq(_launched().size(), 7, "3 killed")
 		if at_30.is_empty() and t >= interval * 3.0 + 0.5:
 			at_30 = _launched()
-	assert_eq(at_20, 10, "after the 2nd launch: 5 more (10 alive)")
+	assert_eq(at_20, 10, "after the 2nd launch: 4 more, up to the cap (10 alive)")
 	assert_eq(at_30.size(), 10, "after the 3rd launch: 3 into the freed slots (10 alive)")
 	var taken: Array[Vector2] = []
 	for wasp: Wasp in at_30:
 		assert_false(wasp.formation_slot() in taken, "one Wasp per slot")
 		taken.append(wasp.formation_slot())
-	for slot: Vector2 in slots:
-		assert_true(slot in taken, "slot %s filled" % slot)
+	# 12 slots under a cap of 10: the first 10 are refilled, the last 2 stay empty.
+	for i: int in slots.size():
+		assert_eq(slots[i] in taken, i < 10, "slot %d %s filled: %s" % [i, slots[i], i < 10])
 	assert_eq(max_seen, 10, "never more than 10 alive")
 	assert_eq(_launched().size(), 10, "a 4th launch: the cap holds, nothing launched")
 
@@ -922,17 +923,24 @@ func test_launched_wasp_kill_uses_the_wasp_drop_table() -> void:
 
 func test_leaving_core_stops_shots_and_launches_and_keeps_the_wasps() -> void:
 	var boss: Flagship = _spawn_in_core()
-	_step_for(boss, 11.5)
+	# Mid-charge before the first radial burst after the first launch, and
+	# before the second launch.
+	var launch_s: float = Config.num("boss.core.wasp_launch_interval_s")
+	var radial_s: float = Config.num("boss.core.radial_interval_s")
+	var burst_s: float = ceilf((launch_s + DT) / radial_s) * radial_s
+	var at_s: float = burst_s - Config.num("boss.core.charge_s") / 2.0
+	assert_lt(at_s, 2.0 * launch_s, "still before the second launch")
+	_step_for(boss, at_s)
 	var wasps: Array[Wasp] = _launched()
-	assert_eq(wasps.size(), 5)
-	assert_true(boss.core().is_glowing(), "charging before the 12 s burst")
+	assert_eq(wasps.size(), 6)
+	assert_true(boss.core().is_glowing(), "charging before the %.1f s burst" % burst_s)
 	boss._enter_phase(Flagship.Phase.FINAL_CHOICE)
 	assert_false(boss.core().is_glowing(), "the glow is off")
 	assert_false(boss.core().is_attacking())
 	var bullets: int = _bullets().size()
 	_step_for(boss, 30.0)
 	assert_eq(_bullets().size(), bullets, "no more core shots")
-	assert_eq(_launched().size(), 5, "no more launches; the live Wasps stay")
+	assert_eq(_launched().size(), 6, "no more launches; the live Wasps stay")
 	for wasp: Wasp in wasps:
 		assert_true(is_instance_valid(wasp) and not wasp.is_dead(), "launched Wasp still alive")
 	assert_false(boss.core().is_glowing())
@@ -1248,7 +1256,7 @@ func test_core_death_enters_dying_then_boss_defeated_after_the_chain() -> void:
 	var boss: Flagship = _spawn_in_core()
 	_step_for(boss, Config.num("boss.core.wasp_launch_interval_s") + DT)
 	var wasps: Array[Wasp] = _launched()
-	assert_eq(wasps.size(), 5, "Wasps launched in CORE")
+	assert_eq(wasps.size(), 6, "Wasps launched in CORE")
 	boss.core().apply_damage(boss.core().hp, null)
 	assert_eq(boss.phase(), Flagship.Phase.FINAL_CHOICE)
 	Events.comms_sequence_finished.emit(&"l3_final_choice")

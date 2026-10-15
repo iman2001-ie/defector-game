@@ -153,14 +153,14 @@
 		"turrets": {
 			"count": 4,
 			"hp": 30,
-			"spread_bullets": 9,
+			"spread_bullets": 12,
 			"bullet_speed_px_s": 500,
-			"fire_interval_s": 2.1,
+			"fire_interval_s": 1.5,
 			"telegraph_s": 0.4,
 			"tier": "boss_part",
 			"sprite_px": 56,
 			"hitbox_ratio": 0.8,
-			"spread_deg": 20,
+			"spread_deg": 35,
 			"stagger_s": 0.75,
 			"glow_energy": 2.5
 		},
@@ -169,15 +169,15 @@
 			"sprite_px": 96,
 			"hitbox_ratio": 0.8,
 			"hp": 200,
-			"radial_bullets": 30,
+			"radial_bullets": 32,
 			"radial_speed_px_s": 600,
-			"radial_interval_s": 3.0,
+			"radial_interval_s": 2.5,
 			"charge_s": 0.6,
-			"wasp_launch_count": 5,
-			"wasp_launch_interval_s": 7.0,
+			"wasp_launch_count": 6,
+			"wasp_launch_interval_s": 5.0,
 			"wasp_max_alive": 10,
 			"glow_energy": 2.5,
-			"wasp_slots": { "columns": 5, "spacing_x_px": 160, "rows_y": [376, 430] }
+			"wasp_slots": { "columns": 6, "spacing_x_px": 160, "rows_y": [376, 430] }
 		},
 		"final_choice_hp": 50,
 		"desperate": {
