@@ -1032,7 +1032,7 @@ source_spec: `spec-8-2-make-the-game-look-neon.md`
 severity: low
 reason: game/scenes/level/level_background.gd:48,54 (ARC_HEIGHT_PX 180, EDGE_MARGIN_PX 64, arc hanging from the top since the 2026-10-13 playtest) versus game-architecture.md:1964, which still says (960, 1080 + 1600 - 200), the bottom edge, and EDGE_MARGIN_PX 40. The staleness predates Story 8.2, which only appended a tiling note to that bullet.
 status: open
-decision: 2026-10-14 Update the architecture's arc bullet — Update the Story 7.6 LevelBackground bullet in game-architecture.md to the as-built arc: it hangs from the top edge, ARC_HEIGHT_PX 180 and EDGE_MARGIN_PX 64 (level_background.gd), replacing the old bottom-edge, 200 px rise, 40 px margin description. Docs only.
+decision: 2026-10-14 Point the 7.6 arc notes at the current as-built — Docs only, game-architecture.md. The Story 7.6 LevelBackground bullet and its Tests bullet still describe the old arc (rising 200 px from the bottom edge, EDGE_MARGIN_PX 40); the later visual-pass section (decision log #71, 'It supersedes the earlier as-built notes on the planet arc') already has the current arc. Don't rewrite the history: add a short italic pointer at the end of both 7.6 bullets, in the style of the existing '(Story 8.2: ...)' note, saying the arc now hangs from the top edge and pointing to that section; and add EDGE_MARGIN_PX 64 (level_background.gd) to that section's LevelBackground bullet, which doesn't state the margin.
 
 ### DW-107: test_level.gd test_dev_ally_level_spawns_tarek_who_fires_and_scores, a real-time test of ally kills, failed once and then passed in the full run and on its own.
 origin: spec-deferred 4503b289a4be
@@ -1068,7 +1068,7 @@ source_spec: `spec-pt7-j-tarek-fall-story-beats.md`
 severity: low
 reason: Nothing stops a combat-pool sfx on a scene change. Fix: stop the burn player in the director's `_exit_tree`, or stop the combat pool on SceneRouter._change_to.
 status: open
-decision: 2026-10-14 Stop Tarek's burn on scene change — Stop Tarek's burning-fall sound (tarek_burn) when the scene changes, so a quit or retry from the pause menu during the down beat doesn't carry it into the next scene: stop it in the Tarek's fall director's _exit_tree (or stop the combat pool in SceneRouter._change_to if that is cleaner and doesn't cut other wanted sounds). Add a test that the burn stops after leaving the scene.
+decision: 2026-10-14 Stop Tarek's burn when his scene leaves — Add Audio.stop_sfx(id) that stops every combat-pool player still playing that id and frees its slot (the same loop play_sfx_solo already uses), and call Audio.stop_sfx(BURN_SFX) from TarekFallScene._exit_tree, so a quit or retry from the pause menu during the down beat doesn't carry the burn into the next scene. Do not stop the whole combat pool on scene changes. Tests: the burn stops when the scene is freed; stop_sfx leaves other sounds playing; a normal (unquit) down beat still plays the burn as now.
 
 ### DW-111: CommsBox.show_line doesn't hide an empty speaker name, so a combat line using the nameless `static` speaker would show an empty name row. Only the story panel hides it.
 origin: review pt7-j
