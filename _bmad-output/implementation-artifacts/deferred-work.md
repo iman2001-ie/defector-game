@@ -948,7 +948,8 @@ origin: spec-deferred f397e13c8a49
 location: game/data/levels/level_2.json
 source_spec: `spec-7-2-play-level-2-the-blockade.md`
 reason: Maybe-false: both entries are grid_2x1 from the top, so they share x slots, and the Bastion hull spans y 170-330 against the Needle's 120-200. Whether this hurts play depends on the Bastion drift and the Needle reposition (every 8 s), so it is settled by the operator playtest in operator_actions; a fix would be a layout change in level_2.json.
-status: open
+status: done 2026-10-14
+resolution: closed by human decision: the operator playtested Level 2 wave 5 and likes the Needles starting shielded behind the Bastions; the layout stays.
 
 ### DW-99: No automated test proves the throne-world placeholder arc is actually rendered on screen; the tests check LevelBackground state, colours, geometry and node order only.
 origin: spec-deferred db8006c82555
@@ -1005,7 +1006,8 @@ origin: spec-deferred c150870aa236
 location: game/default_bus_layout.tres
 source_spec: `spec-8-1-make-the-game-sound-right.md`
 reason: Unverified. Every new WAV peaks at -1 dBFS and the large, boss and player tiers play at 0 dB; default_bus_layout.tres has no effects on Master, SFX or Music. Settle it by listening to the Flagship's death chain with many Wasps on screen, or by capturing the Master bus peak in play.
-status: open
+status: done 2026-10-14
+resolution: closed by human decision: dismissed by the operator before release; the sound mix stays as it is, with no limiter on the buses.
 
 ### DW-106: The architecture's Story 7.6 LevelBackground bullet still describes the old arc: it rises 200 px from the bottom edge with a 40 px margin. The code now hangs it 180 px down from the top edge with a 64
 origin: spec-deferred 103382478ee7
